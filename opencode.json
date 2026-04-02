@@ -4,7 +4,7 @@
     "tech-lead": {
       "description": "Orchestrates agent teams and enforces quality gates",
       "mode": "primary",
-      "model": "anthropic/claude-opus-4-20250514",
+      "model": "github-copilot/claude-opus-4.5",
       "temperature": 0.3,
       "permission": {
         "edit": "allow",
@@ -20,7 +20,7 @@
     "recruiter": {
       "description": "Analyzes projects and assembles optimal agent teams",
       "mode": "subagent",
-      "model": "anthropic/claude-opus-4-20250514",
+      "model": "github-copilot/claude-opus-4.5",
       "temperature": 0.3,
       "permission": {
         "edit": "allow",
@@ -31,7 +31,7 @@
     "reviewer": {
       "description": "Performs structured code review focused on security and correctness",
       "mode": "subagent",
-      "model": "anthropic/claude-opus-4-20250514",
+      "model": "github-copilot/claude-opus-4.5",
       "temperature": 0.1,
       "permission": {
         "edit": "deny",
@@ -47,7 +47,7 @@
     "implementer": {
       "description": "Implements features and fixes with TDD workflow",
       "mode": "subagent",
-      "model": "anthropic/claude-sonnet-4-20250514",
+      "model": "github-copilot/claude-sonnet-4.5",
       "temperature": 0.2,
       "permission": {
         "edit": "allow",
@@ -58,7 +58,7 @@
     "qa": {
       "description": "Verifies implementations and runs test suites",
       "mode": "subagent",
-      "model": "anthropic/claude-haiku-4-20250514",
+      "model": "github-copilot/claude-haiku-4.5",
       "temperature": 0.1,
       "permission": {
         "edit": "deny",
@@ -76,7 +76,7 @@
     "architect": {
       "description": "Code quality guardian with architecture and KB checks",
       "mode": "subagent",
-      "model": "anthropic/claude-sonnet-4-20250514",
+      "model": "github-copilot/claude-sonnet-4.5",
       "temperature": 0.2,
       "permission": {
         "edit": "deny",

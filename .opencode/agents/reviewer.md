@@ -1,7 +1,7 @@
 ---
 description: Performs structured code review focused on correctness, security, and regression risk
 mode: subagent
-model: anthropic/claude-opus-4-20250514
+model: github-copilot/claude-opus-4.5
 temperature: 0.1
 permission:
   edit: deny

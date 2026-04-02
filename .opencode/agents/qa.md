@@ -1,7 +1,7 @@
 ---
 description: Test verification and optional manual testing with Playwright
 mode: subagent
-model: anthropic/claude-haiku-4-20250514
+model: github-copilot/claude-haiku-4.5
 temperature: 0.1
 permission:
   edit: deny

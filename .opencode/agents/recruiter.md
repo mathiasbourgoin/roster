@@ -1,7 +1,7 @@
 ---
 description: Analyzes projects and assembles optimal agent teams from roster + external sources
 mode: subagent
-model: anthropic/claude-opus-4-20250514
+model: github-copilot/claude-opus-4.5
 temperature: 0.3
 permission:
   edit: allow

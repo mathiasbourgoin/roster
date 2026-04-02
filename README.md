@@ -161,6 +161,19 @@ curl -sL https://raw.githubusercontent.com/mathiasbourgoin/agent-roster/main/.op
 curl -sL https://raw.githubusercontent.com/mathiasbourgoin/agent-roster/main/.opencode/agents/tech-lead.md -o .opencode/agents/tech-lead.md
 ```
 
+**Model Configuration:** The agents use GitHub Copilot models by default (`github-copilot/claude-opus-4.5`, etc.). If you have direct Anthropic API access or use OpenCode Zen, create an `opencode.json` in your project to override:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "recruiter": {
+      "model": "anthropic/claude-opus-4-20250514"
+    }
+  }
+}
+```
+
 ### Claude Code quick install
 
 The current quick install path for Claude Code:

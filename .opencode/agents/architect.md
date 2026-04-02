@@ -1,7 +1,7 @@
 ---
 description: Code quality guardian with architecture checks and KB integration
 mode: subagent
-model: anthropic/claude-sonnet-4-20250514
+model: github-copilot/claude-sonnet-4.5
 temperature: 0.2
 permission:
   edit: deny

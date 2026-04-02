@@ -1,7 +1,7 @@
 ---
 description: Orchestrates agent teams, enforces quality gates, and coordinates implementation workflow
 mode: primary
-model: anthropic/claude-opus-4-20250514
+model: github-copilot/claude-opus-4.5
 temperature: 0.3
 permission:
   edit: allow
