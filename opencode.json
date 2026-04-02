@@ -1,0 +1,93 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "tech-lead": {
+      "description": "Orchestrates agent teams and enforces quality gates",
+      "mode": "primary",
+      "model": "anthropic/claude-opus-4-20250514",
+      "temperature": 0.3,
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "task": {
+          "*": "allow",
+          "implementer": "allow",
+          "reviewer": "allow",
+          "qa": "allow"
+        }
+      }
+    },
+    "recruiter": {
+      "description": "Analyzes projects and assembles optimal agent teams",
+      "mode": "subagent",
+      "model": "anthropic/claude-opus-4-20250514",
+      "temperature": 0.3,
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "webfetch": "allow"
+      }
+    },
+    "reviewer": {
+      "description": "Performs structured code review focused on security and correctness",
+      "mode": "subagent",
+      "model": "anthropic/claude-opus-4-20250514",
+      "temperature": 0.1,
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "deny",
+          "git diff*": "allow",
+          "git log*": "allow",
+          "git show*": "allow"
+        },
+        "webfetch": "deny"
+      }
+    },
+    "implementer": {
+      "description": "Implements features and fixes with TDD workflow",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "temperature": 0.2,
+      "permission": {
+        "edit": "allow",
+        "bash": "allow",
+        "webfetch": "deny"
+      }
+    },
+    "qa": {
+      "description": "Verifies implementations and runs test suites",
+      "mode": "subagent",
+      "model": "anthropic/claude-haiku-4-20250514",
+      "temperature": 0.1,
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "ask",
+          "npm test*": "allow",
+          "pytest*": "allow",
+          "cargo test*": "allow",
+          "go test*": "allow",
+          "npx playwright*": "allow"
+        },
+        "webfetch": "deny"
+      }
+    },
+    "architect": {
+      "description": "Code quality guardian with architecture and KB checks",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-20250514",
+      "temperature": 0.2,
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "deny",
+          "git diff*": "allow",
+          "rg *": "allow",
+          "find *": "allow"
+        },
+        "webfetch": "deny"
+      }
+    }
+  }
+}

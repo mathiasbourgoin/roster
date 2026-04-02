@@ -18,21 +18,22 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 
 | Type | Schema | Location | Install target |
 |------|--------|----------|---------------|
-| Agent | `schema/agent-schema.md` | `agents/<domain>/` | `.harness/agents/` then project to `.claude/agents/` |
-| Skill | `schema/skill-schema.md` | `skills/<domain>/` | `.harness/skills/` then project to `.claude/commands/` |
-| Rule | `schema/rule-schema.md` | `rules/<category>/` | `.harness/rules/` then project to `.claude/rules/` |
-| Hook | `schema/hook-schema.md` | `hooks/<category>/` | `.harness/hooks/` then project to Claude settings |
+| Agent | `schema/agent-schema.md` | `agents/<domain>/` | `.harness/agents/` then project to `.opencode/agents/` or `.claude/agents/` |
+| Skill | `schema/skill-schema.md` | `skills/<domain>/` | `.harness/skills/` then project to `.opencode/skills/` or `.claude/commands/` |
+| Rule | `schema/rule-schema.md` | `rules/<category>/` | `.harness/rules/` then project to `.opencode/rules/` or `.claude/rules/` |
+| Hook | `schema/hook-schema.md` | `hooks/<category>/` | `.harness/hooks/` then project to runtime settings |
 | KB | `schema/kb-schema.md` | `kb/` | `kb/` |
-| Harness | `schema/harness-schema.md` | — | `.harness/harness.json` then project to `.claude/harness.json` |
+| Harness | `schema/harness-schema.md` | — | `.harness/harness.json` then project to `opencode.json` or `.claude/harness.json` |
 
 ## Shared Harness
 
 - The canonical project harness lives under `.harness/`
+- OpenCode compatibility is generated under `.opencode/`
 - Claude compatibility is generated under `.claude/`
 - Codex compatibility is generated under `.agents/skills/`
 - The operational initializer is `./scripts/init-harness.sh <project-root> [profile]`
 - The operational projection command is `./scripts/sync-harness.sh <project-root>`
-- Agents manipulating installed project harness data should read `.harness/harness.json` first and treat `.claude/` as a generated compatibility surface
+- Agents manipulating installed project harness data should read `.harness/harness.json` first and treat `.opencode/`, `.claude/`, and `.agents/` as generated compatibility surfaces
 
 ## Agents (17)
 
