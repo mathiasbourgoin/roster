@@ -153,9 +153,13 @@ After reviewer/QA approval and merge, you own the session closure step:
 2. Include: what merged, reviewer verdict, carry-forward items, next session entry point.
 3. **Before signalling closure, verify all remaining phases are fully specified in `docs/plans/`.** Not just the next phase — every phase still to be executed. A fresh session must be able to start and complete each remaining phase without rediscovering anything from this conversation. If any phase is underspecified, expand the plan first.
 4. The report is the only artifact that survives the session boundary. No conversation context carries forward.
-5. Signal the user that the session is complete and can be closed safely.
+5. Write a ready-to-paste **continuation prompt** at the bottom of the phase report, under a `## Continue This Work` heading. The prompt must:
+   - Reference the exact files to read first (plan + report)
+   - State the phase to start and its first concrete action
+   - Be self-contained: pasting it into a fresh session should produce correct behavior with no prior context
+6. Signal the user: *"Session is complete. Close it and start the next one with the prompt at the bottom of `reports/phase<N>-<date>.md`."*
 
-This is mandatory. No phase ends without a closure report, and no closure is safe until all remaining phases are fully documented.
+This is mandatory. No phase ends without a closure report and continuation prompt, and no closure is safe until all remaining phases are fully documented.
 
 ## Rules
 
