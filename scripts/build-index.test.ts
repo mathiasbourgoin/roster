@@ -9,36 +9,9 @@ import {
   chooseBestSourceEntries,
   enrichRemoteEntry,
   inferComplexity,
+  type IndexEntry,
+  type SourceCache,
 } from "./build-index.js";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-type IndexEntry = {
-  name: string;
-  display_name: string;
-  description: string;
-  domain: string[];
-  tags: string[];
-  model: string;
-  complexity: string;
-  compatible_with: string[];
-  version: string;
-  path: string;
-  source: "local" | "remote";
-  source_id: string;
-  source_repo: string;
-  component_type: "agent" | "skill" | "rule" | "hook" | "kb" | "other";
-};
-
-type SourceCache = {
-  source_id: string;
-  source_repo: string;
-  built_at: string;
-  source_fingerprint?: string;
-  entries: IndexEntry[];
-};
 
 function makeEntry(overrides: Partial<IndexEntry> = {}): IndexEntry {
   return {
@@ -114,6 +87,25 @@ describe("parseFrontmatter", () => {
     const content = `name: my-agent\n---\n`;
     const result = parseFrontmatter(content);
     assert.equal(result, null);
+  });
+
+  it("indented continuation lines are silently dropped, rest parses correctly", () => {
+    // Block scalar / nested key: the indented line is dropped; the key above it
+    // retains its inline value (empty string here since 'description:' has no inline value).
+    const content = `---\nname: my-agent\ndescription:\n  This indented line is dropped\ntags: [x]\n---\n`;
+    const result = parseFrontmatter(content);
+    assert.ok(result !== null);
+    assert.equal(result["name"], "my-agent");
+    assert.equal(result["description"], "");
+    assert.deepEqual(result["tags"], ["x"]);
+  });
+
+  it("CRLF line endings parse the same as LF", () => {
+    const content = "---\r\nname: crlf-agent\r\ndescription: Windows lines\r\n---\r\n";
+    const result = parseFrontmatter(content);
+    assert.ok(result !== null);
+    assert.equal(result["name"], "crlf-agent");
+    assert.equal(result["description"], "Windows lines");
   });
 });
 
@@ -208,6 +200,11 @@ describe("normalizeEntry", () => {
 // ---------------------------------------------------------------------------
 
 describe("chooseBestSourceEntries", () => {
+  it("null cache and empty refreshed returns empty array", () => {
+    const result = chooseBestSourceEntries(null, []);
+    assert.deepEqual(result, []);
+  });
+
   it("no cache returns refreshed", () => {
     const refreshed = [makeEntry()!];
     const result = chooseBestSourceEntries(null, refreshed);

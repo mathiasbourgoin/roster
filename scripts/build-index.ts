@@ -2,9 +2,9 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 
-type ComponentType = "agent" | "skill" | "rule" | "hook" | "kb" | "other";
+export type ComponentType = "agent" | "skill" | "rule" | "hook" | "kb" | "other";
 
-type IndexEntry = {
+export type IndexEntry = {
   name: string;
   display_name: string;
   description: string;
@@ -127,6 +127,9 @@ export function parseFrontmatter(content: string): Record<string, string | strin
       return fm;
     }
 
+    // Indented lines (block scalars, nested YAML keys, continuation lines) are intentionally
+    // skipped. This parser only handles flat key: value pairs. Multi-line YAML values are
+    // silently dropped — the preceding scalar key retains its inline value (or empty string).
     if (!line || line.startsWith(" ") || line.startsWith("\t")) {
       continue;
     }
@@ -763,7 +766,7 @@ async function mapLimit<T, R>(
   return out;
 }
 
-type SourceCache = {
+export type SourceCache = {
   source_id: string;
   source_repo: string;
   built_at: string;
