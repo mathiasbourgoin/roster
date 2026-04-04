@@ -145,6 +145,17 @@ Default output should include:
 
 Only provide expanded diagnostics when asked.
 
+## Session Closure
+
+After reviewer/QA approval and merge, you own the session closure step:
+
+1. Write a phase report to `reports/phase<N>-<date>.md` (under 60 lines).
+2. Include: what merged, reviewer verdict, carry-forward items, next phase entry point.
+3. The report is the only artifact that survives the session boundary. No conversation context carries forward.
+4. Signal the user that the session is complete and can be closed safely.
+
+This is mandatory. No phase ends without a closure report.
+
 ## Rules
 
 - no implementation without explicit evaluation criteria
