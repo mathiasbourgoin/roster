@@ -1,12 +1,20 @@
 # Agent Roster
 
-A curated registry of reusable agents, skills, rules, hooks, and harness components for coding assistants.
+A harness for fast and correct software development using coordinated agent teams.
 
-The repo is centered on one idea:
+The goal is not a prompt library. It is a system that enforces correct behavior at the team level: human validation gates before any plan executes, compressed context handoffs between agents, deterministic quality checks, and a clear execution model where humans remain the decision-makers.
 
-- keep canonical project AI configuration in a shared harness at `.harness/`
-- project that shared harness into runtime-specific surfaces for Claude Code and Codex
-- use `/recruit` as the main entrypoint for team assembly, audit, update, and governance
+Three principles:
+
+- **Agents cannot spawn agents.** The human (or orchestrating Claude) is always the relay between pipeline stages. This is not a limitation — it is the human gate in practice.
+- **The team is the unit, not the agent.** Adding an agent means wiring it into the pipeline: patching the lead, updating adjacent agents, and validating the integration.
+- **Every plan needs a human who understood it.** Passive approval is not validation. A structured quiz runs before any execution batch begins.
+
+The harness is the mechanism that enforces these properties across projects:
+
+- canonical configuration in `.harness/`
+- projected into runtime-specific surfaces for Claude Code and Codex
+- assembled and updated via `/recruit`
 
 ## Quick Start
 
@@ -29,12 +37,12 @@ Then: ask `tech-lead` to research and plan your first task.
 
 ## What This Repo Provides
 
-- Reusable agent definitions for orchestration, implementation, review, QA, security, and tooling
-- Reusable skills for workflows such as TDD, KB maintenance, git conventions, and bounded improvement loops
-- Reusable governance rules and hooks
-- A harness model that can be installed once and projected into multiple runtimes
+- Agent definitions with defined pipeline roles (input/output contracts, human gate positions)
+- Skills for workflows: TDD, KB maintenance, git conventions, bounded improvement loops
+- Governance rules including the human validation protocol
+- A harness model that installs once and projects into multiple runtimes
 
-This repo is not just a prompt dump. It is intended to be a maintainable roster plus a harness assembly model.
+This repo is not a prompt dump. Components are designed to work as a team, not in isolation.
 
 ## Main Entry Point
 

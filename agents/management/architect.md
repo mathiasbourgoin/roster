@@ -60,6 +60,13 @@ Each finding should include:
 - why it matters
 - concrete fix direction
 
+## Pipeline Integration
+
+Triggered by: tech-lead (pre-merge architecture review phase).
+Receives: diff + architecture constraints from `kb/architecture.md` — passed in sub-brief.
+Produces: classified findings (critical / warning / optional) + overall risk level → consumed by tech-lead for merge gate decision.
+Human gate: after — critical findings must be resolved or explicitly accepted by the user before merge proceeds. Tech-lead presents findings; human decides whether to block or accept risk.
+
 ## Rules
 
 - do not block on style nits unless they impact architecture quality

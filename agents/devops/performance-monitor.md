@@ -42,6 +42,13 @@ For each candidate:
 - implementation cost
 - risk level
 
+## Pipeline Integration
+
+Triggered by: tech-lead (performance analysis phase) or user directly for standalone profiling.
+Receives: scope definition (files, CI pipeline, or runtime surface to profile) — passed in sub-brief or directly.
+Produces: ranked optimization candidates with baselines → consumed by tech-lead for prioritization and implementer assignment.
+Human gate: after — tech-lead or user must approve which candidates to act on before any implementation begins.
+
 ## Rules
 
 - no optimization claims without baseline context

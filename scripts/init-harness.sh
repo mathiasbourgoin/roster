@@ -129,6 +129,7 @@ DEVELOPER_AGENTS=(
     "agents/testing/qa.md"
     "agents/management/architect.md"
     "agents/management/kb-agent.md"
+    "agents/management/planner.md"
 )
 
 SECURITY_AGENTS=(
@@ -151,6 +152,7 @@ CORE_RULES=(
     "rules/safety/sycophancy.md"
     "rules/safety/escalation.md"
     "rules/common/code-quality.md"
+    "rules/governance/human-validation.md"
 )
 
 CORE_HOOKS=(
@@ -336,4 +338,66 @@ jq -n \
 
 "$REPO_ROOT/scripts/sync-harness.sh" "$PROJECT_ROOT"
 
+validate_harness() {
+    local root="$1"
+    local errors=0
+
+    printf '\nValidating harness installation...\n'
+
+    # Check required tools
+    local missing_tools=()
+    command -v git >/dev/null 2>&1 || missing_tools+=("git")
+    command -v jq  >/dev/null 2>&1 || missing_tools+=("jq")
+
+    if [ ${#missing_tools[@]} -gt 0 ]; then
+        printf '  [WARN] Missing recommended tools: %s\n' "${missing_tools[*]}" >&2
+        errors=$((errors + 1))
+    fi
+
+    # Check optional tools and report degraded modes
+    if ! command -v gh >/dev/null 2>&1; then
+        printf '  [INFO] gh CLI not found — recruiter PR workflow will be unavailable\n'
+    fi
+
+    # Check harness manifest
+    if [ ! -f "$root/.harness/harness.json" ]; then
+        printf '  [ERROR] harness.json not found\n' >&2
+        errors=$((errors + 1))
+    else
+        printf '  [OK] harness.json present\n'
+    fi
+
+    # Check Claude projection
+    if [ ! -d "$root/.claude/agents" ]; then
+        printf '  [WARN] .claude/agents not found — Claude projection may be incomplete\n' >&2
+        errors=$((errors + 1))
+    else
+        local harness_count claude_count
+        harness_count=$(find "$root/.harness/agents" -name '*.md' | wc -l)
+        claude_count=$(find "$root/.claude/agents"   -name '*.md' | wc -l)
+        if [ "$harness_count" -ne "$claude_count" ]; then
+            printf '  [WARN] Agent count mismatch: .harness/agents=%d .claude/agents=%d\n' \
+                "$harness_count" "$claude_count" >&2
+            errors=$((errors + 1))
+        else
+            printf '  [OK] Claude projection in sync (%d agents)\n' "$claude_count"
+        fi
+    fi
+
+    # Check human-validation rule is present
+    if [ ! -f "$root/.harness/rules/human-validation.md" ]; then
+        printf '  [WARN] human-validation rule missing from harness — governance gates will not work\n' >&2
+        errors=$((errors + 1))
+    else
+        printf '  [OK] human-validation rule present\n'
+    fi
+
+    if [ "$errors" -gt 0 ]; then
+        printf '\nHarness installed with %d warning(s). Review output above before using agents.\n' "$errors"
+    else
+        printf '\nHarness OK.\n'
+    fi
+}
+
+validate_harness "$PROJECT_ROOT"
 printf 'Initialized shared harness in %s with profile %s\n' "$PROJECT_ROOT" "$PROFILE"
