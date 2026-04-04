@@ -8,6 +8,25 @@ The repo is centered on one idea:
 - project that shared harness into runtime-specific surfaces for Claude Code and Codex
 - use `/recruit` as the main entrypoint for team assembly, audit, update, and governance
 
+## Quick Start
+
+Install in any project:
+
+```
+/recruit
+```
+
+The recruiter assembles a minimal team and configures the harness. Default team (covers 80% of tasks):
+
+| Agent | Role |
+|-------|------|
+| tech-lead | Orchestration, Ralph Loop, human gates |
+| implementer | Code execution in isolated worktrees |
+| reviewer | Structured review: correctness, security, regression |
+| qa | Independent test verification |
+
+Then: ask `tech-lead` to research and plan your first task.
+
 ## What This Repo Provides
 
 - Reusable agent definitions for orchestration, implementation, review, QA, security, and tooling
@@ -94,7 +113,7 @@ What they do:
 - `init-harness.sh`: bootstraps a starter `.harness/` tree in a target project
 - `sync-harness.sh`: projects canonical `.harness/` content into Claude and Codex runtime files
 
-## Quick Start
+## Installation
 
 ### How to install a harness in a project
 
