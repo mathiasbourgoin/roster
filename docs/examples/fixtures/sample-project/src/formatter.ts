@@ -5,7 +5,7 @@
  * Every row in table output gets the same number (the string length
  * of that item), making row numbering meaningless.
  *
- * SILENT FAILURE: unknown format values return "" with no error.
+ * Unknown format values throw an Error.
  */
 
 export function formatOutput(items: string[], format: string): string {
@@ -22,7 +22,5 @@ export function formatOutput(items: string[], format: string): string {
     return JSON.stringify(items, null, 2);
   }
 
-  // Silent failure: unknown format returns empty string instead of throwing.
-  // The reviewer should flag this as a missing guard.
-  return "";
+  throw new Error(`Unknown format: ${format}`);
 }
