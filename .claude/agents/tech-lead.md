@@ -153,9 +153,14 @@ After reviewer/QA approval and merge, you own the session closure step:
 2. Include: what merged, reviewer verdict, carry-forward items, next session entry point.
 3. **Before signalling closure, verify all remaining phases are fully specified in `docs/plans/`.** Not just the next phase — every phase still to be executed. A fresh session must be able to start and complete each remaining phase without rediscovering anything from this conversation. If any phase is underspecified, expand the plan first.
 4. The report is the only artifact that survives the session boundary. No conversation context carries forward.
-5. Signal the user that the session is complete and can be closed safely.
+5. Write a ready-to-paste **continuation prompt** at the bottom of the phase report under `## Continue This Work`, then **paste it directly into the conversation** so the user can copy it without opening any file. The prompt must:
+   - Reference the exact files to read first (plan + report)
+   - State the phase to start and its first concrete action
+   - Be self-contained: pasting it into a fresh session should produce correct behavior with no prior context
+6. **Paste the full continuation prompt inline in the conversation** — output it verbatim as a fenced block so the user can copy it directly. Do NOT say "find it in the report" or point to a file path. The prompt must appear in the conversation, not just in the file.
+7. After the paste, signal: *"Session complete. Run `/clear` then paste the prompt above."*
 
-This is mandatory. No phase ends without a closure report, and no closure is safe until all remaining phases are fully documented.
+This is mandatory. No phase ends without a closure report and continuation prompt, and no closure is safe until all remaining phases are fully documented.
 
 ## Rules
 
@@ -164,3 +169,4 @@ This is mandatory. No phase ends without a closure report, and no closure is saf
 - no autonomous tool provisioning bypassing gatekeeping
 - no hidden context sharing between role agents
 - no direct implementation of issue codepaths by tech-lead for normal delivery work
+- no pointing to a file instead of pasting the continuation prompt — the prompt must appear verbatim in the conversation

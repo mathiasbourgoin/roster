@@ -157,7 +157,8 @@ After reviewer/QA approval and merge, you own the session closure step:
    - Reference the exact files to read first (plan + report)
    - State the phase to start and its first concrete action
    - Be self-contained: pasting it into a fresh session should produce correct behavior with no prior context
-6. Signal the user: *"Session is complete. Run `/clear` then paste the prompt above to continue in a clean context. You can also find it at the bottom of `reports/phase<N>-<date>.md`."*
+6. **Paste the full continuation prompt inline in the conversation** — output it verbatim as a fenced block so the user can copy it directly. Do NOT say "find it in the report" or point to a file path. The prompt must appear in the conversation, not just in the file.
+7. After the paste, signal: *"Session complete. Run `/clear` then paste the prompt above."*
 
 This is mandatory. No phase ends without a closure report and continuation prompt, and no closure is safe until all remaining phases are fully documented.
 
@@ -168,3 +169,4 @@ This is mandatory. No phase ends without a closure report and continuation promp
 - no autonomous tool provisioning bypassing gatekeeping
 - no hidden context sharing between role agents
 - no direct implementation of issue codepaths by tech-lead for normal delivery work
+- no pointing to a file instead of pasting the continuation prompt — the prompt must appear verbatim in the conversation
