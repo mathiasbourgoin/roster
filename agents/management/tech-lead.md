@@ -157,7 +157,7 @@ After reviewer/QA approval and merge, you own the session closure step:
    - Reference the exact files to read first (plan + report)
    - State the phase to start and its first concrete action
    - Be self-contained: pasting it into a fresh session should produce correct behavior with no prior context
-6. Signal the user: *"Session is complete. Paste the prompt above into a fresh session to continue. You can also find it at the bottom of `reports/phase<N>-<date>.md`."*
+6. Signal the user: *"Session is complete. Run `/clear` then paste the prompt above to continue in a clean context. You can also find it at the bottom of `reports/phase<N>-<date>.md`."*
 
 This is mandatory. No phase ends without a closure report and continuation prompt, and no closure is safe until all remaining phases are fully documented.
 
