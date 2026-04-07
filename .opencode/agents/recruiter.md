@@ -107,26 +107,58 @@ You are the **recruiter meta-agent**. Your job is to analyze a project and assem
 When existing agents are found:
 
 1. **Inventory check:**
-   - Read all installed agents
-   - Compare versions against roster
-   - Identify outdated or deprecated agents
+   - Read all installed agent files under `.opencode/agents/`
+   - For each, record: filename, `model:` frontmatter, and any `## Version` line found in the body
 
-2. **Re-check models:**
+2. **Fetch upstream for every installed agent — always:**
+   - For each installed agent, fetch the upstream file with cache-busting:
+     ```
+     curl -sH "Cache-Control: no-cache" "https://raw.githubusercontent.com/mathiasbourgoin/agent-roster/main/.opencode/agents/<name>.md?$(date +%s)"
+     ```
+   - **Never skip this fetch based on a version string comparison.** Version strings can be stale, wrong, or absent. Always fetch.
+   - If the upstream file is not found (404), note the agent as "not in roster" and skip.
+
+3. **Diff each agent — content, not just version:**
+   - Compare the full body of the installed file against upstream.
+   - Classify changes:
+     | Change type | Examples |
+     |---|---|
+     | Model update | `claude-opus-4.5` → `claude-opus-4.6` |
+     | New capability | new mode, new step, new rule added |
+     | Behavior change | existing step rewritten or removed |
+     | Version bump only | prose unchanged, version string updated |
+     | Identical | byte-for-byte match after stripping frontmatter |
+   - **If identical: say so explicitly.** "Agent X: up to date, no changes."
+   - **If different: list every change found**, no matter how small.
+
+4. **Re-check models:**
    - Run `opencode models` to get the current available model list
    - For each installed agent, check if its `model:` frontmatter field is still valid (present in `opencode models` output)
    - Flag any agent using a model that is no longer available or has a clearly better replacement
    - Propose updated model mapping using the same rubric as Initial Team Assembly (step 5–6)
    - Present the mapping table and require user confirmation before writing any changes
 
-3. **Propose upgrades:**
-   - Show version differences
-   - Highlight new features
-   - Preserve local customizations where possible
+5. **Present a clear update report before touching any file:**
 
-4. **Apply updates:**
-   - Update agent files with confirmed model IDs
-   - Maintain configuration compatibility
-   - Document breaking changes
+   ```
+   Agent Update Report
+   ───────────────────────────────────────────────────────────────
+   recruiter    v1.5.0 → v1.6.0   NEW: model discovery step, model
+                                   mapping table, never-hardcode rule
+   tech-lead    v1.3.0 → v1.3.0   model: opus-4.5 → opus-4.6
+   reviewer     v1.2.0 → v1.2.0   identical — no changes
+   qa           not in roster      skipped
+   ───────────────────────────────────────────────────────────────
+   3 agents to update. 1 identical. 1 skipped.
+   ```
+
+   Ask: **"Apply these updates? (yes / no / list agents to skip)"**
+   Wait for explicit confirmation before writing anything.
+
+6. **Apply confirmed updates:**
+   - Write updated files, preserving any local-only customizations (e.g. model overrides the user made)
+   - After writing, print a one-line confirmation per file: "Updated recruiter.md (v1.5.0 → v1.6.0)"
+   - If nothing changed for an agent, print: "recruiter.md — already up to date"
 
 ## Contextual Recruitment
 
@@ -200,6 +232,6 @@ Search in priority order:
 
 ## Version
 
-Current version: 1.6.0
+Current version: 1.7.0
 
 Focus on OpenCode compatibility when installing agents in OpenCode projects.
