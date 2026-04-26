@@ -35,7 +35,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 - The operational projection command is `./scripts/sync-harness.sh <project-root>`
 - Agents manipulating installed project harness data should read `.harness/harness.json` first and treat `.opencode/`, `.claude/`, and `.agents/` as generated compatibility surfaces
 
-## Agents (18)
+## Agents (21)
 
 ### Management (9)
 | Agent | Version | Model | Purpose |
@@ -72,11 +72,14 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 |-------|---------|-------|---------|
 | mcp-vetter | 1.1.0 | sonnet | Security vetting of MCP server candidates |
 
-### Specialist (2)
+### Specialist (5)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | expert-debugger | 1.0.0 | opus | Escalation agent for hard diagnostic problems |
 | config-migrator | 1.0.0 | sonnet | One-shot env→pydantic-settings migration (Python) |
+| kernel-arm64-bringup | 1.0.0 | opus | Linux kernel and device bring-up for Qualcomm ARM64 handhelds |
+| fex-wine-proton | 1.0.0 | opus | FEX, Wine, Proton, ThunksDB, and Steam runtime work on ARM64 |
+| gamescope-mangohud-qam | 1.0.0 | opus | Gamescope, Mangohud, mangoapp, and Steam QAM bridge integration |
 
 ### Other (1)
 | Agent | Version | Model | Purpose |

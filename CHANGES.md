@@ -16,6 +16,9 @@ The project purpose has shifted from "a registry of reusable agent components" t
 
 - `agents/management/planner.md` — new agent: takes a validated research brief (fresh context), decomposes it into sub-briefs per execution agent.
 - `agents/management/project-auditor.md` — new agent: performs exhaustive repository audits and builds hierarchical `kb/` component knowledge bases with invariants, risks, tests, missing tests, and fix candidates.
+- `agents/specialist/kernel-arm64-bringup.md` — new specialist: owns Qualcomm ARM64 handheld kernel bring-up, device tree work, defconfig deltas, boot.img assembly, and on-device verification.
+- `agents/specialist/fex-wine-proton.md` — new specialist: owns FEX, Wine/Proton ARM64, ThunksDB, x86_64 sysroots, and Steam runtime selection on ARM64.
+- `agents/specialist/gamescope-mangohud-qam.md` — new specialist: owns Gamescope DRM sessions, Mangohud/mangoapp overlay wiring, and Steam QAM bridge spikes.
 - `rules/governance/human-validation.md` — new rule: defines the mandatory human validation quiz protocol, trap question mechanics, and gating behavior.
 
 ### Tech-lead Updates (v1.5.0 → v1.6.0)

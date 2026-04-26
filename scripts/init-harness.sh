@@ -147,6 +147,9 @@ FULL_EXTRA_AGENTS=(
     "agents/devops/performance-monitor.md"
     "agents/specialist/expert-debugger.md"
     "agents/specialist/config-migrator.md"
+    "agents/specialist/kernel-arm64-bringup.md"
+    "agents/specialist/fex-wine-proton.md"
+    "agents/specialist/gamescope-mangohud-qam.md"
 )
 
 CORE_RULES=(

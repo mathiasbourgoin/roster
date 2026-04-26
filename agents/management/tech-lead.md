@@ -152,6 +152,18 @@ Default context shape per role:
 
 Omit what doesn't matter. Never omit what does. Compress, do not truncate.
 
+## Handheld ARM64 Bring-Up Specialists
+
+For ARM64 handheld Linux/Steam bring-up work, route specialist slices by milestone and layer instead of sending everything to a generic implementer:
+
+| Layer or milestone | Specialist | Context packet |
+|---|---|---|
+| M1 boot, kernel base, device tree, defconfig, boot.img, serial console, freedreno init | kernel-arm64-bringup | target SoC/device, current kernel base, exact driver/config gap, patch provenance constraints, boot/serial verification requirement |
+| M2-M4 FEX, Wine/Proton ARM64, ThunksDB, x86_64 sysroot, Steam runtime launchers | fex-wine-proton | failing binary/game, selected Steam runtime mode, FEX commit pin, relevant logs, thunked library boundary, smoke-test target |
+| M5-M6 Gamescope DRM session, mangoapp/Mangohud overlay, Steam QAM bridge, session handoff | gamescope-mangohud-qam | current compositor/session state, target overlay behavior, chosen QAM bridge spike path, device verification requirement |
+
+These specialists produce implementation artifacts plus on-device verification notes. Still use reviewer and QA after their work; specialist ownership does not bypass the Ralph Loop.
+
 ## Ralph Loop Ownership
 
 Before implementation, define completion criteria in two tiers:

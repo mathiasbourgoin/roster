@@ -237,6 +237,7 @@ Current notable agents include:
 - `project-auditor` — exhaustive repository audit and hierarchical `kb/` generation
 - `tool-provisioner` — tooling and MCP discovery
 - `mcp-vetter` — MCP security vetting
+- `kernel-arm64-bringup`, `fex-wine-proton`, `gamescope-mangohud-qam` — specialist pipeline for ARM64 handheld Linux/Steam bring-up
 
 ### Skills
 

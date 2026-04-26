@@ -1855,6 +1855,70 @@
     "component_type": "agent"
   },
   {
+    "name": "fex-wine-proton",
+    "display_name": "FEX / Wine / Proton ARM64 Specialist",
+    "description": "Owns the x86-on-ARM emulation layer — FEX-emu (with thunks), Proton 11 ARM64 / ARM64EC Wine, ThunksDB JSON, the x86_64 squashfs sysroot, and Steam Runtime ARM64 vs x86 client selection. The \"Windows ARM native libraries\" trick.",
+    "domain": [
+      "specialist",
+      "emulation",
+      "wine",
+      "proton"
+    ],
+    "tags": [
+      "fex-emu",
+      "wine",
+      "proton",
+      "arm64ec",
+      "thunks",
+      "steam-runtime",
+      "squashfs",
+      "x86-on-arm"
+    ],
+    "model": "opus",
+    "complexity": "high",
+    "compatible_with": [
+      "claude-code"
+    ],
+    "version": "1.0.0",
+    "path": "agents/specialist/fex-wine-proton.md",
+    "source": "local",
+    "source_id": "local",
+    "source_repo": "mathiasbourgoin/agent-roster",
+    "component_type": "agent"
+  },
+  {
+    "name": "gamescope-mangohud-qam",
+    "display_name": "Gamescope / Mangohud / Steam-QAM Integration Specialist",
+    "description": "Owns the compositor + perf-overlay + Steam-QAM-bridge layer. Gamescope DRM backend on Adreno, mangoapp overlay, and the (non-upstreamed) wiring that makes Steam's QAM perf-overlay levels flip Mangohud profiles. The hardest, most novel piece of the project.",
+    "domain": [
+      "specialist",
+      "compositor",
+      "ui-integration"
+    ],
+    "tags": [
+      "gamescope",
+      "mangohud",
+      "mangoapp",
+      "steam-qam",
+      "drm-backend",
+      "adreno",
+      "freedreno",
+      "decky",
+      "big-picture"
+    ],
+    "model": "opus",
+    "complexity": "high",
+    "compatible_with": [
+      "claude-code"
+    ],
+    "version": "1.0.0",
+    "path": "agents/specialist/gamescope-mangohud-qam.md",
+    "source": "local",
+    "source_id": "local",
+    "source_repo": "mathiasbourgoin/agent-roster",
+    "component_type": "agent"
+  },
+  {
     "name": "governor",
     "display_name": "Governor",
     "description": "Audits and governs a Claude Code project's AI configuration — generates modular .claude/rules/ files through focused Socratic dialogue. Reads kb/properties.md when available to generate rules that enforce project invariants.",
@@ -1965,6 +2029,38 @@
     ],
     "version": "2.0.0",
     "path": "agents/management/kb-agent.md",
+    "source": "local",
+    "source_id": "local",
+    "source_repo": "mathiasbourgoin/agent-roster",
+    "component_type": "agent"
+  },
+  {
+    "name": "kernel-arm64-bringup",
+    "display_name": "Kernel ARM64 Bring-up Specialist",
+    "description": "Brings up Linux on Qualcomm Snapdragon ARM64 SoCs (SM8550 / Adreno 740 baseline). Covers mainline kernel selection, device-tree work, freedreno/MSM DRM, Android boot.img assembly, fastboot flashing, and serial console bring-up on AYN/handheld-class devices.",
+    "domain": [
+      "specialist",
+      "kernel",
+      "embedded"
+    ],
+    "tags": [
+      "linux-kernel",
+      "arm64",
+      "sm8550",
+      "snapdragon",
+      "dts",
+      "freedreno",
+      "fastboot",
+      "boot-img",
+      "msm-drm"
+    ],
+    "model": "opus",
+    "complexity": "high",
+    "compatible_with": [
+      "claude-code"
+    ],
+    "version": "1.0.0",
+    "path": "agents/specialist/kernel-arm64-bringup.md",
     "source": "local",
     "source_id": "local",
     "source_repo": "mathiasbourgoin/agent-roster",
