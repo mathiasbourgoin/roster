@@ -141,6 +141,7 @@ FULL_EXTRA_AGENTS=(
     "agents/management/harness-builder.md"
     "agents/management/context-manager.md"
     "agents/management/error-coordinator.md"
+    "agents/management/project-auditor.md"
     "agents/management/skill-creator.md"
     "agents/devops/tool-provisioner.md"
     "agents/devops/performance-monitor.md"

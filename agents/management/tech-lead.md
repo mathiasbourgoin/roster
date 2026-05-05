@@ -222,6 +222,29 @@ After merge batches:
 - keep harness and runtime projections in sync
 - close or update related issues
 
+## Project Audit Handoff
+
+When the user asks for exhaustive repository understanding, component inventory, or a repo-wide `kb/` bootstrap, route the work to `project-auditor` instead of treating it as normal implementation.
+
+Use `project-auditor` for:
+
+- first-time onboarding of a large repository
+- full component/invariant/risk/test mapping
+- knowledge-base bootstrap before large refactors
+- maintainability audits where the deliverable is documentation and prioritized findings, not source fixes
+
+Context packet requirements:
+
+- repository root and current branch policy
+- whether main must be clean and up to date
+- audit scope and explicit exclusions
+- generated/vendor asset policy
+- desired `kb/` layout if the user has one
+- concurrency cap for reviewer workers
+- whether tests/builds should run after Markdown generation
+
+The project-auditor output becomes planning input. Do not automatically convert findings into fixes; prioritize them with the user first.
+
 ## Output Contract
 
 For any plan or decision requiring human approval:

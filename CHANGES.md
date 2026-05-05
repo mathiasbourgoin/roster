@@ -15,6 +15,7 @@ The project purpose has shifted from "a registry of reusable agent components" t
 ### New Components
 
 - `agents/management/planner.md` — new agent: takes a validated research brief (fresh context), decomposes it into sub-briefs per execution agent.
+- `agents/management/project-auditor.md` — new agent: performs exhaustive repository audits and builds hierarchical `kb/` component knowledge bases with invariants, risks, tests, missing tests, and fix candidates.
 - `rules/governance/human-validation.md` — new rule: defines the mandatory human validation quiz protocol, trap question mechanics, and gating behavior.
 
 ### Tech-lead Updates (v1.5.0 → v1.6.0)
@@ -28,6 +29,7 @@ The project purpose has shifted from "a registry of reusable agent components" t
 ### Recruiter Updates (v1.5.0 — in progress)
 
 - Added clarification question step during project analysis (max 3–5 questions for gaps that can't be inferred).
+- Added missing-`kb/` detection: initial team proposals now advertise `project-auditor` as the recommended first-run agent for exhaustive repository audit and KB bootstrap, with `kb-agent` as the maintenance follow-up.
 - Lead-mandatory rule added to scoring: no team proposal without a lead candidate.
 - Scoring: added `no_pipeline_role_defined` penalty (-2pts).
 - Team proposal now includes pipeline topology (communication graph) and execution model explanation.

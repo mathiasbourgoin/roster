@@ -21,7 +21,7 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.0.0
+version: 2.1.0
 author: mathiasbourgoin
 ---
 
@@ -146,6 +146,8 @@ Use index artifacts, not ad-hoc remote crawling.
 
    If `.harness/harness.json` exists, read it to understand the current harness configuration. If only `.claude/harness.json` exists, treat it as a compatibility view and migrate toward the shared manifest. Use this context when proposing agents — prefer agents that complement the existing harness layers.
 
+   Check for a repository `kb/` directory. If no `kb/` exists, or it exists but lacks an index/root README, mark this as a **Knowledge Base Bootstrap** gap. In the team proposal, advertise `project-auditor` as the recommended first-run agent for deep component discovery and hierarchical KB creation. Explain that `project-auditor` is for the initial exhaustive audit, while `kb-agent` maintains the KB after code changes.
+
 2. **Ask clarification questions for what analysis cannot resolve:**
 
    After reading the project, identify gaps that would change the team composition or wiring. Ask at most 3–5 focused questions — not a survey. Only ask what you cannot infer.
@@ -178,6 +180,10 @@ Use index artifacts, not ad-hoc remote crawling.
    ### [Role]
    - **Recommended:** ... — ...
    - Alt: ...
+
+   ### Knowledge Base Bootstrap (when no kb/ exists)
+   - **Recommended:** project-auditor (roster) — performs the initial full-repo component audit and creates hierarchical `kb/`
+   - Follow-up: kb-agent — maintains the KB after implementation changes
 
    ## Pipeline Topology
 
@@ -277,10 +283,11 @@ Use index artifacts, not ad-hoc remote crawling.
 
 ### Mode 3: Contextual Recruitment (triggered by project changes)
 
-When invoked with a specific context (e.g., "we're adding Docker support" or "starting security audit"):
+When invoked with a specific context (e.g., "we're adding Docker support", "starting security audit", or "bootstrap a full project KB"):
 1. Identify what new capabilities are needed.
 2. Search sources for matching agents — see [Search Strategy](#search-strategy).
-3. Propose additions (never remove without explicit request in this mode).
+3. For exhaustive repository understanding, component inventory, invariant/risk mapping, or `kb/` bootstrap requests, prefer `project-auditor` when available. It is complementary to `kb-agent`: `project-auditor` creates the initial deep audit KB; `kb-agent` maintains it after changes.
+4. Propose additions (never remove without explicit request in this mode).
 
 ### Mode 4: Agent Creation (no suitable agent exists)
 

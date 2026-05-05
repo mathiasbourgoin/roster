@@ -35,16 +35,17 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 - The operational projection command is `./scripts/sync-harness.sh <project-root>`
 - Agents manipulating installed project harness data should read `.harness/harness.json` first and treat `.opencode/`, `.claude/`, and `.agents/` as generated compatibility surfaces
 
-## Agents (17)
+## Agents (18)
 
-### Management (8)
+### Management (9)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | tech-lead | 1.3.0 | opus | Orchestrates teams, enforces Ralph Loop with tiered evaluation |
-| recruiter | 1.5.0 | opus | Finds and assembles agent teams from roster + external sources |
+| recruiter | 2.1.0 | opus | Finds and assembles agent teams from roster + external sources |
 | harness-builder | 1.0.0 | opus | Assembles complete harness configs (agents + rules + hooks + skills + KB) |
 | governor | 2.0.0 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
 | kb-agent | 2.0.0 | opus | Bootstraps, maintains, and audits the knowledge base (kb/) |
+| project-auditor | 1.0.0 | opus | Performs exhaustive repository audits and builds hierarchical kb/ knowledge bases |
 | skill-creator | 1.1.0 | opus | Creates reusable skills from MCP servers, CLI tools, or ideas |
 | architect | 1.2.0 | sonnet | Code quality guardian with built-in metric fallbacks + KB integration |
 | context-manager | 1.0.0 | haiku | Maintains shared context document across multi-agent workflows |

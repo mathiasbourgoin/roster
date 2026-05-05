@@ -234,6 +234,7 @@ Current notable agents include:
 - `qa` — test verification
 - `architect` — code quality and architecture checks
 - `kb-agent` — KB bootstrap and maintenance
+- `project-auditor` — exhaustive repository audit and hierarchical `kb/` generation
 - `tool-provisioner` — tooling and MCP discovery
 - `mcp-vetter` — MCP security vetting
 

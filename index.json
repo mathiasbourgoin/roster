@@ -2026,6 +2026,37 @@
     "component_type": "agent"
   },
   {
+    "name": "project-auditor",
+    "display_name": "Project Auditor",
+    "description": "Performs exhaustive project mapping and multi-slice audits, producing a hierarchical kb/ with components, invariants, risks, tests, and fix candidates.",
+    "domain": [
+      "management",
+      "knowledge",
+      "audit"
+    ],
+    "tags": [
+      "project-audit",
+      "kb",
+      "architecture",
+      "invariants",
+      "risks",
+      "tests",
+      "maintainability"
+    ],
+    "model": "opus",
+    "complexity": "high",
+    "compatible_with": [
+      "claude-code",
+      "codex"
+    ],
+    "version": "1.0.0",
+    "path": "agents/management/project-auditor.md",
+    "source": "local",
+    "source_id": "local",
+    "source_repo": "mathiasbourgoin/agent-roster",
+    "component_type": "agent"
+  },
+  {
     "name": "qa",
     "display_name": "QA Tester",
     "description": "QA engineer — runs existing tests, writes new test cases for changed code, and performs manual testing via Playwright against the running local environment.",
@@ -2073,7 +2104,7 @@
       "claude-code",
       "codex"
     ],
-    "version": "1.5.0",
+    "version": "2.1.0",
     "path": "recruiter/recruiter.md",
     "source": "local",
     "source_id": "local",
