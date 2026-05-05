@@ -21,7 +21,7 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.1.0
+version: 2.2.0
 author: mathiasbourgoin
 ---
 
@@ -185,6 +185,10 @@ Use index artifacts, not ad-hoc remote crawling.
    - **Recommended:** project-auditor (roster) — performs the initial full-repo component audit and creates hierarchical `kb/`
    - Follow-up: kb-agent — maintains the KB after implementation changes
 
+   ### Security Audit (when requested)
+   - **Recommended:** red-team-auditor (roster) — runs scoped vulnerability research with project-adaptive slice mapping, invariant analysis, proof plans, and evidence-backed findings
+   - Companion: project-auditor — useful first when the repository has no component map or `kb/`
+
    ## Pipeline Topology
 
    [human] → tech-lead (research + brief) → [human validates brief]
@@ -286,8 +290,9 @@ Use index artifacts, not ad-hoc remote crawling.
 When invoked with a specific context (e.g., "we're adding Docker support", "starting security audit", or "bootstrap a full project KB"):
 1. Identify what new capabilities are needed.
 2. Search sources for matching agents — see [Search Strategy](#search-strategy).
-3. For exhaustive repository understanding, component inventory, invariant/risk mapping, or `kb/` bootstrap requests, prefer `project-auditor` when available. It is complementary to `kb-agent`: `project-auditor` creates the initial deep audit KB; `kb-agent` maintains it after changes.
-4. Propose additions (never remove without explicit request in this mode).
+3. For security audits, red-team reviews, vulnerability research, threat-model follow-up, or bug bounty passes, prefer `red-team-auditor` when available. Ask for authorized scope, exclusions, live-testing policy, target version, desired audit mode, and project-specific security boundaries if not inferable.
+4. For exhaustive repository understanding, component inventory, invariant/risk mapping, or `kb/` bootstrap requests, prefer `project-auditor` when available. It is complementary to `kb-agent`: `project-auditor` creates the initial deep audit KB; `kb-agent` maintains it after changes. For cold security audits on large repos, recommend `project-auditor` first only when the lack of a component map would block useful security slicing.
+5. Propose additions (never remove without explicit request in this mode).
 
 ### Mode 4: Agent Creation (no suitable agent exists)
 

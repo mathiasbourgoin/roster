@@ -2200,8 +2200,38 @@
       "claude-code",
       "codex"
     ],
-    "version": "2.1.0",
+    "version": "2.2.0",
     "path": "recruiter/recruiter.md",
+    "source": "local",
+    "source_id": "local",
+    "source_repo": "mathiasbourgoin/agent-roster",
+    "component_type": "agent"
+  },
+  {
+    "name": "red-team-auditor",
+    "display_name": "Red Team Auditor",
+    "description": "Runs authorization-scoped security audits using slice-first mapping, invariant analysis, exploit hypothesis generation, and evidence-backed proof plans.",
+    "domain": [
+      "security",
+      "audit"
+    ],
+    "tags": [
+      "red-team",
+      "security-audit",
+      "vulnerability-research",
+      "threat-modeling",
+      "invariants",
+      "proof",
+      "bug-bounty"
+    ],
+    "model": "opus",
+    "complexity": "high",
+    "compatible_with": [
+      "claude-code",
+      "codex"
+    ],
+    "version": "1.0.0",
+    "path": "agents/security/red-team-auditor.md",
     "source": "local",
     "source_id": "local",
     "source_repo": "mathiasbourgoin/agent-roster",

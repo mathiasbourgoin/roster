@@ -134,6 +134,7 @@ DEVELOPER_AGENTS=(
 
 SECURITY_AGENTS=(
     "agents/security/mcp-vetter.md"
+    "agents/security/red-team-auditor.md"
 )
 
 FULL_EXTRA_AGENTS=(

@@ -257,6 +257,29 @@ Context packet requirements:
 
 The project-auditor output becomes planning input. Do not automatically convert findings into fixes; prioritize them with the user first.
 
+## Security Audit Handoff
+
+When the user asks for a security audit, red-team review, vulnerability research pass, threat-model follow-up, or bug bounty investigation, route the work to `red-team-auditor`.
+
+Use `red-team-auditor` for:
+
+- authorized security audits with explicit scope and exclusions
+- vulnerability research on a subsystem, trust boundary, or bug family
+- proof-backed finding development before remediation planning
+- bug bounty passes that need novelty and prior-art checks before filing
+
+Context packet requirements:
+
+- authorized assets, excluded assets, and live-testing policy
+- target branch, commit, release, deployment, package version, or environment
+- audit mode: internal audit, product security review, protocol review, or bug bounty
+- detected project type and likely security boundaries if already known
+- existing `kb/`, architecture docs, specs, threat models, prior reports, and known issues
+- desired report path and whether proof artifacts may be written
+- severity policy or platform/program rules if available
+
+For a cold large repository with no useful `kb/`, consider running `project-auditor` first for a component map, then hand the relevant security slices to `red-team-auditor`. Do not ask `red-team-auditor` to claim high severity without reproducible evidence or a clearly documented proof blocker.
+
 ## Output Contract
 
 For any plan or decision requiring human approval:

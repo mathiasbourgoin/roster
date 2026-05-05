@@ -35,13 +35,13 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 - The operational projection command is `./scripts/sync-harness.sh <project-root>`
 - Agents manipulating installed project harness data should read `.harness/harness.json` first and treat `.opencode/`, `.claude/`, and `.agents/` as generated compatibility surfaces
 
-## Agents (21)
+## Agents (22)
 
 ### Management (9)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | tech-lead | 1.3.0 | opus | Orchestrates teams, enforces Ralph Loop with tiered evaluation |
-| recruiter | 2.1.0 | opus | Finds and assembles agent teams from roster + external sources |
+| recruiter | 2.2.0 | opus | Finds and assembles agent teams from roster + external sources |
 | harness-builder | 1.0.0 | opus | Assembles complete harness configs (agents + rules + hooks + skills + KB) |
 | governor | 2.0.0 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
 | kb-agent | 2.0.0 | opus | Bootstraps, maintains, and audits the knowledge base (kb/) |
@@ -67,10 +67,11 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | tool-provisioner | 1.1.0 | sonnet | MCP/CLI discovery, evaluation, and provisioning |
 | performance-monitor | 1.0.0 | sonnet | CI/test/app performance profiling |
 
-### Security (1)
+### Security (2)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | mcp-vetter | 1.1.0 | sonnet | Security vetting of MCP server candidates |
+| red-team-auditor | 1.0.0 | opus | Runs scoped security audits with slice-first vulnerability research and proof-backed findings |
 
 ### Specialist (5)
 | Agent | Version | Model | Purpose |

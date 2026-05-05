@@ -235,6 +235,7 @@ Current notable agents include:
 - `architect` — code quality and architecture checks
 - `kb-agent` — KB bootstrap and maintenance
 - `project-auditor` — exhaustive repository audit and hierarchical `kb/` generation
+- `red-team-auditor` — scoped security audits, vulnerability research, and proof-backed findings
 - `tool-provisioner` — tooling and MCP discovery
 - `mcp-vetter` — MCP security vetting
 - `kernel-arm64-bringup`, `fex-wine-proton`, `gamescope-mangohud-qam` — specialist pipeline for ARM64 handheld Linux/Steam bring-up

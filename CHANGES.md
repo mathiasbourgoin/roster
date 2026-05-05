@@ -16,6 +16,7 @@ The project purpose has shifted from "a registry of reusable agent components" t
 
 - `agents/management/planner.md` — new agent: takes a validated research brief (fresh context), decomposes it into sub-briefs per execution agent.
 - `agents/management/project-auditor.md` — new agent: performs exhaustive repository audits and builds hierarchical `kb/` component knowledge bases with invariants, risks, tests, missing tests, and fix candidates.
+- `agents/security/red-team-auditor.md` — new agent: runs authorized security audits and vulnerability research with project-adaptive slice mapping, invariant analysis, proof plans, and optional bounty novelty checks.
 - `agents/specialist/kernel-arm64-bringup.md` — new specialist: owns Qualcomm ARM64 handheld kernel bring-up, device tree work, defconfig deltas, boot.img assembly, and on-device verification.
 - `agents/specialist/fex-wine-proton.md` — new specialist: owns FEX, Wine/Proton ARM64, ThunksDB, x86_64 sysroots, and Steam runtime selection on ARM64.
 - `agents/specialist/gamescope-mangohud-qam.md` — new specialist: owns Gamescope DRM sessions, Mangohud/mangoapp overlay wiring, and Steam QAM bridge spikes.
@@ -33,6 +34,7 @@ The project purpose has shifted from "a registry of reusable agent components" t
 
 - Added clarification question step during project analysis (max 3–5 questions for gaps that can't be inferred).
 - Added missing-`kb/` detection: initial team proposals now advertise `project-auditor` as the recommended first-run agent for exhaustive repository audit and KB bootstrap, with `kb-agent` as the maintenance follow-up.
+- Added security-audit routing: team proposals and contextual recruitment now advertise `red-team-auditor` for authorized security audits, vulnerability research, threat-model follow-up, and bug bounty passes.
 - Lead-mandatory rule added to scoring: no team proposal without a lead candidate.
 - Scoring: added `no_pipeline_role_defined` penalty (-2pts).
 - Team proposal now includes pipeline topology (communication graph) and execution model explanation.
