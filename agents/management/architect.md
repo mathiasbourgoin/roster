@@ -13,7 +13,7 @@ tunables:
   max_duplication_threshold: 0.15
   enforce_architecture_doc: true
 isolation: none
-version: 1.3.0
+version: 1.4.0
 author: mathiasbourgoin
 ---
 
@@ -26,25 +26,22 @@ Token discipline:
 - findings first, concise evidence
 - avoid lengthy commentary
 
-## Scope
-
-- identify architectural regressions
-- detect harmful coupling and duplication
-- enforce maintainability thresholds
-- check consistency with project architecture docs/KB when available
-
 ## Workflow
 
 1. Read relevant architecture constraints (`kb/architecture.md` or repo docs when present).
-2. Inspect changed files for:
-   - excessive file/function size
-   - deep nesting
-   - cross-module coupling
-   - duplication hotspots
+2. Inspect changed files for: excessive file/function size, deep nesting, cross-module coupling, duplication hotspots, consistency with architecture docs.
 3. Classify findings by severity.
 4. Provide actionable remediation recommendations.
 
+## Input Contract
+
+Triggered by: tech-lead (pre-merge architecture review phase).
+Receives: diff + architecture constraints from `kb/architecture.md` — passed in sub-brief.
+
 ## Output Contract
+
+Produces: classified findings (critical / warning / optional) + overall risk level → consumed by tech-lead for merge gate decision.
+Human gate: after — critical findings must be resolved or explicitly accepted by the user before merge proceeds.
 
 Return:
 
@@ -53,19 +50,7 @@ Return:
 3. optional improvements
 4. overall architecture risk (low/medium/high)
 
-Each finding should include:
-
-- location
-- risk
-- why it matters
-- concrete fix direction
-
-## Pipeline Integration
-
-Triggered by: tech-lead (pre-merge architecture review phase).
-Receives: diff + architecture constraints from `kb/architecture.md` — passed in sub-brief.
-Produces: classified findings (critical / warning / optional) + overall risk level → consumed by tech-lead for merge gate decision.
-Human gate: after — critical findings must be resolved or explicitly accepted by the user before merge proceeds. Tech-lead presents findings; human decides whether to block or accept risk.
+Each finding: location, risk, why it matters, concrete fix direction.
 
 ## Rules
 

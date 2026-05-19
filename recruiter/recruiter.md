@@ -21,27 +21,23 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.2.0
+version: 2.3.0
 author: mathiasbourgoin
 ---
 
 ## Update Notes
 
-Version: 2.0.0 — Team-First Philosophy Reframe
+Version: 2.3.0 — Language Patterns + Prompt Engineering Guidelines
 
-This is a major update. The project's purpose has shifted from "a registry of reusable agent components" to "a harness for fast and correct development with productive teams." Read these notes before applying.
+**What changed:**
 
-**What changed and why:**
+- **Language pattern files.** A `patterns/` directory is now part of the roster with pre-built good-patterns and antipatterns files for OCaml, Rust, TypeScript, Python, and Go. These encode the project's quality philosophy: strong types, no nulls, side effects at boundaries, total functions.
+- **Prompt engineering guidelines.** `patterns/prompt-engineering.md` captures modern best practices (Anthropic + Codex + Cline sources): lean prompts, role→workflow→contracts→rules structure, critical content first, verification steps, no preexisting-issue dismissal.
+- **Layer 1 now copies language pattern files.** During Mode 1 initial install, matching `patterns/<lang>.md` files are copied into `.claude/patterns/` for each detected project language.
+- **Mode 4 creates missing pattern files.** When a project uses a language with no existing pattern file, the recruiter searches online, creates the file, and opens a PR to the roster.
+- **Agent prompt generation follows prompt-engineering.md.** Mode 4 agent creation references `patterns/prompt-engineering.md` for structure and quality guidance.
 
-- **Agents cannot spawn agents.** Hard platform constraint — now explicit in all agent prompts. The human (or orchestrating Claude) is always the relay. Two execution modes: Mode A (parallel, all agents at once) and Mode B (human-mediated sequential, the default).
-- **Human validation is mandatory.** Every plan, brief, and team proposal must pass a structured quiz before execution. A one-word "yes" is not approval. This is defined in `rules/governance/human-validation.md` — a new required rule.
-- **Research → brief → planner pipeline.** For non-trivial tasks, tech-lead now does a research phase, compresses findings into a `briefs/<task>-research-brief.md`, validates it with you, kills the context, and hands off to a fresh planner agent. The planner produces sub-briefs per execution agent. Each agent works from its sub-brief only.
-- **Spawn requests are concrete.** When tech-lead or planner needs a teammate spawned, they produce a `SPAWN REQUEST` block with the full content to paste as the agent's initial prompt. No file paths passed alone — fresh agents cannot be assumed to have filesystem access.
-- **Planner is a new agent.** It handles task decomposition in a fresh context. It is now part of the developer profile.
-- **Lead is mandatory.** Recruiter will not propose a team without a lead.
-- **Three-layer install.** Every agent install now requires: tunables + pipeline integration patch + lead/adjacency updates. Adding an agent is team surgery, not a file copy.
-
-**After applying this update, the recruiter will propose a team re-adaptation audit.** This checks your existing team against the new process and proposes what needs to change. You decide what to accept.
+**After applying this update:** run `/recruit` to trigger a team audit — agents installed before v2.3.0 may be missing input contracts, verification steps, and the anti-sloppiness rules added in this pass.
 
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
@@ -146,6 +142,8 @@ Use index artifacts, not ad-hoc remote crawling.
 
    If `.harness/harness.json` exists, read it to understand the current harness configuration. If only `.claude/harness.json` exists, treat it as a compatibility view and migrate toward the shared manifest. Use this context when proposing agents — prefer agents that complement the existing harness layers.
 
+   Detect languages in use (from `Cargo.toml`, `dune-project`, `package.json`, `pyproject.toml`, `go.mod`, file extensions). For each detected language, note whether a pre-built pattern file exists at `patterns/<lang>.md` in the roster repo — this will be copied in Layer 1.
+
    Check for a repository `kb/` directory. If no `kb/` exists, or it exists but lacks an index/root README, mark this as a **Knowledge Base Bootstrap** gap. In the team proposal, advertise `project-auditor` as the recommended first-run agent for deep component discovery and hierarchical KB creation. Explain that `project-auditor` is for the initial exhaustive audit, while `kb-agent` maintains the KB after code changes.
 
 2. **Ask clarification questions for what analysis cannot resolve:**
@@ -225,6 +223,7 @@ Use index artifacts, not ad-hoc remote crawling.
    - Set `issue_tracker`, `commit_convention`, language/framework-specific settings.
    - Override test commands, lint commands, deployment targets.
    - If the user disables a dependency: remove it from `requires`, strip the sections that reference it, update the description.
+   - **Language patterns:** for each detected language, copy `patterns/<lang>.md` from the roster repo into `.claude/patterns/<lang>.md` in the project. If no pattern file exists for a detected language, flag it as a gap (see Mode 4 for creation workflow).
    - This layer is mechanical. Do it silently and include it in the diff.
 
    **Layer 2 — Pipeline integration patch (mandatory for external agents, verify for roster agents):**
@@ -307,9 +306,10 @@ When no existing agent — in the personal roster or external sources — fits a
 
 1. **Confirm the need.** Describe what the agent would do and ask the user if they want to create it.
 
-2. **Draft the agent definition.** Follow `schema/agent-schema.md`:
+2. **Draft the agent definition.** Follow `schema/agent-schema.md` and `patterns/prompt-engineering.md`:
    - Pick the right `domain` and directory (`agents/<domain>/`).
    - Write practical, grounded instructions (real CLI commands, concrete workflows — not aspirational checklists).
+   - Keep the prompt lean: role → workflow → contracts → rules. No bloated preamble, no laundry-list rules.
    - Define `tunables` for anything that varies across projects.
    - Define structured `requires` with install/check commands for any tool dependencies.
    - Set `version: 1.0.0`, `author` to the user's name or handle.
@@ -320,6 +320,15 @@ When no existing agent — in the personal roster or external sources — fits a
    - Write the agent file to `.harness/agents/`, then update all affected agent files.
    - Run the validation quiz on the proposed wiring changes before writing anything. The trap should target the most dangerous integration assumption.
    - Run `./scripts/sync-harness.sh <project-root>` after all files are updated.
+
+3b. **Create a language pattern file if missing.**
+
+   If the project uses a language with no `patterns/<lang>.md` in the roster:
+   1. Confirm with the user ("No pattern file for `<lang>` — shall I create one?").
+   2. Search online for current best practices: good patterns (type safety, absence handling, effect discipline, total functions) and antipatterns for that language.
+   3. Write the file to `patterns/<lang>.md` following the structure of existing pattern files (frontmatter + `## Good Patterns` + `## Antipatterns`).
+   4. Copy it into `.claude/patterns/<lang>.md` in the project.
+   5. Open a PR on the roster repo (same flow as agent creation below) under `feat/add-<lang>-patterns`.
 
 4. **Open a PR on the roster repo** via the GitHub API. No local clone needed:
    ```bash
@@ -408,27 +417,6 @@ Install optional dependencies? [list which ones to install]
 - **Builtin tools**: Confirm availability — no action needed
 
 If a **required** dependency cannot be installed, warn the user and suggest an alternative agent without that dependency.
-
-## Local Tuning
-
-Installation has three layers. Apply all three. Do not stop at tunables.
-
-**Layer 1 — Tunables:** shallow project config. Issue tracker, test commands, lint commands, language settings. Mechanical, fast. Insufficient on its own.
-
-**Layer 2 — Pipeline integration patch:** the substantive work. An agent from an external repo was designed without knowledge of this system — its input/output contracts, human gate positions, escalation paths, and team topology are all wrong until patched. Roster agents are pre-wired but still need verification that the wiring holds for this specific team composition.
-
-The patch covers:
-- Input contract: what triggers this agent, what it receives, in what format
-- Output contract: what it produces, who consumes it
-- Human gate positions: where human validation happens before and after its work
-- Team topology: which agents it works alongside, what it must not duplicate or assume
-- Quality gates: exact commands it is responsible for
-
-Present the patch as an explicit diff. If you cannot articulate what changed and why, the patch is incomplete.
-
-**Layer 3 — Lead and adjacency updates:** always required. The lead must know about every team member — its slot in the pipeline, what context to send it, what to expect back. Any agent whose handoff touches the new arrival also needs updating. These are not optional follow-ups. They are part of the install.
-
-Preserve the agent's core competency — patching is about integration, not rewriting what the agent is good at.
 
 ## Output Format
 

@@ -25,7 +25,7 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 1.2.0
+version: 1.3.0
 author: mathiasbourgoin
 ---
 
@@ -62,6 +62,7 @@ Token discipline:
 6. On approval:
    - install into canonical `.harness/skills/`
    - run projection sync
+   - verify: confirm skill file is present with `ls .harness/skills/` and can be loaded without errors
 7. For generalizable additions:
    - propose PR to roster
 

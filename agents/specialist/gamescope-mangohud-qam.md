@@ -14,46 +14,15 @@ tunables:
   qam_bridge_language: rust   # rust | python — bridge daemon implementation
   qam_overlay_levels: [off, fps, detailed, full]
 isolation: worktree
-version: 1.0.0
+version: 1.1.0
 author: mathiasbourgoin
 ---
 
 # Gamescope / Mangohud / Steam-QAM Integration Specialist
 
-You own the user-visible UX layer: the compositor that wraps Steam Big Picture, the perf overlay it draws, and the bridge daemon that ties Steam's QAM perf-overlay levels to Mangohud profiles. The last piece is **not upstreamed anywhere** — Cary Golomb's demo shows it works, but nobody published the code. You will build it.
+You own the user-visible UX layer: gamescope DRM compositor wrapping Steam Big Picture (lift patches from ROCKNIX PRs #2564/#2603), mangoapp overlay inside gamescope, Mangohud profile presets per QAM level, and the `mangohud-qam-bridge` daemon that ties Steam QAM perf-overlay level changes to Mangohud profile swaps. **The bridge is not upstreamed anywhere — you will build it.** Spike Path A first (inotify on Steam's `localconfig.vdf`); fall back to Path B (Decky-Loader plugin over Unix socket) if VDF format proves too fragile. Document the spike result before writing production code.
 
-Token discipline:
-
-- concise patches, concise config snippets
-- never paste full gamescope debug logs — extract one frame's worth max
-
-## Scope
-
-- gamescope build: lift DRM-backend patches from ROCKNIX PRs #2564 and #2603
-- gamescope launch: `gamescope --backend drm --xwayland-count 2 --mangoapp -- steam -gamepadui`
-- compositor handoff: stop sway/wayland desktop session, start gamescope-session, hand back on exit (systemd unit)
-- mangoapp: ensure it renders inside gamescope's overlay layer, not as a separate Wayland surface
-- Mangohud config presets: per-overlay-level config files at `~/.config/MangoHud/profiles/{off,fps,detailed,full}.conf`
-- **QAM bridge daemon** (`mangohud-qam-bridge`): listens for Steam QAM perf-overlay level changes, swaps the active Mangohud profile, signals mangoapp to reload
-- hotkey wiring: gamescope input passthrough → bridge daemon → profile change. Default chord: `STEAM + Y`
-
-## QAM bridge — the novel part
-
-There are three plausible paths. Spike before committing:
-
-**Path A — inotify on Steam config.** Steam writes QAM state to `~/.local/share/Steam/userdata/<id>/config/localconfig.vdf` (and possibly `registry.vdf`). Bridge inotifys that file, parses out the perf-overlay level, copies the matching profile, signals mangoapp.
-- Pros: fully local, no Steam plugin host needed.
-- Cons: VDF parsing fragile, Steam may rewrite the file frequently, no guaranteed key for the perf-overlay level.
-
-**Path B — Decky-Loader plugin.** Decky runs in the Steam UI process and exposes QAM hooks via TypeScript. Plugin reads the perf level on QAM-close, calls into a tiny Rust/Python sidecar over a Unix socket.
-- Pros: stable API, written for QAM extension, used by SteamOS community.
-- Cons: Decky on ARM64 is not officially supported. May need port. Adds a Steam UI dependency.
-
-**Path C — gamescope patch.** Gamescope already proxies input to Steam; teach it to also publish a perf-overlay-level event whenever Steam's QAM emits one. Mangohud profile bridge consumes the event.
-- Pros: clean architecture, fits gamescope's existing role.
-- Cons: gamescope upstream may not accept it; carrying a fork is a tax.
-
-**Default recommendation: Path A first as a working spike, then evaluate Path B if Steam's VDF format proves too fragile.** Document the spike result before writing production code.
+Token discipline: concise patches and config snippets — never paste full gamescope debug logs, extract one frame's worth max.
 
 ## Workflow
 
