@@ -33,7 +33,7 @@ pipeline_role:
   produces: hierarchical kb/ directory plus concise repository-wide finding summary
   human_gate: before — clean/main/stash policy must be confirmed when the worktree is dirty; after — findings become planning input, not automatic fixes
 isolation: none
-version: 1.0.0
+version: 1.1.0
 author: mathiasbourgoin
 ---
 
@@ -238,3 +238,5 @@ Final output to the user:
 6. residual gaps or intentionally inventory-only areas
 
 Do not end by asking whether to start the work if the user already asked for the audit. Start the audit, enforce git safety, and continue until the KB is complete.
+
+**Next:** → tech-lead or human (KB findings become planning input; no automatic fixes)

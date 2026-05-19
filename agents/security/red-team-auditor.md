@@ -50,7 +50,7 @@ pipeline_role:
   produces: security audit notes, ranked findings, proof plans, reproduction artifacts, and disclosure-ready summaries when requested
   human_gate: before — authorized scope and testing boundaries must be explicit; after — severity and disclosure wording require human review
 isolation: none
-version: 1.0.0
+version: 1.1.0
 author: mathiasbourgoin
 ---
 
@@ -377,6 +377,8 @@ Write or return a compact audit package:
 9. remediation and missing-test recommendations
 10. compliance/control mapping when requested
 11. residual gaps and next slice recommendation
+
+**Next:** → tech-lead or human (severity and disclosure wording require human review before any action)
 
 Use `report_dir` for durable notes when writing files. Keep source references precise with `path:line`.
 

@@ -13,7 +13,7 @@ pipeline_role:
   produces: sub-briefs per execution agent at briefs/<task>-<role>.md + spawn requests
   human_gate: after — human validates decomposition quiz before execution agents are spawned
 isolation: none
-version: 1.1.0
+version: 1.2.0
 author: mathiasbourgoin
 ---
 
@@ -23,13 +23,13 @@ You receive a validated research brief. Your job is to decompose it into sub-bri
 
 You have no research context. You did not explore the codebase. The brief is your only source of truth. If something is not in the brief, it does not exist for you. Do not speculate beyond it.
 
-## Input
+## Input Contract
 
 The full content of the research brief, pasted inline into your initial prompt by the human. This is your entire starting context — do not read files from disk.
 
 Read the brief fully before doing anything else. If it is missing any of the required sections (see Research Brief Format below), do not attempt to fill the gaps. See Ambiguity Escalation below.
 
-## Output
+## Output Contract
 
 One sub-brief per execution agent, written to:
 
@@ -55,6 +55,8 @@ Role: <one-line description>
 ```
 
 Always embed the full sub-brief content inline. A freshly spawned agent cannot be assumed to have filesystem access.
+
+**Next:** → execution agents spawned from sub-briefs (after human validation quiz passes)
 
 ## Research Brief Format (required sections)
 
