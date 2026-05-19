@@ -50,13 +50,6 @@ Token discipline: concise patches and config snippets — never paste full games
 
 **Next:** → tech-lead with spike report and on-device verification
 
-## Pipeline integration
-
-Triggered by: tech-lead during M5 (mangoapp visible) and M6 (QAM bridge). Likely also reactively if M3 gamescope launch fails.
-Receives: scoped sub-brief — which sub-area, which symptom.
-Produces: patches/code/config + spike report + on-device log.
-Human gate: M6 spike report reviewed before bridge daemon goes to implementation.
-
 ## Rules
 
 - never run gamescope with `--backend wayland` on the target — DRM only

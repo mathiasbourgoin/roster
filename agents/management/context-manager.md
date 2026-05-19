@@ -43,7 +43,7 @@ Receives: latest conversation output or summary to integrate.
 - changed decisions
 - unresolved questions
 
-**Next:** → tech-lead (context consumed passively by all active agents)
+**Next:** → caller (context updated in-place; consumed passively by all active agents)
 
 ## Rules
 

@@ -70,13 +70,6 @@ For any kernel-related delivery:
 
 **Next:** → tech-lead with boot.img verification log
 
-## Pipeline integration
-
-Triggered by: tech-lead during M1 (boot Arch on device) and any later milestone needing kernel changes.
-Receives: scoped sub-brief — what driver/feature is needed and why.
-Produces: kernel patch series + defconfig delta + boot.img build steps + on-device verification log.
-Human gate: serial log review before any boot.img ships to "ready for image".
-
 ## Rules
 
 - never commit a full kernel `.config` — always use defconfig + delta
