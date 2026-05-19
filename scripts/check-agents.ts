@@ -4,8 +4,8 @@
  * Checks enforced:
  *   1. pipeline_role block present with all four sub-fields
  *      (triggered_by, receives, produces, human_gate)
- *   2. ## Output Contract section ends with a **Next:** line
- *      (before the next ## section or end of file)
+ *   2. ## Output Contract section contains a **Next:** line
+ *      (anywhere before the next ## section or end of file)
  *
  * Exit 0 = clean. Exit 1 = violations found.
  */
@@ -22,8 +22,8 @@ type Violation = { file: string; message: string };
 function checkPipelineRole(content: string): string[] {
   const errors: string[] = [];
 
-  // Check top-level pipeline_role key exists in frontmatter
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  // Check top-level pipeline_role key exists in frontmatter (CRLF-safe)
+  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!fmMatch) {
     return ["no YAML frontmatter found"];
   }
@@ -33,8 +33,8 @@ function checkPipelineRole(content: string): string[] {
     return ["missing pipeline_role in frontmatter"];
   }
 
-  // Extract the pipeline_role block (all indented lines following the key)
-  const prBlockMatch = fm.match(/^pipeline_role\s*:\s*\n((?:[ \t]+.+\n?)*)/m);
+  // Extract the pipeline_role block (all indented lines following the key, CRLF-safe)
+  const prBlockMatch = fm.match(/^pipeline_role\s*:\s*\r?\n((?:[ \t]+.+\r?\n?)*)/m);
   const prBlock = prBlockMatch?.[1] ?? "";
 
   for (const subfield of PIPELINE_ROLE_SUBFIELDS) {
@@ -47,14 +47,14 @@ function checkPipelineRole(content: string): string[] {
 }
 
 function checkNextAction(content: string): string[] {
-  // Find ## Output Contract section
-  const outputContractMatch = content.match(/## Output Contract\n([\s\S]*?)(?=\n## |\n---\s*$|$)/);
+  // Find ## Output Contract section (CRLF-safe)
+  const outputContractMatch = content.match(/## Output Contract\r?\n([\s\S]*?)(?=\r?\n## |\r?\n---\s*$|$)/);
   if (!outputContractMatch) {
     return ["missing ## Output Contract section"];
   }
 
   const section = outputContractMatch[1];
-  // **Next:** must appear somewhere in this section (after all content)
+  // **Next:** must appear anywhere in the Output Contract section
   if (!/\*\*Next:\*\*/.test(section)) {
     return ["## Output Contract section missing **Next:** line"];
   }
