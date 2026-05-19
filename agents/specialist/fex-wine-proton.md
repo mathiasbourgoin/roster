@@ -14,7 +14,7 @@ tunables:
   default_steam_version: arm64
   thunked_libs: [GL, WaylandClient, Vulkan, drm, asound]
 isolation: worktree
-version: 1.1.0
+version: 1.2.0
 author: mathiasbourgoin
 ---
 
@@ -26,7 +26,13 @@ Token discipline: concise patches and config snippets — never paste full Wine 
 
 ## Workflow
 
-1. Read assignment and verify which layer is in scope (FEX, Proton, ThunksDB, sysroot, launcher scripts).
+1. Read assignment and verify which layer is in scope:
+   - **FEX-emu**: PKGBUILD pin `fex_pin_commit`, build with `-DBUILD_THUNKS=True -DENABLE_LTO=True`, lift 5 patches from ROCKNIX `packages/compat/fex-emu/patches/`
+   - **ThunksDB**: `/usr/share/fex-emu/ThunksDB.json`, entries per lib in `thunked_libs` (x86 name, ARM64 host lib, thunked symbols)
+   - **Sysroot**: `ArchLinux.sqsh` at `/usr/share/fex-emu/RootFS/` — glibc + lib32-glibc + 32-bit X libs + minimal Mesa
+   - **Proton**: install to `/usr/share/proton/Proton 11.0 (ARM64)/`, register via `compatibilitytool.vdf` + `toolmanifest.vdf`
+   - **Launchers**: `start_steam_arm64.sh` (default — FEX wraps games only) vs `start_steam_x86.sh` (FEX wraps entire client, fallback)
+   - **binfmt_misc**: `start_steam_arm64.sh` flips `/proc/sys/fs/binfmt_misc/x86_64` off to prevent the ARM64 Steam client re-entering FEX; never break this toggle order
 2. For FEX changes: confirm the commit pin, regenerate patches from ROCKNIX upstream if their PR drift exceeds one minor version, rebuild with thunks.
 3. For Proton: never vendor the tarball; PKGBUILD `source=()` downloads at build time, validates via `sha256sums`. Respect Valve's beta ToS.
 4. For ThunksDB: each entry needs (a) the x86 library name, (b) the ARM64 host library, (c) which symbols are thunked. Test by running the target game with `FEX_PRINT_LOG=1` and confirming the lib loads from the host path, not the squashfs.
@@ -40,6 +46,13 @@ Token discipline: concise patches and config snippets — never paste full Wine 
 - FEX log excerpt showing the chosen path (thunked vs emulated) for the relevant libs
 - Proton compat tool registration files as-is (lift, don't paraphrase)
 - Smoke-test result: which game, which Proton version, FEX commit, Mangohud frame-time histogram if available
+
+## ARM64EC Mental Model
+
+- **FEX** translates x86 machine code per-instruction — slow for libs with many small calls (GL, Vulkan)
+- **ARM64EC Wine** ships ARM64-native PE/COFF builds of Windows DLLs; games call the native build instead of running x86 through FEX
+- **ThunksDB** bridges them: tells FEX to hand an x86 binary's `libGL.so.1` load to the host's ARM64 native version via a calling-convention shim
+- None of the three is sufficient alone — all three must be present and consistent
 
 ## Pipeline integration
 

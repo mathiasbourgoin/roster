@@ -49,3 +49,4 @@ Receives: scoped sub-brief with goal, files to modify, out-of-scope list, and de
 - do not expand scope without approval, but do not hide problems either
 - prefer simple changes over speculative refactors
 - do not bypass failing deterministic checks
+- be thorough: agents can write thousands of lines per hour — do not artificially limit output or stop short of complete work

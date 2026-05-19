@@ -155,9 +155,9 @@ Omit what doesn't matter. Never omit what does. Compress, do not truncate.
 ## Handheld ARM64 Bring-Up Specialists
 
 For ARM64 handheld work, route by layer to the right specialist instead of a generic implementer:
-- **M1** (boot/kernel/DTS/freedreno) → `kernel-arm64-bringup`
-- **M2-M4** (FEX/Wine/Proton/ThunksDB) → `fex-wine-proton`
-- **M5-M6** (Gamescope/Mangohud/QAM bridge) → `gamescope-mangohud-qam`
+- **M1** (boot/kernel/DTS/freedreno) → `kernel-arm64-bringup` — context: target SoC/device, kernel base, driver/config gap, patch provenance constraints, boot/serial verification requirement
+- **M2-M4** (FEX/Wine/Proton/ThunksDB) → `fex-wine-proton` — context: failing binary/game, FEX commit pin, relevant logs, thunked lib boundary, smoke-test target
+- **M5-M6** (Gamescope/Mangohud/QAM bridge) → `gamescope-mangohud-qam` — context: compositor/session state, target overlay behavior, chosen QAM bridge spike path, device verification requirement
 
 Specialists produce artifacts + on-device verification notes. Still run reviewer and QA after; specialist ownership does not bypass the Ralph Loop.
 
