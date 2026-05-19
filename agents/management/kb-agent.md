@@ -23,7 +23,12 @@ requires:
     type: builtin
     optional: true
 isolation: none
-version: 2.2.0
+pipeline_role:
+  triggered_by: tech-lead or human after implementation changes or on explicit KB bootstrap request
+  receives: code diff or description of change plus existing kb/ directory
+  produces: updated or created KB files with contradictions flagged and unresolved decisions noted
+  human_gate: after — unresolved contradictions require human decision
+version: 2.3.0
 author: mathiasbourgoin
 ---
 
@@ -58,6 +63,8 @@ Receives: code diff or description of change; existing `kb/` directory.
 - list of contradictions flagged (with KB path and conflicting code reference)
 - unresolved contradictions requiring human decision
 - auditor findings (if enabled)
+
+**Next:** → tech-lead or human for unresolved contradiction decisions
 
 ## Bootstrap
 

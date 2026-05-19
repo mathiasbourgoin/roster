@@ -11,7 +11,12 @@ tunables:
   run_full_suite: true
   include_manual_checks: true
 isolation: none
-version: 1.2.0
+pipeline_role:
+  triggered_by: tech-lead post-implementation and post-review
+  receives: sub-brief with behavior under test, expected outcomes, reproduction steps, and test commands
+  produces: pass/fail report with executed checks and defect reproduction steps
+  human_gate: none
+version: 1.3.0
 author: mathiasbourgoin
 ---
 
@@ -43,6 +48,8 @@ Receives: sub-brief with behavior under test, expected outcomes, reproduction st
 - executed checks
 - failing scenarios with repro steps
 - severity of observed defects
+
+**Next:** → tech-lead with pass/fail verdict
 
 ## Rules
 

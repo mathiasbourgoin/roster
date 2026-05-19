@@ -14,7 +14,12 @@ tunables:
   fallback_to_vendor_tree: true
   require_serial_console: true
 isolation: worktree
-version: 1.1.0
+pipeline_role:
+  triggered_by: tech-lead during M1 (boot Arch on device) and any later milestone needing kernel changes
+  receives: scoped sub-brief specifying what driver/feature is needed and why
+  produces: kernel patch series, defconfig delta, boot.img build steps, and on-device verification log
+  human_gate: after — serial log review required before any boot.img ships to "ready for image"
+version: 1.2.0
 author: mathiasbourgoin
 ---
 
@@ -62,6 +67,8 @@ For any kernel-related delivery:
 - `mkbootimg` invocation as a one-liner with all flags annotated
 - serial-console boot log excerpt showing freedreno init and rootfs mount
 - list of known-broken kernel options for this device (for the next person)
+
+**Next:** → tech-lead with boot.img verification log
 
 ## Pipeline integration
 

@@ -14,7 +14,12 @@ tunables:
   schema_module: "src/db/schema.ml"        # path to the module containing current_version and all_ddl
   migration_test_file: "test/test_schema.ml"  # path to the migration-path test file
 isolation: none
-version: 1.1.0
+pipeline_role:
+  triggered_by: tech-lead or implementer presenting a schema migration diff
+  receives: migration code diff and affected schema files
+  produces: pass/block verdict with file:line findings and concrete fixes per rule violated
+  human_gate: after — block verdict requires human decision before proceeding
+version: 1.2.0
 author: mathiasbourgoin
 ---
 
@@ -49,6 +54,8 @@ For each finding:
 - concrete fix
 
 Final verdict: `pass` / `block` with rationale.
+
+**Next:** → implementer (on block) or tech-lead (on pass)
 
 ## Migration Rules
 

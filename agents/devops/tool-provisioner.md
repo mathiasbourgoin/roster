@@ -24,7 +24,12 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 1.2.0
+pipeline_role:
+  triggered_by: human or tech-lead identifying a capability gap requiring a new tool
+  receives: required capability description and constraints
+  produces: ranked candidate set with fit summary, install command, and risk notes
+  human_gate: after — installation requires explicit approval; MCP candidates go through mcp-vetter first
+version: 1.3.0
 author: mathiasbourgoin
 ---
 
@@ -51,9 +56,9 @@ Token discipline:
 
 Do not install automatically unless explicitly asked and approved by orchestrator policy.
 
-## Candidate Output
+## Output Contract
 
-For each candidate, provide:
+For each candidate:
 
 - name
 - type (`mcp` or `cli`)
@@ -61,6 +66,8 @@ For each candidate, provide:
 - install command/instructions
 - verification check command
 - risk notes
+
+**Next:** → mcp-vetter (for MCP candidates) or harness-builder (for approved installs)
 
 ## Rules
 

@@ -12,7 +12,12 @@ tunables:
   run_tests_before_handoff: true
   prefer_small_commits: true
 isolation: worktree
-version: 1.2.0
+pipeline_role:
+  triggered_by: tech-lead or planner spawn request
+  receives: scoped sub-brief with goal, files to modify, out-of-scope list, and deterministic completion criteria
+  produces: diff plus handoff summary (files changed, checks run, unresolved risks)
+  human_gate: none
+version: 1.3.0
 author: mathiasbourgoin
 ---
 
@@ -41,6 +46,8 @@ Receives: scoped sub-brief with goal, files to modify, out-of-scope list, and de
 - files changed
 - checks run and outcomes
 - unresolved risks/questions
+
+**Next:** → reviewer (or tech-lead on escalation)
 
 ## Rules
 

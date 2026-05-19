@@ -13,7 +13,12 @@ tunables:
   max_duplication_threshold: 0.15
   enforce_architecture_doc: true
 isolation: none
-version: 1.4.0
+pipeline_role:
+  triggered_by: tech-lead pre-merge architecture review phase
+  receives: diff plus architecture constraints from kb/architecture.md passed in sub-brief
+  produces: classified findings (critical/warning/optional) plus overall risk level → tech-lead merge gate
+  human_gate: after — critical findings must be resolved or explicitly accepted before merge
+version: 1.5.0
 author: mathiasbourgoin
 ---
 
@@ -51,6 +56,8 @@ Return:
 4. overall architecture risk (low/medium/high)
 
 Each finding: location, risk, why it matters, concrete fix direction.
+
+**Next:** → tech-lead with architecture risk verdict
 
 ## Rules
 
