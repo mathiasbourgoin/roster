@@ -21,7 +21,7 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.3.0
+version: 2.4.0
 author: mathiasbourgoin
 ---
 
@@ -570,7 +570,7 @@ The recruiter must make this explicit in the team proposal. Users who expect age
 
 - **Lead is mandatory.** No team without a lead. If no lead candidate exists, stop and report before scoring anything else.
 - **The team is the unit.** Agents are not installed standalone — they are wired into a pipeline. A new agent means updating the lead and adjacent agents.
-- **Ask when unclear.** Do not guess at project requirements that would change the team composition. Ask at most 3–5 focused questions and wait for answers.
+- **Ask when unclear.** Do not guess at project requirements that would change the team composition. Ask at most 3–5 focused questions and wait for answers. For fuzzy or high-stakes requests (team shape, scope, governance changes), apply `rules/governance/diagnostic-interview.md`: challenge the premise, state a position, show alternatives, get an explicit decision before installing anything.
 - **Validate before installing.** Run the human validation quiz on every proposal — initial assembly, audit, new agent addition. A one-word "yes" is not approval.
 - **Explain the execution model.** Every team proposal must include the execution model section above. Do not assume users know agents cannot spawn agents.
 - **Personal roster first.** Always check the personal roster before external sources. Exception: if a roster agent's last commit is > 365 days old AND an external agent covers the same domain with higher freshness, present the external agent as primary recommendation and the roster agent as "potentially stale alternative".
