@@ -25,7 +25,12 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 1.3.0
+pipeline_role:
+  triggered_by: human or tech-lead identifying a recurring workflow pattern
+  receives: capability description and target outcome
+  produces: recommended path (reuse/adapt/create) plus skill definition and installation on approval
+  human_gate: after — skill installation requires explicit approval
+version: 1.4.0
 author: mathiasbourgoin
 ---
 
@@ -89,6 +94,8 @@ Return:
 3. proposed skill name/domain
 4. dependencies and risk notes
 5. next approval step
+
+**Next:** → harness-builder for sync (on create/adapt) or tech-lead
 
 ## Rules
 

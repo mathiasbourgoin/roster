@@ -15,7 +15,12 @@ tunables:
   pre_pr_checks: "dune build && dune runtest && dune fmt"   # project-specific pre-PR command
   commit_convention: conventional
 isolation: none
-version: 1.1.0
+pipeline_role:
+  triggered_by: implementer or tech-lead signalling "ready for PR"
+  receives: a branch with passing checks and a task reference
+  produces: merged PR or blocked status with reason
+  human_gate: both — review rounds require human reviewers; merge requires human approval
+version: 1.2.0
 author: mathiasbourgoin
 ---
 
@@ -47,6 +52,8 @@ Receives: a branch with passing checks and a task reference.
 ## Output Contract
 
 Produces: merged PR or a blocked status with the reason.
+
+**Next:** → tech-lead with merge confirmation
 
 ## Commit Rules
 

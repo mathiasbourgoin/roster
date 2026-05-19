@@ -10,7 +10,12 @@ compatible_with: [claude-code]
 tunables:
   max_root_cause_candidates: 3
 isolation: none
-version: 1.3.0
+pipeline_role:
+  triggered_by: tech-lead or human on CI failure, test failure, or multi-agent error
+  receives: failure logs, test output, or agent error reports pasted inline or referenced by path
+  produces: correlated failure groups with ranked root-cause candidates and immediate next checks
+  human_gate: none
+version: 1.4.0
 author: mathiasbourgoin
 ---
 
@@ -37,6 +42,8 @@ Receives: failure logs, test output, or agent error reports — pasted inline or
 - likely root causes (ranked by confidence)
 - confidence per candidate
 - immediate next checks/fixes
+
+**Next:** → expert-debugger (if unresolved) or implementer (root cause confirmed)
 
 ## Rules
 

@@ -38,7 +38,12 @@ requires:
     check: "opam exec -- odoc --version"
     optional: true
 isolation: none
-version: 1.1.0
+pipeline_role:
+  triggered_by: implementer when stuck on OCaml/dune/opam mechanics; reviewer for OCaml-specific correctness; tech-lead for OCaml-stack onboarding
+  receives: failing build output, .mli/.ml diff, opam/dune diagnostics, or scoped refactor question
+  produces: root cause with patch direction and verified re-run outcome
+  human_gate: none
+version: 1.2.0
 author: mathiasbourgoin
 ---
 
@@ -76,6 +81,8 @@ For a patch:
 - list of files changed
 - commands re-run and their outcomes
 - any opam/dune metadata that needed to follow (e.g. `dune-project` `(depends …)` bump)
+
+**Next:** → implementer with fix direction or reviewer with correctness verdict
 
 ## Rules
 

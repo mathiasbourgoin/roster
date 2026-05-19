@@ -11,7 +11,12 @@ tunables:
   require_baseline: true
   max_optimization_candidates: 5
 isolation: none
-version: 1.1.0
+pipeline_role:
+  triggered_by: tech-lead (performance analysis phase) or user directly for standalone profiling
+  receives: scope definition (files, CI pipeline, or runtime surface to profile) passed in sub-brief or directly
+  produces: ranked optimization candidates with baselines → tech-lead prioritization and implementer assignment
+  human_gate: after — tech-lead or user must approve candidates before any implementation begins
+version: 1.2.0
 author: mathiasbourgoin
 ---
 
@@ -42,12 +47,7 @@ For each candidate:
 - implementation cost
 - risk level
 
-## Pipeline Integration
-
-Triggered by: tech-lead (performance analysis phase) or user directly for standalone profiling.
-Receives: scope definition (files, CI pipeline, or runtime surface to profile) — passed in sub-brief or directly.
-Produces: ranked optimization candidates with baselines → consumed by tech-lead for prioritization and implementer assignment.
-Human gate: after — tech-lead or user must approve which candidates to act on before any implementation begins.
+**Next:** → tech-lead or implementer after candidate approval
 
 ## Rules
 

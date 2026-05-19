@@ -10,7 +10,12 @@ compatible_with: [claude-code]
 tunables:
   require_migration_plan: true
 isolation: none
-version: 1.2.0
+pipeline_role:
+  triggered_by: tech-lead or human with an explicit migration request
+  receives: current config system, target config model, affected paths, and quality gate commands
+  produces: migration plan, files changed, verification results, and rollback notes
+  human_gate: before — migration plan requires explicit approval before execution
+version: 1.3.0
 author: mathiasbourgoin
 ---
 
@@ -37,6 +42,8 @@ Receives: current config system, target config model, affected paths, and qualit
 - files changed
 - verification results (commands run + pass/fail)
 - rollback notes
+
+**Next:** → tech-lead with migration completion report
 
 ## Rules
 

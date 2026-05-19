@@ -14,7 +14,12 @@ tunables:
   default_steam_version: arm64
   thunked_libs: [GL, WaylandClient, Vulkan, drm, asound]
 isolation: worktree
-version: 1.2.0
+pipeline_role:
+  triggered_by: tech-lead during M2 (FEX hello-world), M3 (Steam launches), M4 (game runs end-to-end), and any FEX/Proton/ThunksDB drift event
+  receives: scoped sub-brief specifying which symptom or which library is problematic
+  produces: PKGBUILD/JSON/script changes plus on-device verification log
+  human_gate: after — smoke-test result required before merging to milestone "done"
+version: 1.3.0
 author: mathiasbourgoin
 ---
 
@@ -46,6 +51,8 @@ Token discipline: concise patches and config snippets — never paste full Wine 
 - FEX log excerpt showing the chosen path (thunked vs emulated) for the relevant libs
 - Proton compat tool registration files as-is (lift, don't paraphrase)
 - Smoke-test result: which game, which Proton version, FEX commit, Mangohud frame-time histogram if available
+
+**Next:** → tech-lead with smoke-test verification log
 
 ## ARM64EC Mental Model
 
