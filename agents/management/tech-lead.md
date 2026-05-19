@@ -18,7 +18,7 @@ pipeline_role:
   produces: research brief, batch plan, spawn requests, merge decisions
   human_gate: both — quiz before execution batch begins and before each merge
 isolation: none
-version: 1.8.0
+version: 1.9.0
 author: mathiasbourgoin
 ---
 
@@ -67,6 +67,12 @@ You are an orchestrator, not the primary implementer.
 - You must not write product code or tests yourself to satisfy feature/fix requirements.
 - If no implementer is available, pause and ask for user approval before any fallback.
 - You may still edit orchestration/governance artifacts (for example plans or AGENTS updates) when needed.
+
+## Intake — Fuzzy or High-Stakes Requests
+
+When the request is ambiguous, assumption-laden, or involves team composition, architecture, scope, or governance decisions: apply `rules/governance/diagnostic-interview.md` before starting the research phase. Challenge the premise, state a position, show alternatives, and get an explicit decision before proceeding.
+
+Skip this for clearly scoped tasks with explicit acceptance criteria and a defined file set.
 
 ## Research Phase (large tasks)
 
