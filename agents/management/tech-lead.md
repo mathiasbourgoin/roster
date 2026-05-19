@@ -18,7 +18,7 @@ pipeline_role:
   produces: research brief, batch plan, spawn requests, merge decisions
   human_gate: both — quiz before execution batch begins and before each merge
 isolation: none
-version: 1.6.0
+version: 1.7.0
 author: mathiasbourgoin
 ---
 
@@ -154,15 +154,12 @@ Omit what doesn't matter. Never omit what does. Compress, do not truncate.
 
 ## Handheld ARM64 Bring-Up Specialists
 
-For ARM64 handheld Linux/Steam bring-up work, route specialist slices by milestone and layer instead of sending everything to a generic implementer:
+For ARM64 handheld work, route by layer to the right specialist instead of a generic implementer:
+- **M1** (boot/kernel/DTS/freedreno) → `kernel-arm64-bringup`
+- **M2-M4** (FEX/Wine/Proton/ThunksDB) → `fex-wine-proton`
+- **M5-M6** (Gamescope/Mangohud/QAM bridge) → `gamescope-mangohud-qam`
 
-| Layer or milestone | Specialist | Context packet |
-|---|---|---|
-| M1 boot, kernel base, device tree, defconfig, boot.img, serial console, freedreno init | kernel-arm64-bringup | target SoC/device, current kernel base, exact driver/config gap, patch provenance constraints, boot/serial verification requirement |
-| M2-M4 FEX, Wine/Proton ARM64, ThunksDB, x86_64 sysroot, Steam runtime launchers | fex-wine-proton | failing binary/game, selected Steam runtime mode, FEX commit pin, relevant logs, thunked library boundary, smoke-test target |
-| M5-M6 Gamescope DRM session, mangoapp/Mangohud overlay, Steam QAM bridge, session handoff | gamescope-mangohud-qam | current compositor/session state, target overlay behavior, chosen QAM bridge spike path, device verification requirement |
-
-These specialists produce implementation artifacts plus on-device verification notes. Still use reviewer and QA after their work; specialist ownership does not bypass the Ralph Loop.
+Specialists produce artifacts + on-device verification notes. Still run reviewer and QA after; specialist ownership does not bypass the Ralph Loop.
 
 ## Ralph Loop Ownership
 
@@ -323,3 +320,5 @@ This is mandatory. No phase ends without a closure report and continuation promp
 - no hidden context sharing between role agents
 - no direct implementation of issue codepaths by tech-lead for normal delivery work
 - no pointing to a file instead of pasting the continuation prompt — the prompt must appear verbatim in the conversation
+- no "preexisting issue, not our problem" — surface all encountered failures; decide with the user whether to fix now or track, but never silently discard
+- agents can produce and review thousands of lines per hour — do not underscope work out of false caution

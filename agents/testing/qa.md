@@ -11,7 +11,7 @@ tunables:
   run_full_suite: true
   include_manual_checks: true
 isolation: none
-version: 1.1.0
+version: 1.2.0
 author: mathiasbourgoin
 ---
 
@@ -23,6 +23,11 @@ Token discipline:
 
 - concise pass/fail reporting
 - concise defect reproduction notes
+
+## Input Contract
+
+Triggered by: tech-lead (post-implementation, post-review).
+Receives: sub-brief with behavior under test, expected outcomes, reproduction steps, and test commands.
 
 ## Workflow
 
@@ -44,3 +49,5 @@ Token discipline:
 - do not approve when deterministic checks fail
 - do not mark pass on partial evidence
 - avoid speculative claims without reproduction
+- surface preexisting failures encountered during testing — never skip them as "out of scope"
+- be thorough: run the full suite, not just the happy path; agents can cover thousands of scenarios in an hour
