@@ -11,8 +11,10 @@ tunables:
   require_migration_test: true
   require_all_ddl_alignment: true
   prevent_seed_row_deletion: true
+  schema_module: "src/db/schema.ml"        # path to the module containing current_version and all_ddl
+  migration_test_file: "test/test_schema.ml"  # path to the migration-path test file
 isolation: none
-version: 1.0.0
+version: 1.1.0
 author: mathiasbourgoin
 ---
 
@@ -28,22 +30,15 @@ Token discipline:
 ## Workflow
 
 1. Read the proposed schema diff and the introducing migration code.
-2. Verify `Schema.current_version` is bumped in `src/db/schema.ml`.
+2. Verify `Schema.current_version` is bumped in `$schema_module`.
 3. Verify `all_ddl` is realigned with the latest schema (canonical fresh-DB DDL list).
-4. Verify a migration-path test exists or is extended in `test/test_schema.ml`.
+4. Verify a migration-path test exists or is extended in `$migration_test_file`.
 5. Check for slot drift, seed-row deletions, non-atomic writes, and missing store updates.
 
-## Migration Rules
+## Input Contract
 
-- **Bump `Schema.current_version`** when adding a migration.
-- **`all_ddl` must reflect the latest schema** so fresh DBs and migrated DBs converge.
-- **Add or extend a path test** in `test/test_schema.ml` for the actual introducing migration.
-- **Migration slot drift**: if story text references a version number already occupied on the current branch, apply the change in the *next available slot*. Never rewrite the timeline to match an old story number.
-- **Multi-step DB writes must be atomic and retry-safe** — single SQLite transaction; enforce duplicates with DB constraints/indexes, not application-only checks.
-- **Foundational seed rows must not be deleted** in migrations (e.g. `organizations(id=1, slug='epure-team')`).
-- New tables require a corresponding `*_store.ml` module returning `('a, string) result`.
-- DB access goes through `caqti` + `caqti-driver-sqlite3` + `caqti-eio` via `Caqti_eio.Pool.use`.
-- BM25-ranked FTS5 retrieval: use `Schema_helpers.fts_phrase_escape`; do not reimplement escaping.
+Triggered by: tech-lead or implementer presenting a schema migration diff.
+Receives: the migration code diff and affected schema files.
 
 ## Output Contract
 
@@ -54,6 +49,18 @@ For each finding:
 - concrete fix
 
 Final verdict: `pass` / `block` with rationale.
+
+## Migration Rules
+
+- **Bump `Schema.current_version`** when adding a migration.
+- **`all_ddl` must reflect the latest schema** so fresh DBs and migrated DBs converge.
+- **Add or extend a path test** in `$migration_test_file` for the actual introducing migration.
+- **Migration slot drift**: if story text references a version number already occupied on the current branch, apply the change in the *next available slot*. Never rewrite the timeline to match an old story number.
+- **Multi-step DB writes must be atomic and retry-safe** — single SQLite transaction; enforce duplicates with DB constraints/indexes, not application-only checks.
+- **Foundational seed rows must not be deleted** in migrations. Know your project's foundational rows before approving any `DELETE` in a migration.
+- New tables require a corresponding `*_store.ml` module returning `('a, string) result`.
+- DB access goes through `caqti` + `caqti-driver-sqlite3` + `caqti-eio` via `Caqti_eio.Pool.use`.
+- FTS5 full-text retrieval: use a project-provided phrase-escape helper; do not reimplement escaping ad-hoc.
 
 ## Rules
 
