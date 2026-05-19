@@ -41,7 +41,7 @@ Agent: tech-lead
 Role: research, plan, and coordinate delivery of the task
 
 --- PASTE THIS AS THE AGENT'S INITIAL PROMPT ---
-Task: <$ARGUMENTS>
+Task: $ARGUMENTS
 
 Run the research phase, produce a brief, validate it with the user, then spawn the planner.
 --- END ---
