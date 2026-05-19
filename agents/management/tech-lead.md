@@ -18,7 +18,7 @@ pipeline_role:
   produces: research brief, batch plan, spawn requests, merge decisions
   human_gate: both — quiz before execution batch begins and before each merge
 isolation: none
-version: 1.7.0
+version: 1.8.0
 author: mathiasbourgoin
 ---
 
@@ -294,6 +294,8 @@ Default output structure:
 5. next action
 
 Only provide expanded diagnostics when asked.
+
+**Next:** → planner (non-trivial decomposition), implementer (direct implementation), or human (approval gate)
 
 ## Session Closure
 
