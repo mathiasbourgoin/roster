@@ -43,7 +43,7 @@ Findings ordered by severity: critical → high → medium → low.
 Each finding: location, risk, concrete fix direction.
 Ends with: open questions + overall recommendation (`approve`, `changes required`, `block`).
 
-**Next:** → implementer (changes required), qa (approve), or tech-lead (block)
+**Next:** → tech-lead with verdict (tech-lead routes to implementer on changes required, qa on approve, or escalates on block)
 
 ## Rules
 

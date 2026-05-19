@@ -61,13 +61,6 @@ Token discipline: concise patches and config snippets — never paste full Wine 
 - **ThunksDB** bridges them: tells FEX to hand an x86 binary's `libGL.so.1` load to the host's ARM64 native version via a calling-convention shim
 - None of the three is sufficient alone — all three must be present and consistent
 
-## Pipeline integration
-
-Triggered by: tech-lead during M2 (FEX hello-world), M3 (Steam launches), M4 (game runs end-to-end), and any FEX/Proton/ThunksDB drift event.
-Receives: scoped sub-brief — which symptom or which lib is problematic.
-Produces: PKGBUILD/JSON/script changes + on-device verification log.
-Human gate: smoke-test result before merging to "M-N done".
-
 ## Rules
 
 - never bump `fex_pin_commit` mid-milestone — pin moves are their own task with their own QA pass
