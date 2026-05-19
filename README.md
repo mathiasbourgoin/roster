@@ -44,18 +44,27 @@ Then: ask `tech-lead` to research and plan your first task.
 
 This repo is not a prompt dump. Components are designed to work as a team, not in isolation.
 
-## Main Entry Point
+## Team Lifecycle
 
-`/recruit` remains the primary entrypoint.
+The full lifecycle is four stages, each with a dedicated command:
 
-Use it for:
+| Stage | Command | What it does |
+|-------|---------|--------------|
+| **Assemble** | `/recruit` | Diagnose project, score candidates, propose team, validate, install |
+| **Audit** | `/team-review` | Check installed team for stale agents, gaps, and upgrade candidates |
+| **Run** | `/team-run <task>` | Trigger tech-lead → research → planner → execution pipeline |
+| **Update** | `/recruit update` | Self-update recruiter; re-audit and upgrade installed agents |
 
-- initial team assembly
-- team audit and upgrade
-- governance setup
-- update flow
+Supporting commands:
 
-The `harness-builder` agent handles explicit harness assembly for advanced scenarios, but it is not the front door.
+| Command | What it does |
+|---------|--------------|
+| `/team-build` | Apply an approved team proposal to the harness |
+| `/harness audit` | Harness coherence check (freshness, rule conflicts, redundant skills) |
+| `/harness switch <profile>` | Switch between core / developer / security / full profiles |
+| `/recruit govern` | Install or update governance rules |
+
+`/recruit` is the front door. `/team-run` is how you use the team once it is installed.
 
 ## Shared Harness Model
 
