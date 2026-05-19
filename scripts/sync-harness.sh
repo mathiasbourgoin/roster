@@ -44,6 +44,22 @@ sync_markdown_dir() {
     fi
 }
 
+sync_rules_tree() {
+    local src="$1"
+    local dst="$2"
+
+    rm -rf "$dst"
+    mkdir -p "$dst"
+
+    if [ -d "$src" ]; then
+        (cd "$src" && find . -type f -name '*.md' -print0) | \
+            while IFS= read -r -d '' relpath; do
+                mkdir -p "$dst/$(dirname "$relpath")"
+                cp "$src/$relpath" "$dst/$relpath"
+            done
+    fi
+}
+
 extract_frontmatter_field() {
     local file="$1"
     local field="$2"
@@ -109,7 +125,7 @@ if runtime_enabled "claude-code"; then
     mkdir -p "$CLAUDE_DIR/agents" "$CLAUDE_DIR/commands" "$CLAUDE_DIR/rules"
     sync_markdown_dir "$HARNESS_DIR/agents" "$CLAUDE_DIR/agents"
     sync_markdown_dir "$HARNESS_DIR/skills" "$CLAUDE_DIR/commands"
-    sync_markdown_dir "$HARNESS_DIR/rules" "$CLAUDE_DIR/rules"
+    sync_rules_tree "$HARNESS_DIR/rules" "$CLAUDE_DIR/rules"
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
         cp "$HARNESS_DIR/agents/recruiter.md" "$CLAUDE_DIR/commands/recruit.md"
     else
