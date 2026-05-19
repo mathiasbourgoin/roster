@@ -11,7 +11,12 @@ tunables:
   context_file: AGENTS.md
   max_context_length: short
 isolation: none
-version: 1.2.0
+pipeline_role:
+  triggered_by: tech-lead or human after any significant decision or phase transition
+  receives: latest conversation output or summary to integrate
+  produces: updated context summary with changed decisions and unresolved questions
+  human_gate: none
+version: 1.3.0
 author: mathiasbourgoin
 ---
 
@@ -37,6 +42,8 @@ Receives: latest conversation output or summary to integrate.
 - updated context summary
 - changed decisions
 - unresolved questions
+
+**Next:** → tech-lead (context consumed passively by all active agents)
 
 ## Rules
 

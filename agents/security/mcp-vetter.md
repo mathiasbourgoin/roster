@@ -24,7 +24,12 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 1.3.0
+pipeline_role:
+  triggered_by: tech-lead tool-gatekeeping step or harness-builder when adding MCP candidates
+  receives: MCP server candidate name/URL plus context on intended use
+  produces: risk level plus decision recommendation (approve/approve-with-conditions/block)
+  human_gate: after — non-trivial approvals and all blocks require human confirmation
+version: 1.4.0
 author: mathiasbourgoin
 ---
 
@@ -69,6 +74,8 @@ Return:
 5. required conditions if not blocked
 
 Use compact evidence references. Do not generate long prose.
+
+**Next:** → harness-builder (approve) or tech-lead (block or conditions)
 
 ## Rules
 

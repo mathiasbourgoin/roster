@@ -16,7 +16,12 @@ tunables:
   extra_c_env_vars: []             # e.g. [FOO_INCLUDE, FOO_LIBDIR] for C deps with non-standard paths
   dirty_worktree_bypass_var: ""    # env var to bypass commit-check for dev commands, if any
 isolation: worktree
-version: 1.1.0
+pipeline_role:
+  triggered_by: tech-lead spawn request or direct user invocation for OCaml work
+  receives: scoped task with goal, files to modify, and completion criteria
+  produces: implemented changes plus handoff summary (files changed, checks run, risks)
+  human_gate: none
+version: 1.2.0
 author: mathiasbourgoin
 ---
 
@@ -45,6 +50,8 @@ Receives: scoped task with goal, files to modify, and completion criteria.
 ## Output Contract
 
 Produces: implemented changes + handoff summary (files changed, checks run, risks).
+
+**Next:** → reviewer (or tech-lead on escalation)
 
 ## OCaml Rules
 

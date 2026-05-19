@@ -14,7 +14,12 @@ tunables:
   qam_bridge_language: rust   # rust | python — bridge daemon implementation
   qam_overlay_levels: [off, fps, detailed, full]
 isolation: worktree
-version: 1.2.0
+pipeline_role:
+  triggered_by: tech-lead during M5 (mangoapp visible) and M6 (QAM bridge), reactively if M3 gamescope launch fails
+  receives: scoped sub-brief specifying which sub-area and which symptom
+  produces: patches/code/config plus spike report and on-device verification log
+  human_gate: after — M6 spike report reviewed before bridge daemon goes to implementation
+version: 1.3.0
 author: mathiasbourgoin
 ---
 
@@ -42,6 +47,8 @@ Token discipline: concise patches and config snippets — never paste full games
 - bridge daemon: source + systemd unit + Mangohud profile config templates
 - spike report: which path was tested, which signal/file was used, why the chosen path is robust enough
 - on-device verification log: QAM cycle timing, hotkey response, mangoapp render confirmation
+
+**Next:** → tech-lead with spike report and on-device verification
 
 ## Pipeline integration
 

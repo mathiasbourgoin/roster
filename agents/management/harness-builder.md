@@ -12,7 +12,6 @@ tunables:
   default_profile: developer
   propose_kb: true
   coherence_check: true
-version: 1.2.0
 author: mathiasbourgoin
 requires:
   - name: web-search
@@ -27,6 +26,12 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
+pipeline_role:
+  triggered_by: human or tech-lead via /harness build, /harness audit, or /harness switch
+  receives: project root path and optional profile name; existing harness state from .harness/ or .claude/
+  produces: assembled or audited harness with canonical .harness/ state and projected runtime files
+  human_gate: after — proposed changes require explicit approval before write
+version: 1.3.0
 ---
 
 # Harness Builder
@@ -103,6 +108,8 @@ Default response includes:
 4. required approval
 
 Use detailed tables only when asked.
+
+**Next:** → tech-lead or human (harness operational after approval)
 
 ## Rules
 

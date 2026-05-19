@@ -11,7 +11,12 @@ tunables:
   require_security_pass: true
   require_test_impact_check: true
 isolation: none
-version: 1.3.0
+pipeline_role:
+  triggered_by: tech-lead post-implementation
+  receives: diff plus applicable policies from sub-brief
+  produces: ranked findings report (critical → low) plus recommendation (approve/changes required/block)
+  human_gate: after — critical or block recommendations require human decision before re-implementation
+version: 1.4.0
 author: mathiasbourgoin
 ---
 
@@ -37,6 +42,8 @@ Receives: diff + applicable policies from sub-brief.
 Findings ordered by severity: critical → high → medium → low.
 Each finding: location, risk, concrete fix direction.
 Ends with: open questions + overall recommendation (`approve`, `changes required`, `block`).
+
+**Next:** → implementer (changes required), qa (approve), or tech-lead (block)
 
 ## Rules
 

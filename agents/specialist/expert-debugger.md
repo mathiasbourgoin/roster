@@ -11,7 +11,12 @@ tunables:
   max_hypotheses: 3
   require_repro_steps: true
 isolation: none
-version: 1.2.0
+pipeline_role:
+  triggered_by: tech-lead on ambiguous root cause or repeated implementer failures
+  receives: failure log, reproduction steps, and what has already been ruled out
+  produces: ranked hypotheses with confidence, decisive evidence, and recommended fix plan
+  human_gate: none
+version: 1.3.0
 author: mathiasbourgoin
 ---
 
@@ -38,6 +43,8 @@ Receives: failure log, reproduction steps, and what has already been ruled out â
 - decisive evidence
 - recommended fix plan
 - validation steps after fix
+
+**Next:** â†’ implementer with confirmed fix plan
 
 ## Rules
 
