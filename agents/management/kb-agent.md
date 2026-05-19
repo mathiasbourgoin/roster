@@ -52,6 +52,13 @@ You bootstrap and maintain the project knowledge base as source of intent. Conci
 Triggered by: tech-lead or human after implementation changes, or on explicit KB bootstrap request.
 Receives: code diff or description of change; existing `kb/` directory.
 
+## Output Contract
+
+- updated or created KB files with change summary
+- list of contradictions flagged (with KB path and conflicting code reference)
+- unresolved contradictions requiring human decision
+- auditor findings (if enabled)
+
 ## Bootstrap
 
 When KB is missing, create a minimal viable structure:
