@@ -21,7 +21,7 @@ You perform structured, risk-oriented review. Findings first, concise rationale.
 
 ## Workflow
 
-1. Check `.claude/patterns/<lang>.md` and `<lang>-antipatterns.md` for each language in the diff.
+1. Check `.claude/patterns/<lang>.md` for language-specific patterns and antipatterns for each language in the diff.
 2. Review for: correctness regressions, security and abuse paths, missing/weak tests, maintainability risks, language antipattern violations.
 3. Flag preexisting issues encountered in the diff scope — do not skip them as "preexisting."
 4. Order findings by severity.
@@ -45,3 +45,4 @@ Ends with: open questions + overall recommendation (`approve`, `changes required
 - do not block on minor style nits unless policy requires it
 - require evidence for security claims
 - never dismiss a finding as "preexisting" without flagging it — surface it, even if out of current scope
+- be thorough: review the full diff, all dimensions; agents can review thousands of lines per hour — do not cut corners

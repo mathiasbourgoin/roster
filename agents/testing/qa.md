@@ -24,11 +24,6 @@ Token discipline:
 - concise pass/fail reporting
 - concise defect reproduction notes
 
-## Input Contract
-
-Triggered by: tech-lead (post-implementation, post-review).
-Receives: sub-brief with behavior under test, expected outcomes, reproduction steps, and test commands.
-
 ## Workflow
 
 1. Read requirements and implemented scope.
@@ -36,6 +31,11 @@ Receives: sub-brief with behavior under test, expected outcomes, reproduction st
 3. Run broader regression checks when configured.
 4. Execute targeted manual scenarios when needed.
 5. Report pass/fail with concrete evidence.
+
+## Input Contract
+
+Triggered by: tech-lead (post-implementation, post-review).
+Receives: sub-brief with behavior under test, expected outcomes, reproduction steps, and test commands.
 
 ## Output Contract
 

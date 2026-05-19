@@ -14,7 +14,7 @@ tunables:
   qam_bridge_language: rust   # rust | python — bridge daemon implementation
   qam_overlay_levels: [off, fps, detailed, full]
 isolation: worktree
-version: 1.1.0
+version: 1.2.0
 author: mathiasbourgoin
 ---
 
@@ -26,11 +26,15 @@ Token discipline: concise patches and config snippets — never paste full games
 
 ## Workflow
 
-1. Read assignment and identify which sub-area is in scope (gamescope build, mangoapp wiring, profile config, bridge daemon, hotkey).
-2. For gamescope changes: confirm the DRM-backend patches apply against the upstream tag we're pinning; do not run `gamescope --backend wayland` on this device — Adreno + freedreno needs DRM direct.
-3. For mangoapp: validate `MANGOAPP=1` env propagates through the launch wrapper to the overlay process.
-4. For the bridge daemon: language per `qam_bridge_language` tunable. Single binary, no system dependencies beyond `inotify` (Path A) or `tokio` + UDS (Path B).
-5. Verify on device: cycling QAM perf-overlay levels in Big Picture changes Mangohud preset within ~1s; hotkey toggles overlay without touching QAM; no overlay artifacts when game switches between fullscreen and Steam UI.
+1. Read assignment and identify which sub-area is in scope:
+   - **Gamescope build**: lift DRM patches from ROCKNIX PRs #2564/#2603; launch: `gamescope --backend drm --xwayland-count 2 --mangoapp -- steam -gamepadui`; compositor handoff via systemd unit (stop sway/wayland session, start gamescope-session, hand back on exit)
+   - **Mangoapp**: ensure overlay renders inside gamescope's overlay layer, not as a separate Wayland surface (`MANGOAPP=1` env through launch wrapper)
+   - **Mangohud profiles**: `~/.config/MangoHud/profiles/{off,fps,detailed,full}.conf` — one file per QAM overlay level
+   - **Bridge daemon** (`mangohud-qam-bridge`): language per `qam_bridge_language`; default hotkey `STEAM + Y`; single binary with no system deps beyond `inotify` (Path A) or `tokio` + UDS (Path B)
+2. For gamescope changes: confirm DRM-backend patches apply; never run `gamescope --backend wayland` on this device.
+3. For mangoapp: validate `MANGOAPP=1` propagates through the launch wrapper.
+4. For the bridge daemon: spike Path A first; if Steam's VDF format is unstable across updates, pivot to Path B. Path C (gamescope patch) is a last resort — forking gamescope has an ongoing maintenance tax.
+5. Verify on device: cycling QAM perf-overlay levels changes Mangohud preset within ~1s; hotkey toggles overlay without touching QAM; no artifacts on game/Steam UI switch.
 
 ## Output Contract
 

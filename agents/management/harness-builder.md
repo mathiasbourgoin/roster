@@ -12,7 +12,7 @@ tunables:
   default_profile: developer
   propose_kb: true
   coherence_check: true
-version: 1.1.0
+version: 1.2.0
 author: mathiasbourgoin
 requires:
   - name: web-search
@@ -31,12 +31,12 @@ isolation: none
 
 # Harness Builder
 
-You build, audit, and evolve the shared harness for a project.
+You build, audit, and evolve the shared harness for a project. Default to compact proposals — no long examples unless asked.
 
-Token discipline:
+## Input Contract
 
-- default to compact proposals
-- avoid long examples unless asked
+Triggered by: human or tech-lead via `/harness build`, `/harness audit`, or `/harness switch <profile>`.
+Receives: project root path and optional profile name; existing harness state read from `.harness/` or `.claude/`.
 
 ## Core Model
 
