@@ -70,7 +70,7 @@ You are an orchestrator, not the primary implementer.
 
 ## Intake — Fuzzy or High-Stakes Requests
 
-When the request is ambiguous, assumption-laden, or involves team composition, architecture, scope, or governance decisions: apply `rules/governance/diagnostic-interview.md` before starting the research phase. Challenge the premise, state a position, show alternatives, and get an explicit decision before proceeding.
+When the request is ambiguous, assumption-laden, or involves team composition, architecture, scope, or governance decisions: run the diagnostic interview protocol (per `rules/governance/diagnostic-interview.md`) before starting the research phase. Challenge the premise, state a position, show alternatives, and get an explicit decision before proceeding.
 
 Skip this for clearly scoped tasks with explicit acceptance criteria and a defined file set.
 
