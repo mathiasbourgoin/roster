@@ -27,6 +27,25 @@ author: mathiasbourgoin
 
 ## Update Notes
 
+Version: 2.4.0 — Pipeline Metadata, CI Lint, Diagnostic Interview, Team Lifecycle
+
+**What changed:**
+
+- **`pipeline_role` frontmatter on all agents.** Every agent now declares `triggered_by`, `receives`, `produces`, and `human_gate` in its frontmatter. The recruiter's scoring penalty for missing `pipeline_role` no longer applies to any roster agent.
+- **`**Next:**` footers on all Output Contracts.** Every agent's `## Output Contract` section ends with a `**Next:**` line showing where output routes, making pipeline topology self-describing at a glance.
+- **`npm run check:agents` CI linter.** A new TypeScript linter (`scripts/check-agents.ts`) enforces the two invariants above across all agents and runs as part of `npm test`. Future agents added without the required metadata will fail CI.
+- **`rules/governance/diagnostic-interview.md`.** A new front-door governance protocol for fuzzy or high-stakes requests (team composition, architecture, scope, governance changes). Requires premise challenge, a stated position, three alternatives including a mandatory lateral option, and an explicit stop gate before execution. Wired into `tech-lead` (Intake section) and the recruiter's "Ask when unclear" rule.
+- **Team lifecycle skills.** Three new thin skills make the lifecycle explicit: `/team-run <task>` (trigger tech-lead pipeline), `/team-review` (audit installed team via recruiter Mode 2), `/team-build` (apply an approved proposal via harness-builder). README updated with a lifecycle table.
+
+**After applying this update:**
+- Run `/team-review` to audit agents installed before v2.4.0 — they may be missing `pipeline_role` metadata if they were installed from an older copy.
+- The `diagnostic-interview` rule is new: brief the team lead that fuzzy intake requests will now prompt for premise challenge and alternatives before planning begins.
+
+- After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
+- Durable release history belongs in `CHANGES.md`.
+
+---
+
 Version: 2.3.0 — Language Patterns + Prompt Engineering Guidelines
 
 **What changed:**
