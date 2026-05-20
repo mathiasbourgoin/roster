@@ -1,4 +1,5 @@
 ---
+name: harness-validator
 description: Meta-auditor — validate the KB harness itself (structure, auditors, rules coherence, feedback loops).
 version: 1.0.0
 ---
