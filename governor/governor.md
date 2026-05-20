@@ -1,6 +1,7 @@
 ---
+name: governor
 description: Generate and maintain concise governance rules from project context and risk posture.
-version: 2.1.1
+version: 2.1.2
 model: opus
 phase: null
 ---
