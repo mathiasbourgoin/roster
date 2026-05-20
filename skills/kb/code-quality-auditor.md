@@ -1,4 +1,5 @@
 ---
+name: code-quality-auditor
 description: Audit code quality against KB-defined properties, invariants, and naming conventions.
 version: 1.0.0
 ---
