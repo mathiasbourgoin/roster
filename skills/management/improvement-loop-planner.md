@@ -1,4 +1,5 @@
 ---
+name: improvement-loop-planner
 description: Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals.
 version: 1.0.0
 ---
