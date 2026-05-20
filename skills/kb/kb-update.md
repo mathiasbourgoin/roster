@@ -1,4 +1,5 @@
 ---
+name: kb-update
 description: Update knowledge base — sync KB files with recent code changes without weakening specs.
 version: 1.0.0
 ---
