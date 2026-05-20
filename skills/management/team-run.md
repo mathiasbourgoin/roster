@@ -1,4 +1,5 @@
 ---
+name: team-run
 description: Run the agent team on a task — triggers tech-lead research → validation → planner → execution.
 version: 1.0.0
 ---
