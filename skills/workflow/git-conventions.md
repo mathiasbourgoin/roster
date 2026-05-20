@@ -1,4 +1,5 @@
 ---
+name: git-conventions
 description: Apply git workflow conventions — commits, branches, PRs.
 version: 1.0.0
 ---

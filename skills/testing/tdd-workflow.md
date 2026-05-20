@@ -1,4 +1,5 @@
 ---
+name: tdd-workflow
 description: Run TDD cycle — write failing test, implement, refactor, verify coverage.
 version: 1.0.0
 ---

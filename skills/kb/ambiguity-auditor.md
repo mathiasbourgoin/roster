@@ -1,4 +1,5 @@
 ---
+name: ambiguity-auditor
 description: Audit KB for ambiguity — undefined terms, vague requirements, contradictions, stale content.
 version: 1.0.0
 ---

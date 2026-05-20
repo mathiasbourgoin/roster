@@ -1,4 +1,5 @@
 ---
+name: improvement-loop
 description: Run a bounded verification-first improvement loop from an approved loop spec.
 version: 1.0.0
 ---

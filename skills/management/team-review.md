@@ -1,4 +1,5 @@
 ---
+name: team-review
 description: Audit the installed team against the current project and roster — surfaces stale agents, gaps, and upgrade candidates.
 version: 1.0.0
 ---

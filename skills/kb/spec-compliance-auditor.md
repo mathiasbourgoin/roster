@@ -1,4 +1,5 @@
 ---
+name: spec-compliance-auditor
 description: Audit implementation against kb/spec.md — flag unimplemented spec items and behavioral divergence.
 version: 1.0.0
 ---
