@@ -1,4 +1,5 @@
 ---
+name: team-build
 description: Apply an approved team proposal — installs agents, rules, and skills into the shared harness.
 version: 1.0.0
 ---
