@@ -1,0 +1,60 @@
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "agent-roster",
+      "label": "Agent Roster",
+      "root": ".",
+      "harness_path": ".harness/harness.json",
+      "tmux_session": "ta-agent-roster",
+      "default_view": "agents",
+      "views": [
+        {
+          "id": "agents",
+          "label": "Agents"
+        },
+        {
+          "id": "qa",
+          "label": "QA"
+        }
+      ],
+      "agents": [
+        {
+          "name": "tech-lead",
+          "roster_agent": "tech-lead",
+          "command": [
+            "codex"
+          ],
+          "cwd": ".",
+          "env": [
+            {
+              "name": "TA_ROLE",
+              "value": "tech-lead"
+            }
+          ],
+          "startup_prompt": "Lead the TA roadmap loop from agent-roster."
+        },
+        {
+          "name": "qa",
+          "roster_agent": "qa",
+          "command": [
+            "codex"
+          ],
+          "cwd": ".",
+          "startup_prompt": "Independently verify TA changes with tmux evidence."
+        }
+      ],
+      "links": [
+        {
+          "from": "tech-lead",
+          "to": "qa",
+          "permissions": [
+            "read",
+            "write"
+          ],
+          "reason": "The lead routes verification work and reads QA reports."
+        }
+      ]
+    }
+  ]
+}

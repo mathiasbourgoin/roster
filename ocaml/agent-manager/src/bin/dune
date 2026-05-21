@@ -1,0 +1,11 @@
+(executable
+ (name tactl)
+ (public_name tactl)
+ (modules tactl)
+ (libraries ta_core cmdliner unix))
+
+(executable
+ (name ta)
+ (public_name ta)
+ (modules ta)
+ (libraries ta_core cmdliner unix))
