@@ -40,5 +40,6 @@ type t = { version : string; workspaces : workspace list }
 val parse_string : string -> (t, error list) result
 val load : string -> (t, error list) result
 val validate : t -> error list
+val validate_with_roster : roster:Roster_index.t -> t -> error list
 val summarize : t -> string
 val error_to_string : error -> string

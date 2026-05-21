@@ -75,7 +75,9 @@ Views are Herdr-like tabs within one workspace.
 ```
 
 - `name`: unique runtime agent ID in the workspace.
-- `roster_agent`: agent name from `agent-roster`.
+- `roster_agent`: agent name from `agent-roster`. When `tactl validate
+  --roster-index index.json` is used, this value must refer to an entry whose
+  `component_type` is `agent`.
 - `command`: non-empty argv-style launch command.
 - `cwd`: optional working directory.
 - `env`: optional environment bindings.

@@ -223,7 +223,7 @@ let view_id_strings (workspace : workspace) =
 
 let has_string value values = List.exists (String.equal value) values
 
-let validate_workspace index workspace =
+let validate_workspace ?roster index workspace =
   let base = "$.workspaces[" ^ string_of_int index ^ "]" in
   let agent_names = agent_name_strings workspace in
   let view_ids = view_id_strings workspace in
@@ -254,6 +254,20 @@ let validate_workspace index workspace =
           (base ^ ".agents." ^ Id.Agent.to_string agent.name ^ ".command")
           "command must not be empty")
   in
+  let roster_errors =
+    match roster with
+    | None -> []
+    | Some roster ->
+        workspace.agents
+        |> List.filter (fun agent ->
+            not (Roster_index.mem_agent roster agent.roster_agent))
+        |> List.map (fun agent ->
+            error
+              (base ^ ".agents."
+              ^ Id.Agent.to_string agent.name
+              ^ ".roster_agent")
+              ("unknown roster agent: " ^ agent.roster_agent))
+  in
   let link_errors =
     workspace.links
     |> List.concat_map (fun link ->
@@ -283,9 +297,9 @@ let validate_workspace index workspace =
         unknown_from @ unknown_to @ empty_permissions)
   in
   duplicate_agents @ duplicate_views @ default_view_error @ empty_command_errors
-  @ link_errors
+  @ roster_errors @ link_errors
 
-let validate config =
+let validate_with ?roster config =
   let workspace_ids =
     List.map
       (fun workspace -> Id.Workspace.to_string workspace.id)
@@ -297,9 +311,12 @@ let validate config =
         error "$.workspaces" ("duplicate workspace id: " ^ value))
   in
   let workspace_errors =
-    config.workspaces |> List.mapi validate_workspace |> List.concat
+    config.workspaces |> List.mapi (validate_workspace ?roster) |> List.concat
   in
   duplicate_workspaces @ workspace_errors
+
+let validate config = validate_with config
+let validate_with_roster ~roster config = validate_with ~roster config
 
 let summarize_workspace (workspace : workspace) =
   Printf.sprintf "- %s: %d agents, %d views, %d links, tmux=%s"
