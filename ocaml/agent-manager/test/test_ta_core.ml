@@ -1,0 +1,233 @@
+let valid_config =
+  {|
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "agent-roster",
+      "label": "Agent Roster",
+      "root": ".",
+      "harness_path": ".harness/harness.json",
+      "tmux_session": "ta-agent-roster",
+      "default_view": "agents",
+      "views": [
+        {"id": "agents", "label": "Agents"},
+        {"id": "qa", "label": "QA"}
+      ],
+      "agents": [
+        {
+          "name": "tech-lead",
+          "roster_agent": "tech-lead",
+          "command": ["codex"],
+          "cwd": ".",
+          "env": [{"name": "TA_MODE", "value": "lead"}]
+        },
+        {
+          "name": "qa",
+          "roster_agent": "qa",
+          "command": ["codex"],
+          "cwd": "."
+        }
+      ],
+      "links": [
+        {
+          "from": "tech-lead",
+          "to": "qa",
+          "permissions": ["read", "write"],
+          "reason": "lead routes verification requests"
+        }
+      ]
+    }
+  ]
+}
+|}
+
+let expect_valid () =
+  match Ta_core.Workspace_config.parse_string valid_config with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+  | Ok config ->
+      Alcotest.(check int) "workspace count" 1 (List.length config.workspaces);
+      Alcotest.(check int)
+        "validation errors" 0
+        (List.length (Ta_core.Workspace_config.validate config))
+
+let expect_invalid_link () =
+  let text =
+    String.concat "\n"
+      [
+        "{";
+        {|  "version": "0.1.0",|};
+        {|  "workspaces": [|};
+        {|    {|};
+        {|      "id": "w",|};
+        {|      "label": "W",|};
+        {|      "root": ".",|};
+        {|      "tmux_session": "ta-w",|};
+        {|      "default_view": "agents",|};
+        {|      "views": [{"id": "agents", "label": "Agents"}],|};
+        {|      "agents": [{"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]}],|};
+        {|      "links": [{"from": "lead", "to": "ghost", "permissions": ["read"], "reason": "test"}]|};
+        {|    }|};
+        {|  ]|};
+        "}";
+      ]
+  in
+  match Ta_core.Workspace_config.parse_string text with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+  | Ok config ->
+      let errors = Ta_core.Workspace_config.validate config in
+      Alcotest.(check int) "one validation error" 1 (List.length errors)
+
+let expect_duplicate_agent () =
+  let text =
+    String.concat "\n"
+      [
+        "{";
+        {|  "version": "0.1.0",|};
+        {|  "workspaces": [|};
+        {|    {|};
+        {|      "id": "w",|};
+        {|      "label": "W",|};
+        {|      "root": ".",|};
+        {|      "tmux_session": "ta-w",|};
+        {|      "default_view": "agents",|};
+        {|      "views": [{"id": "agents", "label": "Agents"}],|};
+        {|      "agents": [|};
+        {|        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},|};
+        {|        {"name": "lead", "roster_agent": "reviewer", "command": ["codex"]}|};
+        {|      ]|};
+        {|    }|};
+        {|  ]|};
+        "}";
+      ]
+  in
+  match Ta_core.Workspace_config.parse_string text with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+  | Ok config ->
+      let errors = Ta_core.Workspace_config.validate config in
+      Alcotest.(check bool) "has validation error" true (errors <> [])
+
+let expect_invalid_tmux_session () =
+  let text =
+    String.concat "\n"
+      [
+        "{";
+        {|  "version": "0.1.0",|};
+        {|  "workspaces": [|};
+        {|    {|};
+        {|      "id": "w",|};
+        {|      "label": "W",|};
+        {|      "root": ".",|};
+        {|      "tmux_session": "bad session",|};
+        {|      "default_view": "agents",|};
+        {|      "views": [{"id": "agents", "label": "Agents"}],|};
+        {|      "agents": [{"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]}]|};
+        {|    }|};
+        {|  ]|};
+        "}";
+      ]
+  in
+  match Ta_core.Workspace_config.parse_string text with
+  | Ok _ -> Alcotest.fail "invalid tmux session should fail parse"
+  | Error errors ->
+      Alcotest.(check int) "one parse error" 1 (List.length errors)
+
+let expect_missing_file_is_result () =
+  match Ta_core.Workspace_config.load "/tmp/ta-definitely-missing.json" with
+  | Ok _ -> Alcotest.fail "missing file should fail"
+  | Error errors -> Alcotest.(check int) "one load error" 1 (List.length errors)
+
+let expect_unknown_permission () =
+  let text =
+    String.concat "\n"
+      [
+        "{";
+        {|  "version": "0.1.0",|};
+        {|  "workspaces": [|};
+        {|    {|};
+        {|      "id": "w",|};
+        {|      "label": "W",|};
+        {|      "root": ".",|};
+        {|      "tmux_session": "ta-w",|};
+        {|      "default_view": "agents",|};
+        {|      "views": [{"id": "agents", "label": "Agents"}],|};
+        {|      "agents": [|};
+        {|        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},|};
+        {|        {"name": "qa", "roster_agent": "qa", "command": ["codex"]}|};
+        {|      ],|};
+        {|      "links": [{"from": "lead", "to": "qa", "permissions": ["admin"], "reason": "test"}]|};
+        {|    }|};
+        {|  ]|};
+        "}";
+      ]
+  in
+  match Ta_core.Workspace_config.parse_string text with
+  | Ok _ -> Alcotest.fail "unknown permission should fail parse"
+  | Error errors ->
+      Alcotest.(check int) "one parse error" 1 (List.length errors)
+
+let expect_bad_id () =
+  match Ta_core.Id.Agent.of_string "bad id" with
+  | Ok _ -> Alcotest.fail "bad id should be rejected"
+  | Error _ -> ()
+
+let expect_tmux_argv () =
+  let session = Ta_core.Tmux.unsafe_session_of_string "ta-test" in
+  Alcotest.(check (list string))
+    "capture argv"
+    [ "capture-pane"; "-p"; "-t"; "ta-test"; "-S"; "-40" ]
+    (Ta_core.Tmux.argv
+       (Ta_core.Tmux.Capture_pane { target = session; lines = 40 }))
+
+let expect_tmux_quotes_command () =
+  let session = Ta_core.Tmux.unsafe_session_of_string "ta-test" in
+  Alcotest.(check (list string))
+    "new-session argv"
+    [
+      "new-session";
+      "-d";
+      "-s";
+      "ta-test";
+      "-c";
+      "/tmp/project";
+      "'printf' 'it'\\''s ok'";
+    ]
+    (Ta_core.Tmux.argv
+       (Ta_core.Tmux.New_detached_session
+          {
+            session;
+            cwd = Some "/tmp/project";
+            command = [ "printf"; "it's ok" ];
+          }))
+
+let () =
+  Alcotest.run "ta-core"
+    [
+      ( "workspace_config",
+        [
+          Alcotest.test_case "valid config" `Quick expect_valid;
+          Alcotest.test_case "invalid link" `Quick expect_invalid_link;
+          Alcotest.test_case "duplicate agent" `Quick expect_duplicate_agent;
+          Alcotest.test_case "invalid tmux session" `Quick
+            expect_invalid_tmux_session;
+          Alcotest.test_case "missing file result" `Quick
+            expect_missing_file_is_result;
+          Alcotest.test_case "unknown permission" `Quick
+            expect_unknown_permission;
+        ] );
+      ("id", [ Alcotest.test_case "bad id" `Quick expect_bad_id ]);
+      ( "tmux",
+        [
+          Alcotest.test_case "argv" `Quick expect_tmux_argv;
+          Alcotest.test_case "quotes command" `Quick expect_tmux_quotes_command;
+        ] );
+    ]
