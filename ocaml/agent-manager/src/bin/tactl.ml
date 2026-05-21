@@ -6,15 +6,29 @@ let print_errors errors =
       prerr_endline (Ta_core.Workspace_config.error_to_string error))
     errors
 
-let load_config path =
+let roster_errors_to_config_errors errors =
+  List.map
+    (fun (error : Ta_core.Roster_index.error) ->
+      { Ta_core.Workspace_config.path = error.path; message = error.message })
+    errors
+
+let load_config ?roster_path path =
   match Ta_core.Workspace_config.load path with
   | Ok config ->
-      let errors = Ta_core.Workspace_config.validate config in
+      let errors =
+        match roster_path with
+        | None -> Ta_core.Workspace_config.validate config
+        | Some roster_path -> (
+            match Ta_core.Roster_index.load roster_path with
+            | Ok roster ->
+                Ta_core.Workspace_config.validate_with_roster ~roster config
+            | Error errors -> roster_errors_to_config_errors errors)
+      in
       if errors = [] then Ok config else Error errors
   | Error errors -> Error errors
 
-let validate_config path =
-  match load_config path with
+let validate_config roster_path path =
+  match load_config ?roster_path path with
   | Ok config ->
       print_endline (Ta_core.Workspace_config.summarize config);
       `Ok 0
@@ -22,7 +36,7 @@ let validate_config path =
       print_errors errors;
       `Ok 1
 
-let summary path = validate_config path
+let summary roster_path path = validate_config roster_path path
 
 let tmux_status session_name =
   match Ta_core.Tmux.session_of_string session_name with
@@ -66,6 +80,13 @@ let config_arg =
     & pos 0 (some file) None
     & info [] ~docv:"CONFIG" ~doc:".harness/ta.json or compatible file")
 
+let roster_arg =
+  Arg.(
+    value
+    & opt (some file) None
+    & info [ "roster-index" ] ~docv:"INDEX"
+        ~doc:"Optional agent-roster index.json for roster_agent validation")
+
 let session_arg =
   Arg.(required & pos 0 (some string) None & info [] ~docv:"SESSION")
 
@@ -79,11 +100,12 @@ let smoke_session_arg =
 let validate_cmd =
   let doc = "Validate a TA workspace configuration file." in
   Cmd.v (Cmd.info "validate" ~doc)
-    Term.(ret (const validate_config $ config_arg))
+    Term.(ret (const validate_config $ roster_arg $ config_arg))
 
 let summary_cmd =
   let doc = "Print a TA workspace configuration summary." in
-  Cmd.v (Cmd.info "summary" ~doc) Term.(ret (const summary $ config_arg))
+  Cmd.v (Cmd.info "summary" ~doc)
+    Term.(ret (const summary $ roster_arg $ config_arg))
 
 let tmux_status_cmd =
   let doc = "Check whether a tmux session exists." in

@@ -175,6 +175,45 @@ let expect_unknown_permission () =
   | Error errors ->
       Alcotest.(check int) "one parse error" 1 (List.length errors)
 
+let expect_roster_index_parse () =
+  let text =
+    {|
+[
+  {"name": "tech-lead", "display_name": "Tech Lead", "path": "agents/management/tech-lead.md", "source": "local", "component_type": "agent"},
+  {"name": "not-an-agent", "component_type": "skill"}
+]
+|}
+  in
+  match Ta_core.Roster_index.parse_string text with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Roster_index.error_to_string errors))
+  | Ok roster ->
+      Alcotest.(check bool)
+        "has tech-lead" true
+        (Ta_core.Roster_index.mem_agent roster "tech-lead");
+      Alcotest.(check bool)
+        "filters skill" false
+        (Ta_core.Roster_index.mem_agent roster "not-an-agent")
+
+let expect_unknown_roster_agent () =
+  let roster =
+    match
+      Ta_core.Roster_index.parse_string
+        {|[{"name": "tech-lead", "component_type": "agent"}]|}
+    with
+    | Ok roster -> roster
+    | Error _ -> Alcotest.fail "roster should parse"
+  in
+  match Ta_core.Workspace_config.parse_string valid_config with
+  | Error _ -> Alcotest.fail "config should parse"
+  | Ok config ->
+      let errors =
+        Ta_core.Workspace_config.validate_with_roster ~roster config
+      in
+      Alcotest.(check int) "unknown qa roster agent" 1 (List.length errors)
+
 let expect_bad_id () =
   match Ta_core.Id.Agent.of_string "bad id" with
   | Ok _ -> Alcotest.fail "bad id should be rejected"
@@ -225,6 +264,12 @@ let () =
             expect_unknown_permission;
         ] );
       ("id", [ Alcotest.test_case "bad id" `Quick expect_bad_id ]);
+      ( "roster_index",
+        [
+          Alcotest.test_case "parse agents" `Quick expect_roster_index_parse;
+          Alcotest.test_case "unknown roster agent" `Quick
+            expect_unknown_roster_agent;
+        ] );
       ( "tmux",
         [
           Alcotest.test_case "argv" `Quick expect_tmux_argv;
