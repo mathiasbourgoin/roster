@@ -1,0 +1,21 @@
+opam-version: "2.0"
+synopsis: "Agent-roster-native tmux workspace manager"
+description: """
+TA manages roster-backed agent workspaces, sessions, and permissions.
+"""
+maintainer: "mathiasbourgoin"
+authors: "mathiasbourgoin"
+license: "MIT"
+homepage: "https://github.com/mathiasbourgoin/agent-roster"
+bug-reports: "https://github.com/mathiasbourgoin/agent-roster/issues"
+depends: [
+  "ocaml" {>= "5.2"}
+  "dune" {>= "3.15"}
+  "cmdliner"
+  "yojson"
+  "alcotest" {with-test}
+]
+build: [
+  ["dune" "subst"] {dev}
+  ["dune" "build" "-p" name "-j" jobs]
+]
