@@ -77,6 +77,39 @@ let check_exit label expected = function
       Alcotest.failf "%s: process signaled %d" label signal
   | Unix.WSTOPPED signal -> Alcotest.failf "%s: process stopped %d" label signal
 
+let expect_quickstart () =
+  let result = run_tactl [ "quickstart" ] in
+  check_exit "exit" 0 result.status;
+  Alcotest.(check string) "stderr" "" result.stderr;
+  Alcotest.(check bool)
+    "quickstart header" true
+    (contains_substring ~needle:"TA quickstart" result.stdout);
+  Alcotest.(check bool)
+    "real workspace command" true
+    (contains_substring
+       ~needle:
+         "dune exec tactl -- state save --output .ta-state.json \
+          .harness/ta.json"
+       result.stdout);
+  Alcotest.(check bool)
+    "bundled example command" true
+    (contains_substring ~needle:"cp examples/ta.example.json ta.json"
+       result.stdout);
+  Alcotest.(check bool)
+    "tui status" true
+    (contains_substring ~needle:"MIAOU TUI adapter is not wired" result.stdout)
+
+let expect_root_help_mentions_quickstart () =
+  let result = run_tactl [ "--help=plain" ] in
+  check_exit "exit" 0 result.status;
+  Alcotest.(check string) "stderr" "" result.stderr;
+  Alcotest.(check bool)
+    "quickstart command" true
+    (contains_substring ~needle:"quickstart" result.stdout);
+  Alcotest.(check bool)
+    "dashboard start section" true
+    (contains_substring ~needle:"STARTING THE DASHBOARD" result.stdout)
+
 let expect_plain_validate_success () =
   let result = run_tactl [ "validate"; fixture "ta-valid.json" ] in
   check_exit "exit" 0 result.status;
@@ -1002,6 +1035,12 @@ let expect_dashboard_render_rejects_bad_height () =
 let () =
   Alcotest.run "tactl-cli"
     [
+      ( "startup",
+        [
+          Alcotest.test_case "quickstart" `Quick expect_quickstart;
+          Alcotest.test_case "root help mentions quickstart" `Quick
+            expect_root_help_mentions_quickstart;
+        ] );
       ( "validate",
         [
           Alcotest.test_case "plain success" `Quick

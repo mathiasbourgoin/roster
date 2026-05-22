@@ -42,6 +42,16 @@ let valid_config =
 }
 |}
 
+let contains_substring ~needle value =
+  let needle_len = String.length needle in
+  let value_len = String.length value in
+  let rec loop idx =
+    if idx + needle_len > value_len then false
+    else if String.sub value idx needle_len = needle then true
+    else loop (idx + 1)
+  in
+  String.equal needle "" || loop 0
+
 let expect_valid () =
   match Ta_core.Workspace_config.parse_string valid_config with
   | Error errors ->
@@ -678,6 +688,48 @@ let expect_tmux_pane_identity_argv () =
         && String.equal "@2" identity.window_id
     | Error _ -> false)
 
+let expect_startup_paths_resolve_defaults () =
+  let exists path = List.mem path [ ".ta-state.json"; ".harness/ta.json" ] in
+  (match Ta_core.Startup_paths.resolve ~exists () with
+  | Ta_core.Startup_paths.State { path; explicit = false } ->
+      Alcotest.(check string) "state path" ".ta-state.json" path
+  | _ -> Alcotest.fail "default state should win");
+  let exists path = String.equal path ".harness/ta.json" in
+  (match Ta_core.Startup_paths.resolve ~exists () with
+  | Ta_core.Startup_paths.Config { path; explicit = false } ->
+      Alcotest.(check string) "config path" ".harness/ta.json" path
+  | _ -> Alcotest.fail "default config should be selected");
+  (match
+     Ta_core.Startup_paths.resolve
+       ~exists:(fun _ -> false)
+       ~config_path:"custom.json" ()
+   with
+  | Ta_core.Startup_paths.Config { path; explicit = true } ->
+      Alcotest.(check string) "explicit config" "custom.json" path
+  | _ -> Alcotest.fail "explicit config should be selected");
+  match Ta_core.Startup_paths.resolve ~exists:(fun _ -> false) () with
+  | Ta_core.Startup_paths.Missing -> ()
+  | _ -> Alcotest.fail "missing defaults should be reported"
+
+let expect_startup_guide_names_entrypoint () =
+  Alcotest.(check bool)
+    "names dune entrypoint" true
+    (contains_substring ~needle:"dune exec ta" Ta_core.Startup_guide.text);
+  Alcotest.(check bool)
+    "mentions source command" true
+    (contains_substring
+       ~needle:
+         "dune exec tactl -- state save --output .ta-state.json \
+          .harness/ta.json"
+       Ta_core.Startup_guide.text);
+  Alcotest.(check bool)
+    "mentions default config" true
+    (contains_substring ~needle:".harness/ta.json" Ta_core.Startup_guide.text);
+  Alcotest.(check bool)
+    "mentions bundled example" true
+    (contains_substring ~needle:"cp examples/ta.example.json ta.json"
+       Ta_core.Startup_guide.text)
+
 let () =
   Alcotest.run "ta-core"
     [
@@ -722,5 +774,12 @@ let () =
             expect_tmux_session_name_argv;
           Alcotest.test_case "pane identity argv" `Quick
             expect_tmux_pane_identity_argv;
+        ] );
+      ( "startup",
+        [
+          Alcotest.test_case "resolve defaults" `Quick
+            expect_startup_paths_resolve_defaults;
+          Alcotest.test_case "guide entrypoint" `Quick
+            expect_startup_guide_names_entrypoint;
         ] );
     ]
