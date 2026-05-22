@@ -26,25 +26,22 @@ let state_dashboard_model lines state_path =
       let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
       Ok (Ta_core.Dashboard_model.of_state_runtime store runtime)
 
-let refresh_interaction refresh interaction =
-  if Ta_core.Dashboard_interaction.refresh_requested interaction then
-    match refresh () with
-    | Ok dashboard ->
-        Ta_core.Dashboard_interaction.refresh dashboard interaction
-    | Error message ->
-        Ta_core.Dashboard_interaction.refresh_failed message interaction
-  else interaction
+let dashboard_timestamp () =
+  match Ta_core.Dashboard_refresh_cadence.timestamp (Unix.gettimeofday ()) with
+  | Ok timestamp -> timestamp
+  | Error message -> invalid_arg message
 
 let replay_dashboard_keys refresh interaction keys =
-  let rec loop interaction = function
-    | [] -> interaction
+  let rec loop runner = function
+    | [] -> Ok (Ta_core.Dashboard_runner.interaction runner)
     | key :: rest ->
-        let interaction =
-          Ta_core.Dashboard_interaction.handle_key interaction key
+        let event =
+          Ta_core.Dashboard_runner.key_event ~at:(dashboard_timestamp ()) key
         in
-        loop (refresh_interaction refresh interaction) rest
+        let step = Ta_core.Dashboard_runner.step ~refresh runner event in
+        loop step.state rest
   in
-  loop interaction keys
+  loop (Ta_core.Dashboard_runner.of_interaction interaction) keys
 
 let render_state_dashboard lines width workspace agent keys state_path =
   if lines < 1 then (
@@ -78,15 +75,19 @@ let render_state_dashboard lines width workspace agent keys state_path =
         | Error message ->
             prerr_endline message;
             `Ok 2
-        | Ok interaction ->
-            let interaction =
+        | Ok interaction -> (
+            match
               replay_dashboard_keys
                 (fun () -> state_dashboard_model lines state_path)
                 interaction keys
-            in
-            print_endline
-              (Ta_core.Dashboard_interaction.render ~width interaction);
-            `Ok 0)
+            with
+            | Error message ->
+                prerr_endline message;
+                `Ok 2
+            | Ok interaction ->
+                print_endline
+                  (Ta_core.Dashboard_interaction.render ~width interaction);
+                `Ok 0))
 
 let render_config_summary path =
   match Ta_core.Workspace_config.load path with
