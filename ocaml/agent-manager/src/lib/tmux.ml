@@ -24,6 +24,7 @@ type command =
   | Send_keys_literal of { target : target; text : string }
   | Send_keys_to of { target : target; text : string }
   | Capture_pane of { target : session; lines : int }
+  | Display_pane_id of target
   | Kill_session of session
 
 let valid_session_char = function
@@ -124,6 +125,8 @@ let argv = function
       [ "send-keys"; "-t"; target; text; "Enter" ]
   | Capture_pane { target; lines } ->
       [ "capture-pane"; "-p"; "-t"; target; "-S"; "-" ^ string_of_int lines ]
+  | Display_pane_id target ->
+      [ "display-message"; "-p"; "-t"; target; "#{pane_id}" ]
   | Kill_session session -> [ "kill-session"; "-t"; session ]
 
 let command_line = function
@@ -195,6 +198,16 @@ let command_line = function
           shell_display_word target;
           "-S";
           "-" ^ string_of_int lines;
+        ]
+  | Display_pane_id target ->
+      String.concat " "
+        [
+          "tmux";
+          "display-message";
+          "-p";
+          "-t";
+          shell_display_word target;
+          shell_display_word "#{pane_id}";
         ]
   | Kill_session session -> "tmux kill-session -t " ^ shell_display_word session
 

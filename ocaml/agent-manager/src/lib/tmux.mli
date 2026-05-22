@@ -30,6 +30,7 @@ type command =
   | Send_keys_literal of { target : target; text : string }
   | Send_keys_to of { target : target; text : string }
   | Capture_pane of { target : session; lines : int }
+  | Display_pane_id of target
   | Kill_session of session
 
 val session_of_string : string -> (session, string) result

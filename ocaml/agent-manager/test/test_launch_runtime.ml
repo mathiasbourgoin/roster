@@ -112,6 +112,64 @@ let expect_duplicate_session_error () =
   | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
   | Ok _ -> Alcotest.fail "duplicate session should fail"
 
+let tmux_error command output =
+  {
+    Ta_core.Tmux.argv = "tmux" :: Ta_core.Tmux.argv command;
+    status = Unix.WEXITED 1;
+    output;
+  }
+
+let expect_run_returns_attachments () =
+  let runner command =
+    match command with
+    | Ta_core.Tmux.Has_session _ -> Error (tmux_error command "missing")
+    | Ta_core.Tmux.Display_pane_id target -> (
+        match Ta_core.Tmux.target_to_string target with
+        | "ta-fixture:0.0" -> Ok "%10\n"
+        | "ta-fixture:0.1" -> Ok "%11\n"
+        | value -> Alcotest.failf "unexpected target: %s" value)
+    | _ -> Ok ""
+  in
+  match Ta_core.Launch_runtime.run_with runner (parsed_plan ()) with
+  | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
+  | Ok attachments ->
+      Alcotest.(check (list string))
+        "panes" [ "%10"; "%11" ]
+        (List.map
+           (fun (attachment : Ta_core.Launch_runtime.attachment) ->
+             Ta_core.Id.Pane.to_string attachment.pane)
+           attachments);
+      Alcotest.(check (list string))
+        "agents" [ "lead"; "qa" ]
+        (List.map
+           (fun (attachment : Ta_core.Launch_runtime.attachment) ->
+             Ta_core.Id.Agent.to_string attachment.agent)
+           attachments)
+
+let expect_query_failure_cleans_created_session () =
+  let commands = ref [] in
+  let runner command =
+    commands := command :: !commands;
+    match command with
+    | Ta_core.Tmux.Has_session _ -> Error (tmux_error command "missing")
+    | Ta_core.Tmux.Display_pane_id _ -> Ok "not a pane id\n"
+    | _ -> Ok ""
+  in
+  match Ta_core.Launch_runtime.run_with runner (parsed_plan ()) with
+  | Error (Ta_core.Launch_runtime.Invalid_pane_id _) ->
+      let saw_cleanup =
+        List.exists
+          (function
+            | Ta_core.Tmux.Kill_session session ->
+                String.equal "ta-fixture"
+                  (Ta_core.Tmux.session_to_string session)
+            | _ -> false)
+          !commands
+      in
+      Alcotest.(check bool) "cleanup" true saw_cleanup
+  | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
+  | Ok _ -> Alcotest.fail "invalid pane id should fail"
+
 let () =
   Alcotest.run "launch-runtime"
     [
@@ -120,5 +178,9 @@ let () =
           Alcotest.test_case "command lines" `Quick expect_command_lines;
           Alcotest.test_case "duplicate session" `Quick
             expect_duplicate_session_error;
+          Alcotest.test_case "run returns attachments" `Quick
+            expect_run_returns_attachments;
+          Alcotest.test_case "query failure cleans created session" `Quick
+            expect_query_failure_cleans_created_session;
         ] );
     ]

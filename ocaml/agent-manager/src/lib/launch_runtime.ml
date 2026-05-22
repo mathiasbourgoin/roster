@@ -2,7 +2,22 @@ type error =
   | Empty_workspace of Id.Workspace.t
   | Duplicate_session of Tmux.session
   | Session_exists of Tmux.session
+  | Invalid_pane_id of {
+      target : Tmux.target;
+      output : string;
+      message : string;
+    }
   | Tmux of Tmux.error
+
+type attachment = {
+  workspace : Id.Workspace.t;
+  agent : Id.Agent.t;
+  planned_pane : Id.Pane.t;
+  pane : Id.Pane.t;
+  target : Tmux.target;
+}
+
+type runner = Tmux.command -> (string, Tmux.error) result
 
 let workspace_window_target workspace =
   Tmux.unsafe_target_of_string
@@ -78,6 +93,11 @@ let duplicate_session = function
 let sessions (plan : Launch_plan.t) =
   List.map (fun workspace -> workspace.Launch_plan.session) plan.workspaces
 
+let agents (plan : Launch_plan.t) =
+  List.concat_map
+    (fun workspace -> workspace.Launch_plan.agents)
+    plan.workspaces
+
 let validate_sessions plan =
   match duplicate_session (sessions plan) with
   | Some session -> Error (Duplicate_session session)
@@ -101,22 +121,48 @@ let command_lines (plan : Launch_plan.t) =
       | Error error -> Error error
       | Ok commands -> Ok (List.map Tmux.command_line commands))
 
-let run_command command =
-  match Tmux.run command with
-  | Ok _ -> Ok ()
-  | Error error -> Error (Tmux error)
+let run_command runner command =
+  match runner command with Ok _ -> Ok () | Error error -> Error (Tmux error)
 
-let ensure_session_absent session =
-  match Tmux.run (Tmux.Has_session session) with
+let ensure_session_absent runner session =
+  match runner (Tmux.Has_session session) with
   | Ok _ -> Error (Session_exists session)
   | Error _ -> Ok ()
 
-let cleanup sessions =
+let cleanup runner sessions =
   List.iter
-    (fun session -> ignore (Tmux.run (Tmux.Kill_session session)))
+    (fun session -> ignore (runner (Tmux.Kill_session session)))
     sessions
 
-let run (plan : Launch_plan.t) =
+let query_attachment runner (agent : Launch_plan.agent) =
+  let target = agent_target agent in
+  match runner (Tmux.Display_pane_id target) with
+  | Error error -> Error (Tmux error)
+  | Ok output -> (
+      let output = String.trim output in
+      match Id.Pane.of_string output with
+      | Ok pane ->
+          Ok
+            {
+              workspace = agent.workspace;
+              agent = agent.name;
+              planned_pane = agent.planned_pane;
+              pane;
+              target;
+            }
+      | Error message -> Error (Invalid_pane_id { target; output; message }))
+
+let query_attachments runner plan =
+  let rec loop acc = function
+    | [] -> Ok (List.rev acc)
+    | agent :: rest -> (
+        match query_attachment runner agent with
+        | Ok attachment -> loop (attachment :: acc) rest
+        | Error _ as error -> error)
+  in
+  loop [] (agents plan)
+
+let run_with runner (plan : Launch_plan.t) =
   match commands plan with
   | Error error -> Error error
   | Ok commands -> (
@@ -127,14 +173,14 @@ let run (plan : Launch_plan.t) =
           let rec ensure = function
             | [] -> Ok ()
             | session :: rest -> (
-                match ensure_session_absent session with
+                match ensure_session_absent runner session with
                 | Ok () -> ensure rest
                 | Error _ as error -> error)
           in
           let rec execute created = function
-            | [] -> Ok ()
+            | [] -> Ok created
             | command :: rest -> (
-                match run_command command with
+                match run_command runner command with
                 | Ok () ->
                     let created =
                       match command with
@@ -144,12 +190,23 @@ let run (plan : Launch_plan.t) =
                     in
                     execute created rest
                 | Error _ as error ->
-                    cleanup created;
+                    cleanup runner created;
                     error)
           in
           match ensure sessions with
-          | Ok () -> execute [] commands
+          | Ok () -> (
+              match execute [] commands with
+              | Error _ as error -> error
+              | Ok created -> (
+                  match query_attachments runner plan with
+                  | Ok attachments -> Ok attachments
+                  | Error _ as error ->
+                      cleanup runner created;
+                      error))
           | Error _ as error -> error))
+
+let run plan = run_with Tmux.run plan
+let cleanup_plan plan = cleanup Tmux.run (sessions plan)
 
 let error_to_string = function
   | Empty_workspace workspace ->
@@ -158,4 +215,8 @@ let error_to_string = function
       "duplicate tmux session in launch plan: " ^ Tmux.session_to_string session
   | Session_exists session ->
       "tmux session already exists: " ^ Tmux.session_to_string session
+  | Invalid_pane_id { target; output; message } ->
+      Printf.sprintf "tmux target %s returned invalid pane id %S: %s"
+        (Tmux.target_to_string target)
+        output message
   | Tmux error -> Tmux.error_to_string error
