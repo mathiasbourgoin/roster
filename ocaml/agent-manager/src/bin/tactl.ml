@@ -140,6 +140,31 @@ let runtime_snapshot lines output_path state_path =
                 prerr_endline (path ^ ": " ^ message);
                 `Ok 1))
 
+let render_dashboard lines width state_path =
+  if lines < 1 then (
+    prerr_endline "--lines must be positive";
+    `Ok 2)
+  else if lines > Ta_core.Runtime_snapshot.max_preview_lines then (
+    prerr_endline
+      ("--lines must be at most "
+      ^ string_of_int Ta_core.Runtime_snapshot.max_preview_lines);
+    `Ok 2)
+  else if width < 1 then (
+    prerr_endline "--width must be positive";
+    `Ok 2)
+  else
+    match Ta_core.State_file.load ~path:state_path with
+    | Error error ->
+        print_state_file_error error;
+        `Ok 1
+    | Ok store ->
+        let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
+        let dashboard =
+          Ta_core.Dashboard_model.of_state_runtime store runtime
+        in
+        print_endline (Ta_core.Dashboard_model.render ~width dashboard);
+        `Ok 0
+
 let parse_id label parse value =
   match parse value with
   | Ok id -> Ok id
@@ -556,6 +581,12 @@ let runtime_output_arg =
     & info [ "output"; "o" ] ~docv:"JSON"
         ~doc:"Optional runtime snapshot JSON output path")
 
+let dashboard_width_arg =
+  Arg.(
+    value & opt int 100
+    & info [ "width" ] ~docv:"COLS"
+        ~doc:"Dashboard frame width used by the static renderer")
+
 let socket_path_opt =
   Arg.(
     required
@@ -713,6 +744,18 @@ let runtime_cmd =
   let doc = "Inspect live tmux runtime state for cached UI views." in
   Cmd.group (Cmd.info "runtime" ~doc) [ runtime_snapshot_cmd ]
 
+let dashboard_render_cmd =
+  let doc = "Render a static TA dashboard frame from state and tmux runtime." in
+  Cmd.v (Cmd.info "render" ~doc)
+    Term.(
+      ret
+        (const render_dashboard $ runtime_lines_arg $ dashboard_width_arg
+       $ state_path_arg))
+
+let dashboard_cmd =
+  let doc = "Render dashboard views for the future MIAOU TUI." in
+  Cmd.group (Cmd.info "dashboard" ~doc) [ dashboard_render_cmd ]
+
 let launch_plan_cmd =
   let doc = "Print a deterministic supervised tmux launch plan." in
   Cmd.v (Cmd.info "plan" ~doc)
@@ -773,6 +816,7 @@ let root_cmd =
       summary_cmd;
       state_cmd;
       runtime_cmd;
+      dashboard_cmd;
       launch_cmd;
       tmux_cmd;
       socket_cmd;

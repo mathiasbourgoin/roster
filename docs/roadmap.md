@@ -42,12 +42,14 @@ commit.
   status and bounded pane previews for future UI rendering.
 - Actor-scoped Unix socket runtime snapshot endpoint so future UI clients can
   fetch authorized, cacheable pane previews through the local control plane.
+- Dashboard view model and static TUI frame renderer for workspace navigation,
+  agent runtime health, ACL summaries, and pane preview panels.
 
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
-- Add MIAOU dashboard foundation with cached runtime state, not direct
-  render-time polling.
+- Replace the static dashboard frame with an interactive MIAOU runner using the
+  dashboard model as its state/view boundary.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts at common viewport sizes.
