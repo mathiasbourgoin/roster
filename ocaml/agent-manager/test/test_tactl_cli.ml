@@ -131,6 +131,159 @@ let expect_state_save_and_load () =
              "TA state snapshot: 1 workspace(s), 2 agent(s), 1 audit event(s)"
            load.stdout))
 
+let field name = function
+  | `Assoc fields -> (
+      match List.assoc_opt name fields with
+      | Some value -> value
+      | None -> Alcotest.fail ("missing JSON field: " ^ name))
+  | _ -> Alcotest.fail ("expected JSON object for field: " ^ name)
+
+let as_list label = function
+  | `List values -> values
+  | _ -> Alcotest.fail ("expected JSON list: " ^ label)
+
+let as_string label = function
+  | `String value -> value
+  | _ -> Alcotest.fail ("expected JSON string: " ^ label)
+
+let workspace_json snapshot =
+  match snapshot |> field "workspaces" |> as_list "workspaces" with
+  | workspace :: _ -> workspace
+  | [] -> Alcotest.fail "expected workspace"
+
+let agent_json name workspace =
+  workspace |> field "agents" |> as_list "agents"
+  |> List.find_opt (fun agent ->
+      String.equal name (agent |> field "name" |> as_string "agent.name"))
+  |> function
+  | Some agent -> agent
+  | None -> Alcotest.fail ("missing agent: " ^ name)
+
+let last_audit_kind snapshot =
+  let events = snapshot |> field "audit_events" |> as_list "audit_events" in
+  match List.rev events with
+  | event :: _ -> event |> field "kind" |> field "kind" |> as_string "kind.kind"
+  | [] -> Alcotest.fail "expected audit event"
+
+let expect_state_mutations () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let status =
+        run_tactl
+          [
+            "state";
+            "set-status";
+            path;
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "--status";
+            "running";
+            "--actor";
+            "lead";
+          ]
+      in
+      check_exit "status exit" 0 status.status;
+      Alcotest.(check string) "status stderr" "" status.stderr;
+      Alcotest.(check bool)
+        "status event count" true
+        (contains_substring ~needle:"2 audit event(s)" status.stdout);
+      let pane =
+        run_tactl
+          [
+            "state";
+            "attach-pane";
+            path;
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "--pane";
+            "%77";
+            "--actor";
+            "lead";
+          ]
+      in
+      check_exit "pane exit" 0 pane.status;
+      Alcotest.(check string) "pane stderr" "" pane.stderr;
+      Alcotest.(check bool)
+        "pane event count" true
+        (contains_substring ~needle:"3 audit event(s)" pane.stdout);
+      let load = run_tactl [ "state"; "load"; path ] in
+      check_exit "load exit" 0 load.status;
+      Alcotest.(check bool)
+        "load event count" true
+        (contains_substring ~needle:"3 audit event(s)" load.stdout);
+      let snapshot = Yojson.Safe.from_file path in
+      let agent = snapshot |> workspace_json |> agent_json "lead" in
+      Alcotest.(check string)
+        "persisted status" "running"
+        (agent |> field "status" |> field "kind" |> as_string "status.kind");
+      Alcotest.(check string)
+        "persisted pane" "%77"
+        (agent |> field "pane" |> as_string "pane");
+      Alcotest.(check string)
+        "last audit kind" "pane-attached" (last_audit_kind snapshot))
+
+let expect_state_unknown_actor_keeps_snapshot () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let before = Yojson.Safe.from_file path |> Yojson.Safe.to_string in
+      let result =
+        run_tactl
+          [
+            "state";
+            "set-status";
+            path;
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "--status";
+            "done";
+            "--actor";
+            "missing";
+          ]
+      in
+      check_exit "exit" 1 result.status;
+      Alcotest.(check bool)
+        "reports actor" true
+        (contains_substring ~needle:"unknown agent: missing" result.stderr);
+      let after = Yojson.Safe.from_file path |> Yojson.Safe.to_string in
+      Alcotest.(check string) "snapshot unchanged" before after)
+
+let expect_state_bad_status () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result =
+        run_tactl
+          [
+            "state";
+            "set-status";
+            path;
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "--status";
+            "blocked";
+          ]
+      in
+      check_exit "exit" 2 result.status;
+      Alcotest.(check bool)
+        "reports reason" true
+        (contains_substring ~needle:"requires a non-empty reason" result.stderr))
+
 let expect_state_load_failure () =
   let result = run_tactl [ "state"; "load"; fixture "missing-state.json" ] in
   check_exit "exit" 1 result.status;
@@ -153,6 +306,10 @@ let () =
       ( "state",
         [
           Alcotest.test_case "save and load" `Quick expect_state_save_and_load;
+          Alcotest.test_case "mutations" `Quick expect_state_mutations;
+          Alcotest.test_case "unknown actor keeps snapshot" `Quick
+            expect_state_unknown_actor_keeps_snapshot;
+          Alcotest.test_case "bad status" `Quick expect_state_bad_status;
           Alcotest.test_case "load failure" `Quick expect_state_load_failure;
         ] );
     ]

@@ -8,14 +8,16 @@ module type S = sig
   val compare : t -> t -> int
 end
 
-module Make (Name : sig
+module Make_with_extra (Name : sig
   val label : string
+  val extra_allowed : char -> bool
+  val allowed_description : string
 end) : S = struct
   type t = string
 
   let is_allowed = function
     | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '-' | '.' -> true
-    | _ -> false
+    | char -> Name.extra_allowed char
 
   let rec all_allowed s idx =
     if idx = String.length s then true
@@ -25,9 +27,7 @@ end) : S = struct
   let of_string value =
     if String.length value = 0 then Error (Name.label ^ " id must not be empty")
     else if all_allowed value 0 then Ok value
-    else
-      Error
-        (Name.label ^ " id may contain only letters, digits, '.', '_', and '-'")
+    else Error (Name.label ^ " id may contain only " ^ Name.allowed_description)
 
   let unsafe_of_string value =
     match of_string value with
@@ -38,6 +38,14 @@ end) : S = struct
   let equal = String.equal
   let compare = String.compare
 end
+
+module Make (Name : sig
+  val label : string
+end) : S = Make_with_extra (struct
+  let label = Name.label
+  let extra_allowed _ = false
+  let allowed_description = "letters, digits, '.', '_', and '-'"
+end)
 
 module Workspace = Make (struct
   let label = "workspace"
@@ -51,6 +59,10 @@ module View = Make (struct
   let label = "view"
 end)
 
-module Pane = Make (struct
+module Pane = Make_with_extra (struct
   let label = "pane"
+  let extra_allowed = function '%' -> true | _ -> false
+
+  let allowed_description =
+    "letters, digits, '.', '_', '-', and '%' for tmux pane ids"
 end)

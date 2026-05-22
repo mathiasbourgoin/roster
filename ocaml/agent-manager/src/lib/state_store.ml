@@ -180,3 +180,21 @@ let attach_pane store ~workspace ~agent ~pane ~actor =
         { workspace with agents })
   in
   Ok (append_event updated ~workspace ~actor (Pane_attached { agent; pane }))
+
+let require_no_reason status = function
+  | None -> Ok status
+  | Some _ -> Error "reason is only valid for blocked or failed status"
+
+let require_reason label make = function
+  | Some reason when String.trim reason <> "" -> Ok (make reason)
+  | _ -> Error (label ^ " status requires a non-empty reason")
+
+let status_of_string ?reason = function
+  | "not-started" -> require_no_reason Not_started reason
+  | "starting" -> require_no_reason Starting reason
+  | "running" -> require_no_reason Running reason
+  | "idle" -> require_no_reason Idle reason
+  | "done" -> require_no_reason Done reason
+  | "blocked" -> require_reason "blocked" (fun reason -> Blocked reason) reason
+  | "failed" -> require_reason "failed" (fun reason -> Failed reason) reason
+  | value -> Error ("unknown status: " ^ value)

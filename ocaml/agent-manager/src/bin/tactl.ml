@@ -41,6 +41,8 @@ let summary roster_path path = validate_config roster_path path
 let print_state_file_error error =
   prerr_endline (Ta_core.State_file.error_to_string error)
 
+let ( let* ) = Result.bind
+
 let save_state roster_path output_path config_path =
   match load_config ?roster_path config_path with
   | Error errors ->
@@ -68,6 +70,69 @@ let load_state state_path =
   | Error error ->
       print_state_file_error error;
       `Ok 1
+
+let parse_id label parse value =
+  match parse value with
+  | Ok id -> Ok id
+  | Error message -> Error (label ^ ": " ^ message)
+
+let parse_actor = function
+  | None -> Ok None
+  | Some value ->
+      let* actor = parse_id "--actor" Ta_core.Id.Agent.of_string value in
+      Ok (Some actor)
+
+let parse_status status reason =
+  match Ta_core.State_store.status_of_string ?reason status with
+  | Ok status -> Ok status
+  | Error message -> Error ("--status: " ^ message)
+
+let print_updated_state state_path store =
+  print_endline ("state snapshot updated: " ^ state_path);
+  print_endline (Ta_core.State_store.summarize store);
+  `Ok 0
+
+let mutate_state state_path mutation =
+  match Ta_core.State_file.update ~path:state_path mutation with
+  | Ok updated -> print_updated_state state_path updated
+  | Error error ->
+      print_state_file_error error;
+      `Ok 1
+
+let set_state_status state_path workspace agent status reason actor =
+  match
+    let* workspace =
+      parse_id "--workspace" Ta_core.Id.Workspace.of_string workspace
+    in
+    let* agent = parse_id "--agent" Ta_core.Id.Agent.of_string agent in
+    let* status = parse_status status reason in
+    let* actor = parse_actor actor in
+    Ok (workspace, agent, status, actor)
+  with
+  | Error message ->
+      prerr_endline message;
+      `Ok 2
+  | Ok (workspace, agent, status, actor) ->
+      mutate_state state_path (fun store ->
+          Ta_core.State_store.set_agent_status store ~workspace ~agent ~status
+            ~actor)
+
+let attach_state_pane state_path workspace agent pane actor =
+  match
+    let* workspace =
+      parse_id "--workspace" Ta_core.Id.Workspace.of_string workspace
+    in
+    let* agent = parse_id "--agent" Ta_core.Id.Agent.of_string agent in
+    let* pane = parse_id "--pane" Ta_core.Id.Pane.of_string pane in
+    let* actor = parse_actor actor in
+    Ok (workspace, agent, pane, actor)
+  with
+  | Error message ->
+      prerr_endline message;
+      `Ok 2
+  | Ok (workspace, agent, pane, actor) ->
+      mutate_state state_path (fun store ->
+          Ta_core.State_store.attach_pane store ~workspace ~agent ~pane ~actor)
 
 let tmux_status session_name =
   match Ta_core.Tmux.session_of_string session_name with
@@ -134,6 +199,47 @@ let output_arg =
     & info [ "output"; "o" ] ~docv:"STATE"
         ~doc:"Path where the state snapshot will be written")
 
+let workspace_arg =
+  Arg.(
+    required
+    & opt (some string) None
+    & info [ "workspace"; "w" ] ~docv:"WORKSPACE" ~doc:"Workspace id")
+
+let agent_arg =
+  Arg.(
+    required
+    & opt (some string) None
+    & info [ "agent"; "a" ] ~docv:"AGENT" ~doc:"Agent id")
+
+let actor_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "actor" ] ~docv:"AGENT"
+        ~doc:"Optional actor agent id for the audit event")
+
+let status_arg =
+  Arg.(
+    required
+    & opt (some string) None
+    & info [ "status" ] ~docv:"STATUS"
+        ~doc:
+          "Agent status: not-started, starting, running, idle, blocked, done, \
+           failed")
+
+let reason_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "reason" ] ~docv:"TEXT"
+        ~doc:"Reason required for blocked or failed status")
+
+let pane_arg =
+  Arg.(
+    required
+    & opt (some string) None
+    & info [ "pane" ] ~docv:"PANE" ~doc:"tmux pane id to attach")
+
 let smoke_session_arg =
   Arg.(
     value
@@ -160,9 +266,33 @@ let state_load_cmd =
   let doc = "Load and validate a state snapshot file." in
   Cmd.v (Cmd.info "load" ~doc) Term.(ret (const load_state $ state_path_arg))
 
+let state_set_status_cmd =
+  let doc = "Update an agent status in a state snapshot." in
+  Cmd.v
+    (Cmd.info "set-status" ~doc)
+    Term.(
+      ret
+        (const set_state_status $ state_path_arg $ workspace_arg $ agent_arg
+       $ status_arg $ reason_arg $ actor_arg))
+
+let state_attach_pane_cmd =
+  let doc = "Attach a tmux pane id to an agent in a state snapshot." in
+  Cmd.v
+    (Cmd.info "attach-pane" ~doc)
+    Term.(
+      ret
+        (const attach_state_pane $ state_path_arg $ workspace_arg $ agent_arg
+       $ pane_arg $ actor_arg))
+
 let state_cmd =
   let doc = "Persist and inspect TA state snapshots." in
-  Cmd.group (Cmd.info "state" ~doc) [ state_save_cmd; state_load_cmd ]
+  Cmd.group (Cmd.info "state" ~doc)
+    [
+      state_save_cmd;
+      state_load_cmd;
+      state_set_status_cmd;
+      state_attach_pane_cmd;
+    ]
 
 let tmux_status_cmd =
   let doc = "Check whether a tmux session exists." in

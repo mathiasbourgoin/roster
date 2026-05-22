@@ -424,6 +424,21 @@ let expect_snapshot_rejects_broken_graph () =
   | Error errors ->
       Alcotest.(check int) "one snapshot error" 1 (List.length errors)
 
+let expect_status_parser () =
+  (match Ta_core.State_store.status_of_string ~reason:"waiting" "blocked" with
+  | Ok (Ta_core.State_store.Blocked reason) ->
+      Alcotest.(check string) "blocked reason" "waiting" reason
+  | Ok status ->
+      Alcotest.fail
+        ("unexpected status: " ^ Ta_core.State_store.status_to_string status)
+  | Error message -> Alcotest.fail message);
+  (match Ta_core.State_store.status_of_string "blocked" with
+  | Ok _ -> Alcotest.fail "blocked without reason should fail"
+  | Error _ -> ());
+  match Ta_core.State_store.status_of_string ~reason:"unused" "running" with
+  | Ok _ -> Alcotest.fail "running with reason should fail"
+  | Error _ -> ()
+
 let () =
   Alcotest.run "state-store"
     [
@@ -452,5 +467,6 @@ let () =
             expect_snapshot_rejects_broken_audit_reference;
           Alcotest.test_case "snapshot rejects broken graph" `Quick
             expect_snapshot_rejects_broken_graph;
+          Alcotest.test_case "status parser" `Quick expect_status_parser;
         ] );
     ]

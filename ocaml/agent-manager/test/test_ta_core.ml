@@ -215,9 +215,15 @@ let expect_unknown_roster_agent () =
       Alcotest.(check int) "unknown qa roster agent" 1 (List.length errors)
 
 let expect_bad_id () =
-  match Ta_core.Id.Agent.of_string "bad id" with
+  (match Ta_core.Id.Agent.of_string "bad id" with
   | Ok _ -> Alcotest.fail "bad id should be rejected"
-  | Error _ -> ()
+  | Error _ -> ());
+  match Ta_core.Id.Pane.of_string "%77" with
+  | Ok pane ->
+      Alcotest.(check string)
+        "tmux pane id" "%77"
+        (Ta_core.Id.Pane.to_string pane)
+  | Error message -> Alcotest.fail message
 
 let expect_tmux_argv () =
   let session = Ta_core.Tmux.unsafe_session_of_string "ta-test" in

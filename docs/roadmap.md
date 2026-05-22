@@ -24,12 +24,14 @@ commit.
 - QA report with tmux execution evidence.
 - Pure workspace state store with audit log, ACL checks, and JSON snapshots.
 - Snapshot file save/load commands for initial workspace state.
+- Snapshot mutation commands for agent status and tmux pane attachment.
 
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
 - Add supervised agent launch from workspace config.
-- Add runtime state mutation commands for status and pane changes.
+- Add `tactl state show` with agent-level detail for status, panes, ACLs, and
+  recent audit events.
 - Add Unix socket API mirroring `tactl` commands.
 - Add MIAOU dashboard with cached runtime state, not direct render-time polling.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent

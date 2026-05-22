@@ -89,4 +89,5 @@ val attach_pane :
   actor:Id.Agent.t option ->
   (t, string) result
 
+val status_of_string : ?reason:string -> string -> (agent_status, string) result
 val status_to_string : agent_status -> string
