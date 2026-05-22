@@ -89,6 +89,11 @@ commit.
 - Dashboard rendering now has a shared viewport height contract and `--height`
   clipping across `ta`, `tactl dashboard render`, and `render-socket`, giving
   the Herdr-quality UI baseline an enforceable terminal-size gate.
+- `ta` now starts from workspace defaults: it prefers saved state snapshots,
+  falls back to config-backed dashboards, supports this source tree's bundled
+  example config, and prints a concrete quickstart only when no defaults exist.
+  `tactl quickstart` and root help/man sections document the source-tree and
+  installed startup flows.
 
 ## Near-Term Milestones
 

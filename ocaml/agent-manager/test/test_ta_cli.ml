@@ -4,8 +4,12 @@ type command_result = {
   stderr : string;
 }
 
+let initial_cwd = Sys.getcwd ()
+
 let ta_exe () =
   match Sys.getenv_opt "TA_EXE" with
+  | Some value when Filename.is_relative value ->
+      Filename.concat initial_cwd value
   | Some value -> value
   | None -> Alcotest.fail "TA_EXE is not set"
 
@@ -77,6 +81,68 @@ let line_count value =
 let with_temp_state f =
   let path = Filename.temp_file "ta-cli-state" ".json" in
   Fun.protect ~finally:(fun () -> remove_noerr path) (fun () -> f path)
+
+let mkdir_noerr path mode =
+  try Unix.mkdir path mode with Unix.Unix_error (Unix.EEXIST, _, _) -> ()
+
+let with_temp_workspace f =
+  let rec create attempt =
+    let path =
+      Filename.concat
+        (Filename.get_temp_dir_name ())
+        (Printf.sprintf "ta-cli-workspace-%d-%d" (Unix.getpid ()) attempt)
+    in
+    try
+      Unix.mkdir path 0o700;
+      path
+    with Unix.Unix_error (Unix.EEXIST, _, _) -> create (attempt + 1)
+  in
+  let path = create 0 in
+  Fun.protect
+    ~finally:(fun () ->
+      remove_noerr (Filename.concat path ".ta-state.json");
+      remove_noerr (Filename.concat path "ta.json");
+      remove_noerr
+        (Filename.concat path "ocaml/agent-manager/examples/ta.example.json");
+      remove_noerr (Filename.concat path "examples/ta.example.json");
+      remove_noerr (Filename.concat path ".harness/ta.json");
+      (try Unix.rmdir (Filename.concat path "examples")
+       with Unix.Unix_error _ -> ());
+      (try Unix.rmdir (Filename.concat path ".harness")
+       with Unix.Unix_error _ -> ());
+      try Unix.rmdir path with Unix.Unix_error _ -> ())
+    (fun () -> f path)
+
+let with_chdir path f =
+  let cwd = Sys.getcwd () in
+  Sys.chdir path;
+  Fun.protect ~finally:(fun () -> Sys.chdir cwd) f
+
+let read_file path =
+  let channel = open_in path in
+  Fun.protect
+    ~finally:(fun () -> close_in_noerr channel)
+    (fun () -> read_all channel)
+
+let write_file path contents =
+  let channel = open_out path in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr channel)
+    (fun () -> output_string channel contents)
+
+let write_default_config dir =
+  let harness = Filename.concat dir ".harness" in
+  mkdir_noerr harness 0o700;
+  write_file
+    (Filename.concat harness "ta.json")
+    (read_file (fixture "ta-valid.json"))
+
+let write_source_tree_example_config dir =
+  let examples = Filename.concat dir "examples" in
+  mkdir_noerr examples 0o700;
+  write_file
+    (Filename.concat examples "ta.example.json")
+    (read_file (fixture "ta-valid.json"))
 
 let save_state path =
   match Ta_core.Workspace_config.load (fixture "ta-valid.json") with
@@ -168,9 +234,84 @@ let expect_rejects_bad_height () =
         "height error" true
         (contains_substring ~needle:"--height must be positive" result.stderr))
 
+let expect_no_defaults_prints_quickstart () =
+  with_temp_workspace (fun dir ->
+      with_chdir dir (fun () ->
+          let result = run_ta [] in
+          check_exit "exit" 0 result.status;
+          Alcotest.(check string) "stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "quickstart" true
+            (contains_substring ~needle:"TA quickstart" result.stdout);
+          Alcotest.(check bool)
+            "entrypoint" true
+            (contains_substring ~needle:"dune exec ta" result.stdout);
+          Alcotest.(check bool)
+            "default config" true
+            (contains_substring ~needle:".harness/ta.json" result.stdout)))
+
+let expect_default_config_renders_dashboard () =
+  with_temp_workspace (fun dir ->
+      write_default_config dir;
+      with_chdir dir (fun () ->
+          let result = run_ta [ "--width"; "92" ] in
+          check_exit "exit" 0 result.status;
+          Alcotest.(check string) "stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "dashboard header" true
+            (contains_substring ~needle:"TA Dashboard" result.stdout);
+          Alcotest.(check bool)
+            "workspace" true
+            (contains_substring ~needle:"fixture" result.stdout);
+          Alcotest.(check bool)
+            "config pane state" true
+            (contains_substring ~needle:"DETACHED" result.stdout)))
+
+let expect_source_tree_example_renders_dashboard () =
+  with_temp_workspace (fun dir ->
+      write_source_tree_example_config dir;
+      with_chdir dir (fun () ->
+          let result = run_ta [ "--width"; "92" ] in
+          check_exit "exit" 0 result.status;
+          Alcotest.(check string) "stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "dashboard header" true
+            (contains_substring ~needle:"TA Dashboard" result.stdout);
+          Alcotest.(check bool)
+            "example workspace" true
+            (contains_substring ~needle:"fixture" result.stdout);
+          Alcotest.(check bool)
+            "example agent" true
+            (contains_substring ~needle:"lead" result.stdout)))
+
+let expect_help_documents_startup () =
+  let result = run_ta [ "--help=plain" ] in
+  check_exit "exit" 0 result.status;
+  Alcotest.(check string) "stderr" "" result.stderr;
+  Alcotest.(check bool)
+    "default startup section" true
+    (contains_substring ~needle:"DEFAULT STARTUP" result.stdout);
+  Alcotest.(check bool)
+    "source command" true
+    (contains_substring ~needle:"dune exec ta" result.stdout);
+  Alcotest.(check bool)
+    "tui status" true
+    (contains_substring ~needle:"MIAOU TUI adapter is not wired" result.stdout)
+
 let () =
   Alcotest.run "ta-cli"
     [
+      ( "startup",
+        [
+          Alcotest.test_case "no defaults prints quickstart" `Quick
+            expect_no_defaults_prints_quickstart;
+          Alcotest.test_case "default config renders dashboard" `Quick
+            expect_default_config_renders_dashboard;
+          Alcotest.test_case "source tree example renders dashboard" `Quick
+            expect_source_tree_example_renders_dashboard;
+          Alcotest.test_case "help documents startup" `Quick
+            expect_help_documents_startup;
+        ] );
       ( "dashboard",
         [
           Alcotest.test_case "state dashboard" `Quick expect_state_dashboard;

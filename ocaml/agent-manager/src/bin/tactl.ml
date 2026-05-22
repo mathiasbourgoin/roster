@@ -38,6 +38,10 @@ let validate_config roster_path path =
 
 let summary roster_path path = validate_config roster_path path
 
+let quickstart () =
+  print_endline Ta_core.Startup_guide.text;
+  `Ok 0
+
 let print_state_file_error error =
   prerr_endline (Ta_core.State_file.error_to_string error)
 
@@ -938,6 +942,20 @@ let summary_cmd =
   Cmd.v (Cmd.info "summary" ~doc)
     Term.(ret (const summary $ roster_arg $ config_arg))
 
+let quickstart_cmd =
+  let doc = "Print the default TA startup flow." in
+  let man =
+    [
+      `S Manpage.s_description;
+      `P
+        "Prints the commands and default paths needed to start the TA \
+         dashboard from a workspace checkout or an installed binary.";
+    ]
+  in
+  Cmd.v
+    (Cmd.info "quickstart" ~doc ~man)
+    Term.(ret (const quickstart $ const ()))
+
 let state_save_cmd =
   let doc = "Create an initial state snapshot from a workspace config." in
   Cmd.v (Cmd.info "save" ~doc)
@@ -1102,9 +1120,32 @@ let socket_cmd =
 
 let root_cmd =
   let doc = "Control TA roster-agent workspaces." in
-  Cmd.group
-    (Cmd.info "tactl" ~version:"0.1.0" ~doc)
+  let man =
     [
+      `S Manpage.s_description;
+      `P
+        "tactl manages TA workspace configs, state snapshots, tmux launches, \
+         the local socket control plane, and static dashboard renders.";
+      `S "STARTING THE DASHBOARD";
+      `P
+        "For the app entrypoint, run ta with no flags. tactl quickstart prints \
+         the full source-tree and installed command flow.";
+      `Pre
+        "cd ocaml/agent-manager\n\
+         dune exec ta\n\
+         dune exec tactl -- quickstart\n\
+         dune exec tactl -- launch start --state .ta-state.json .harness/ta.json\n\
+         dune exec tactl -- launch start --state .ta-state.json ta.json";
+      `P
+        "Use .harness/ta.json for a real workspace config. Use ta.json when \
+         copying the bundled example unchanged, because that example has root \
+         \".\".";
+    ]
+  in
+  Cmd.group
+    (Cmd.info "tactl" ~version:"0.1.0" ~doc ~man)
+    [
+      quickstart_cmd;
       validate_cmd;
       summary_cmd;
       state_cmd;

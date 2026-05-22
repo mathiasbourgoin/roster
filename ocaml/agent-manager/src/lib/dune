@@ -21,6 +21,8 @@
   roster_pipeline_role
   roster_index
   runtime_snapshot
+  startup_guide
+  startup_paths
   socket_api
   socket_protocol
   state_file

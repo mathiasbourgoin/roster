@@ -1,11 +1,5 @@
 open Cmdliner
 
-let print_errors errors =
-  List.iter
-    (fun error ->
-      prerr_endline (Ta_core.Workspace_config.error_to_string error))
-    errors
-
 let ( let* ) = Result.bind
 
 let parse_id label parse value =
@@ -25,6 +19,22 @@ let state_dashboard_model lines state_path =
   | Ok store ->
       let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
       Ok (Ta_core.Dashboard_model.of_state_runtime store runtime)
+
+let config_dashboard_model lines config_path =
+  match Ta_core.Workspace_config.load config_path with
+  | Error errors ->
+      Error
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+  | Ok config -> (
+      match Ta_core.State_store.of_config config with
+      | Error errors ->
+          Error
+            (String.concat "\n"
+               (List.map Ta_core.Workspace_config.error_to_string errors))
+      | Ok store ->
+          let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
+          Ok (Ta_core.Dashboard_model.of_state_runtime store runtime))
 
 let dashboard_timestamp () =
   match Ta_core.Dashboard_refresh_cadence.timestamp (Unix.gettimeofday ()) with
@@ -50,7 +60,8 @@ let parse_dashboard_height = function
       | Ok height -> Ok (Some height)
       | Error _ -> Error "--height must be positive")
 
-let render_state_dashboard lines width height workspace agent keys state_path =
+let render_dashboard_model ~refresh lines width height workspace agent keys
+    dashboard =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
     `Ok 2)
@@ -73,69 +84,64 @@ let render_state_dashboard lines width height workspace agent keys state_path =
     match height with
     | Error () -> `Ok 2
     | Ok height -> (
-        match state_dashboard_model lines state_path with
+        let interaction = Ta_core.Dashboard_interaction.init dashboard in
+        match
+          let* workspace =
+            parse_optional_id "--workspace" Ta_core.Id.Workspace.of_string
+              workspace
+          in
+          let* agent =
+            parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent
+          in
+          Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
+        with
         | Error message ->
             prerr_endline message;
-            `Ok 1
-        | Ok dashboard -> (
-            let interaction = Ta_core.Dashboard_interaction.init dashboard in
-            match
-              let* workspace =
-                parse_optional_id "--workspace" Ta_core.Id.Workspace.of_string
-                  workspace
-              in
-              let* agent =
-                parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent
-              in
-              Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
-            with
+            `Ok 2
+        | Ok interaction -> (
+            match replay_dashboard_keys refresh interaction keys with
             | Error message ->
                 prerr_endline message;
                 `Ok 2
-            | Ok interaction -> (
-                match
-                  replay_dashboard_keys
-                    (fun () -> state_dashboard_model lines state_path)
-                    interaction keys
-                with
-                | Error message ->
-                    prerr_endline message;
-                    `Ok 2
-                | Ok interaction ->
-                    print_endline
-                      (Ta_core.Dashboard_interaction.render ~width ?height
-                         ~lines interaction);
-                    `Ok 0)))
+            | Ok interaction ->
+                print_endline
+                  (Ta_core.Dashboard_interaction.render ~width ?height ~lines
+                     interaction);
+                `Ok 0))
 
-let render_config_summary path =
-  match Ta_core.Workspace_config.load path with
-  | Error errors ->
-      print_errors errors;
+let render_state_dashboard lines width height workspace agent keys state_path =
+  match state_dashboard_model lines state_path with
+  | Error message ->
+      prerr_endline message;
       `Ok 1
-  | Ok config ->
-      let errors = Ta_core.Workspace_config.validate config in
-      if errors = [] then (
-        print_endline "TA bootstrap dashboard";
-        print_endline (Ta_core.Workspace_config.summarize config);
-        print_endline
-          "State dashboard: run tactl state save, then pass --state STATE.";
-        `Ok 0)
-      else (
-        print_errors errors;
-        `Ok 1)
+  | Ok dashboard ->
+      render_dashboard_model
+        ~refresh:(fun () -> state_dashboard_model lines state_path)
+        lines width height workspace agent keys dashboard
+
+let render_config_dashboard lines width height workspace agent keys config_path
+    =
+  match config_dashboard_model lines config_path with
+  | Error message ->
+      prerr_endline message;
+      `Ok 1
+  | Ok dashboard ->
+      render_dashboard_model
+        ~refresh:(fun () -> config_dashboard_model lines config_path)
+        lines width height workspace agent keys dashboard
 
 let dashboard lines width height workspace agent keys state_path config_path =
-  match state_path with
-  | Some path ->
+  match
+    Ta_core.Startup_paths.resolve ~exists:Sys.file_exists ?state_path
+      ?config_path ()
+  with
+  | Ta_core.Startup_paths.State { path; explicit = _ } ->
       render_state_dashboard lines width height workspace agent keys path
-  | None -> (
-      match config_path with
-      | None ->
-          print_endline "TA bootstrap dashboard";
-          print_endline "No state provided. Pass --state state.json.";
-          print_endline "No config provided. Pass --config .harness/ta.json.";
-          `Ok 0
-      | Some path -> render_config_summary path)
+  | Ta_core.Startup_paths.Config { path; explicit = _ } ->
+      render_config_dashboard lines width height workspace agent keys path
+  | Ta_core.Startup_paths.Missing ->
+      print_endline Ta_core.Startup_guide.text;
+      `Ok 0
 
 let config_arg =
   Arg.(
@@ -191,8 +197,52 @@ let key_arg =
 
 let root_cmd =
   let doc = "Launch the TA roster-agent workspace manager." in
+  let man =
+    [
+      `S Manpage.s_description;
+      `P
+        "TA starts a roster-native terminal dashboard for tmux-backed agent \
+         workspaces. With no flags it looks for the default state and config \
+         files in the current workspace.";
+      `S "DEFAULT STARTUP";
+      `P
+        ("State lookup order: "
+        ^ Ta_core.Startup_paths.describe_candidates
+            Ta_core.Startup_paths.state_candidates
+        ^ ".");
+      `P
+        ("Config lookup order: "
+        ^ Ta_core.Startup_paths.describe_candidates
+            Ta_core.Startup_paths.config_candidates
+        ^ ".");
+      `P
+        "If a state snapshot exists, TA renders the dashboard from that state. \
+         If only a config exists, TA renders a config-backed dashboard without \
+         attached panes so the UI still opens.";
+      `S "STARTING FROM SOURCE";
+      `Pre
+        "cd ocaml/agent-manager\n\
+         dune exec ta\n\
+         mkdir -p .harness\n\
+         cp /path/to/your-ta.json .harness/ta.json\n\
+         dune exec tactl -- state save --output .ta-state.json .harness/ta.json\n\
+         dune exec tactl -- launch start --state .ta-state.json .harness/ta.json\n\
+         dune exec ta";
+      `S "BUNDLED EXAMPLE";
+      `Pre
+        "cd ocaml/agent-manager\n\
+         cp examples/ta.example.json ta.json\n\
+         dune exec tactl -- state save --output .ta-state.json ta.json\n\
+         dune exec tactl -- launch start --state .ta-state.json ta.json\n\
+         dune exec ta";
+      `S "CURRENT TUI STATUS";
+      `P
+        "The concrete MIAOU TUI adapter is not wired in this build yet. The ta \
+         entrypoint starts the terminal dashboard renderer today.";
+    ]
+  in
   Cmd.v
-    (Cmd.info "ta" ~version:"0.1.0" ~doc)
+    (Cmd.info "ta" ~version:"0.1.0" ~doc ~man)
     Term.(
       ret
         (const dashboard $ lines_arg $ width_arg $ height_arg $ workspace_arg
