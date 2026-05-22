@@ -1,4 +1,4 @@
-type focus = Workspaces | Agents
+type focus = Workspaces | Agents | Pipeline
 type refresh_status = Fresh | Refreshing | Stale of string
 
 type t = {
@@ -32,6 +32,11 @@ let selected_workspace_state state =
   match state.selected_workspace with
   | None -> None
   | Some workspace -> find_workspace state.model workspace
+
+let model_focus = function
+  | Workspaces -> Dashboard_model.Workspaces
+  | Agents -> Dashboard_model.Agents
+  | Pipeline -> Dashboard_model.Pipeline
 
 let selection state : Dashboard_model.selection =
   { workspace = state.selected_workspace; agent = state.selected_agent }
@@ -172,23 +177,45 @@ let move_agent direction state =
       | Ok state -> state
       | Error _ -> state)
 
+let selected_topology_node state =
+  match (state.selected_workspace, state.selected_agent) with
+  | Some workspace, Some agent ->
+      Some (Dashboard_topology.node_id ~workspace ~agent)
+  | _ -> None
+
+let move_pipeline direction state =
+  match
+    Dashboard_topology.move direction
+      ~selected:(selected_topology_node state)
+      (Dashboard_model.topology state.model)
+  with
+  | None -> state
+  | Some selected ->
+      select
+        ~workspace:(Dashboard_topology.node_workspace selected)
+        ~agent:(Dashboard_topology.node_agent selected)
+        state
+      |> Result.value ~default:state
+
 let move direction state =
   match state.focus with
   | Workspaces -> move_workspace direction state
   | Agents -> move_agent direction state
+  | Pipeline -> move_pipeline direction state
+
+let next_focus = function
+  | Agents -> Pipeline
+  | Pipeline -> Workspaces
+  | Workspaces -> Agents
 
 let handle_key state = function
   | "q" | "Q" -> { state with should_quit = true }
   | "r" | "R" ->
       { state with refresh_requested = true; refresh_status = Refreshing }
-  | "Tab" ->
-      {
-        state with
-        focus =
-          (match state.focus with Workspaces -> Agents | Agents -> Workspaces);
-      }
+  | "Tab" -> { state with focus = next_focus state.focus }
   | "w" | "W" -> { state with focus = Workspaces }
   | "a" | "A" -> { state with focus = Agents }
+  | "p" | "P" -> { state with focus = Pipeline }
   | "j" | "J" | "Down" -> move `Next state
   | "k" | "K" | "Up" -> move `Previous state
   | "Right" | "l" | "L" -> move_agent `Next { state with focus = Agents }
@@ -204,7 +231,8 @@ let refresh_age_label ~now captured_at =
 
 let render ?(now = Unix.gettimeofday ()) ?width state =
   let dashboard =
-    Dashboard_model.render ?width ~selection:(selection state) state.model
+    Dashboard_model.render ?width ~selection:(selection state)
+      ~focus:(model_focus state.focus) state.model
   in
   let captured =
     match state.model.captured_at with

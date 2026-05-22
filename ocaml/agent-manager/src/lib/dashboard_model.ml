@@ -55,6 +55,8 @@ type t = {
   totals : totals;
 }
 
+type focus = Workspaces | Agents | Pipeline
+
 type selection = {
   workspace : Id.Workspace.t option;
   agent : Id.Agent.t option;
@@ -364,54 +366,60 @@ let pipeline_stage_label agent =
       | None -> agent.roster_agent)
   | None -> agent.roster_agent
 
-let pipeline_contract_flag agent =
+let pipeline_contract_state agent =
   match agent.roster_metadata with
-  | Some { pipeline_role = Some _; _ } -> "contract"
-  | _ -> "unknown"
+  | Some { pipeline_role = Some _; _ } -> Dashboard_topology.Contract
+  | _ -> Dashboard_topology.Unknown
 
-let pipeline_agent_line workspace agent =
-  Printf.sprintf "  %-9s %-12s %-22s %-11s status %s"
-    (fit 9 (Id.Workspace.to_string workspace.id))
-    (fit 12 (Id.Agent.to_string agent.name))
-    (fit 22 (pipeline_stage_label agent))
-    (fit 11 (pipeline_contract_flag agent))
-    (status_to_string agent.status)
+let topology_node workspace agent : Dashboard_topology.node =
+  {
+    id = Dashboard_topology.node_id ~workspace:workspace.id ~agent:agent.name;
+    role = pipeline_stage_label agent;
+    contract = pipeline_contract_state agent;
+    status = status_to_string agent.status;
+  }
 
-let pipeline_acl_line workspace agent =
-  let readable = join_agent_ids agent.outgoing.readable in
-  let writable = join_agent_ids agent.outgoing.writable in
-  if String.equal readable "-" && String.equal writable "-" then None
-  else
-    Some
-      (Printf.sprintf "  ACL %s/%s -> read %s | write %s"
-         (Id.Workspace.to_string workspace.id)
-         (Id.Agent.to_string agent.name)
-         readable writable)
+let visible_agent_ids workspaces =
+  workspaces
+  |> List.concat_map (fun workspace ->
+      List.map
+        (fun agent ->
+          Dashboard_topology.node_id ~workspace:workspace.id ~agent:agent.name)
+        workspace.agents)
 
-let pipeline_lines width workspaces =
-  let agents =
-    workspaces
+let visible_agent visible_ids workspace agent =
+  let candidate = Dashboard_topology.node_id ~workspace ~agent in
+  List.exists (Dashboard_topology.equal_node_id candidate) visible_ids
+
+let topology_edge visible_ids workspace agent =
+  let filter_visible = List.filter (visible_agent visible_ids workspace.id) in
+  match
+    ( filter_visible agent.outgoing.readable,
+      filter_visible agent.outgoing.writable )
+  with
+  | [], [] -> None
+  | readable, writable ->
+      Some
+        {
+          Dashboard_topology.workspace = workspace.id;
+          from_agent = agent.name;
+          readable;
+          writable;
+        }
+
+let topology model =
+  let visible_ids = visible_agent_ids model.workspaces in
+  let nodes =
+    model.workspaces
     |> List.concat_map (fun workspace ->
-        List.map (fun agent -> (workspace, agent)) workspace.agents)
+        List.map (topology_node workspace) workspace.agents)
   in
-  let stage_lines =
-    agents
-    |> List.map (fun (workspace, agent) -> pipeline_agent_line workspace agent)
+  let declared_acl_edges =
+    model.workspaces
+    |> List.concat_map (fun workspace ->
+        List.filter_map (topology_edge visible_ids workspace) workspace.agents)
   in
-  let acl_lines =
-    agents
-    |> List.filter_map (fun (workspace, agent) ->
-        pipeline_acl_line workspace agent)
-  in
-  let lines =
-    "Pipeline overview"
-    :: fit width
-         "  WORKSPACE AGENT        ROSTER ROLE            CONTRACT    STATUS"
-    :: (match stage_lines with [] -> [ "  none" ] | lines -> lines)
-    @ [ "  ACL edges (declared links, not inferred workflow order)" ]
-    @ match acl_lines with [] -> [ "  none" ] | lines -> lines
-  in
-  List.map (fit width) lines
+  { Dashboard_topology.nodes; declared_acl_edges }
 
 let selection_workspace selection =
   match selection with None -> None | Some selection -> selection.workspace
@@ -489,11 +497,17 @@ let preview_lines width workspaces selection =
       let metadata = roster_preview_lines agent |> List.map (fit width) in
       (fit width header :: metadata) @ body
 
-let render ?(width = 100) ?selection model =
+let render ?(width = 100) ?selection ?focus model =
   let width = clamp_width width in
   let totals = model.totals in
   let selected_workspace = selected_workspace_id model.workspaces selection in
   let selected_agent = selection_agent selection in
+  let selected_topology_node =
+    match (selected_workspace, selected_agent) with
+    | Some workspace, Some agent ->
+        Some (Dashboard_topology.node_id ~workspace ~agent)
+    | _ -> None
+  in
   let header =
     Printf.sprintf
       "TA Dashboard | workspaces %d | agents %d | live %d | blocked %d | \
@@ -536,7 +550,14 @@ let render ?(width = 100) ?selection model =
     | [] -> [ "  none" ]
     | rows -> List.map (fit width) rows)
   in
-  let pipeline = pipeline_lines width model.workspaces in
+  let pipeline =
+    Dashboard_topology.render ~width
+      ~focused:
+        (match focus with
+        | Some Pipeline -> true
+        | Some Workspaces | Some Agents | None -> false)
+      ~selected:selected_topology_node (topology model)
+  in
   let preview = preview_lines width model.workspaces selection in
   String.concat "\n"
     ([ header; rule width ]
