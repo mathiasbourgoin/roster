@@ -23,4 +23,4 @@ val select :
 val refresh : Dashboard_model.t -> t -> t
 val refresh_failed : string -> t -> t
 val handle_key : t -> string -> t
-val render : ?width:int -> t -> string
+val render : ?now:float -> ?width:int -> t -> string

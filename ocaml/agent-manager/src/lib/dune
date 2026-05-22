@@ -5,6 +5,7 @@
   id
   dashboard_interaction
   dashboard_model
+  dashboard_refresh_cadence
   dashboard_socket_refresh
   dashboard_snapshot
   launch_plan
