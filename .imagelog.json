@@ -1,0 +1,13 @@
+[
+  {
+    "timestamp": "2026-05-22T22:27:00Z",
+    "mode": "generate",
+    "raw_prompt": "a minimalist duck sitting on a keyboard, flat design, teal and white palette",
+    "refined_prompt": "A minimalist flat-design illustration of a small duck sitting centered on a computer keyboard, viewed from slightly above at a three-quarter angle. The duck is rendered in clean teal (#00B4B4) with a white belly and no outlines — pure geometric shapes. The keyboard is white with subtle teal key detail. Background is solid off-white. No gradients, no shadows, no textures. Square 1:1 composition, 512×512. Style: modern icon / sticker art.",
+    "output_path": "test-image.png",
+    "size": "512x512",
+    "format": "png",
+    "attempts": 1,
+    "outcome": "pass"
+  }
+]
