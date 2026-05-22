@@ -616,7 +616,23 @@ let expect_dashboard_render_uses_roster_index () =
         [ "Pipeline: triggered by fixture" ]
         (result.stdout
         |> lines_containing ~needle:"Pipeline:"
-        |> List.map String.trim))
+        |> List.map String.trim);
+      Alcotest.(check bool)
+        "pipeline overview section" true
+        (contains_substring ~needle:"Pipeline overview" result.stdout);
+      Alcotest.(check bool)
+        "pipeline overview contract flag" true
+        (contains_substring ~needle:"Tech Lead              contract"
+           result.stdout);
+      Alcotest.(check bool)
+        "pipeline overview acl disclaimer" true
+        (contains_substring
+           ~needle:"ACL edges (declared links, not inferred workflow order)"
+           result.stdout);
+      Alcotest.(check bool)
+        "pipeline overview acl edge" true
+        (contains_substring ~needle:"ACL fixture/lead -> read qa | write -"
+           result.stdout))
 
 let expect_dashboard_render_rejects_bad_width () =
   with_temp_state (fun path ->

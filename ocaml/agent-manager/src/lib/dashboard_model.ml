@@ -356,6 +356,63 @@ let agent_line selected workspace agent =
     (fit 20 (compact_metadata agent))
     (fit 18 acl)
 
+let pipeline_stage_label agent =
+  match agent.roster_metadata with
+  | Some metadata -> (
+      match metadata.display_name with
+      | Some display_name -> display_name
+      | None -> agent.roster_agent)
+  | None -> agent.roster_agent
+
+let pipeline_contract_flag agent =
+  match agent.roster_metadata with
+  | Some { pipeline_role = Some _; _ } -> "contract"
+  | _ -> "unknown"
+
+let pipeline_agent_line workspace agent =
+  Printf.sprintf "  %-9s %-12s %-22s %-11s status %s"
+    (fit 9 (Id.Workspace.to_string workspace.id))
+    (fit 12 (Id.Agent.to_string agent.name))
+    (fit 22 (pipeline_stage_label agent))
+    (fit 11 (pipeline_contract_flag agent))
+    (status_to_string agent.status)
+
+let pipeline_acl_line workspace agent =
+  let readable = join_agent_ids agent.outgoing.readable in
+  let writable = join_agent_ids agent.outgoing.writable in
+  if String.equal readable "-" && String.equal writable "-" then None
+  else
+    Some
+      (Printf.sprintf "  ACL %s/%s -> read %s | write %s"
+         (Id.Workspace.to_string workspace.id)
+         (Id.Agent.to_string agent.name)
+         readable writable)
+
+let pipeline_lines width workspaces =
+  let agents =
+    workspaces
+    |> List.concat_map (fun workspace ->
+        List.map (fun agent -> (workspace, agent)) workspace.agents)
+  in
+  let stage_lines =
+    agents
+    |> List.map (fun (workspace, agent) -> pipeline_agent_line workspace agent)
+  in
+  let acl_lines =
+    agents
+    |> List.filter_map (fun (workspace, agent) ->
+        pipeline_acl_line workspace agent)
+  in
+  let lines =
+    "Pipeline overview"
+    :: fit width
+         "  WORKSPACE AGENT        ROSTER ROLE            CONTRACT    STATUS"
+    :: (match stage_lines with [] -> [ "  none" ] | lines -> lines)
+    @ [ "  ACL edges (declared links, not inferred workflow order)" ]
+    @ match acl_lines with [] -> [ "  none" ] | lines -> lines
+  in
+  List.map (fit width) lines
+
 let selection_workspace selection =
   match selection with None -> None | Some selection -> selection.workspace
 
@@ -479,11 +536,14 @@ let render ?(width = 100) ?selection model =
     | [] -> [ "  none" ]
     | rows -> List.map (fit width) rows)
   in
+  let pipeline = pipeline_lines width model.workspaces in
   let preview = preview_lines width model.workspaces selection in
   String.concat "\n"
     ([ header; rule width ]
     @ workspace_lines
     @ [ rule width ]
     @ agent_lines
+    @ [ rule width ]
+    @ pipeline
     @ [ rule width ]
     @ preview)
