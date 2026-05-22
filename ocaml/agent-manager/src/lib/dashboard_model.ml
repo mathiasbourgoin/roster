@@ -497,7 +497,7 @@ let preview_lines width workspaces selection =
       let metadata = roster_preview_lines agent |> List.map (fit width) in
       (fit width header :: metadata) @ body
 
-let render ?(width = 100) ?selection ?focus model =
+let render ?(width = 100) ?selection ?focus ?topology_focus model =
   let width = clamp_width width in
   let totals = model.totals in
   let selected_workspace = selected_workspace_id model.workspaces selection in
@@ -551,12 +551,18 @@ let render ?(width = 100) ?selection ?focus model =
     | rows -> List.map (fit width) rows)
   in
   let pipeline =
+    let selected_topology_node, selected_edge =
+      match topology_focus with
+      | Some (Dashboard_topology.Node node) -> (Some node, None)
+      | Some (Dashboard_topology.Edge edge) -> (None, Some edge)
+      | None -> (selected_topology_node, None)
+    in
     Dashboard_topology.render ~width
       ~focused:
         (match focus with
         | Some Pipeline -> true
         | Some Workspaces | Some Agents | None -> false)
-      ~selected:selected_topology_node (topology model)
+      ~selected:selected_topology_node ?selected_edge (topology model)
   in
   let preview = preview_lines width model.workspaces selection in
   String.concat "\n"

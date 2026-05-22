@@ -13,6 +13,7 @@ val model : t -> Dashboard_model.t
 val focus : t -> focus
 val selected_workspace : t -> Id.Workspace.t option
 val selected_agent : t -> Id.Agent.t option
+val selected_edge : t -> Dashboard_topology.edge_id option
 val refresh_requested : t -> bool
 val refresh_status : t -> refresh_status
 val should_quit : t -> bool
