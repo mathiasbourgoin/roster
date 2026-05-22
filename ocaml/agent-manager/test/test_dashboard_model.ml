@@ -147,6 +147,12 @@ let expect_dashboard_roster_enrichment () =
     "description": "Coordinates implementation.",
     "domain": ["management"],
     "tags": ["planning"],
+    "model": "opus",
+    "complexity": "high",
+    "compatible_with": ["claude-code"],
+    "version": "1.9.0",
+    "author": "mathias",
+    "isolation": "none",
     "source": "local",
     "component_type": "agent"
   },
@@ -184,6 +190,17 @@ let expect_dashboard_roster_enrichment () =
        ~needle:
          "Roster: Tech Lead | domain management | source local | tags planning"
        rendered);
+  Alcotest.(check bool)
+    "lead profile metadata" true
+    (contains_substring
+       ~needle:"Profile: model opus | complexity high | isolation none" rendered);
+  Alcotest.(check bool)
+    "lead compatibility metadata" true
+    (contains_substring
+       ~needle:"Compat: claude-code | version 1.9.0 | author mathias" rendered);
+  Alcotest.(check bool)
+    "lead role metadata" true
+    (contains_substring ~needle:"Role: Coordinates implementation." rendered);
   Alcotest.(check bool)
     "qa metadata" true
     (contains_substring ~needle:"QA/testing" rendered)

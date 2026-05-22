@@ -12,6 +12,12 @@ type roster_metadata = {
   description : string option;
   domain : string list;
   tags : string list;
+  model : string option;
+  complexity : string option;
+  compatible_with : string list;
+  version : string option;
+  author : string option;
+  isolation : string option;
   source : string option;
 }
 

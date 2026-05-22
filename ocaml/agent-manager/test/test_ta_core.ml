@@ -179,7 +179,7 @@ let expect_roster_index_parse () =
   let text =
     {|
 [
-  {"name": "tech-lead", "display_name": "Tech Lead", "description": "Lead work", "domain": ["management"], "tags": ["planning"], "path": "agents/management/tech-lead.md", "source": "local", "component_type": "agent"},
+  {"name": "tech-lead", "display_name": "Tech Lead", "description": "Lead work", "domain": ["management"], "tags": ["planning"], "model": "opus", "complexity": "high", "compatible_with": ["claude-code"], "version": "1.9.0", "author": "mathias", "isolation": "none", "path": "agents/management/tech-lead.md", "source": "local", "component_type": "agent"},
   {"name": "not-an-agent", "component_type": "skill"}
 ]
 |}
@@ -203,9 +203,236 @@ let expect_roster_index_parse () =
         (Option.value entry.display_name ~default:"");
       Alcotest.(check (list string)) "domain" [ "management" ] entry.domain;
       Alcotest.(check (list string)) "tags" [ "planning" ] entry.tags;
+      Alcotest.(check string)
+        "model" "opus"
+        (Option.value entry.model ~default:"");
+      Alcotest.(check string)
+        "complexity" "high"
+        (Option.value entry.complexity ~default:"");
+      Alcotest.(check (list string))
+        "compatible" [ "claude-code" ] entry.compatible_with;
+      Alcotest.(check string)
+        "version" "1.9.0"
+        (Option.value entry.version ~default:"");
+      Alcotest.(check string)
+        "author" "mathias"
+        (Option.value entry.author ~default:"");
+      Alcotest.(check string)
+        "isolation" "none"
+        (Option.value entry.isolation ~default:"");
       Alcotest.(check bool)
         "filters skill" false
         (Ta_core.Roster_index.mem_agent roster "not-an-agent")
+
+let expect_roster_frontmatter_parse () =
+  let text =
+    "---\r\n\
+     name: tech-lead\r\n\
+     domain: [old]\r\n\
+     domain: [management, orchestration]\r\n\
+     model: haiku\r\n\
+     model: 'opus'\r\n\
+     pipeline_role:\r\n\
+    \  triggered_by: user\r\n\
+     ---\r\n\
+     # Body\r\n"
+  in
+  match Ta_core.Roster_frontmatter.parse_string text with
+  | None -> Alcotest.fail "frontmatter should parse"
+  | Some frontmatter ->
+      Alcotest.(check string)
+        "scalar" "opus"
+        (Option.value
+           (Ta_core.Roster_frontmatter.find_scalar "model" frontmatter)
+           ~default:"");
+      Alcotest.(check (list string))
+        "inline list last wins"
+        [ "management"; "orchestration" ]
+        (Option.value
+           (Ta_core.Roster_frontmatter.find_list "domain" frontmatter)
+           ~default:[]);
+      Alcotest.(check bool)
+        "nested field ignored" true
+        (Option.is_none
+           (Ta_core.Roster_frontmatter.find_scalar "triggered_by" frontmatter))
+
+let expect_roster_frontmatter_rejects_missing_markers () =
+  Alcotest.(check bool)
+    "missing opening marker" true
+    (Option.is_none
+       (Ta_core.Roster_frontmatter.parse_string "name: tech-lead\n---\n# Body\n"));
+  Alcotest.(check bool)
+    "missing closing marker" true
+    (Option.is_none
+       (Ta_core.Roster_frontmatter.parse_string "---\nname: tech-lead\n# Body\n"))
+
+let write_temp_file contents =
+  let path, channel = Filename.open_temp_file "ta-frontmatter" ".md" in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr channel)
+    (fun () -> output_string channel contents);
+  path
+
+let expect_roster_index_frontmatter_enrichment () =
+  let frontmatter_path =
+    write_temp_file
+      {|---
+name: tech-lead
+display_name: Tech Lead FM
+description: Frontmatter lead role.
+domain: [management, orchestration]
+tags: [team-lead, qa]
+model: opus
+complexity: high
+compatible_with: [claude-code, codex]
+version: 9.9.9
+author: mathias
+isolation: none
+pipeline_role:
+  triggered_by: test
+---
+# Body
+|}
+  in
+  Fun.protect
+    ~finally:(fun () ->
+      try Sys.remove frontmatter_path with Sys_error _ -> ())
+    (fun () ->
+      let text =
+        Printf.sprintf
+          {|[{"name": "tech-lead", "display_name": "Tech Lead", "description": "Old", "path": %S, "source": "local", "component_type": "agent"}]|}
+          (Filename.basename frontmatter_path)
+      in
+      match Ta_core.Roster_index.parse_string text with
+      | Error errors ->
+          Alcotest.fail
+            (String.concat "\n"
+               (List.map Ta_core.Roster_index.error_to_string errors))
+      | Ok roster ->
+          let roster =
+            Ta_core.Roster_index.enrich_from_frontmatter
+              ~root:(Filename.dirname frontmatter_path)
+              roster
+          in
+          let entry =
+            match Ta_core.Roster_index.find_agent roster "tech-lead" with
+            | Some entry -> entry
+            | None -> Alcotest.fail "missing tech-lead"
+          in
+          Alcotest.(check string)
+            "display" "Tech Lead FM"
+            (Option.value entry.display_name ~default:"");
+          Alcotest.(check string)
+            "description" "Frontmatter lead role."
+            (Option.value entry.description ~default:"");
+          Alcotest.(check (list string))
+            "domain"
+            [ "management"; "orchestration" ]
+            entry.domain;
+          Alcotest.(check (list string)) "tags" [ "team-lead"; "qa" ] entry.tags;
+          Alcotest.(check string)
+            "model" "opus"
+            (Option.value entry.model ~default:"");
+          Alcotest.(check string)
+            "complexity" "high"
+            (Option.value entry.complexity ~default:"");
+          Alcotest.(check (list string))
+            "compatible" [ "claude-code"; "codex" ] entry.compatible_with;
+          Alcotest.(check string)
+            "version" "9.9.9"
+            (Option.value entry.version ~default:"");
+          Alcotest.(check string)
+            "author" "mathias"
+            (Option.value entry.author ~default:"");
+          Alcotest.(check string)
+            "isolation" "none"
+            (Option.value entry.isolation ~default:""))
+
+let expect_roster_index_frontmatter_requires_local_match () =
+  let matching_path =
+    write_temp_file
+      {|---
+name: tech-lead
+display_name: From Markdown
+model: opus
+---
+|}
+  in
+  let mismatch_path =
+    write_temp_file
+      {|---
+name: qa
+display_name: Wrong Markdown
+model: haiku
+---
+|}
+  in
+  Fun.protect
+    ~finally:(fun () ->
+      List.iter
+        (fun path -> try Sys.remove path with Sys_error _ -> ())
+        [ matching_path; mismatch_path ])
+    (fun () ->
+      let text =
+        Printf.sprintf
+          {|
+[
+  {"name": "remote-lead", "display_name": "Remote Lead", "path": %S, "source": "remote", "component_type": "agent"},
+  {"name": "absolute-lead", "display_name": "Absolute Lead", "path": %S, "source": "local", "component_type": "agent"},
+  {"name": "parent-lead", "display_name": "Parent Lead", "path": "../outside.md", "source": "local", "component_type": "agent"},
+  {"name": "tech-lead", "display_name": "Tech Lead", "path": %S, "source": "local", "component_type": "agent"}
+]
+|}
+          (Filename.basename matching_path)
+          matching_path
+          (Filename.basename mismatch_path)
+      in
+      match Ta_core.Roster_index.parse_string text with
+      | Error errors ->
+          Alcotest.fail
+            (String.concat "\n"
+               (List.map Ta_core.Roster_index.error_to_string errors))
+      | Ok roster ->
+          let roster =
+            Ta_core.Roster_index.enrich_from_frontmatter
+              ~root:(Filename.dirname matching_path)
+              roster
+          in
+          let remote =
+            match Ta_core.Roster_index.find_agent roster "remote-lead" with
+            | Some entry -> entry
+            | None -> Alcotest.fail "missing remote-lead"
+          in
+          let local =
+            match Ta_core.Roster_index.find_agent roster "tech-lead" with
+            | Some entry -> entry
+            | None -> Alcotest.fail "missing tech-lead"
+          in
+          let absolute =
+            match Ta_core.Roster_index.find_agent roster "absolute-lead" with
+            | Some entry -> entry
+            | None -> Alcotest.fail "missing absolute-lead"
+          in
+          let parent =
+            match Ta_core.Roster_index.find_agent roster "parent-lead" with
+            | Some entry -> entry
+            | None -> Alcotest.fail "missing parent-lead"
+          in
+          Alcotest.(check string)
+            "remote skipped" "Remote Lead"
+            (Option.value remote.display_name ~default:"");
+          Alcotest.(check string)
+            "absolute skipped" "Absolute Lead"
+            (Option.value absolute.display_name ~default:"");
+          Alcotest.(check string)
+            "parent skipped" "Parent Lead"
+            (Option.value parent.display_name ~default:"");
+          Alcotest.(check string)
+            "mismatch skipped" "Tech Lead"
+            (Option.value local.display_name ~default:"");
+          Alcotest.(check bool)
+            "mismatch model skipped" true
+            (Option.is_none local.model))
 
 let expect_unknown_roster_agent () =
   let roster =
@@ -381,6 +608,14 @@ let () =
       ( "roster_index",
         [
           Alcotest.test_case "parse agents" `Quick expect_roster_index_parse;
+          Alcotest.test_case "parse frontmatter" `Quick
+            expect_roster_frontmatter_parse;
+          Alcotest.test_case "frontmatter marker rejection" `Quick
+            expect_roster_frontmatter_rejects_missing_markers;
+          Alcotest.test_case "frontmatter enrichment" `Quick
+            expect_roster_index_frontmatter_enrichment;
+          Alcotest.test_case "frontmatter local name match" `Quick
+            expect_roster_index_frontmatter_requires_local_match;
           Alcotest.test_case "unknown roster agent" `Quick
             expect_unknown_roster_agent;
         ] );

@@ -57,11 +57,14 @@ commit.
   user-visible last-refresh metadata.
 - Dashboard roster enrichment from `index.json`, showing role/domain/source/tag
   hints while preserving compact agent rows and selected preview detail.
+- Dashboard roster enrichment now also loads local agent markdown frontmatter
+  client-side, adding model, complexity, compatibility, version, author,
+  isolation, and description detail without changing socket payloads.
 
 ## Near-Term Milestones
 
-- Add agent markdown frontmatter loading for richer roster metadata beyond the
-  generated `index.json` fields.
+- Add pipeline topology views from frontmatter `pipeline_role` blocks once a
+  typed nested metadata parser is introduced.
 - Add a concrete MIAOU runner once `miaou-tui` is available, using the existing
   dashboard interaction, cadence policy, and socket refresh boundary.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent

@@ -12,6 +12,7 @@
   launch_runtime
   launch_state
   permission
+  roster_frontmatter
   roster_index
   runtime_snapshot
   socket_api
