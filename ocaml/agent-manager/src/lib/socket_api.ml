@@ -24,6 +24,22 @@ let prepare_socket_path path =
   | Sys_error message -> Error (Io message)
   | Unix.Unix_error (error, _, _) -> Error (Io (unix_error_message error))
 
+let validate_socket_directory path =
+  let dir = Filename.dirname path in
+  try
+    let stats = Unix.stat dir in
+    match stats.Unix.st_kind with
+    | Unix.S_DIR when stats.Unix.st_perm land 0o077 = 0 -> Ok ()
+    | Unix.S_DIR ->
+        Error
+          (Io
+             (dir
+            ^ ": socket directory must not be accessible by group or others"))
+    | _ -> Error (Io (dir ^ ": socket parent is not a directory"))
+  with
+  | Sys_error message -> Error (Io message)
+  | Unix.Unix_error (error, _, _) -> Error (Io (unix_error_message error))
+
 let write_all fd value =
   try
     let rec loop offset =
@@ -69,6 +85,26 @@ let read_line fd =
   in
   loop ()
 
+let require_actor = function
+  | Some actor -> Ok actor
+  | None -> Error "actor is required for socket mutations"
+
+let authorize_write store ~workspace ~actor ~agent =
+  let ( let* ) = Result.bind in
+  let* workspace_state = State_store.find_workspace store workspace in
+  let* _actor = State_store.find_agent workspace_state actor in
+  let* _agent = State_store.find_agent workspace_state agent in
+  if Id.Agent.equal actor agent then Ok ()
+  else if
+    State_store.can_access store ~workspace ~from_agent:actor ~to_agent:agent
+      Permission.Write
+  then Ok ()
+  else
+    Error
+      (Printf.sprintf "actor %s cannot write agent %s in workspace %s"
+         (Id.Agent.to_string actor) (Id.Agent.to_string agent)
+         (Id.Workspace.to_string workspace))
+
 let execute state_path = function
   | Socket_protocol.State_summary -> (
       match State_file.load ~path:state_path with
@@ -84,6 +120,30 @@ let execute state_path = function
             Socket_protocol.Success (State_store.describe ~audit_limit store)
         | Error error ->
             Socket_protocol.Failure (State_file.error_to_string error))
+  | Set_status { workspace; agent; status; actor } -> (
+      match
+        State_file.update ~path:state_path (fun store ->
+            let ( let* ) = Result.bind in
+            let* actor = require_actor actor in
+            let* () = authorize_write store ~workspace ~actor ~agent in
+            State_store.set_agent_status store ~workspace ~agent ~status
+              ~actor:(Some actor))
+      with
+      | Ok store -> Socket_protocol.Success (State_store.summarize store)
+      | Error error ->
+          Socket_protocol.Failure (State_file.error_to_string error))
+  | Attach_pane { workspace; agent; pane; actor } -> (
+      match
+        State_file.update ~path:state_path (fun store ->
+            let ( let* ) = Result.bind in
+            let* actor = require_actor actor in
+            let* () = authorize_write store ~workspace ~actor ~agent in
+            State_store.attach_pane store ~workspace ~agent ~pane
+              ~actor:(Some actor))
+      with
+      | Ok store -> Socket_protocol.Success (State_store.summarize store)
+      | Error error ->
+          Socket_protocol.Failure (State_file.error_to_string error))
 
 let handle_client ~state_path client =
   try
@@ -110,19 +170,23 @@ let serve ~socket_path ~state_path ~once () =
       if !bound then remove_socket_noerr socket_path)
     (fun () ->
       try
-        match prepare_socket_path socket_path with
+        match validate_socket_directory socket_path with
         | Error _ as error -> error
-        | Ok () ->
-            Unix.bind server (Unix.ADDR_UNIX socket_path);
-            bound := true;
-            Unix.listen server 16;
-            let rec loop () =
-              let client, _ = Unix.accept server in
-              handle_client ~state_path client;
-              if not once then loop ()
-            in
-            loop ();
-            Ok ()
+        | Ok () -> (
+            match prepare_socket_path socket_path with
+            | Error _ as error -> error
+            | Ok () ->
+                Unix.bind server (Unix.ADDR_UNIX socket_path);
+                bound := true;
+                Unix.chmod socket_path 0o600;
+                Unix.listen server 16;
+                let rec loop () =
+                  let client, _ = Unix.accept server in
+                  handle_client ~state_path client;
+                  if not once then loop ()
+                in
+                loop ();
+                Ok ())
       with
       | Sys_error message -> Error (Io message)
       | Unix.Unix_error (error, _, _) -> Error (Io (Unix.error_message error)))
