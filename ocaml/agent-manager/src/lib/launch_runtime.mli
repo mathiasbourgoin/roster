@@ -16,6 +16,7 @@ type attachment = {
   agent : Id.Agent.t;
   planned_pane : Id.Pane.t;
   pane : Id.Pane.t;
+  identity : Tmux.pane_identity;
   target : Tmux.target;
 }
 

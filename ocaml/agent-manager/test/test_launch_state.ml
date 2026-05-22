@@ -58,6 +58,8 @@ let attachment_of_agent (agent : Ta_core.Launch_plan.agent) =
     agent = agent.name;
     planned_pane = agent.planned_pane;
     pane = pane_for_agent agent;
+    identity =
+      Ta_core.Tmux.unsafe_pane_identity ~session_id:"$1" ~window_id:"@1";
     target = Ta_core.Tmux.unsafe_target_of_string agent.tmux_target;
   }
 

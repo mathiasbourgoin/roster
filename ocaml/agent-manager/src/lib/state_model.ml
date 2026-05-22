@@ -12,6 +12,7 @@ type agent = {
   roster_agent : string;
   status : agent_status;
   pane : Id.Pane.t option;
+  pane_identity : Tmux.pane_identity option;
 }
 
 type link = {
@@ -25,6 +26,7 @@ type workspace = {
   id : Id.Workspace.t;
   label : string;
   root : string;
+  tmux_session : Tmux.session option;
   active_view : Id.View.t;
   agents : agent list;
   links : link list;

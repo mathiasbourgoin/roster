@@ -203,6 +203,7 @@ let expected_show
        "- fixture: 2 agents, 1 links";
        "Workspace fixture (Fixture)";
        "  root: .";
+       "  tmux_session: ta-fixture";
        "  active_view: agents";
        "  Agents:";
        "  - lead [running] roster=tech-lead pane=%77";
@@ -429,6 +430,88 @@ let expect_state_load_failure () =
     "reports load error" true
     (contains_substring ~needle:"missing-state.json" result.stderr)
 
+let expect_runtime_snapshot_stdout () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result = run_tactl [ "runtime"; "snapshot"; path ] in
+      check_exit "snapshot exit" 0 result.status;
+      Alcotest.(check string) "snapshot stderr" "" result.stderr;
+      let json = Yojson.Safe.from_string result.stdout in
+      Alcotest.(check string)
+        "version" "0.1.0"
+        (json |> field "version" |> as_string "version");
+      let workspace = workspace_json json in
+      let lead = agent_json "lead" workspace in
+      Alcotest.(check string)
+        "lead unattached" "unattached"
+        (lead |> field "pane_state" |> field "kind"
+        |> as_string "pane_state.kind"))
+
+let expect_runtime_snapshot_output_file () =
+  with_temp_state (fun state_path ->
+      let output_path = Filename.temp_file "ta-runtime" ".json" in
+      Fun.protect
+        ~finally:(fun () -> remove_noerr output_path)
+        (fun () ->
+          let save =
+            run_tactl
+              [
+                "state"; "save"; "--output"; state_path; fixture "ta-valid.json";
+              ]
+          in
+          check_exit "save exit" 0 save.status;
+          let result =
+            run_tactl
+              [
+                "runtime";
+                "snapshot";
+                "--lines";
+                "5";
+                "--output";
+                output_path;
+                state_path;
+              ]
+          in
+          check_exit "snapshot exit" 0 result.status;
+          Alcotest.(check bool)
+            "summary" true
+            (contains_substring ~needle:"TA runtime snapshot:" result.stdout);
+          let json = Yojson.Safe.from_file output_path in
+          Alcotest.(check string)
+            "version" "0.1.0"
+            (json |> field "version" |> as_string "version");
+          let mode = (Unix.stat output_path).Unix.st_perm land 0o777 in
+          Alcotest.(check int) "owner-only mode" 0o600 mode))
+
+let expect_runtime_snapshot_rejects_bad_lines () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result = run_tactl [ "runtime"; "snapshot"; "--lines"; "0"; path ] in
+      check_exit "snapshot exit" 2 result.status;
+      Alcotest.(check bool)
+        "line error" true
+        (contains_substring ~needle:"--lines must be positive" result.stderr))
+
+let expect_runtime_snapshot_rejects_large_lines () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result =
+        run_tactl [ "runtime"; "snapshot"; "--lines"; "201"; path ]
+      in
+      check_exit "snapshot exit" 2 result.status;
+      Alcotest.(check bool)
+        "line cap" true
+        (contains_substring ~needle:"--lines must be at most" result.stderr))
+
 let () =
   Alcotest.run "tactl-cli"
     [
@@ -458,5 +541,16 @@ let () =
           Alcotest.test_case "plan" `Quick expect_launch_plan;
           Alcotest.test_case "roster failure" `Quick
             expect_launch_plan_roster_failure;
+        ] );
+      ( "runtime",
+        [
+          Alcotest.test_case "snapshot stdout" `Quick
+            expect_runtime_snapshot_stdout;
+          Alcotest.test_case "snapshot output file" `Quick
+            expect_runtime_snapshot_output_file;
+          Alcotest.test_case "snapshot rejects bad lines" `Quick
+            expect_runtime_snapshot_rejects_bad_lines;
+          Alcotest.test_case "snapshot rejects large lines" `Quick
+            expect_runtime_snapshot_rejects_large_lines;
         ] );
     ]

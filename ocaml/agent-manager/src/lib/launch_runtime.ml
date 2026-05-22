@@ -14,6 +14,7 @@ type attachment = {
   agent : Id.Agent.t;
   planned_pane : Id.Pane.t;
   pane : Id.Pane.t;
+  identity : Tmux.pane_identity;
   target : Tmux.target;
 }
 
@@ -155,12 +156,13 @@ let parse_pane_id ~target output =
   | Ok pane -> Ok pane
   | Error message -> Error (Invalid_pane_id { target; output; message })
 
-let attachment target (agent : Launch_plan.agent) pane =
+let attachment target (agent : Launch_plan.agent) pane identity =
   {
     workspace = agent.workspace;
     agent = agent.name;
     planned_pane = agent.planned_pane;
     pane;
+    identity;
     target;
   }
 
@@ -168,6 +170,16 @@ let run_pane_command runner ~target command =
   match runner command with
   | Error error -> Error (Tmux error)
   | Ok output -> parse_pane_id ~target output
+
+let run_pane_identity runner ~target =
+  match runner (Tmux.Display_pane_identity target) with
+  | Error error -> Error (Tmux error)
+  | Ok output -> (
+      match Tmux.parse_pane_identity output with
+      | Ok identity -> Ok identity
+      | Error message ->
+          Error
+            (Invalid_pane_id { target; output = String.trim output; message }))
 
 let prompt_commands target = function
   | None -> []
@@ -219,8 +231,11 @@ let run_workspace runner created (workspace : Launch_plan.workspace) =
             parse_pane_id ~target output
       in
       let first_attachment =
-        attachment (pane_target first_pane) first first_pane
+        let target = pane_target first_pane in
+        let* identity = run_pane_identity runner ~target in
+        Ok (attachment target first first_pane identity)
       in
+      let* first_attachment = first_attachment in
       let rec split acc = function
         | [] -> Ok (List.rev acc)
         | (agent : Launch_plan.agent) :: rest ->
@@ -233,7 +248,9 @@ let run_workspace runner created (workspace : Launch_plan.workspace) =
                 }
             in
             let* pane = run_pane_command runner ~target command in
-            split (attachment (pane_target pane) agent pane :: acc) rest
+            let pane_target = pane_target pane in
+            let* identity = run_pane_identity runner ~target:pane_target in
+            split (attachment pane_target agent pane identity :: acc) rest
       in
       let* attachments = split [ first_attachment ] rest in
       let* () =

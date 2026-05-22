@@ -6,6 +6,7 @@
 
 type session = private string
 type target = private string
+type pane_identity = { session_id : string; window_id : string }
 
 type error = {
   argv : string list;
@@ -39,8 +40,10 @@ type command =
   | Send_keys of { target : session; text : string }
   | Send_keys_literal of { target : target; text : string }
   | Send_keys_to of { target : target; text : string }
-  | Capture_pane of { target : session; lines : int }
+  | Capture_pane of { target : target; lines : int }
   | Display_pane_id of target
+  | Display_session_name of target
+  | Display_pane_identity of target
   | Kill_session of session
 
 val session_of_string : string -> (session, string) result
@@ -51,6 +54,15 @@ val compare_session : session -> session -> int
 val target_of_string : string -> (target, string) result
 val unsafe_target_of_string : string -> target
 val target_to_string : target -> string
+
+val pane_identity_of_strings :
+  session_id:string -> window_id:string -> (pane_identity, string) result
+
+val unsafe_pane_identity :
+  session_id:string -> window_id:string -> pane_identity
+
+val parse_pane_identity : string -> (pane_identity, string) result
+val equal_pane_identity : pane_identity -> pane_identity -> bool
 val argv : command -> string list
 val command_line : command -> string
 val run : command -> (string, error) result

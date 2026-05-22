@@ -227,6 +227,9 @@ let store_with_runtime_changes () =
   let workspace = Ta_core.Id.Workspace.unsafe_of_string "agent-roster" in
   let lead = Ta_core.Id.Agent.unsafe_of_string "tech-lead" in
   let pane = Ta_core.Id.Pane.unsafe_of_string "lead.0" in
+  let identity =
+    Ta_core.Tmux.unsafe_pane_identity ~session_id:"$1" ~window_id:"@1"
+  in
   match
     Ta_core.State_store.set_agent_status store ~workspace ~agent:lead
       ~status:Ta_core.State_store.Running ~actor:(Some lead)
@@ -234,14 +237,16 @@ let store_with_runtime_changes () =
   | Error message -> Alcotest.fail message
   | Ok store -> (
       match
-        Ta_core.State_store.attach_pane store ~workspace ~agent:lead ~pane
-          ~actor:(Some lead)
+        Ta_core.State_store.attach_pane ~identity store ~workspace ~agent:lead
+          ~pane ~actor:(Some lead)
       with
       | Error message -> Alcotest.fail message
-      | Ok store -> (store, workspace, lead, pane))
+      | Ok store -> (store, workspace, lead, pane, identity))
 
 let expect_snapshot_roundtrip () =
-  let store, workspace_id, lead, pane = store_with_runtime_changes () in
+  let store, workspace_id, lead, pane, identity =
+    store_with_runtime_changes ()
+  in
   let qa = Ta_core.Id.Agent.unsafe_of_string "qa" in
   let json = Ta_core.State_store.to_yojson store in
   match Ta_core.State_store.of_yojson json with
@@ -266,6 +271,10 @@ let expect_snapshot_roundtrip () =
                 "pane" true
                 (Option.equal Ta_core.Id.Pane.equal agent.pane (Some pane));
               Alcotest.(check bool)
+                "pane identity" true
+                (Option.equal Ta_core.Tmux.equal_pane_identity
+                   agent.pane_identity (Some identity));
+              Alcotest.(check bool)
                 "restored acl" true
                 (Ta_core.State_store.can_access restored ~workspace:workspace_id
                    ~from_agent:lead ~to_agent:qa Ta_core.Permission.Read);
@@ -281,7 +290,7 @@ let expect_snapshot_roundtrip () =
                   |> check_audit_seq "continued seq" 4)))
 
 let expect_snapshot_rejects_version () =
-  let store, _, _, _ = store_with_runtime_changes () in
+  let store, _, _, _, _ = store_with_runtime_changes () in
   let json =
     Ta_core.State_store.to_yojson store
     |> replace_assoc "version" (`String "9.9.9")
@@ -292,7 +301,7 @@ let expect_snapshot_rejects_version () =
       Alcotest.(check int) "one snapshot error" 1 (List.length errors)
 
 let expect_snapshot_rejects_next_seq () =
-  let store, _, _, _ = store_with_runtime_changes () in
+  let store, _, _, _, _ = store_with_runtime_changes () in
   let json =
     Ta_core.State_store.to_yojson store |> replace_assoc "next_seq" (`Int 3)
   in
@@ -302,7 +311,7 @@ let expect_snapshot_rejects_next_seq () =
       Alcotest.(check int) "one snapshot error" 1 (List.length errors)
 
 let expect_snapshot_rejects_future_next_seq () =
-  let store, _, _, _ = store_with_runtime_changes () in
+  let store, _, _, _, _ = store_with_runtime_changes () in
   let json =
     Ta_core.State_store.to_yojson store |> replace_assoc "next_seq" (`Int 99)
   in
@@ -312,7 +321,7 @@ let expect_snapshot_rejects_future_next_seq () =
       Alcotest.(check int) "one snapshot error" 1 (List.length errors)
 
 let expect_snapshot_rejects_audit_gap () =
-  let store, _, _, _ = store_with_runtime_changes () in
+  let store, _, _, _, _ = store_with_runtime_changes () in
   let rewrite_events = function
     | `List (first :: second :: rest) ->
         `List (first :: replace_assoc "seq" (`Int 9) second :: rest)

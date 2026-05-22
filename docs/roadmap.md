@@ -38,14 +38,16 @@ commit.
   owner-only sockets and workspace write permissions.
 - Unix socket supervised launch requests for dry-run and start, reusing the
   launch runtime and persisting captured native pane ids back into state.
+- Cacheable runtime snapshots for attached tmux panes, including live/missing
+  status and bounded pane previews for future UI rendering.
 
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
-- Add cached runtime state snapshots for live tmux sessions, panes, and pane
-  previews.
 - Add MIAOU dashboard foundation with cached runtime state, not direct
   render-time polling.
+- Add a socket endpoint for runtime snapshots so the future dashboard can fetch
+  the same cacheable model without shelling out.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts at common viewport sizes.

@@ -8,6 +8,7 @@
   launch_state
   permission
   roster_index
+  runtime_snapshot
   socket_api
   socket_protocol
   state_file

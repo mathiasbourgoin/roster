@@ -1,5 +1,6 @@
 type session = string
 type target = string
+type pane_identity = { session_id : string; window_id : string }
 
 type error = {
   argv : string list;
@@ -33,8 +34,10 @@ type command =
   | Send_keys of { target : session; text : string }
   | Send_keys_literal of { target : target; text : string }
   | Send_keys_to of { target : target; text : string }
-  | Capture_pane of { target : session; lines : int }
+  | Capture_pane of { target : target; lines : int }
   | Display_pane_id of target
+  | Display_session_name of target
+  | Display_pane_identity of target
   | Kill_session of session
 
 let valid_session_char = function
@@ -78,6 +81,44 @@ let unsafe_target_of_string value =
   | Error message -> invalid_arg message
 
 let target_to_string value = value
+
+let all_digits value start =
+  let rec loop idx =
+    if idx = String.length value then true
+    else match value.[idx] with '0' .. '9' -> loop (idx + 1) | _ -> false
+  in
+  start < String.length value && loop start
+
+let tmux_id label prefix value =
+  if String.length value < 2 || not (Char.equal value.[0] prefix) then
+    Error
+      (Printf.sprintf "%s must start with %c followed by digits" label prefix)
+  else if all_digits value 1 then Ok value
+  else
+    Error
+      (Printf.sprintf "%s must start with %c followed by digits" label prefix)
+
+let pane_identity_of_strings ~session_id ~window_id =
+  match
+    ( tmux_id "tmux session id" '$' session_id,
+      tmux_id "tmux window id" '@' window_id )
+  with
+  | Ok session_id, Ok window_id -> Ok { session_id; window_id }
+  | Error message, _ | _, Error message -> Error message
+
+let unsafe_pane_identity ~session_id ~window_id =
+  match pane_identity_of_strings ~session_id ~window_id with
+  | Ok identity -> identity
+  | Error message -> invalid_arg message
+
+let parse_pane_identity value =
+  match String.split_on_char '\t' (String.trim value) with
+  | [ session_id; window_id ] -> pane_identity_of_strings ~session_id ~window_id
+  | _ -> Error "tmux pane identity must be session_id<TAB>window_id"
+
+let equal_pane_identity left right =
+  String.equal left.session_id right.session_id
+  && String.equal left.window_id right.window_id
 
 let quote_shell_word value =
   let buffer = Buffer.create (String.length value + 2) in
@@ -153,6 +194,10 @@ let argv = function
       [ "capture-pane"; "-p"; "-t"; target; "-S"; "-" ^ string_of_int lines ]
   | Display_pane_id target ->
       [ "display-message"; "-p"; "-t"; target; "#{pane_id}" ]
+  | Display_session_name target ->
+      [ "display-message"; "-p"; "-t"; target; "#{session_name}" ]
+  | Display_pane_identity target ->
+      [ "display-message"; "-p"; "-t"; target; "#{session_id}\t#{window_id}" ]
   | Kill_session session -> [ "kill-session"; "-t"; session ]
 
 let command_line = function
@@ -271,6 +316,26 @@ let command_line = function
           shell_display_word target;
           shell_display_word "#{pane_id}";
         ]
+  | Display_session_name target ->
+      String.concat " "
+        [
+          "tmux";
+          "display-message";
+          "-p";
+          "-t";
+          shell_display_word target;
+          shell_display_word "#{session_name}";
+        ]
+  | Display_pane_identity target ->
+      String.concat " "
+        [
+          "tmux";
+          "display-message";
+          "-p";
+          "-t";
+          shell_display_word target;
+          shell_display_word "#{session_id}\t#{window_id}";
+        ]
   | Kill_session session -> "tmux kill-session -t " ^ shell_display_word session
 
 let read_all channel =
@@ -341,7 +406,8 @@ let smoke ?session () =
   | Error error -> Error error
   | Ok _ ->
       wait_short ();
-      let captured = run (Capture_pane { target = session; lines = 20 }) in
+      let target = unsafe_target_of_string (session_to_string session) in
+      let captured = run (Capture_pane { target; lines = 20 }) in
       let _cleanup = run (Kill_session session) in
       captured
 
