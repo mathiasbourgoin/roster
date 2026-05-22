@@ -219,6 +219,180 @@ let expect_bad_id () =
   | Ok _ -> Alcotest.fail "bad id should be rejected"
   | Error _ -> ()
 
+let parsed_valid_config () =
+  match Ta_core.Workspace_config.parse_string valid_config with
+  | Ok config -> config
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+
+let valid_store () =
+  match Ta_core.State_store.of_config (parsed_valid_config ()) with
+  | Ok store -> store
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+
+let check_audit_seq label expected event =
+  Alcotest.(check int) label expected event.Ta_core.State_store.seq
+
+let expect_state_store_loads_config () =
+  let store = valid_store () in
+  Alcotest.(check int)
+    "workspace count" 1
+    (List.length (Ta_core.State_store.workspaces store));
+  Alcotest.(check int)
+    "load audit event" 1
+    (List.length (Ta_core.State_store.audit_events store));
+  match Ta_core.State_store.audit_events store with
+  | [ event ] -> (
+      check_audit_seq "load seq" 1 event;
+      Alcotest.(check bool) "load actor is system" true (event.actor = None);
+      match event.kind with
+      | Ta_core.State_store.Workspace_loaded -> ()
+      | _ -> Alcotest.fail "expected workspace load event")
+  | _ -> Alcotest.fail "expected one load event"
+
+let expect_state_store_acl () =
+  let store = valid_store () in
+  let workspace = Ta_core.Id.Workspace.unsafe_of_string "agent-roster" in
+  let lead = Ta_core.Id.Agent.unsafe_of_string "tech-lead" in
+  let qa = Ta_core.Id.Agent.unsafe_of_string "qa" in
+  Alcotest.(check bool)
+    "lead can read qa" true
+    (Ta_core.State_store.can_access store ~workspace ~from_agent:lead
+       ~to_agent:qa Ta_core.Permission.Read);
+  Alcotest.(check bool)
+    "qa cannot write lead" false
+    (Ta_core.State_store.can_access store ~workspace ~from_agent:qa
+       ~to_agent:lead Ta_core.Permission.Write)
+
+let expect_state_store_status_audit () =
+  let store = valid_store () in
+  let workspace = Ta_core.Id.Workspace.unsafe_of_string "agent-roster" in
+  let lead = Ta_core.Id.Agent.unsafe_of_string "tech-lead" in
+  match
+    Ta_core.State_store.set_agent_status store ~workspace ~agent:lead
+      ~status:Ta_core.State_store.Running ~actor:(Some lead)
+  with
+  | Error message -> Alcotest.fail message
+  | Ok updated -> (
+      let events = Ta_core.State_store.audit_events updated in
+      Alcotest.(check int) "load + status events" 2 (List.length events);
+      match events with
+      | [ _load; status_event ] -> (
+          check_audit_seq "status seq" 2 status_event;
+          Alcotest.(check (option string))
+            "status actor" (Some "tech-lead")
+            (Option.map Ta_core.Id.Agent.to_string status_event.actor);
+          match status_event.kind with
+          | Ta_core.State_store.Agent_status_changed { agent; before; after } ->
+              Alcotest.(check string)
+                "status agent" "tech-lead"
+                (Ta_core.Id.Agent.to_string agent);
+              Alcotest.(check string)
+                "before" "not-started"
+                (Ta_core.State_store.status_to_string before);
+              Alcotest.(check string)
+                "after" "running"
+                (Ta_core.State_store.status_to_string after)
+          | _ -> Alcotest.fail "expected status audit event")
+      | _ -> Alcotest.fail "expected load + status events")
+
+let expect_state_store_attach_pane () =
+  let store = valid_store () in
+  let workspace_id = Ta_core.Id.Workspace.unsafe_of_string "agent-roster" in
+  let lead = Ta_core.Id.Agent.unsafe_of_string "tech-lead" in
+  let pane = Ta_core.Id.Pane.unsafe_of_string "lead.0" in
+  match
+    Ta_core.State_store.attach_pane store ~workspace:workspace_id ~agent:lead
+      ~pane ~actor:(Some lead)
+  with
+  | Error message -> Alcotest.fail message
+  | Ok updated -> (
+      match Ta_core.State_store.find_workspace updated workspace_id with
+      | Error message -> Alcotest.fail message
+      | Ok workspace -> (
+          match Ta_core.State_store.find_agent workspace lead with
+          | Error message -> Alcotest.fail message
+          | Ok agent -> (
+              Alcotest.(check bool)
+                "pane attached" true
+                (Option.equal Ta_core.Id.Pane.equal agent.pane (Some pane));
+              Alcotest.(check int)
+                "load + pane events" 2
+                (List.length (Ta_core.State_store.audit_events updated));
+              match Ta_core.State_store.audit_events updated with
+              | [ _load; pane_event ] -> (
+                  check_audit_seq "pane seq" 2 pane_event;
+                  match pane_event.kind with
+                  | Ta_core.State_store.Pane_attached
+                      { agent; pane = event_pane } ->
+                      Alcotest.(check string)
+                        "pane agent" "tech-lead"
+                        (Ta_core.Id.Agent.to_string agent);
+                      Alcotest.(check string)
+                        "pane id" "lead.0"
+                        (Ta_core.Id.Pane.to_string event_pane)
+                  | _ -> Alcotest.fail "expected pane audit event")
+              | _ -> Alcotest.fail "expected load + pane events")))
+
+let expect_state_store_missing_agent () =
+  let store = valid_store () in
+  let workspace = Ta_core.Id.Workspace.unsafe_of_string "agent-roster" in
+  let missing = Ta_core.Id.Agent.unsafe_of_string "missing" in
+  match
+    Ta_core.State_store.set_agent_status store ~workspace ~agent:missing
+      ~status:Ta_core.State_store.Running ~actor:None
+  with
+  | Ok _ -> Alcotest.fail "missing agent should fail"
+  | Error _ -> ()
+
+let expect_state_store_rejects_invalid_config () =
+  let text =
+    String.concat "\n"
+      [
+        "{";
+        {|  "version": "0.1.0",|};
+        {|  "workspaces": [|};
+        {|    {|};
+        {|      "id": "w",|};
+        {|      "label": "W",|};
+        {|      "root": ".",|};
+        {|      "tmux_session": "ta-w",|};
+        {|      "default_view": "missing",|};
+        {|      "views": [{"id": "agents", "label": "Agents"}],|};
+        {|      "agents": [{"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]}]|};
+        {|    }|};
+        {|  ]|};
+        "}";
+      ]
+  in
+  match Ta_core.Workspace_config.parse_string text with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+  | Ok config -> (
+      match Ta_core.State_store.of_config config with
+      | Ok _ -> Alcotest.fail "invalid config should be rejected"
+      | Error errors ->
+          Alcotest.(check int) "validation error" 1 (List.length errors))
+
+let expect_state_store_rejects_unknown_actor () =
+  let store = valid_store () in
+  let workspace = Ta_core.Id.Workspace.unsafe_of_string "agent-roster" in
+  let lead = Ta_core.Id.Agent.unsafe_of_string "tech-lead" in
+  let missing = Ta_core.Id.Agent.unsafe_of_string "missing" in
+  match
+    Ta_core.State_store.set_agent_status store ~workspace ~agent:lead
+      ~status:Ta_core.State_store.Running ~actor:(Some missing)
+  with
+  | Ok _ -> Alcotest.fail "unknown actor should fail"
+  | Error _ -> ()
+
 let expect_tmux_argv () =
   let session = Ta_core.Tmux.unsafe_session_of_string "ta-test" in
   Alcotest.(check (list string))
@@ -264,6 +438,21 @@ let () =
             expect_unknown_permission;
         ] );
       ("id", [ Alcotest.test_case "bad id" `Quick expect_bad_id ]);
+      ( "state_store",
+        [
+          Alcotest.test_case "loads config" `Quick
+            expect_state_store_loads_config;
+          Alcotest.test_case "acl" `Quick expect_state_store_acl;
+          Alcotest.test_case "status audit" `Quick
+            expect_state_store_status_audit;
+          Alcotest.test_case "attach pane" `Quick expect_state_store_attach_pane;
+          Alcotest.test_case "missing agent" `Quick
+            expect_state_store_missing_agent;
+          Alcotest.test_case "rejects invalid config" `Quick
+            expect_state_store_rejects_invalid_config;
+          Alcotest.test_case "rejects unknown actor" `Quick
+            expect_state_store_rejects_unknown_actor;
+        ] );
       ( "roster_index",
         [
           Alcotest.test_case "parse agents" `Quick expect_roster_index_parse;
