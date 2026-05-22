@@ -42,7 +42,8 @@ let text =
       "";
       "Current TUI status:";
       "  The concrete MIAOU TUI adapter is not wired in this build yet.";
-      "  The ta entrypoint starts the terminal dashboard renderer today.";
+      "  On a real terminal, the ta entrypoint starts a full-screen terminal \
+       dashboard.";
       "";
       "Dashboard keys:";
       "  p: pipeline focus";

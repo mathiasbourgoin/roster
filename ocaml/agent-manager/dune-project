@@ -13,5 +13,6 @@
  (depends
   (ocaml (>= 5.2))
   cmdliner
+  notty
   yojson
   alcotest))

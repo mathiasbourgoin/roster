@@ -94,11 +94,18 @@ commit.
   example config, and prints a concrete quickstart only when no defaults exist.
   `tactl quickstart` and root help/man sections document the source-tree and
   installed startup flows.
+- `ta` now has a first full-screen dashboard TUI mode. `--tui=auto` enters an
+  alternate-screen terminal loop on real terminals while redirected output stays
+  static; `--tui=always` and `--tui=never` make the mode explicit for QA and
+  automation.
 
 ## Near-Term Milestones
 
-- Add a concrete MIAOU page adapter once `miaou-tui` is installed in the
-  current switch, using the dashboard runner, interaction state, cadence
+- Upgrade the first full-screen TUI from text-frame rendering to a Herdr-grade
+  layout with workspace/agent sidebar, pane preview focus area, action footer,
+  mouse/keyboard affordances, and blocked/working/done rollups.
+- Add a concrete MIAOU page adapter once `miaou-tui` is installed or vendored in
+  the current switch, using the dashboard runner, interaction state, cadence
   policy, and socket refresh boundary.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
