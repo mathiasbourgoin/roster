@@ -12,6 +12,7 @@ type roster_metadata = {
   version : string option;
   author : string option;
   isolation : string option;
+  pipeline_role : Roster_pipeline_role.t option;
   source : string option;
 }
 
@@ -197,6 +198,7 @@ let metadata_of_entry (entry : Roster_index.entry) =
     version = entry.version;
     author = entry.author;
     isolation = entry.isolation;
+    pipeline_role = entry.pipeline_role;
     source = entry.source;
   }
 
@@ -287,6 +289,21 @@ let roster_description_line metadata =
   | Some description when String.equal description "" -> None
   | Some description -> Some ("Role: " ^ description)
 
+let roster_pipeline_lines metadata =
+  match metadata.pipeline_role with
+  | None -> []
+  | Some pipeline_role ->
+      [
+        "Pipeline: triggered by "
+        ^ Roster_pipeline_role.triggered_by_to_string pipeline_role.triggered_by;
+        "Receives: "
+        ^ Roster_pipeline_role.receives_to_string pipeline_role.receives;
+        "Produces: "
+        ^ Roster_pipeline_role.produces_to_string pipeline_role.produces;
+        "Human gate: "
+        ^ Roster_pipeline_role.human_gate_to_string pipeline_role.human_gate;
+      ]
+
 let option_to_list = function None -> [] | Some value -> [ value ]
 
 let roster_preview_lines agent =
@@ -311,6 +328,7 @@ let roster_preview_lines agent =
       (roster :: option_to_list (roster_profile_line metadata))
       @ option_to_list (roster_compatibility_line metadata)
       @ option_to_list (roster_description_line metadata)
+      @ roster_pipeline_lines metadata
 
 let rule width = String.make width '-'
 

@@ -18,6 +18,7 @@ type roster_metadata = {
   version : string option;
   author : string option;
   isolation : string option;
+  pipeline_role : Roster_pipeline_role.t option;
   source : string option;
 }
 

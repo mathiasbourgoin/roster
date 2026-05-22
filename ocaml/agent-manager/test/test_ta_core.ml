@@ -266,6 +266,52 @@ let expect_roster_frontmatter_rejects_missing_markers () =
     (Option.is_none
        (Ta_core.Roster_frontmatter.parse_string "---\nname: tech-lead\n# Body\n"))
 
+let expect_roster_pipeline_role_parse () =
+  let text =
+    "---\r\n\
+     name: reviewer\r\n\
+     pipeline_role:\r\n\
+    \  triggered_by: old trigger\r\n\
+    \  triggered_by: tech-lead post-implementation\r\n\
+    \  receives: diff plus policy context\r\n\
+    \  produces: ranked findings report\r\n\
+    \  human_gate: after review\r\n\
+     model: opus\r\n\
+     ---\r\n"
+  in
+  match Ta_core.Roster_pipeline_role.parse_string text with
+  | None -> Alcotest.fail "pipeline role should parse"
+  | Some role ->
+      Alcotest.(check string)
+        "triggered_by last wins" "tech-lead post-implementation"
+        (Ta_core.Roster_pipeline_role.triggered_by_to_string role.triggered_by);
+      Alcotest.(check string)
+        "receives" "diff plus policy context"
+        (Ta_core.Roster_pipeline_role.receives_to_string role.receives);
+      Alcotest.(check string)
+        "produces" "ranked findings report"
+        (Ta_core.Roster_pipeline_role.produces_to_string role.produces);
+      Alcotest.(check string)
+        "human gate" "after review"
+        (Ta_core.Roster_pipeline_role.human_gate_to_string role.human_gate);
+      Alcotest.(check bool)
+        "missing required field rejected" true
+        (Option.is_none
+           (Ta_core.Roster_pipeline_role.parse_string
+              "---\npipeline_role:\n  triggered_by: x\n---\n"));
+      Alcotest.(check bool)
+        "duplicate empty field rejects" true
+        (Option.is_none
+           (Ta_core.Roster_pipeline_role.parse_string
+              "---\n\
+               pipeline_role:\n\
+              \  triggered_by: x\n\
+              \  triggered_by:\n\
+              \  receives: y\n\
+              \  produces: z\n\
+              \  human_gate: none\n\
+               ---\n"))
+
 let write_temp_file contents =
   let path, channel = Filename.open_temp_file "ta-frontmatter" ".md" in
   Fun.protect
@@ -290,6 +336,9 @@ author: mathias
 isolation: none
 pipeline_role:
   triggered_by: test
+  receives: fixture task
+  produces: fixture plan
+  human_gate: none
 ---
 # Body
 |}
@@ -346,7 +395,25 @@ pipeline_role:
             (Option.value entry.author ~default:"");
           Alcotest.(check string)
             "isolation" "none"
-            (Option.value entry.isolation ~default:""))
+            (Option.value entry.isolation ~default:"");
+          let role =
+            match entry.pipeline_role with
+            | Some role -> role
+            | None -> Alcotest.fail "missing pipeline role"
+          in
+          Alcotest.(check string)
+            "pipeline trigger" "test"
+            (Ta_core.Roster_pipeline_role.triggered_by_to_string
+               role.triggered_by);
+          Alcotest.(check string)
+            "pipeline receives" "fixture task"
+            (Ta_core.Roster_pipeline_role.receives_to_string role.receives);
+          Alcotest.(check string)
+            "pipeline produces" "fixture plan"
+            (Ta_core.Roster_pipeline_role.produces_to_string role.produces);
+          Alcotest.(check string)
+            "pipeline gate" "none"
+            (Ta_core.Roster_pipeline_role.human_gate_to_string role.human_gate))
 
 let expect_roster_index_frontmatter_requires_local_match () =
   let matching_path =
@@ -355,6 +422,11 @@ let expect_roster_index_frontmatter_requires_local_match () =
 name: tech-lead
 display_name: From Markdown
 model: opus
+pipeline_role:
+  triggered_by: matching trigger
+  receives: matching input
+  produces: matching output
+  human_gate: none
 ---
 |}
   in
@@ -364,6 +436,11 @@ model: opus
 name: qa
 display_name: Wrong Markdown
 model: haiku
+pipeline_role:
+  triggered_by: wrong trigger
+  receives: wrong input
+  produces: wrong output
+  human_gate: none
 ---
 |}
   in
@@ -432,7 +509,19 @@ model: haiku
             (Option.value local.display_name ~default:"");
           Alcotest.(check bool)
             "mismatch model skipped" true
-            (Option.is_none local.model))
+            (Option.is_none local.model);
+          Alcotest.(check bool)
+            "remote pipeline skipped" true
+            (Option.is_none remote.pipeline_role);
+          Alcotest.(check bool)
+            "absolute pipeline skipped" true
+            (Option.is_none absolute.pipeline_role);
+          Alcotest.(check bool)
+            "parent pipeline skipped" true
+            (Option.is_none parent.pipeline_role);
+          Alcotest.(check bool)
+            "mismatch pipeline skipped" true
+            (Option.is_none local.pipeline_role))
 
 let expect_unknown_roster_agent () =
   let roster =
@@ -612,6 +701,8 @@ let () =
             expect_roster_frontmatter_parse;
           Alcotest.test_case "frontmatter marker rejection" `Quick
             expect_roster_frontmatter_rejects_missing_markers;
+          Alcotest.test_case "pipeline role parse" `Quick
+            expect_roster_pipeline_role_parse;
           Alcotest.test_case "frontmatter enrichment" `Quick
             expect_roster_index_frontmatter_enrichment;
           Alcotest.test_case "frontmatter local name match" `Quick

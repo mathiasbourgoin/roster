@@ -9,6 +9,7 @@ type t
 type error = { path : string; message : string }
 
 val max_file_bytes : int
+val read_file : string -> (string, error) result
 val parse_string : string -> t option
 val load : string -> (t option, error) result
 val find_scalar : string -> t -> string option
