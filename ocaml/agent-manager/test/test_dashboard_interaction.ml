@@ -13,6 +13,41 @@ let config =
       "agents": [
         {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},
         {"name": "qa", "roster_agent": "qa", "command": ["codex"]}
+      ],
+      "links": [
+        {"from": "lead", "to": "qa", "permissions": ["read", "write"], "reason": "qa handoff"}
+      ]
+    },
+    {
+      "id": "docs",
+      "label": "Docs Workspace",
+      "root": ".",
+      "tmux_session": "ta-docs",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "writer", "roster_agent": "documenter", "command": ["codex"]}
+      ]
+    }
+  ]
+}
+|}
+
+let config_without_links =
+  {|
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture Workspace",
+      "root": ".",
+      "tmux_session": "ta-fixture",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},
+        {"name": "qa", "roster_agent": "qa", "command": ["codex"]}
       ]
     },
     {
@@ -38,16 +73,31 @@ let parse_config () =
         (String.concat "\n"
            (List.map Ta_core.Workspace_config.error_to_string errors))
 
-let store () =
-  match Ta_core.State_store.of_config (parse_config ()) with
+let parse_config_text text =
+  match Ta_core.Workspace_config.parse_string text with
+  | Ok config -> config
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+
+let store_of_config config =
+  match Ta_core.State_store.of_config config with
   | Ok store -> store
   | Error errors ->
       Alcotest.fail
         (String.concat "\n"
            (List.map Ta_core.Workspace_config.error_to_string errors))
 
+let store () = store_of_config (parse_config ())
+
 let dashboard () =
   let store = store () in
+  let runtime = Ta_core.Runtime_snapshot.collect ~now:42.0 store in
+  Ta_core.Dashboard_model.of_state_runtime store runtime
+
+let dashboard_without_links () =
+  let store = store_of_config (parse_config_text config_without_links) in
   let runtime = Ta_core.Runtime_snapshot.collect ~now:42.0 store in
   Ta_core.Dashboard_model.of_state_runtime store runtime
 
@@ -152,6 +202,45 @@ let expect_pipeline_navigation () =
     "next pipeline agent" "writer"
     (as_string (Ta_core.Dashboard_interaction.selected_agent state))
 
+let expect_pipeline_edge_navigation () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
+  Alcotest.(check bool)
+    "focus" true
+    (match Ta_core.Dashboard_interaction.focus state with
+    | Ta_core.Dashboard_interaction.Pipeline -> true
+    | Workspaces | Agents -> false);
+  Alcotest.(check string)
+    "target agent" "qa"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent state));
+  Alcotest.(check bool)
+    "edge selected" true
+    (Option.is_some (Ta_core.Dashboard_interaction.selected_edge state));
+  let rendered =
+    Ta_core.Dashboard_interaction.render ~now:45.0 ~width:100 state
+  in
+  Alcotest.(check bool)
+    "edge marker" true
+    (contains_substring ~needle:"> ACL fixture/lead -> read qa | write qa"
+       rendered);
+  Alcotest.(check bool)
+    "target preview" true
+    (contains_substring ~needle:"Preview: fixture/qa" rendered)
+
+let expect_agent_navigation_clears_edge_focus () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
+  Alcotest.(check bool)
+    "edge selected" true
+    (Option.is_some (Ta_core.Dashboard_interaction.selected_edge state));
+  let state = Ta_core.Dashboard_interaction.handle_key state "a" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Down" in
+  Alcotest.(check bool)
+    "edge cleared" true
+    (Option.is_none (Ta_core.Dashboard_interaction.selected_edge state))
+
 let expect_refresh_preserves_selection () =
   let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
   let state = Ta_core.Dashboard_interaction.handle_key state "Down" in
@@ -186,6 +275,30 @@ let expect_refresh_preserves_pipeline_focus () =
   Alcotest.(check string)
     "agent preserved" "qa"
     (as_string (Ta_core.Dashboard_interaction.selected_agent refreshed))
+
+let expect_refresh_preserves_pipeline_edge () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "r" in
+  let refreshed = Ta_core.Dashboard_interaction.refresh (dashboard ()) state in
+  Alcotest.(check bool)
+    "edge preserved" true
+    (Option.is_some (Ta_core.Dashboard_interaction.selected_edge refreshed));
+  Alcotest.(check string)
+    "target preserved" "qa"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent refreshed))
+
+let expect_refresh_drops_missing_pipeline_edge () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
+  let refreshed =
+    Ta_core.Dashboard_interaction.refresh (dashboard_without_links ()) state
+  in
+  Alcotest.(check bool)
+    "edge dropped" true
+    (Option.is_none (Ta_core.Dashboard_interaction.selected_edge refreshed))
 
 let expect_refresh_failure_renders_stale () =
   let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
@@ -244,10 +357,18 @@ let () =
           Alcotest.test_case "tab cycles focus" `Quick expect_tab_cycles_focus;
           Alcotest.test_case "pipeline navigation" `Quick
             expect_pipeline_navigation;
+          Alcotest.test_case "pipeline edge navigation" `Quick
+            expect_pipeline_edge_navigation;
+          Alcotest.test_case "agent navigation clears edge focus" `Quick
+            expect_agent_navigation_clears_edge_focus;
           Alcotest.test_case "refresh preserves selection" `Quick
             expect_refresh_preserves_selection;
           Alcotest.test_case "refresh preserves pipeline focus" `Quick
             expect_refresh_preserves_pipeline_focus;
+          Alcotest.test_case "refresh preserves pipeline edge" `Quick
+            expect_refresh_preserves_pipeline_edge;
+          Alcotest.test_case "refresh drops missing pipeline edge" `Quick
+            expect_refresh_drops_missing_pipeline_edge;
           Alcotest.test_case "refresh failure renders stale" `Quick
             expect_refresh_failure_renders_stale;
           Alcotest.test_case "render uses selection" `Quick

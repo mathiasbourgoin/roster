@@ -582,6 +582,36 @@ let expect_dashboard_render_replays_pipeline_key () =
         "selected qa preview" true
         (contains_substring ~needle:"Preview: fixture/qa" result.stdout))
 
+let expect_dashboard_render_replays_pipeline_edge_key () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result =
+        run_tactl
+          [
+            "dashboard";
+            "render";
+            "--width";
+            "100";
+            "--key";
+            "p";
+            "--key";
+            "Right";
+            path;
+          ]
+      in
+      check_exit "dashboard exit" 0 result.status;
+      Alcotest.(check string) "dashboard stderr" "" result.stderr;
+      Alcotest.(check bool)
+        "pipeline edge focus" true
+        (contains_substring ~needle:"> ACL fixture/lead -> read qa | write -"
+           result.stdout);
+      Alcotest.(check bool)
+        "selected edge target preview" true
+        (contains_substring ~needle:"Preview: fixture/qa" result.stdout))
+
 let expect_dashboard_render_uses_roster_index () =
   with_temp_state (fun path ->
       let save =
@@ -723,6 +753,8 @@ let () =
             expect_dashboard_render_replays_key;
           Alcotest.test_case "render replays pipeline key" `Quick
             expect_dashboard_render_replays_pipeline_key;
+          Alcotest.test_case "render replays pipeline edge key" `Quick
+            expect_dashboard_render_replays_pipeline_edge_key;
           Alcotest.test_case "render uses roster index" `Quick
             expect_dashboard_render_uses_roster_index;
           Alcotest.test_case "render rejects bad width" `Quick

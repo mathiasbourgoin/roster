@@ -159,6 +159,30 @@ let expect_move_wraps_visible_nodes () =
     "previous wraps" "docs/writer"
     (Option.map node_to_string previous |> Option.value ~default:"-")
 
+let edge_to_string edge_id =
+  Printf.sprintf "%s/%s"
+    (Ta_core.Id.Workspace.to_string
+       (Ta_core.Dashboard_topology.edge_workspace edge_id))
+    (Ta_core.Id.Agent.to_string
+       (Ta_core.Dashboard_topology.edge_from_agent edge_id))
+
+let expect_move_edges_and_targets () =
+  let topology = Ta_core.Dashboard_model.topology (model ()) in
+  let edge =
+    Ta_core.Dashboard_topology.move_edge `Next ~selected:None topology
+  in
+  Alcotest.(check string)
+    "edge" "fixture/lead"
+    (Option.map edge_to_string edge |> Option.value ~default:"-");
+  let targets =
+    match edge with
+    | None -> []
+    | Some edge -> Ta_core.Dashboard_topology.edge_targets edge topology
+  in
+  Alcotest.(check (list string))
+    "targets" [ "fixture/qa" ]
+    (List.map node_to_string targets)
+
 let contains_substring ~needle value =
   let needle_len = String.length needle in
   let value_len = String.length value in
@@ -190,6 +214,22 @@ let expect_render_marks_selected_focus () =
     "edge categories" true
     (contains_substring ~needle:"Edge categories: declared-acl" rendered)
 
+let expect_render_marks_selected_edge () =
+  let topology = Ta_core.Dashboard_model.topology (model ()) in
+  let selected =
+    Ta_core.Dashboard_topology.edge_id ~workspace:(workspace "fixture")
+      ~from_agent:(agent "lead")
+  in
+  let rendered =
+    Ta_core.Dashboard_topology.render ~width:100 ~focused:true ~selected:None
+      ~selected_edge:selected topology
+    |> String.concat "\n"
+  in
+  Alcotest.(check bool)
+    "selected edge" true
+    (contains_substring ~needle:"> ACL fixture/lead -> read qa | write qa"
+       rendered)
+
 let () =
   Alcotest.run "dashboard-topology"
     [
@@ -203,7 +243,11 @@ let () =
             expect_pipeline_role_does_not_infer_edges;
           Alcotest.test_case "move wraps visible nodes" `Quick
             expect_move_wraps_visible_nodes;
+          Alcotest.test_case "move edges and targets" `Quick
+            expect_move_edges_and_targets;
           Alcotest.test_case "render marks selected focus" `Quick
             expect_render_marks_selected_focus;
+          Alcotest.test_case "render marks selected edge" `Quick
+            expect_render_marks_selected_edge;
         ] );
     ]

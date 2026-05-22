@@ -71,4 +71,11 @@ type selection = {
 val of_state_runtime : State_store.t -> Runtime_snapshot.t -> t
 val enrich_with_roster : Roster_index.t -> t -> t
 val topology : t -> Dashboard_topology.t
-val render : ?width:int -> ?selection:selection -> ?focus:focus -> t -> string
+
+val render :
+  ?width:int ->
+  ?selection:selection ->
+  ?focus:focus ->
+  ?topology_focus:Dashboard_topology.focus ->
+  t ->
+  string
