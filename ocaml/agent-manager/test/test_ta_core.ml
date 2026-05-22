@@ -254,6 +254,32 @@ let expect_tmux_quotes_command () =
             command = [ "printf"; "it's ok" ];
           }))
 
+let expect_tmux_launch_argv () =
+  let target = Ta_core.Tmux.unsafe_target_of_string "ta-test:0" in
+  Alcotest.(check (list string))
+    "split argv"
+    [
+      "split-window";
+      "-d";
+      "-t";
+      "ta-test:0";
+      "-c";
+      "/tmp/project";
+      "'env' 'ROLE=qa' 'codex'";
+    ]
+    (Ta_core.Tmux.argv
+       (Ta_core.Tmux.Split_window
+          {
+            target;
+            cwd = Some "/tmp/project";
+            command = [ "env"; "ROLE=qa"; "codex" ];
+          }));
+  Alcotest.(check (list string))
+    "layout argv"
+    [ "select-layout"; "-t"; "ta-test:0"; "tiled" ]
+    (Ta_core.Tmux.argv
+       (Ta_core.Tmux.Select_layout { target; layout = "tiled" }))
+
 let () =
   Alcotest.run "ta-core"
     [
@@ -280,5 +306,6 @@ let () =
         [
           Alcotest.test_case "argv" `Quick expect_tmux_argv;
           Alcotest.test_case "quotes command" `Quick expect_tmux_quotes_command;
+          Alcotest.test_case "launch argv" `Quick expect_tmux_launch_argv;
         ] );
     ]

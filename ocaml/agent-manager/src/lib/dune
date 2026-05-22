@@ -4,6 +4,7 @@
 (modules
   id
   launch_plan
+  launch_runtime
   permission
   roster_index
   state_file

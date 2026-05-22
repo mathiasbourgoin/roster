@@ -27,12 +27,14 @@ commit.
 - Snapshot mutation commands for agent status and tmux pane attachment.
 - Detailed state inspection command with bounded recent audit output.
 - Deterministic supervised tmux launch planning with pane and target metadata.
+- Supervised tmux launch start with dry-run, literal prompt sending, and
+  cleanup ownership.
 
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
 - Add supervised agent launch from workspace config.
-- Add supervised tmux session creation from launch plans.
+- Write launch-created pane metadata back into state snapshots.
 - Add Unix socket API mirroring `tactl` commands.
 - Add MIAOU dashboard with cached runtime state, not direct render-time polling.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent

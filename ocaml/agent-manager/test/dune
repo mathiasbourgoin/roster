@@ -19,6 +19,10 @@
  (libraries ta_core alcotest))
 
 (test
+ (name test_launch_runtime)
+ (libraries ta_core alcotest))
+
+(test
  (name test_tactl_cli)
  (deps
   (source_tree fixtures)
@@ -29,3 +33,15 @@
    %{exe:../src/bin/tactl.exe}
    (run %{test})))
  (libraries alcotest unix yojson))
+
+(test
+ (name test_tactl_launch_cli)
+ (deps
+  (source_tree fixtures)
+  ../src/bin/tactl.exe)
+ (action
+  (setenv
+   TACTL_EXE
+   %{exe:../src/bin/tactl.exe}
+   (run %{test})))
+ (libraries alcotest unix))
