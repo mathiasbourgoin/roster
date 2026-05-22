@@ -47,6 +47,10 @@
  (libraries ta_core alcotest))
 
 (test
+ (name test_dashboard_viewport)
+ (libraries ta_core alcotest))
+
+(test
  (name test_dashboard_interaction)
  (libraries ta_core alcotest unix))
 

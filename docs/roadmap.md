@@ -86,6 +86,9 @@ commit.
   `actions-socket`, so future TUI, MCP, and test clients no longer need to
   parse rendered preview text. Exports include refresh status and preserve
   write-only targets as pane-less action metadata.
+- Dashboard rendering now has a shared viewport height contract and `--height`
+  clipping across `ta`, `tactl dashboard render`, and `render-socket`, giving
+  the Herdr-quality UI baseline an enforceable terminal-size gate.
 
 ## Near-Term Milestones
 
@@ -94,7 +97,8 @@ commit.
   policy, and socket refresh boundary.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
-  confidence, and polished terminal layouts at common viewport sizes.
+  confidence, and polished terminal layouts beyond the first height-clipping
+  gate.
 - Add MCP bridge with ACL-checked read/write tools only.
 
 ## Ambitious Product Direction

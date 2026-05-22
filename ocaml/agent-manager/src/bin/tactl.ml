@@ -204,15 +204,23 @@ let dashboard_interaction_model ?refresh workspace agent keys dashboard =
   | Error message -> Error message
   | Ok interaction -> replay_dashboard_keys ?refresh interaction keys
 
-let render_dashboard_model ?refresh ?actor lines width workspace agent keys
-    dashboard =
+let parse_dashboard_height = function
+  | None -> Ok None
+  | Some value -> (
+      match Ta_core.Dashboard_viewport.height value with
+      | Ok height -> Ok (Some height)
+      | Error _ -> Error "--height must be positive")
+
+let render_dashboard_model ?refresh ?actor lines width height workspace agent
+    keys dashboard =
   match dashboard_interaction_model ?refresh workspace agent keys dashboard with
   | Error message ->
       prerr_endline message;
       `Ok 2
   | Ok interaction ->
       print_endline
-        (Ta_core.Dashboard_interaction.render ~width ~lines ?actor interaction);
+        (Ta_core.Dashboard_interaction.render ~width ?height ~lines ?actor
+           interaction);
       `Ok 0
 
 let export_dashboard_actions_model ?refresh ?actor lines workspace agent keys
@@ -234,7 +242,8 @@ let state_dashboard_model roster_path lines state_path =
       Ta_core.Dashboard_model.of_state_runtime store runtime
       |> load_roster_dashboard roster_path
 
-let render_dashboard lines width roster_path workspace agent keys state_path =
+let render_dashboard lines width height roster_path workspace agent keys
+    state_path =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
     `Ok 2)
@@ -247,15 +256,25 @@ let render_dashboard lines width roster_path workspace agent keys state_path =
     prerr_endline "--width must be positive";
     `Ok 2)
   else
-    match state_dashboard_model roster_path lines state_path with
-    | Error message ->
-        prerr_endline message;
-        `Ok 1
-    | Ok dashboard ->
-        render_dashboard_model
-          ~refresh:(fun () ->
-            state_dashboard_model roster_path lines state_path)
-          lines width workspace agent keys dashboard
+    let height =
+      match parse_dashboard_height height with
+      | Ok height -> Ok height
+      | Error message ->
+          prerr_endline message;
+          Error ()
+    in
+    match height with
+    | Error () -> `Ok 2
+    | Ok height -> (
+        match state_dashboard_model roster_path lines state_path with
+        | Error message ->
+            prerr_endline message;
+            `Ok 1
+        | Ok dashboard ->
+            render_dashboard_model
+              ~refresh:(fun () ->
+                state_dashboard_model roster_path lines state_path)
+              lines width height workspace agent keys dashboard)
 
 let dashboard_actions lines roster_path actor workspace agent keys state_path =
   if lines < 1 then (
@@ -295,8 +314,8 @@ let socket_dashboard_model roster_path socket_path lines actor =
   | Error error ->
       Error (Ta_core.Dashboard_socket_refresh.error_to_string error)
 
-let render_dashboard_socket socket_path lines width roster_path actor workspace
-    agent keys =
+let render_dashboard_socket socket_path lines width height roster_path actor
+    workspace agent keys =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
     `Ok 2)
@@ -309,6 +328,13 @@ let render_dashboard_socket socket_path lines width roster_path actor workspace
     prerr_endline "--width must be positive";
     `Ok 2)
   else
+    let height =
+      match parse_dashboard_height height with
+      | Ok height -> Ok height
+      | Error message ->
+          prerr_endline message;
+          Error ()
+    in
     let actor =
       match parse_optional_id "--actor" Ta_core.Id.Agent.of_string actor with
       | Error message ->
@@ -319,9 +345,9 @@ let render_dashboard_socket socket_path lines width roster_path actor workspace
           Error ()
       | Ok (Some actor) -> Ok actor
     in
-    match actor with
-    | Error () -> `Ok 2
-    | Ok actor -> (
+    match (height, actor) with
+    | Error (), _ | _, Error () -> `Ok 2
+    | Ok height, Ok actor -> (
         match socket_dashboard_model roster_path socket_path lines actor with
         | Error message ->
             prerr_endline message;
@@ -330,7 +356,7 @@ let render_dashboard_socket socket_path lines width roster_path actor workspace
             render_dashboard_model ~actor
               ~refresh:(fun () ->
                 socket_dashboard_model roster_path socket_path lines actor)
-              lines width workspace agent keys dashboard)
+              lines width height workspace agent keys dashboard)
 
 let dashboard_actions_socket socket_path lines roster_path actor workspace agent
     keys =
@@ -789,6 +815,13 @@ let dashboard_width_arg =
     & info [ "width" ] ~docv:"COLS"
         ~doc:"Dashboard frame width used by the static renderer")
 
+let dashboard_height_arg =
+  Arg.(
+    value
+    & opt (some int) None
+    & info [ "height" ] ~docv:"ROWS"
+        ~doc:"Optional dashboard frame height used for viewport clipping")
+
 let dashboard_actor_arg =
   Arg.(
     value
@@ -966,8 +999,8 @@ let dashboard_render_cmd =
     Term.(
       ret
         (const render_dashboard $ runtime_lines_arg $ dashboard_width_arg
-       $ roster_arg $ socket_workspace_arg $ socket_agent_arg
-       $ dashboard_key_arg $ state_path_arg))
+       $ dashboard_height_arg $ roster_arg $ socket_workspace_arg
+       $ socket_agent_arg $ dashboard_key_arg $ state_path_arg))
 
 let dashboard_render_socket_cmd =
   let doc =
@@ -978,9 +1011,9 @@ let dashboard_render_socket_cmd =
     Term.(
       ret
         (const render_dashboard_socket
-        $ socket_path_opt $ runtime_lines_arg $ dashboard_width_arg $ roster_arg
-        $ socket_actor_arg $ socket_workspace_arg $ socket_agent_arg
-        $ dashboard_key_arg))
+        $ socket_path_opt $ runtime_lines_arg $ dashboard_width_arg
+        $ dashboard_height_arg $ roster_arg $ socket_actor_arg
+        $ socket_workspace_arg $ socket_agent_arg $ dashboard_key_arg))
 
 let dashboard_actions_cmd =
   let doc =

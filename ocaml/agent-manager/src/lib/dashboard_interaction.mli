@@ -31,4 +31,10 @@ val refresh_failed : string -> t -> t
 val handle_key : t -> string -> t
 
 val render :
-  ?now:float -> ?width:int -> ?lines:int -> ?actor:Id.Agent.t -> t -> string
+  ?now:float ->
+  ?width:int ->
+  ?height:Dashboard_viewport.height ->
+  ?lines:int ->
+  ?actor:Id.Agent.t ->
+  t ->
+  string

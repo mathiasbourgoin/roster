@@ -12,6 +12,7 @@
   dashboard_socket_refresh
   dashboard_snapshot
   dashboard_topology
+  dashboard_viewport
   launch_plan
   launch_runtime
   launch_state

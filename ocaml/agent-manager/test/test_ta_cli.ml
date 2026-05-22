@@ -68,6 +68,12 @@ let contains_substring ~needle value =
   in
   String.equal needle "" || loop 0
 
+let line_count value =
+  let lines = String.split_on_char '\n' value in
+  match List.rev lines with
+  | "" :: rest -> List.length rest
+  | _ -> List.length lines
+
 let with_temp_state f =
   let path = Filename.temp_file "ta-cli-state" ".json" in
   Fun.protect ~finally:(fun () -> remove_noerr path) (fun () -> f path)
@@ -127,6 +133,41 @@ let expect_rejects_bad_width () =
         "width error" true
         (contains_substring ~needle:"--width must be positive" result.stderr))
 
+let expect_state_dashboard_respects_height () =
+  with_temp_state (fun path ->
+      save_state path;
+      let result =
+        run_ta
+          [
+            "--state";
+            path;
+            "--width";
+            "80";
+            "--height";
+            "12";
+            "--key";
+            "p";
+            "--key";
+            "Right";
+          ]
+      in
+      check_exit "exit" 0 result.status;
+      Alcotest.(check string) "stderr" "" result.stderr;
+      Alcotest.(check int) "height" 12 (line_count result.stdout);
+      Alcotest.(check bool)
+        "clip marker" true
+        (contains_substring ~needle:"line(s) clipped; increase --height"
+           result.stdout))
+
+let expect_rejects_bad_height () =
+  with_temp_state (fun path ->
+      save_state path;
+      let result = run_ta [ "--state"; path; "--height"; "0" ] in
+      check_exit "exit" 2 result.status;
+      Alcotest.(check bool)
+        "height error" true
+        (contains_substring ~needle:"--height must be positive" result.stderr))
+
 let () =
   Alcotest.run "ta-cli"
     [
@@ -135,6 +176,10 @@ let () =
           Alcotest.test_case "state dashboard" `Quick expect_state_dashboard;
           Alcotest.test_case "state dashboard replays key" `Quick
             expect_state_dashboard_replays_key;
+          Alcotest.test_case "state dashboard respects height" `Quick
+            expect_state_dashboard_respects_height;
           Alcotest.test_case "rejects bad width" `Quick expect_rejects_bad_width;
+          Alcotest.test_case "rejects bad height" `Quick
+            expect_rejects_bad_height;
         ] );
     ]
