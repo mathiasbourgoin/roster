@@ -71,6 +71,19 @@ let load_state state_path =
       print_state_file_error error;
       `Ok 1
 
+let show_state audit_limit state_path =
+  if audit_limit < 0 then (
+    prerr_endline "--audit-limit must be non-negative";
+    `Ok 2)
+  else
+    match Ta_core.State_file.load ~path:state_path with
+    | Ok store ->
+        print_endline (Ta_core.State_store.describe ~audit_limit store);
+        `Ok 0
+    | Error error ->
+        print_state_file_error error;
+        `Ok 1
+
 let parse_id label parse value =
   match parse value with
   | Ok id -> Ok id
@@ -240,6 +253,12 @@ let pane_arg =
     & opt (some string) None
     & info [ "pane" ] ~docv:"PANE" ~doc:"tmux pane id to attach")
 
+let audit_limit_arg =
+  Arg.(
+    value & opt int 10
+    & info [ "audit-limit" ] ~docv:"N"
+        ~doc:"Maximum number of recent audit events to print")
+
 let smoke_session_arg =
   Arg.(
     value
@@ -266,6 +285,11 @@ let state_load_cmd =
   let doc = "Load and validate a state snapshot file." in
   Cmd.v (Cmd.info "load" ~doc) Term.(ret (const load_state $ state_path_arg))
 
+let state_show_cmd =
+  let doc = "Print detailed state snapshot contents." in
+  Cmd.v (Cmd.info "show" ~doc)
+    Term.(ret (const show_state $ audit_limit_arg $ state_path_arg))
+
 let state_set_status_cmd =
   let doc = "Update an agent status in a state snapshot." in
   Cmd.v
@@ -290,6 +314,7 @@ let state_cmd =
     [
       state_save_cmd;
       state_load_cmd;
+      state_show_cmd;
       state_set_status_cmd;
       state_attach_pane_cmd;
     ]

@@ -80,6 +80,89 @@ let summarize store =
   in
   String.concat "\n" (header :: lines)
 
+let pane_to_string = function
+  | None -> "-"
+  | Some pane -> Id.Pane.to_string pane
+
+let actor_to_string = function
+  | None -> "system"
+  | Some actor -> Id.Agent.to_string actor
+
+let permissions_to_string permissions =
+  permissions |> List.map Permission.to_string |> String.concat ","
+
+let audit_kind_to_string = function
+  | Workspace_loaded -> "workspace-loaded"
+  | Agent_status_changed { agent; before; after } ->
+      Printf.sprintf "status %s: %s -> %s" (Id.Agent.to_string agent)
+        (status_to_string before) (status_to_string after)
+  | Pane_attached { agent; pane } ->
+      Printf.sprintf "pane %s: %s" (Id.Agent.to_string agent)
+        (Id.Pane.to_string pane)
+
+let drop count values =
+  let rec loop remaining rest =
+    if remaining <= 0 then rest
+    else match rest with [] -> [] | _ :: tail -> loop (remaining - 1) tail
+  in
+  loop count values
+
+let recent_events limit events =
+  let limit = max 0 limit in
+  let event_count = List.length events in
+  drop (event_count - limit) events
+
+let describe_workspace workspace =
+  let agent_lines =
+    workspace.agents
+    |> List.map (fun agent ->
+        Printf.sprintf "  - %s [%s] roster=%s pane=%s"
+          (Id.Agent.to_string agent.name)
+          (status_to_string agent.status)
+          agent.roster_agent
+          (pane_to_string agent.pane))
+  in
+  let link_lines =
+    match workspace.links with
+    | [] -> [ "  - none" ]
+    | links ->
+        links
+        |> List.map (fun link ->
+            Printf.sprintf "  - %s -> %s [%s] %s"
+              (Id.Agent.to_string link.from_agent)
+              (Id.Agent.to_string link.to_agent)
+              (permissions_to_string link.permissions)
+              link.reason)
+  in
+  [
+    Printf.sprintf "Workspace %s (%s)"
+      (Id.Workspace.to_string workspace.id)
+      workspace.label;
+    "  root: " ^ workspace.root;
+    "  active_view: " ^ Id.View.to_string workspace.active_view;
+    "  Agents:";
+  ]
+  @ agent_lines @ [ "  Links:" ] @ link_lines
+
+let describe_audit_event event =
+  Printf.sprintf "  #%d %s actor=%s %s" event.seq
+    (Id.Workspace.to_string event.workspace)
+    (actor_to_string event.actor)
+    (audit_kind_to_string event.kind)
+
+let describe ?(audit_limit = 10) store =
+  let events = audit_events store in
+  let workspace_lines =
+    store.workspaces |> List.concat_map describe_workspace
+  in
+  let audit_lines =
+    match recent_events audit_limit events with
+    | [] -> [ "  - none" ]
+    | events -> List.map describe_audit_event events
+  in
+  String.concat "\n"
+    ([ summarize store ] @ workspace_lines @ [ "Recent audit:" ] @ audit_lines)
+
 let find_workspace store workspace_id =
   match
     List.find_opt
