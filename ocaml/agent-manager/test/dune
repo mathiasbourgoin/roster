@@ -108,7 +108,7 @@
    TA_EXE
    %{exe:../src/bin/ta.exe}
    (run %{test})))
- (libraries ta_core alcotest unix))
+ (libraries ta_core alcotest unix yojson))
 
 (test
  (name test_tactl_socket_cli)

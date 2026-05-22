@@ -145,6 +145,44 @@ let line_count value =
   | "" :: rest -> List.length rest
   | _ -> List.length lines
 
+type frame = { frame_text : string; frame_rows : int; frame_cols : int }
+
+let frame_field_string name fields =
+  match List.assoc_opt name fields with
+  | Some (`String value) -> Some value
+  | _ -> None
+
+let frame_field_int name fields =
+  match List.assoc_opt name fields with
+  | Some (`Int value) -> Some value
+  | _ -> None
+
+let decode_frame = function
+  | `Assoc fields when frame_field_string "type" fields = Some "frame" -> (
+      match
+        ( frame_field_string "text" fields,
+          frame_field_int "rows" fields,
+          frame_field_int "cols" fields )
+      with
+      | Some frame_text, Some frame_rows, Some frame_cols ->
+          Some { frame_text; frame_rows; frame_cols }
+      | _ -> None)
+  | _ -> None
+
+let frame_outputs stdout =
+  stdout |> String.split_on_char '\n'
+  |> List.filter_map (fun line ->
+      let line = String.trim line in
+      if String.equal line "" then None
+      else
+        try decode_frame (Yojson.Safe.from_string line)
+        with Yojson.Json_error _ -> None)
+
+let last_frame stdout =
+  match List.rev (frame_outputs stdout) with
+  | frame :: _ -> frame
+  | [] -> Alcotest.fail "expected at least one headless frame"
+
 let with_temp_state f =
   let path = Filename.temp_file "ta-cli-state" ".json" in
   Fun.protect ~finally:(fun () -> remove_noerr path) (fun () -> f path)
@@ -330,7 +368,11 @@ let expect_miaou_headless_tui_renders_dashboard () =
       let result =
         run_ta_with_input
           ~env:[ ("MIAOU_DRIVER", "headless") ]
-          ~stdin:"{\"cmd\":\"render\"}\n{\"cmd\":\"key\",\"key\":\"q\"}\n"
+          ~stdin:
+            "{\"cmd\":\"render\"}\n\
+             {\"cmd\":\"key\",\"key\":\"p\"}\n\
+             {\"cmd\":\"key\",\"key\":\"Right\"}\n\
+             {\"cmd\":\"key\",\"key\":\"q\"}\n"
           [ "--state"; path; "--tui"; "always" ]
       in
       check_exit "exit" 0 result.status;
@@ -346,7 +388,57 @@ let expect_miaou_headless_tui_renders_dashboard () =
         (contains_substring ~needle:"Workspaces" result.stdout);
       Alcotest.(check bool)
         "agent detail" true
-        (contains_substring ~needle:"Agent fixture/lead" result.stdout))
+        (contains_substring ~needle:"Agent detail" result.stdout);
+      Alcotest.(check bool)
+        "agent table" true
+        (contains_substring ~needle:"tech-lead | id tech-lead" result.stdout);
+      Alcotest.(check bool)
+        "pipeline edge" true
+        (contains_substring ~needle:"Pipeline edge" result.stdout))
+
+let expect_miaou_headless_tui_respects_short_height () =
+  with_temp_state (fun path ->
+      save_state path;
+      let result =
+        run_ta_with_input
+          ~env:[ ("MIAOU_DRIVER", "headless") ]
+          ~stdin:
+            "{\"cmd\":\"resize\",\"rows\":10,\"cols\":80}\n\
+             {\"cmd\":\"tick\",\"n\":1}\n\
+             {\"cmd\":\"quit\"}\n"
+          [ "--state"; path; "--tui"; "always" ]
+      in
+      check_exit "exit" 0 result.status;
+      Alcotest.(check string) "stderr" "" result.stderr;
+      let frame = last_frame result.stdout in
+      Alcotest.(check int) "frame rows" 10 frame.frame_rows;
+      Alcotest.(check int) "frame cols" 80 frame.frame_cols;
+      Alcotest.(check bool)
+        "frame fits terminal height" true
+        (line_count frame.frame_text <= frame.frame_rows);
+      Alcotest.(check bool)
+        "agent detail remains visible" true
+        (contains_substring ~needle:"Agent detail" frame.frame_text))
+
+let expect_miaou_headless_tui_uses_full_collapsed_width () =
+  with_temp_state (fun path ->
+      save_state path;
+      let result =
+        run_ta_with_input
+          ~env:[ ("MIAOU_DRIVER", "headless") ]
+          ~stdin:
+            "{\"cmd\":\"resize\",\"rows\":18,\"cols\":39}\n\
+             {\"cmd\":\"tick\",\"n\":1}\n\
+             {\"cmd\":\"quit\"}\n"
+          [ "--state"; path; "--tui"; "always" ]
+      in
+      check_exit "exit" 0 result.status;
+      Alcotest.(check string) "stderr" "" result.stderr;
+      let frame = last_frame result.stdout in
+      Alcotest.(check int) "frame cols" 39 frame.frame_cols;
+      Alcotest.(check bool)
+        "collapsed view uses full width" true
+        (contains_substring ~needle:"tech-lead | id tech-lead" frame.frame_text))
 
 let expect_no_defaults_prints_quickstart () =
   with_temp_workspace (fun dir ->
@@ -448,5 +540,9 @@ let () =
             expect_tui_always_requires_terminal;
           Alcotest.test_case "miaou headless tui renders dashboard" `Quick
             expect_miaou_headless_tui_renders_dashboard;
+          Alcotest.test_case "miaou headless tui respects short height" `Quick
+            expect_miaou_headless_tui_respects_short_height;
+          Alcotest.test_case "miaou headless tui uses collapsed width" `Quick
+            expect_miaou_headless_tui_uses_full_collapsed_width;
         ] );
     ]

@@ -102,19 +102,40 @@ commit.
   The executable is a MIAOU `Direct_page` backed by the pure dashboard runner,
   with JSON-driveable `MIAOU_DRIVER=headless` coverage and tmux QA over the
   MIAOU terminal backend.
+- `ocaml/agent-manager` now has a local opam switch that installs the TA
+  package, `miaou-tui`, test dependencies, and formatting tools so the project
+  can compile without relying on the broader development switch.
+- The MIAOU dashboard now uses MIAOU widget helpers for an agent/workspace
+  sidebar, agent status table, and selected-agent description panel while
+  preserving short-terminal and narrow-terminal behavior under headless and
+  tmux Matrix QA.
 
 ## Near-Term Milestones
 
+- Add a TUI-first start workflow: pick workspace, pick roster agent or template,
+  confirm command/profile, and TA creates the tmux pane plus state snapshot
+  without requiring hand-written JSON.
+  Acceptance bar: from `dune exec ta`, starting a Codex `tech-lead` must take
+  no more than two primary selections in the TUI.
+- Add a TUI connection editor: choose source agent, choose target agent, select
+  read/write permissions, and persist the ACL edge with an audit event.
+- Add capability-gated agent creation: only roster agents with an explicit
+  creation capability, such as `tech-lead` and `recruiter`, can generate or
+  install new agent definitions. Other agents may request creation through
+  those privileged actors.
 - Upgrade the MIAOU full-screen TUI from text-frame sections to a Herdr-grade
   layout with workspace/agent sidebar, pane preview focus area, action footer,
   mouse/keyboard affordances, and blocked/working/done rollups.
-- Replace the current section text renderer with MIAOU widgets/layout helpers,
-  including tables/lists for agents, richer preview panes, and explicit focus
-  rings.
+- Deepen the current MIAOU widget layout with richer preview panes, explicit
+  focus rings, modals, command palette flows, and launch/connect actions.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts beyond the first height-clipping
   gate.
+- Add a Herdr comparison QA gate for each major TUI loop. At minimum, compare
+  empty state, start-agent flow, sidebar scan quality, real-pane visibility,
+  narrow terminal behavior, keyboard discoverability, and runtime API parity
+  against current Herdr docs/screenshots or a temporary Herdr tmux run.
 - Add MCP bridge with ACL-checked read/write tools only.
 
 ## Ambitious Product Direction

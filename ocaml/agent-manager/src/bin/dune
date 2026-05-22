@@ -7,7 +7,7 @@
 (executable
  (name ta)
  (public_name ta)
- (modules ta ta_tui)
+ (modules ta ta_miaou_view ta_tui)
  (libraries
   ta_core
   cmdliner
@@ -16,5 +16,6 @@
   miaou-core.core
   miaou-core.helpers
   miaou-core.widgets.display
+  miaou-core.widgets.layout
   miaou-runner.tui
   eio_main))
