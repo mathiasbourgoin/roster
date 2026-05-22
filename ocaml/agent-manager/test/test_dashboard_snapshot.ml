@@ -12,10 +12,12 @@ let config =
       "views": [{"id": "agents", "label": "Agents"}],
       "agents": [
         {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},
-        {"name": "qa", "roster_agent": "qa", "command": ["codex"]}
+        {"name": "qa", "roster_agent": "qa", "command": ["codex"]},
+        {"name": "writer", "roster_agent": "documenter", "command": ["codex"]}
       ],
       "links": [
-        {"from": "lead", "to": "qa", "permissions": ["read"], "reason": "delegate QA"}
+        {"from": "lead", "to": "qa", "permissions": ["read"], "reason": "delegate QA"},
+        {"from": "lead", "to": "writer", "permissions": ["write"], "reason": "draft handoff"}
       ]
     }
   ]
@@ -112,7 +114,7 @@ let expect_actor_scoped_snapshot () =
     "lead sees self and qa" [ "lead"; "qa" ]
     (runtime_agent_names lead_snapshot);
   Alcotest.(check (list string))
-    "lead state sees self and qa" [ "lead"; "qa" ]
+    "lead state sees writable writer" [ "lead"; "qa"; "writer" ]
     (state_agent_names lead_snapshot);
   let qa_snapshot =
     match

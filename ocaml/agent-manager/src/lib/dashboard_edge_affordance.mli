@@ -49,8 +49,15 @@ type t = {
 }
 
 val endpoint_ref : endpoint -> string
+val runtime_state_to_string : runtime_state -> string
 val socket_intent_to_string : 'cap socket_intent -> string
 val action_to_string : action -> string
+val runtime_state_to_yojson : runtime_state -> Yojson.Safe.t
+val endpoint_to_yojson : endpoint -> Yojson.Safe.t
+val target_to_yojson : ?selected:bool -> target -> Yojson.Safe.t
+val socket_intent_to_yojson : 'cap socket_intent -> Yojson.Safe.t
+val action_to_yojson : action -> Yojson.Safe.t
+val to_yojson : ?selected_target:Id.Agent.t -> t -> Yojson.Safe.t
 
 val render_preview :
   ?selected_target:Id.Agent.t -> width:int -> t -> string list

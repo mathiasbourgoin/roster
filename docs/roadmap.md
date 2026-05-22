@@ -81,15 +81,17 @@ commit.
 - Dashboard focused pipeline edges can now cycle selected visible targets with
   `[` and `]`, preserve target focus across refresh, and expose read-gated
   source/target pane-focus intents.
+- Dashboard focused pipeline edge actions now have a structured, non-mutating
+  JSON export through pure model APIs plus `tactl dashboard actions` and
+  `actions-socket`, so future TUI, MCP, and test clients no longer need to
+  parse rendered preview text. Exports include refresh status and preserve
+  write-only targets as pane-less action metadata.
 
 ## Near-Term Milestones
 
 - Add a concrete MIAOU page adapter once `miaou-tui` is installed in the
   current switch, using the dashboard runner, interaction state, cadence
   policy, and socket refresh boundary.
-- Add a non-mutating dashboard action inspector/exporter so focused edge
-  actions can be consumed as structured data by future TUI bindings, MCP tools,
-  and tests.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts at common viewport sizes.

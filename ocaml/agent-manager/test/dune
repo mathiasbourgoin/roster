@@ -39,6 +39,10 @@
  (libraries ta_core alcotest))
 
 (test
+ (name test_dashboard_action_export)
+ (libraries ta_core alcotest yojson))
+
+(test
  (name test_dashboard_topology)
  (libraries ta_core alcotest))
 

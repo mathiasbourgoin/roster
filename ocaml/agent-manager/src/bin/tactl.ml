@@ -192,8 +192,7 @@ let load_roster_dashboard roster_path dashboard =
             |> List.map Ta_core.Roster_index.error_to_string
             |> String.concat "\n"))
 
-let render_dashboard_model ?refresh ?actor lines width workspace agent keys
-    dashboard =
+let dashboard_interaction_model ?refresh workspace agent keys dashboard =
   let interaction = Ta_core.Dashboard_interaction.init dashboard in
   match
     let* workspace =
@@ -202,19 +201,30 @@ let render_dashboard_model ?refresh ?actor lines width workspace agent keys
     let* agent = parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent in
     Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
   with
+  | Error message -> Error message
+  | Ok interaction -> replay_dashboard_keys ?refresh interaction keys
+
+let render_dashboard_model ?refresh ?actor lines width workspace agent keys
+    dashboard =
+  match dashboard_interaction_model ?refresh workspace agent keys dashboard with
   | Error message ->
       prerr_endline message;
       `Ok 2
-  | Ok interaction -> (
-      match replay_dashboard_keys ?refresh interaction keys with
-      | Error message ->
-          prerr_endline message;
-          `Ok 2
-      | Ok interaction ->
-          print_endline
-            (Ta_core.Dashboard_interaction.render ~width ~lines ?actor
-               interaction);
-          `Ok 0)
+  | Ok interaction ->
+      print_endline
+        (Ta_core.Dashboard_interaction.render ~width ~lines ?actor interaction);
+      `Ok 0
+
+let export_dashboard_actions_model ?refresh ?actor lines workspace agent keys
+    dashboard =
+  match dashboard_interaction_model ?refresh workspace agent keys dashboard with
+  | Error message ->
+      prerr_endline message;
+      `Ok 2
+  | Ok interaction ->
+      Ta_core.Dashboard_action_export.of_interaction ?actor ~lines interaction
+      |> Ta_core.Dashboard_action_export.to_string |> print_endline;
+      `Ok 0
 
 let state_dashboard_model roster_path lines state_path =
   match Ta_core.State_file.load ~path:state_path with
@@ -246,6 +256,36 @@ let render_dashboard lines width roster_path workspace agent keys state_path =
           ~refresh:(fun () ->
             state_dashboard_model roster_path lines state_path)
           lines width workspace agent keys dashboard
+
+let dashboard_actions lines roster_path actor workspace agent keys state_path =
+  if lines < 1 then (
+    prerr_endline "--lines must be positive";
+    `Ok 2)
+  else if lines > Ta_core.Runtime_snapshot.max_preview_lines then (
+    prerr_endline
+      ("--lines must be at most "
+      ^ string_of_int Ta_core.Runtime_snapshot.max_preview_lines);
+    `Ok 2)
+  else
+    let actor =
+      match parse_optional_id "--actor" Ta_core.Id.Agent.of_string actor with
+      | Error message ->
+          prerr_endline message;
+          Error ()
+      | Ok actor -> Ok actor
+    in
+    match actor with
+    | Error () -> `Ok 2
+    | Ok actor -> (
+        match state_dashboard_model roster_path lines state_path with
+        | Error message ->
+            prerr_endline message;
+            `Ok 1
+        | Ok dashboard ->
+            export_dashboard_actions_model ?actor
+              ~refresh:(fun () ->
+                state_dashboard_model roster_path lines state_path)
+              lines workspace agent keys dashboard)
 
 let socket_dashboard_model roster_path socket_path lines actor =
   match
@@ -291,6 +331,40 @@ let render_dashboard_socket socket_path lines width roster_path actor workspace
               ~refresh:(fun () ->
                 socket_dashboard_model roster_path socket_path lines actor)
               lines width workspace agent keys dashboard)
+
+let dashboard_actions_socket socket_path lines roster_path actor workspace agent
+    keys =
+  if lines < 1 then (
+    prerr_endline "--lines must be positive";
+    `Ok 2)
+  else if lines > Ta_core.Runtime_snapshot.max_preview_lines then (
+    prerr_endline
+      ("--lines must be at most "
+      ^ string_of_int Ta_core.Runtime_snapshot.max_preview_lines);
+    `Ok 2)
+  else
+    let actor =
+      match parse_optional_id "--actor" Ta_core.Id.Agent.of_string actor with
+      | Error message ->
+          prerr_endline message;
+          Error ()
+      | Ok None ->
+          prerr_endline "--actor is required for dashboard actions-socket";
+          Error ()
+      | Ok (Some actor) -> Ok actor
+    in
+    match actor with
+    | Error () -> `Ok 2
+    | Ok actor -> (
+        match socket_dashboard_model roster_path socket_path lines actor with
+        | Error message ->
+            prerr_endline message;
+            `Ok 1
+        | Ok dashboard ->
+            export_dashboard_actions_model ~actor
+              ~refresh:(fun () ->
+                socket_dashboard_model roster_path socket_path lines actor)
+              lines workspace agent keys dashboard)
 
 let parse_actor = function
   | None -> Ok None
@@ -715,6 +789,13 @@ let dashboard_width_arg =
     & info [ "width" ] ~docv:"COLS"
         ~doc:"Dashboard frame width used by the static renderer")
 
+let dashboard_actor_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "actor" ] ~docv:"AGENT"
+        ~doc:"Optional actor agent id used to expose actor-bound actions")
+
 let dashboard_key_arg =
   Arg.(
     value & opt_all string []
@@ -901,11 +982,39 @@ let dashboard_render_socket_cmd =
         $ socket_actor_arg $ socket_workspace_arg $ socket_agent_arg
         $ dashboard_key_arg))
 
+let dashboard_actions_cmd =
+  let doc =
+    "Export focused dashboard edge actions from state and tmux runtime."
+  in
+  Cmd.v (Cmd.info "actions" ~doc)
+    Term.(
+      ret
+        (const dashboard_actions $ runtime_lines_arg $ roster_arg
+       $ dashboard_actor_arg $ socket_workspace_arg $ socket_agent_arg
+       $ dashboard_key_arg $ state_path_arg))
+
+let dashboard_actions_socket_cmd =
+  let doc =
+    "Export focused dashboard edge actions from the local socket control plane."
+  in
+  Cmd.v
+    (Cmd.info "actions-socket" ~doc)
+    Term.(
+      ret
+        (const dashboard_actions_socket
+        $ socket_path_opt $ runtime_lines_arg $ roster_arg $ socket_actor_arg
+        $ socket_workspace_arg $ socket_agent_arg $ dashboard_key_arg))
+
 let dashboard_cmd =
   let doc = "Render dashboard views for the future MIAOU TUI." in
   Cmd.group
     (Cmd.info "dashboard" ~doc)
-    [ dashboard_render_cmd; dashboard_render_socket_cmd ]
+    [
+      dashboard_render_cmd;
+      dashboard_render_socket_cmd;
+      dashboard_actions_cmd;
+      dashboard_actions_socket_cmd;
+    ]
 
 let launch_plan_cmd =
   let doc = "Print a deterministic supervised tmux launch plan." in

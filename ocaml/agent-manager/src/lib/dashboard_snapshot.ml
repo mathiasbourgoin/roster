@@ -45,7 +45,7 @@ let redact_workspace store actor workspace =
     Some { workspace with agents; links }
 
 let redacted_state_for_actor store actor =
-  State_store.visible_to_actor store ~actor
+  State_store.action_visible_to_actor store ~actor
 
 let collect_agent ?now ~lines ~runner store workspace agent =
   let ( let* ) = Result.bind in
