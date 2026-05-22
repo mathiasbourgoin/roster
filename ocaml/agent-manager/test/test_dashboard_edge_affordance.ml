@@ -56,6 +56,14 @@ let affordance () : Ta_core.Dashboard_edge_affordance.t =
               },
             "read source preview" );
         Ta_core.Dashboard_edge_affordance.Action
+          ( Focus_pane
+              {
+                workspace = workspace "fixture";
+                agent = agent "lead";
+                pane = Some (pane "%1");
+              },
+            "focus source pane" );
+        Ta_core.Dashboard_edge_affordance.Action
           ( Runtime_snapshot
               {
                 workspace = workspace "fixture";
@@ -63,6 +71,14 @@ let affordance () : Ta_core.Dashboard_edge_affordance.t =
                 lines = 20;
               },
             "read target preview" );
+        Ta_core.Dashboard_edge_affordance.Action
+          ( Focus_pane
+              {
+                workspace = workspace "fixture";
+                agent = agent "qa";
+                pane = Some (pane "%2");
+              },
+            "focus target pane" );
         Ta_core.Dashboard_edge_affordance.Action
           ( Future_agent_message
               {
@@ -119,6 +135,19 @@ let expect_render_preview_respects_width () =
         ("line width: " ^ line) true
         (String.length line <= 72))
 
+let expect_render_preview_marks_selected_target () =
+  let rendered =
+    Ta_core.Dashboard_edge_affordance.render_preview
+      ~selected_target:(agent "qa") ~width:120 (affordance ())
+    |> String.concat "\n"
+  in
+  Alcotest.(check bool)
+    "selected target marker" true
+    (contains_substring ~needle:"> Edge target: fixture/qa" rendered);
+  Alcotest.(check bool)
+    "source focus action" true
+    (contains_substring ~needle:"focus-pane fixture/lead pane %1" rendered)
+
 let () =
   Alcotest.run "dashboard-edge-affordance"
     [
@@ -127,5 +156,7 @@ let () =
           Alcotest.test_case "render preview" `Quick expect_render_preview;
           Alcotest.test_case "render preview respects width" `Quick
             expect_render_preview_respects_width;
+          Alcotest.test_case "render preview marks selected target" `Quick
+            expect_render_preview_marks_selected_target;
         ] );
     ]

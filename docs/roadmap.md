@@ -78,15 +78,18 @@ commit.
 - Dashboard focused pipeline edges now expose pure socket-safe affordances,
   including source/target pane metadata and typed read/write action
   descriptions for future MIAOU bindings.
+- Dashboard focused pipeline edges can now cycle selected visible targets with
+  `[` and `]`, preserve target focus across refresh, and expose read-gated
+  source/target pane-focus intents.
 
 ## Near-Term Milestones
 
 - Add a concrete MIAOU page adapter once `miaou-tui` is installed in the
   current switch, using the dashboard runner, interaction state, cadence
   policy, and socket refresh boundary.
-- Add target-specific focused-edge commands, including cycling among multiple
-  edge targets and exposing explicit source/target pane jump intents for future
-  MIAOU key bindings.
+- Add a non-mutating dashboard action inspector/exporter so focused edge
+  actions can be consumed as structured data by future TUI bindings, MCP tools,
+  and tests.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts at common viewport sizes.
