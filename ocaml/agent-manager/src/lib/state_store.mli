@@ -58,6 +58,7 @@ type snapshot_error = { path : string; message : string }
 val of_config : Workspace_config.t -> (t, Workspace_config.error list) result
 val workspaces : t -> workspace list
 val audit_events : t -> audit_event list
+val summarize : t -> string
 val to_yojson : t -> Yojson.Safe.t
 val of_yojson : Yojson.Safe.t -> (t, snapshot_error list) result
 val snapshot_error_to_string : snapshot_error -> string

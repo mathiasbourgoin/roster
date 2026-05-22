@@ -38,6 +38,37 @@ let validate_config roster_path path =
 
 let summary roster_path path = validate_config roster_path path
 
+let print_state_file_error error =
+  prerr_endline (Ta_core.State_file.error_to_string error)
+
+let save_state roster_path output_path config_path =
+  match load_config ?roster_path config_path with
+  | Error errors ->
+      print_errors errors;
+      `Ok 1
+  | Ok config -> (
+      match Ta_core.State_store.of_config config with
+      | Error errors ->
+          print_errors errors;
+          `Ok 1
+      | Ok store -> (
+          match Ta_core.State_file.save ~path:output_path store with
+          | Ok () ->
+              print_endline ("state snapshot written: " ^ output_path);
+              `Ok 0
+          | Error error ->
+              print_state_file_error error;
+              `Ok 1))
+
+let load_state state_path =
+  match Ta_core.State_file.load ~path:state_path with
+  | Ok store ->
+      print_endline (Ta_core.State_store.summarize store);
+      `Ok 0
+  | Error error ->
+      print_state_file_error error;
+      `Ok 1
+
 let tmux_status session_name =
   match Ta_core.Tmux.session_of_string session_name with
   | Error message ->
@@ -90,6 +121,19 @@ let roster_arg =
 let session_arg =
   Arg.(required & pos 0 (some string) None & info [] ~docv:"SESSION")
 
+let state_path_arg =
+  Arg.(
+    required
+    & pos 0 (some string) None
+    & info [] ~docv:"STATE" ~doc:"TA state snapshot JSON file")
+
+let output_arg =
+  Arg.(
+    required
+    & opt (some string) None
+    & info [ "output"; "o" ] ~docv:"STATE"
+        ~doc:"Path where the state snapshot will be written")
+
 let smoke_session_arg =
   Arg.(
     value
@@ -106,6 +150,19 @@ let summary_cmd =
   let doc = "Print a TA workspace configuration summary." in
   Cmd.v (Cmd.info "summary" ~doc)
     Term.(ret (const summary $ roster_arg $ config_arg))
+
+let state_save_cmd =
+  let doc = "Create an initial state snapshot from a workspace config." in
+  Cmd.v (Cmd.info "save" ~doc)
+    Term.(ret (const save_state $ roster_arg $ output_arg $ config_arg))
+
+let state_load_cmd =
+  let doc = "Load and validate a state snapshot file." in
+  Cmd.v (Cmd.info "load" ~doc) Term.(ret (const load_state $ state_path_arg))
+
+let state_cmd =
+  let doc = "Persist and inspect TA state snapshots." in
+  Cmd.group (Cmd.info "state" ~doc) [ state_save_cmd; state_load_cmd ]
 
 let tmux_status_cmd =
   let doc = "Check whether a tmux session exists." in
@@ -124,6 +181,6 @@ let root_cmd =
   let doc = "Control TA roster-agent workspaces." in
   Cmd.group
     (Cmd.info "tactl" ~version:"0.1.0" ~doc)
-    [ validate_cmd; summary_cmd; tmux_cmd ]
+    [ validate_cmd; summary_cmd; state_cmd; tmux_cmd ]
 
 let () = exit (Cmd.eval' root_cmd)
