@@ -90,6 +90,12 @@ let contains_substring ~needle value =
 let lines_containing ~needle value =
   value |> String.split_on_char '\n' |> List.filter (contains_substring ~needle)
 
+let line_count value =
+  let lines = String.split_on_char '\n' value in
+  match List.rev lines with
+  | "" :: rest -> List.length rest
+  | _ -> List.length lines
+
 let field name = function
   | `Assoc fields -> (
       match List.assoc_opt name fields with
@@ -707,6 +713,58 @@ let expect_dashboard_render_socket () =
           Alcotest.(check bool)
             "selected qa" true
             (contains_substring ~needle:"Preview: fixture/qa" result.stdout)))
+
+let expect_dashboard_render_socket_respects_height () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "dashboard";
+                "render-socket";
+                "--socket";
+                socket_path;
+                "--actor";
+                "lead";
+                "--height";
+                "12";
+                "--key";
+                "p";
+                "--key";
+                "Right";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          Alcotest.(check int) "height" 12 (line_count result.stdout);
+          Alcotest.(check bool)
+            "clip marker" true
+            (contains_substring ~needle:"line(s) clipped; increase --height"
+               result.stdout)))
+
+let expect_dashboard_render_socket_rejects_bad_height () =
+  with_temp_dir (fun dir ->
+      let socket_path = Filename.concat dir "ta.sock" in
+      let result =
+        run_tactl
+          [
+            "dashboard";
+            "render-socket";
+            "--socket";
+            socket_path;
+            "--actor";
+            "lead";
+            "--height";
+            "0";
+          ]
+      in
+      check_exit "request exit" 2 result.status;
+      Alcotest.(check bool)
+        "height error" true
+        (contains_substring ~needle:"--height must be positive" result.stderr))
 
 let expect_dashboard_actions_socket () =
   with_temp_dir (fun dir ->
@@ -1333,6 +1391,10 @@ let () =
             expect_socket_dashboard_snapshot_rejects_unknown_actor;
           Alcotest.test_case "dashboard render socket" `Quick
             expect_dashboard_render_socket;
+          Alcotest.test_case "dashboard render socket respects height" `Quick
+            expect_dashboard_render_socket_respects_height;
+          Alcotest.test_case "dashboard render socket rejects bad height" `Quick
+            expect_dashboard_render_socket_rejects_bad_height;
           Alcotest.test_case "dashboard actions socket" `Quick
             expect_dashboard_actions_socket;
           Alcotest.test_case "dashboard actions socket write-only target" `Quick

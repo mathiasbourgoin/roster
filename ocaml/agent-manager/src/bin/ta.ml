@@ -43,7 +43,14 @@ let replay_dashboard_keys refresh interaction keys =
   in
   loop (Ta_core.Dashboard_runner.of_interaction interaction) keys
 
-let render_state_dashboard lines width workspace agent keys state_path =
+let parse_dashboard_height = function
+  | None -> Ok None
+  | Some value -> (
+      match Ta_core.Dashboard_viewport.height value with
+      | Ok height -> Ok (Some height)
+      | Error _ -> Error "--height must be positive")
+
+let render_state_dashboard lines width height workspace agent keys state_path =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
     `Ok 2)
@@ -56,39 +63,49 @@ let render_state_dashboard lines width workspace agent keys state_path =
     prerr_endline "--width must be positive";
     `Ok 2)
   else
-    match state_dashboard_model lines state_path with
-    | Error message ->
-        prerr_endline message;
-        `Ok 1
-    | Ok dashboard -> (
-        let interaction = Ta_core.Dashboard_interaction.init dashboard in
-        match
-          let* workspace =
-            parse_optional_id "--workspace" Ta_core.Id.Workspace.of_string
-              workspace
-          in
-          let* agent =
-            parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent
-          in
-          Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
-        with
+    let height =
+      match parse_dashboard_height height with
+      | Ok height -> Ok height
+      | Error message ->
+          prerr_endline message;
+          Error ()
+    in
+    match height with
+    | Error () -> `Ok 2
+    | Ok height -> (
+        match state_dashboard_model lines state_path with
         | Error message ->
             prerr_endline message;
-            `Ok 2
-        | Ok interaction -> (
+            `Ok 1
+        | Ok dashboard -> (
+            let interaction = Ta_core.Dashboard_interaction.init dashboard in
             match
-              replay_dashboard_keys
-                (fun () -> state_dashboard_model lines state_path)
-                interaction keys
+              let* workspace =
+                parse_optional_id "--workspace" Ta_core.Id.Workspace.of_string
+                  workspace
+              in
+              let* agent =
+                parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent
+              in
+              Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
             with
             | Error message ->
                 prerr_endline message;
                 `Ok 2
-            | Ok interaction ->
-                print_endline
-                  (Ta_core.Dashboard_interaction.render ~width ~lines
-                     interaction);
-                `Ok 0))
+            | Ok interaction -> (
+                match
+                  replay_dashboard_keys
+                    (fun () -> state_dashboard_model lines state_path)
+                    interaction keys
+                with
+                | Error message ->
+                    prerr_endline message;
+                    `Ok 2
+                | Ok interaction ->
+                    print_endline
+                      (Ta_core.Dashboard_interaction.render ~width ?height
+                         ~lines interaction);
+                    `Ok 0)))
 
 let render_config_summary path =
   match Ta_core.Workspace_config.load path with
@@ -107,9 +124,10 @@ let render_config_summary path =
         print_errors errors;
         `Ok 1)
 
-let dashboard lines width workspace agent keys state_path config_path =
+let dashboard lines width height workspace agent keys state_path config_path =
   match state_path with
-  | Some path -> render_state_dashboard lines width workspace agent keys path
+  | Some path ->
+      render_state_dashboard lines width height workspace agent keys path
   | None -> (
       match config_path with
       | None ->
@@ -145,6 +163,13 @@ let width_arg =
     value & opt int 100
     & info [ "width" ] ~docv:"COLS" ~doc:"Dashboard frame width")
 
+let height_arg =
+  Arg.(
+    value
+    & opt (some int) None
+    & info [ "height" ] ~docv:"ROWS"
+        ~doc:"Optional dashboard frame height for viewport clipping")
+
 let workspace_arg =
   Arg.(
     value
@@ -170,7 +195,7 @@ let root_cmd =
     (Cmd.info "ta" ~version:"0.1.0" ~doc)
     Term.(
       ret
-        (const dashboard $ lines_arg $ width_arg $ workspace_arg $ agent_arg
-       $ key_arg $ state_arg $ config_arg))
+        (const dashboard $ lines_arg $ width_arg $ height_arg $ workspace_arg
+       $ agent_arg $ key_arg $ state_arg $ config_arg))
 
 let () = exit (Cmd.eval' root_cmd)

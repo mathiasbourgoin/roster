@@ -25,6 +25,12 @@ let contains_substring ~needle value =
 let lines_containing ~needle value =
   value |> String.split_on_char '\n' |> List.filter (contains_substring ~needle)
 
+let line_count value =
+  let lines = String.split_on_char '\n' value in
+  match List.rev lines with
+  | "" :: rest -> List.length rest
+  | _ -> List.length lines
+
 let read_all channel =
   let buffer = Buffer.create 256 in
   let bytes = Bytes.create 4096 in
@@ -951,6 +957,48 @@ let expect_dashboard_render_rejects_bad_width () =
         "width error" true
         (contains_substring ~needle:"--width must be positive" result.stderr))
 
+let expect_dashboard_render_respects_height () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result =
+        run_tactl
+          [
+            "dashboard";
+            "render";
+            "--width";
+            "80";
+            "--height";
+            "12";
+            "--key";
+            "p";
+            "--key";
+            "Right";
+            path;
+          ]
+      in
+      check_exit "dashboard exit" 0 result.status;
+      Alcotest.(check string) "dashboard stderr" "" result.stderr;
+      Alcotest.(check int) "height" 12 (line_count result.stdout);
+      Alcotest.(check bool)
+        "clip marker" true
+        (contains_substring ~needle:"line(s) clipped; increase --height"
+           result.stdout))
+
+let expect_dashboard_render_rejects_bad_height () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result = run_tactl [ "dashboard"; "render"; "--height"; "0"; path ] in
+      check_exit "dashboard exit" 2 result.status;
+      Alcotest.(check bool)
+        "height error" true
+        (contains_substring ~needle:"--height must be positive" result.stderr))
+
 let () =
   Alcotest.run "tactl-cli"
     [
@@ -1011,5 +1059,9 @@ let () =
             expect_dashboard_render_uses_roster_index;
           Alcotest.test_case "render rejects bad width" `Quick
             expect_dashboard_render_rejects_bad_width;
+          Alcotest.test_case "render respects height" `Quick
+            expect_dashboard_render_respects_height;
+          Alcotest.test_case "render rejects bad height" `Quick
+            expect_dashboard_render_rejects_bad_height;
         ] );
     ]

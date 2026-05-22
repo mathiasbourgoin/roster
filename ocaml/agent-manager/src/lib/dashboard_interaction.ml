@@ -372,7 +372,7 @@ let refresh_age_label ~now captured_at =
   else if age < 3600.0 then Printf.sprintf "%.1fm ago" (age /. 60.0)
   else Printf.sprintf "%.1fh ago" (age /. 3600.0)
 
-let render ?(now = Unix.gettimeofday ()) ?width ?lines ?actor state =
+let render ?(now = Unix.gettimeofday ()) ?width ?height ?lines ?actor state =
   let dashboard =
     Dashboard_model.render ?width ?lines ?actor ~selection:(selection state)
       ~focus:(model_focus state.focus) ?topology_focus:(topology_focus state)
@@ -391,3 +391,4 @@ let render ?(now = Unix.gettimeofday ()) ?width ?lines ?actor state =
     | Stale message -> [ "Refresh: STALE - " ^ message ]
   in
   String.concat "\n" (refresh @ captured @ [ dashboard ])
+  |> Dashboard_viewport.clip ?height

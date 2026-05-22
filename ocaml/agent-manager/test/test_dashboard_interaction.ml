@@ -152,6 +152,13 @@ let contains_substring ~needle value =
   in
   String.equal needle "" || loop 0
 
+let line_count value = value |> String.split_on_char '\n' |> List.length
+
+let viewport_height value =
+  match Ta_core.Dashboard_viewport.height value with
+  | Ok height -> height
+  | Error message -> Alcotest.fail message
+
 let expect_initial_selection () =
   let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
   Alcotest.(check string)
@@ -521,6 +528,19 @@ let expect_render_uses_selection () =
     "last refresh" true
     (contains_substring ~needle:"Last refresh: 3.0s ago" rendered)
 
+let expect_render_respects_height () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
+  let rendered =
+    Ta_core.Dashboard_interaction.render ~now:45.0 ~width:80
+      ~height:(viewport_height 12) state
+  in
+  Alcotest.(check int) "height" 12 (line_count rendered);
+  Alcotest.(check bool)
+    "clip marker" true
+    (contains_substring ~needle:"line(s) clipped; increase --height" rendered)
+
 let () =
   Alcotest.run "dashboard-interaction"
     [
@@ -559,5 +579,7 @@ let () =
             expect_refresh_failure_renders_stale;
           Alcotest.test_case "render uses selection" `Quick
             expect_render_uses_selection;
+          Alcotest.test_case "render respects height" `Quick
+            expect_render_respects_height;
         ] );
     ]
