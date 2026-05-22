@@ -642,6 +642,15 @@ let expect_harness_config_generates_workspace_dashboard () =
             "start action" true
             (contains_substring ~needle:"s Start tech-lead" frame.frame_text);
           Alcotest.(check bool)
+            "harness provenance" true
+            (contains_substring
+               ~needle:"Source        harness .harness/harness.json"
+               frame.frame_text);
+          Alcotest.(check bool)
+            "visible privileges" true
+            (contains_substring ~needle:"Privileges    reads 1 | writes 1"
+               frame.frame_text);
+          Alcotest.(check bool)
             "config generated" true
             (Sys.file_exists ".harness/ta.json");
           Alcotest.(check bool)

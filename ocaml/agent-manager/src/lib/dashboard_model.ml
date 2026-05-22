@@ -32,6 +32,7 @@ type workspace = {
   id : Id.Workspace.t;
   label : string;
   root : string;
+  harness_path : string option;
   tmux_session : Tmux.session option;
   active_view : Id.View.t;
   agents : agent list;
@@ -142,6 +143,7 @@ let workspace_of_state runtime (workspace : State_store.workspace) =
     id = workspace.id;
     label = workspace.label;
     root = workspace.root;
+    harness_path = workspace.harness_path;
     tmux_session = workspace.tmux_session;
     active_view = workspace.active_view;
     agents;
@@ -251,6 +253,11 @@ let compact_source = function None -> "?" | Some source -> source
 let compact_optional = function None -> "-" | Some value -> value
 let join_text values = String.concat "," values
 
+let workspace_source workspace =
+  match workspace.harness_path with
+  | None -> "TA config"
+  | Some path -> "harness " ^ path
+
 let compact_metadata agent =
   match agent.roster_metadata with
   | None -> agent.roster_agent
@@ -341,6 +348,18 @@ let workspace_line selected workspace =
     (fit 22 workspace.label) workspace.live_count
     (List.length workspace.agents)
     workspace.blocked_count workspace.failed_count workspace.link_count
+
+let selected_workspace_source_lines workspaces selected_workspace =
+  match selected_workspace with
+  | None -> []
+  | Some selected -> (
+      match
+        List.find_opt
+          (fun (workspace : workspace) -> Id.Workspace.equal selected workspace.id)
+          workspaces
+      with
+      | None -> []
+      | Some workspace -> [ "Workspace source: " ^ workspace_source workspace ])
 
 let agent_line selected workspace agent =
   let acl =
@@ -691,6 +710,10 @@ let render ?(width = 100) ?(lines = 20) ?actor ?edge_target ?selection ?focus
                |> fit width)
              model.workspaces
   in
+  let workspace_source_lines =
+    selected_workspace_source_lines model.workspaces selected_workspace
+    |> List.map (fit width)
+  in
   let agent_lines =
     let rows =
       model.workspaces
@@ -732,6 +755,7 @@ let render ?(width = 100) ?(lines = 20) ?actor ?edge_target ?selection ?focus
   String.concat "\n"
     ([ header; rule width ]
     @ workspace_lines
+    @ workspace_source_lines
     @ [ rule width ]
     @ agent_lines
     @ [ rule width ]

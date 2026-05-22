@@ -128,6 +128,10 @@ commit.
   `.harness/ta.json`, bootstraps `.ta-state.json`, opens the real roster
   workspace, and selects `tech-lead` first so the primary TUI action can start
   the lead without showing example fixture data.
+- Harness provenance and coordinator scope are now visible in TA views. The
+  durable state snapshot preserves `harness_path`, dashboards show the selected
+  workspace source, and the MIAOU agent detail panel shows both the harness
+  source and write privilege count for the selected agent.
 - The repo now dogfoods a canonical `.harness/` for TA development with a
   12-agent roster: `tech-lead`, `recruiter`, `harness-builder`, `planner`,
   `ocaml-implementer`, `implementer`, `ocaml-dune-specialist`, `reviewer`,
@@ -144,9 +148,11 @@ commit.
   hand-written JSON.
   Acceptance bar: from `dune exec ta`, starting a Codex `tech-lead` must take
   no more than two primary selections in the TUI.
-- Show harness-derived provenance in the TUI: generated config path, harness
-  path, default command profile, and which roster agents are allowed to create
-  or connect other agents.
+- Add a TUI-visible regeneration/update path for generated `.harness/ta.json`
+  and `.ta-state.json` when `.harness/harness.json` changes.
+- Add a command/profile selector for generated harness agents so TA can start
+  Codex, Claude, or OpenCode explicitly instead of hard-coding Codex in the
+  generated TA config.
 - Add a TUI connection editor: choose source agent, choose target agent, select
   read/write permissions, and persist the ACL edge with an audit event.
 - Add capability-gated agent creation: only roster agents with an explicit

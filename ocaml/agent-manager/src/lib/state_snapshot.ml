@@ -62,19 +62,27 @@ let link_to_yojson link =
     ]
 
 let workspace_to_yojson workspace =
+  let harness_path =
+    match workspace.harness_path with
+    | None -> []
+    | Some path -> [ ("harness_path", `String path) ]
+  in
   `Assoc
-    [
-      ("id", `String (Id.Workspace.to_string workspace.id));
-      ("label", `String workspace.label);
-      ("root", `String workspace.root);
-      ( "tmux_session",
-        match workspace.tmux_session with
-        | None -> `Null
-        | Some session -> `String (Tmux.session_to_string session) );
-      ("active_view", `String (Id.View.to_string workspace.active_view));
-      ("agents", `List (List.map agent_to_yojson workspace.agents));
-      ("links", `List (List.map link_to_yojson workspace.links));
-    ]
+    ([
+       ("id", `String (Id.Workspace.to_string workspace.id));
+       ("label", `String workspace.label);
+       ("root", `String workspace.root);
+     ]
+    @ harness_path
+    @ [
+        ( "tmux_session",
+          match workspace.tmux_session with
+          | None -> `Null
+          | Some session -> `String (Tmux.session_to_string session) );
+        ("active_view", `String (Id.View.to_string workspace.active_view));
+        ("agents", `List (List.map agent_to_yojson workspace.agents));
+        ("links", `List (List.map link_to_yojson workspace.links));
+      ])
 
 let audit_kind_to_yojson = function
   | Workspace_loaded -> `Assoc [ ("kind", `String "workspace-loaded") ]
@@ -240,6 +248,13 @@ let parse_workspace path json =
   let* label = string_at (path ^ ".label") label_json in
   let* root_json = required_field path "root" fields in
   let* root = string_at (path ^ ".root") root_json in
+  let* harness_path =
+    match optional_field "harness_path" fields with
+    | None | Some `Null -> Ok None
+    | Some value ->
+        let* harness_path = string_at (path ^ ".harness_path") value in
+        Ok (Some harness_path)
+  in
   let* tmux_session =
     match optional_field "tmux_session" fields with
     | None | Some `Null -> Ok None
@@ -257,7 +272,7 @@ let parse_workspace path json =
   let* agents = list_at (path ^ ".agents") parse_agent agents_json in
   let* links_json = required_field path "links" fields in
   let* links = list_at (path ^ ".links") parse_link links_json in
-  Ok { id; label; root; tmux_session; active_view; agents; links }
+  Ok { id; label; root; harness_path; tmux_session; active_view; agents; links }
 
 let parse_audit_kind path json =
   let* fields = object_fields path json in

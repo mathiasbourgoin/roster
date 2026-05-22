@@ -26,6 +26,7 @@ type workspace = {
   id : Id.Workspace.t;
   label : string;
   root : string;
+  harness_path : string option;
   tmux_session : Tmux.session option;
   active_view : Id.View.t;
   agents : agent list;

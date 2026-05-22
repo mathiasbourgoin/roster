@@ -78,6 +78,15 @@ let expect_loads_config () =
   Alcotest.(check int)
     "load audit event" 1
     (List.length (Ta_core.State_store.audit_events store));
+  (match
+     Ta_core.State_store.find_workspace store
+       (Ta_core.Id.Workspace.unsafe_of_string "agent-roster")
+   with
+  | Error message -> Alcotest.fail message
+  | Ok workspace ->
+      Alcotest.(check (option string))
+        "harness path" (Some ".harness/harness.json")
+        workspace.harness_path);
   match Ta_core.State_store.audit_events store with
   | [ event ] -> (
       check_audit_seq "load seq" 1 event;
@@ -261,6 +270,9 @@ let expect_snapshot_roundtrip () =
       match Ta_core.State_store.find_workspace restored workspace_id with
       | Error message -> Alcotest.fail message
       | Ok workspace -> (
+          Alcotest.(check (option string))
+            "restored harness path" (Some ".harness/harness.json")
+            workspace.harness_path;
           match Ta_core.State_store.find_agent workspace lead with
           | Error message -> Alcotest.fail message
           | Ok agent -> (

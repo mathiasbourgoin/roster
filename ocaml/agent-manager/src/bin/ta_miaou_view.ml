@@ -54,6 +54,17 @@ let pane_to_string = function
   | None -> "-"
   | Some pane -> Ta_core.Id.Pane.to_string pane
 
+let workspace_source_label (workspace : Ta_core.Dashboard_model.workspace) =
+  match workspace.harness_path with
+  | None -> "TA config"
+  | Some path -> "harness " ^ path
+
+let privilege_label (agent : Ta_core.Dashboard_model.agent) =
+  let readable = List.length agent.outgoing.readable in
+  let writable = List.length agent.outgoing.writable in
+  if readable = 0 && writable = 0 then "self only"
+  else Printf.sprintf "reads %d | writes %d" readable writable
+
 let action_bar_for_agent (agent : Ta_core.Dashboard_model.agent) =
   let name = Ta_core.Id.Agent.to_string agent.name in
   match agent.pane with
@@ -150,7 +161,12 @@ let sidebar_text width interaction =
   in
   match selected_action_line interaction with
   | None -> String.concat "\n\n" [ workspaces; agents ]
-  | Some action -> String.concat "\n\n" [ workspaces; agents; action ]
+  | Some action -> (
+      match selected_workspace interaction with
+      | None -> String.concat "\n\n" [ workspaces; agents; action ]
+      | Some workspace ->
+          String.concat "\n\n"
+            [ workspaces; agents; action; workspace_source_label workspace ])
 
 let roster_label (agent : Ta_core.Dashboard_model.agent) =
   match agent.roster_metadata with
@@ -169,6 +185,8 @@ let agent_detail width workspace agent =
       ("Runtime", runtime_state_to_string agent.runtime_state);
       ("Pane", pane_to_string agent.pane);
       ("Roster", roster_label agent ^ " | id " ^ agent.roster_agent);
+      ("Source", workspace_source_label workspace);
+      ("Privileges", privilege_label agent);
       ( "Connections",
         "read "
         ^ join_agents agent.outgoing.readable

@@ -28,6 +28,7 @@ let workspace_of_config (workspace : Workspace_config.workspace) =
     id = workspace.id;
     label = workspace.label;
     root = workspace.root;
+    harness_path = workspace.harness_path;
     tmux_session = Some workspace.tmux_session;
     active_view = workspace.default_view;
     agents = List.map agent_of_config workspace.agents;
@@ -93,6 +94,8 @@ let actor_to_string = function
 let permissions_to_string permissions =
   permissions |> List.map Permission.to_string |> String.concat ","
 
+let option_to_list = function None -> [] | Some value -> [ value ]
+
 let audit_kind_to_string = function
   | Workspace_loaded -> "workspace-loaded"
   | Agent_status_changed { agent; before; after } ->
@@ -136,6 +139,10 @@ let describe_workspace workspace =
               (permissions_to_string link.permissions)
               link.reason)
   in
+  let harness_path =
+    option_to_list
+      (Option.map (fun path -> "  harness_path: " ^ path) workspace.harness_path)
+  in
   [
     Printf.sprintf "Workspace %s (%s)"
       (Id.Workspace.to_string workspace.id)
@@ -146,6 +153,9 @@ let describe_workspace workspace =
     match workspace.tmux_session with
     | None -> "-"
     | Some session -> Tmux.session_to_string session);
+  ]
+  @ harness_path
+  @ [
     "  active_view: " ^ Id.View.to_string workspace.active_view;
     "  Agents:";
   ]

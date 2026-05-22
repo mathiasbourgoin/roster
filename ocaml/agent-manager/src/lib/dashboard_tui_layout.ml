@@ -105,6 +105,17 @@ let pane_to_string = function
   | None -> "-"
   | Some pane -> Id.Pane.to_string pane
 
+let workspace_source_label (workspace : Dashboard_model.workspace) =
+  match workspace.harness_path with
+  | None -> "TA config"
+  | Some path -> "harness " ^ path
+
+let privilege_label (agent : Dashboard_model.agent) =
+  let readable = List.length agent.outgoing.readable in
+  let writable = List.length agent.outgoing.writable in
+  if readable = 0 && writable = 0 then "self only"
+  else Printf.sprintf "reads %d | writes %d" readable writable
+
 let header ?(now = Unix.gettimeofday ()) width state =
   let model = Dashboard_interaction.model state in
   let totals = model.totals in
@@ -198,6 +209,8 @@ let selected_agent_main width lines workspace agent =
     ^ runtime_state_to_string agent.runtime_state
     ^ " | pane " ^ pane_to_string agent.pane;
     "Roster: " ^ roster_label agent ^ " | id " ^ agent.roster_agent;
+    "Source: " ^ workspace_source_label workspace;
+    "Privileges: " ^ privilege_label agent;
     connections;
   ]
   @ agent_profile agent @ agent_description agent
