@@ -26,7 +26,6 @@ commit.
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
-- Add automated command-level tests for `tactl` option wiring.
 - Add persistent workspace state store and audit log.
 - Add supervised agent launch from workspace config.
 - Add Unix socket API mirroring `tactl` commands.

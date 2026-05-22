@@ -1,0 +1,44 @@
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture",
+      "root": ".",
+      "tmux_session": "ta-fixture",
+      "default_view": "agents",
+      "views": [
+        {
+          "id": "agents",
+          "label": "Agents"
+        }
+      ],
+      "agents": [
+        {
+          "name": "lead",
+          "roster_agent": "tech-lead",
+          "command": [
+            "codex"
+          ]
+        },
+        {
+          "name": "qa",
+          "roster_agent": "qa",
+          "command": [
+            "codex"
+          ]
+        }
+      ],
+      "links": [
+        {
+          "from": "lead",
+          "to": "qa",
+          "permissions": [
+            "read"
+          ],
+          "reason": "fixture"
+        }
+      ]
+    }
+  ]
+}
