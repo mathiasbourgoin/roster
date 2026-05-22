@@ -75,6 +75,7 @@ val topology : t -> Dashboard_topology.t
 val edge_affordance :
   ?actor:Id.Agent.t ->
   ?lines:int ->
+  ?target:Dashboard_topology.node_id ->
   Dashboard_topology.edge_id ->
   t ->
   Dashboard_edge_affordance.t option
@@ -83,6 +84,7 @@ val render :
   ?width:int ->
   ?lines:int ->
   ?actor:Id.Agent.t ->
+  ?edge_target:Dashboard_topology.node_id ->
   ?selection:selection ->
   ?focus:focus ->
   ?topology_focus:Dashboard_topology.focus ->

@@ -14,6 +14,7 @@ val focus : t -> focus
 val selected_workspace : t -> Id.Workspace.t option
 val selected_agent : t -> Id.Agent.t option
 val selected_edge : t -> Dashboard_topology.edge_id option
+val selected_edge_target : t -> Dashboard_topology.node_id option
 
 val focused_edge_affordance :
   ?actor:Id.Agent.t -> ?lines:int -> t -> Dashboard_edge_affordance.t option

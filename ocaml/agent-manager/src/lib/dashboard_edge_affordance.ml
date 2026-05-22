@@ -26,6 +26,12 @@ type _ socket_intent =
       to_agent : Id.Agent.t;
     }
       -> write socket_intent
+  | Focus_pane : {
+      workspace : Id.Workspace.t;
+      agent : Id.Agent.t;
+      pane : Id.Pane.t option;
+    }
+      -> read socket_intent
 
 type action = Action : 'cap socket_intent * string -> action
 
@@ -73,6 +79,10 @@ let socket_intent_to_string : type cap. cap socket_intent -> string = function
         (Id.Workspace.to_string workspace)
         (Id.Agent.to_string from_agent)
         (Id.Agent.to_string to_agent)
+  | Focus_pane { workspace; agent; pane } ->
+      Printf.sprintf "focus-pane %s/%s pane %s"
+        (Id.Workspace.to_string workspace)
+        (Id.Agent.to_string agent) (pane_to_string pane)
 
 let action_to_string (Action (intent, label)) =
   Printf.sprintf "%s | %s" label (socket_intent_to_string intent)
@@ -94,12 +104,18 @@ let endpoint_line label endpoint =
     (runtime_state_to_string endpoint.state)
     endpoint.preview_lines
 
-let target_line target =
-  Printf.sprintf "Edge target: %s permissions %s"
+let is_selected_target selected target =
+  match selected with
+  | None -> false
+  | Some selected -> Id.Agent.equal selected target.endpoint.agent
+
+let target_line selected target =
+  Printf.sprintf "%s Edge target: %s permissions %s"
+    (if is_selected_target selected target then ">" else " ")
     (endpoint_line "" target.endpoint |> String.trim)
     (target_permissions target)
 
-let render_preview ~width affordance =
+let render_preview ?selected_target ~width affordance =
   let target_refs =
     match affordance.targets with
     | [] -> "-"
@@ -109,7 +125,7 @@ let render_preview ~width affordance =
     "Focused edge: " ^ endpoint_ref affordance.source ^ " -> " ^ target_refs;
     endpoint_line "Edge source:" affordance.source;
   ]
-  @ List.map target_line affordance.targets
+  @ List.map (target_line selected_target) affordance.targets
   @ List.map
       (fun action -> "Action: " ^ action_to_string action)
       affordance.actions

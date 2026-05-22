@@ -144,6 +144,18 @@ let with_temp_state f =
   let path = Filename.temp_file "ta-cli-state" ".json" in
   Fun.protect ~finally:(fun () -> remove_noerr path) (fun () -> f path)
 
+let with_temp_config contents f =
+  let path = Filename.temp_file "ta-cli-config" ".json" in
+  let channel = open_out path in
+  Fun.protect
+    ~finally:(fun () ->
+      close_out_noerr channel;
+      remove_noerr path)
+    (fun () ->
+      output_string channel contents;
+      close_out channel;
+      f path)
+
 let expect_state_save_and_load () =
   with_temp_state (fun path ->
       let save =
@@ -631,6 +643,76 @@ let expect_dashboard_render_replays_pipeline_edge_key () =
         "edge action" true
         (contains_substring ~needle:"Action: read target preview" result.stdout))
 
+let expect_dashboard_render_replays_pipeline_edge_target_key () =
+  let config =
+    {|
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture",
+      "root": ".",
+      "tmux_session": "ta-fixture",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},
+        {"name": "qa", "roster_agent": "qa", "command": ["codex"]},
+        {"name": "ops", "roster_agent": "qa", "command": ["codex"]}
+      ],
+      "links": [
+        {"from": "lead", "to": "qa", "permissions": ["read", "write"], "reason": "qa"},
+        {"from": "lead", "to": "ops", "permissions": ["read"], "reason": "ops"}
+      ]
+    }
+  ]
+}
+|}
+  in
+  with_temp_config config (fun config_path ->
+      with_temp_state (fun path ->
+          let save =
+            run_tactl [ "state"; "save"; "--output"; path; config_path ]
+          in
+          check_exit "save exit" 0 save.status;
+          let result =
+            run_tactl
+              [
+                "dashboard";
+                "render";
+                "--width";
+                "140";
+                "--key";
+                "p";
+                "--key";
+                "Right";
+                "--key";
+                "]";
+                path;
+              ]
+          in
+          check_exit "dashboard exit" 0 result.status;
+          Alcotest.(check string) "dashboard stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "selected qa target" true
+            (contains_substring ~needle:"> Edge target: fixture/qa"
+               result.stdout);
+          Alcotest.(check bool)
+            "target preview" true
+            (contains_substring ~needle:"Preview: fixture/qa" result.stdout);
+          Alcotest.(check bool)
+            "target focus intent" true
+            (contains_substring
+               ~needle:"Action: focus target pane | focus-pane fixture/qa"
+               result.stdout);
+          Alcotest.(check bool)
+            "target read intent" true
+            (contains_substring
+               ~needle:
+                 "Action: read target preview | runtime-snapshot fixture/qa"
+               result.stdout)))
+
 let expect_dashboard_render_uses_roster_index () =
   with_temp_state (fun path ->
       let save =
@@ -774,6 +856,8 @@ let () =
             expect_dashboard_render_replays_pipeline_key;
           Alcotest.test_case "render replays pipeline edge key" `Quick
             expect_dashboard_render_replays_pipeline_edge_key;
+          Alcotest.test_case "render replays pipeline edge target key" `Quick
+            expect_dashboard_render_replays_pipeline_edge_target_key;
           Alcotest.test_case "render uses roster index" `Quick
             expect_dashboard_render_uses_roster_index;
           Alcotest.test_case "render rejects bad width" `Quick

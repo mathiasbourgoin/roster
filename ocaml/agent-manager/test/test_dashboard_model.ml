@@ -402,14 +402,14 @@ let expect_focused_edge_affordance_render () =
       Alcotest.(check bool) "readable" true target.readable;
       Alcotest.(check bool) "writable" true target.writable
   | _ -> Alcotest.fail "expected one edge target");
-  Alcotest.(check int) "actions" 3 (List.length affordance.actions);
+  Alcotest.(check int) "actions" 5 (List.length affordance.actions);
   let suppressed =
     match Ta_core.Dashboard_model.edge_affordance ~actor:qa edge model with
     | Some affordance -> affordance
     | None -> Alcotest.fail "expected focused edge affordance"
   in
   Alcotest.(check int)
-    "non-source actor suppresses write action" 2
+    "non-source actor suppresses write action" 4
     (List.length suppressed.actions);
   let affordance_rendered =
     Ta_core.Dashboard_edge_affordance.render_preview ~width:140 affordance

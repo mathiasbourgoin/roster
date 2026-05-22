@@ -32,6 +32,12 @@ type _ socket_intent =
       to_agent : Id.Agent.t;
     }
       -> write socket_intent
+  | Focus_pane : {
+      workspace : Id.Workspace.t;
+      agent : Id.Agent.t;
+      pane : Id.Pane.t option;
+    }
+      -> read socket_intent
 
 type action = Action : 'cap socket_intent * string -> action
 
@@ -45,4 +51,6 @@ type t = {
 val endpoint_ref : endpoint -> string
 val socket_intent_to_string : 'cap socket_intent -> string
 val action_to_string : action -> string
-val render_preview : width:int -> t -> string list
+
+val render_preview :
+  ?selected_target:Id.Agent.t -> width:int -> t -> string list

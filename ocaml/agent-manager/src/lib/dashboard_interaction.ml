@@ -7,6 +7,7 @@ type t = {
   selected_workspace : Id.Workspace.t option;
   selected_agent : Id.Agent.t option;
   selected_edge : Dashboard_topology.edge_id option;
+  selected_edge_target : Dashboard_topology.node_id option;
   refresh_requested : bool;
   refresh_status : refresh_status;
   should_quit : bool;
@@ -17,11 +18,13 @@ let focus state = state.focus
 let selected_workspace state = state.selected_workspace
 let selected_agent state = state.selected_agent
 let selected_edge state = state.selected_edge
+let selected_edge_target state = state.selected_edge_target
 
 let focused_edge_affordance ?actor ?lines state =
   match (state.focus, state.selected_edge) with
   | Pipeline, Some edge ->
-      Dashboard_model.edge_affordance ?actor ?lines edge state.model
+      Dashboard_model.edge_affordance ?actor ?lines
+        ?target:state.selected_edge_target edge state.model
   | Pipeline, None | Workspaces, _ | Agents, _ -> None
 
 let refresh_requested state = state.refresh_requested
@@ -62,6 +65,7 @@ let init model =
     selected_workspace;
     selected_agent;
     selected_edge = None;
+    selected_edge_target = None;
     refresh_requested = false;
     refresh_status = Fresh;
     should_quit = false;
@@ -128,28 +132,38 @@ let refresh model state =
     | Error _ -> refreshed
   in
   let topology = Dashboard_model.topology refreshed.model in
-  let selected_edge =
+  let selected_edge, selected_edge_target =
     match state.selected_edge with
-    | Some edge when Dashboard_topology.edge_targets edge topology <> [] ->
-        Some edge
-    | Some _ | None -> None
-  in
-  let refreshed =
-    match selected_edge with
-    | None -> refreshed
     | Some edge -> (
         match Dashboard_topology.edge_targets edge topology with
-        | [] -> refreshed
-        | target :: _ ->
-            select
-              ~workspace:(Dashboard_topology.node_workspace target)
-              ~agent:(Dashboard_topology.node_agent target)
-              { refreshed with selected_edge = Some edge }
-            |> Result.value ~default:refreshed)
+        | [] -> (None, None)
+        | targets ->
+            let selected_target =
+              match state.selected_edge_target with
+              | Some selected
+                when List.exists
+                       (Dashboard_topology.equal_node_id selected)
+                       targets ->
+                  Some selected
+              | Some _ | None -> List.find_opt (fun _ -> true) targets
+            in
+            (Some edge, selected_target))
+    | None -> (None, None)
+  in
+  let refreshed =
+    match selected_edge_target with
+    | None -> refreshed
+    | Some target ->
+        select
+          ~workspace:(Dashboard_topology.node_workspace target)
+          ~agent:(Dashboard_topology.node_agent target)
+          { refreshed with selected_edge; selected_edge_target }
+        |> Result.value ~default:refreshed
   in
   {
     refreshed with
     selected_edge;
+    selected_edge_target;
     refresh_requested = false;
     refresh_status = Fresh;
     should_quit = state.should_quit;
@@ -193,7 +207,10 @@ let move_workspace direction state =
       (fun (workspace : Dashboard_model.workspace) -> workspace.id)
       direction state.selected_workspace state.model.workspaces
   in
-  match select ?workspace { state with selected_edge = None } with
+  match
+    select ?workspace
+      { state with selected_edge = None; selected_edge_target = None }
+  with
   | Ok state -> state
   | Error _ -> state
 
@@ -208,7 +225,7 @@ let move_agent direction state =
       in
       match
         select ~workspace:workspace.id ?agent
-          { state with selected_edge = None }
+          { state with selected_edge = None; selected_edge_target = None }
       with
       | Ok state -> state
       | Error _ -> state)
@@ -230,7 +247,9 @@ let topology_focus state =
 
 let select_node ?(clear_edge = true) selected state =
   let state =
-    if clear_edge then { state with selected_edge = None } else state
+    if clear_edge then
+      { state with selected_edge = None; selected_edge_target = None }
+    else state
   in
   select
     ~workspace:(Dashboard_topology.node_workspace selected)
@@ -274,10 +293,37 @@ let move_pipeline_edge direction state =
   | None -> state
   | Some selected -> (
       match Dashboard_topology.edge_targets selected topology with
-      | [] -> { state with focus = Pipeline; selected_edge = Some selected }
+      | [] ->
+          {
+            state with
+            focus = Pipeline;
+            selected_edge = Some selected;
+            selected_edge_target = None;
+          }
       | target :: _ ->
           select_node ~clear_edge:false target
-            { state with focus = Pipeline; selected_edge = Some selected })
+            {
+              state with
+              focus = Pipeline;
+              selected_edge = Some selected;
+              selected_edge_target = Some target;
+            })
+
+let move_edge_target direction state =
+  match state.selected_edge with
+  | None -> state
+  | Some edge -> (
+      let topology = Dashboard_model.topology state.model in
+      let targets = Dashboard_topology.edge_targets edge topology in
+      match
+        move_in_list Dashboard_topology.equal_node_id
+          (fun node -> node)
+          direction state.selected_edge_target targets
+      with
+      | None -> state
+      | Some target ->
+          select_node ~clear_edge:false target
+            { state with selected_edge_target = Some target })
 
 let move direction state =
   match state.focus with
@@ -298,6 +344,14 @@ let handle_key state = function
   | "w" | "W" -> { state with focus = Workspaces }
   | "a" | "A" -> { state with focus = Agents }
   | "p" | "P" -> { state with focus = Pipeline }
+  | "]" -> (
+      match state.focus with
+      | Pipeline -> move_edge_target `Next state
+      | Workspaces | Agents -> state)
+  | "[" -> (
+      match state.focus with
+      | Pipeline -> move_edge_target `Previous state
+      | Workspaces | Agents -> state)
   | "j" | "J" | "Down" -> move `Next state
   | "k" | "K" | "Up" -> move `Previous state
   | "Right" | "l" | "L" -> (
@@ -322,7 +376,7 @@ let render ?(now = Unix.gettimeofday ()) ?width ?lines ?actor state =
   let dashboard =
     Dashboard_model.render ?width ?lines ?actor ~selection:(selection state)
       ~focus:(model_focus state.focus) ?topology_focus:(topology_focus state)
-      state.model
+      ?edge_target:state.selected_edge_target state.model
   in
   let captured =
     match state.model.captured_at with

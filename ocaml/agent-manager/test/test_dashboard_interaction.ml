@@ -65,6 +65,34 @@ let config_without_links =
 }
 |}
 
+let config_multi_targets =
+  {|
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture Workspace",
+      "root": ".",
+      "tmux_session": "ta-fixture",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},
+        {"name": "qa", "roster_agent": "qa", "command": ["codex"]},
+        {"name": "ops", "roster_agent": "qa", "command": ["codex"]},
+        {"name": "writer", "roster_agent": "documenter", "command": ["codex"]}
+      ],
+      "links": [
+        {"from": "lead", "to": "qa", "permissions": ["read", "write"], "reason": "qa handoff"},
+        {"from": "lead", "to": "ops", "permissions": ["read"], "reason": "ops handoff"},
+        {"from": "lead", "to": "writer", "permissions": ["write"], "reason": "writer handoff"}
+      ]
+    }
+  ]
+}
+|}
+
 let agent value = Ta_core.Id.Agent.unsafe_of_string value
 
 let parse_config () =
@@ -100,6 +128,11 @@ let dashboard () =
 
 let dashboard_without_links () =
   let store = store_of_config (parse_config_text config_without_links) in
+  let runtime = Ta_core.Runtime_snapshot.collect ~now:42.0 store in
+  Ta_core.Dashboard_model.of_state_runtime store runtime
+
+let dashboard_multi_targets () =
+  let store = store_of_config (parse_config_text config_multi_targets) in
   let runtime = Ta_core.Runtime_snapshot.collect ~now:42.0 store in
   Ta_core.Dashboard_model.of_state_runtime store runtime
 
@@ -245,7 +278,7 @@ let expect_pipeline_edge_affordance () =
   Alcotest.(check string)
     "source" "fixture/lead"
     (Ta_core.Dashboard_edge_affordance.endpoint_ref affordance.source);
-  Alcotest.(check int) "actions" 3 (List.length affordance.actions);
+  Alcotest.(check int) "actions" 5 (List.length affordance.actions);
   let rendered =
     Ta_core.Dashboard_interaction.render ~now:45.0 ~width:120
       ~actor:(agent "lead") state
@@ -263,6 +296,92 @@ let expect_pipeline_edge_affordance () =
          "Action: draft message handoff | future-agent-message fixture/lead -> \
           qa"
        rendered)
+
+let expect_pipeline_edge_target_cycling () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard_multi_targets ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
+  Alcotest.(check string)
+    "initial target" "ops"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent state));
+  let state = Ta_core.Dashboard_interaction.handle_key state "]" in
+  Alcotest.(check string)
+    "next target" "qa"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent state));
+  Alcotest.(check string)
+    "selected edge target" "qa"
+    (Ta_core.Dashboard_interaction.selected_edge_target state
+    |> Option.map Ta_core.Dashboard_topology.node_agent
+    |> as_string);
+  let rendered =
+    Ta_core.Dashboard_interaction.render ~now:45.0 ~width:120
+      ~actor:(agent "lead") state
+  in
+  Alcotest.(check bool)
+    "qa target marker" true
+    (contains_substring ~needle:"> Edge target: fixture/qa" rendered);
+  Alcotest.(check bool)
+    "target jump intent" true
+    (contains_substring
+       ~needle:"Action: focus target pane | focus-pane fixture/qa" rendered);
+  Alcotest.(check bool)
+    "selected target read action" true
+    (contains_substring
+       ~needle:"Action: read target preview | runtime-snapshot fixture/qa"
+       rendered);
+  Alcotest.(check bool)
+    "writable target has write action" true
+    (contains_substring ~needle:"future-agent-message fixture/lead -> qa"
+       rendered);
+  let state = Ta_core.Dashboard_interaction.handle_key state "[" in
+  Alcotest.(check string)
+    "previous target" "ops"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent state))
+
+let expect_write_only_target_suppresses_focus_intent () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard_multi_targets ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "]" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "]" in
+  Alcotest.(check string)
+    "write-only target" "writer"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent state));
+  let rendered =
+    Ta_core.Dashboard_interaction.render ~now:45.0 ~width:140
+      ~actor:(agent "lead") state
+  in
+  Alcotest.(check bool)
+    "selected write-only target" true
+    (contains_substring ~needle:"> Edge target: fixture/writer" rendered);
+  Alcotest.(check bool)
+    "read intent suppressed" false
+    (contains_substring ~needle:"runtime-snapshot fixture/writer" rendered);
+  Alcotest.(check bool)
+    "focus intent suppressed" false
+    (contains_substring ~needle:"focus-pane fixture/writer" rendered);
+  Alcotest.(check bool)
+    "write intent retained" true
+    (contains_substring ~needle:"future-agent-message fixture/lead -> writer"
+       rendered)
+
+let expect_refresh_preserves_pipeline_edge_target () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard_multi_targets ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "]" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "r" in
+  let refreshed =
+    Ta_core.Dashboard_interaction.refresh (dashboard_multi_targets ()) state
+  in
+  Alcotest.(check string)
+    "target preserved" "qa"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent refreshed));
+  Alcotest.(check string)
+    "edge target preserved" "qa"
+    (Ta_core.Dashboard_interaction.selected_edge_target refreshed
+    |> Option.map Ta_core.Dashboard_topology.node_agent
+    |> as_string)
 
 let expect_edge_affordance_hidden_outside_pipeline_focus () =
   let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
@@ -418,6 +537,12 @@ let () =
             expect_pipeline_edge_navigation;
           Alcotest.test_case "pipeline edge affordance" `Quick
             expect_pipeline_edge_affordance;
+          Alcotest.test_case "pipeline edge target cycling" `Quick
+            expect_pipeline_edge_target_cycling;
+          Alcotest.test_case "write-only target suppresses focus intent" `Quick
+            expect_write_only_target_suppresses_focus_intent;
+          Alcotest.test_case "refresh preserves pipeline edge target" `Quick
+            expect_refresh_preserves_pipeline_edge_target;
           Alcotest.test_case "edge affordance hidden outside pipeline focus"
             `Quick expect_edge_affordance_hidden_outside_pipeline_focus;
           Alcotest.test_case "agent navigation clears edge focus" `Quick

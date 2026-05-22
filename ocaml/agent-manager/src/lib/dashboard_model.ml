@@ -466,6 +466,11 @@ let read_action ~label ~lines (endpoint : Dashboard_edge_affordance.endpoint) =
     ( Dashboard_edge_affordance.Runtime_snapshot { workspace; agent; lines },
       label )
 
+let focus_action ~label (endpoint : Dashboard_edge_affordance.endpoint) =
+  let Dashboard_edge_affordance.{ workspace; agent; pane; _ } = endpoint in
+  Dashboard_edge_affordance.Action
+    (Dashboard_edge_affordance.Focus_pane { workspace; agent; pane }, label)
+
 let write_action actor source (target : Dashboard_edge_affordance.target) =
   let Dashboard_edge_affordance.{ workspace; agent = from_agent; _ } = source in
   let Dashboard_edge_affordance.{ endpoint = { agent = to_agent; _ }; _ } =
@@ -485,6 +490,8 @@ let target_actions ?actor ~lines source
   let Dashboard_edge_affordance.{ endpoint; readable; writable } = target in
   (if readable then [ read_action ~label:"read target preview" ~lines endpoint ]
    else [])
+  @ (if readable then [ focus_action ~label:"focus target pane" endpoint ]
+     else [])
   @
   if writable then
     match write_action actor source target with
@@ -492,7 +499,30 @@ let target_actions ?actor ~lines source
     | Some action -> [ action ]
   else []
 
-let edge_affordance ?actor ?(lines = 20) edge_id model =
+let node_target_agent edge_id target =
+  let target_workspace = Dashboard_topology.node_workspace target in
+  if
+    Dashboard_topology.equal_edge_id edge_id
+      (Dashboard_topology.edge_id ~workspace:target_workspace
+         ~from_agent:(Dashboard_topology.edge_from_agent edge_id))
+  then Some (Dashboard_topology.node_agent target)
+  else None
+
+let selected_target targets target =
+  match target with
+  | None -> List.find_opt (fun _ -> true) targets
+  | Some target -> (
+      let selected_agent = Dashboard_topology.node_agent target in
+      match
+        List.find_opt
+          (fun Dashboard_edge_affordance.{ endpoint; _ } ->
+            Id.Agent.equal endpoint.agent selected_agent)
+          targets
+      with
+      | Some _ as selected -> selected
+      | None -> List.find_opt (fun _ -> true) targets)
+
+let edge_affordance ?actor ?(lines = 20) ?target edge_id model =
   let lines = clamp_preview_lines lines in
   let topology = topology model in
   let workspace_id = Dashboard_topology.edge_workspace edge_id in
@@ -526,7 +556,11 @@ let edge_affordance ?actor ?(lines = 20) edge_id model =
           in
           let actions =
             read_action ~label:"read source preview" ~lines source
-            :: List.concat_map (target_actions ?actor ~lines source) targets
+            :: focus_action ~label:"focus source pane" source
+            ::
+            (match selected_target targets target with
+            | None -> []
+            | Some target -> target_actions ?actor ~lines source target)
           in
           Some
             Dashboard_edge_affordance.
@@ -591,18 +625,22 @@ let preview_candidate workspaces selection =
       | Some value -> Some value
       | None -> List.find_opt (fun _ -> true) agents)
 
-let edge_affordance_lines width lines actor model = function
+let edge_affordance_lines width lines actor edge_target model = function
   | Some (Dashboard_topology.Edge edge) -> (
-      match edge_affordance ?actor ~lines edge model with
+      match edge_affordance ?actor ~lines ?target:edge_target edge model with
       | None -> []
       | Some affordance ->
-          Dashboard_edge_affordance.render_preview ~width affordance)
+          let selected_target =
+            Option.bind edge_target (node_target_agent edge)
+          in
+          Dashboard_edge_affordance.render_preview ?selected_target ~width
+            affordance)
   | Some (Dashboard_topology.Node _) | None -> []
 
-let preview_lines width lines actor model selection topology_focus =
+let preview_lines width lines actor edge_target model selection topology_focus =
   let workspaces = model.workspaces in
   let edge_lines =
-    edge_affordance_lines width lines actor model topology_focus
+    edge_affordance_lines width lines actor edge_target model topology_focus
   in
   match preview_candidate workspaces selection with
   | None -> edge_lines @ [ "Preview: none"; "No agents available." ]
@@ -620,8 +658,8 @@ let preview_lines width lines actor model selection topology_focus =
       let metadata = roster_preview_lines agent |> List.map (fit width) in
       edge_lines @ (fit width header :: metadata) @ body
 
-let render ?(width = 100) ?(lines = 20) ?actor ?selection ?focus ?topology_focus
-    model =
+let render ?(width = 100) ?(lines = 20) ?actor ?edge_target ?selection ?focus
+    ?topology_focus model =
   let width = clamp_width width in
   let totals = model.totals in
   let selected_workspace = selected_workspace_id model.workspaces selection in
@@ -689,7 +727,7 @@ let render ?(width = 100) ?(lines = 20) ?actor ?selection ?focus ?topology_focus
       ~selected:selected_topology_node ?selected_edge (topology model)
   in
   let preview =
-    preview_lines width lines actor model selection topology_focus
+    preview_lines width lines actor edge_target model selection topology_focus
   in
   String.concat "\n"
     ([ header; rule width ]
