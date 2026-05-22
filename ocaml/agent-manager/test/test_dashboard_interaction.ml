@@ -148,18 +148,28 @@ let expect_refresh_failure_renders_stale () =
     (match Ta_core.Dashboard_interaction.refresh_status state with
     | Ta_core.Dashboard_interaction.Stale "socket unavailable" -> true
     | Fresh | Refreshing | Stale _ -> false);
-  let rendered = Ta_core.Dashboard_interaction.render ~width:90 state in
+  let rendered =
+    Ta_core.Dashboard_interaction.render ~now:45.0 ~width:90 state
+  in
   Alcotest.(check bool)
     "stale banner" true
-    (contains_substring ~needle:"Refresh: STALE - socket unavailable" rendered)
+    (contains_substring ~needle:"Refresh: STALE - socket unavailable" rendered);
+  Alcotest.(check bool)
+    "last refresh" true
+    (contains_substring ~needle:"Last refresh: 3.0s ago" rendered)
 
 let expect_render_uses_selection () =
   let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
   let state = Ta_core.Dashboard_interaction.handle_key state "Down" in
-  let rendered = Ta_core.Dashboard_interaction.render ~width:90 state in
+  let rendered =
+    Ta_core.Dashboard_interaction.render ~now:45.0 ~width:90 state
+  in
   Alcotest.(check bool)
     "selected preview" true
-    (contains_substring ~needle:"Preview: fixture/qa" rendered)
+    (contains_substring ~needle:"Preview: fixture/qa" rendered);
+  Alcotest.(check bool)
+    "last refresh" true
+    (contains_substring ~needle:"Last refresh: 3.0s ago" rendered)
 
 let () =
   Alcotest.run "dashboard-interaction"

@@ -39,6 +39,10 @@
  (libraries ta_core alcotest unix))
 
 (test
+ (name test_dashboard_refresh_cadence)
+ (libraries ta_core alcotest))
+
+(test
  (name test_dashboard_snapshot)
  (libraries ta_core alcotest unix yojson))
 

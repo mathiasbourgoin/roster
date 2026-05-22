@@ -195,11 +195,27 @@ let handle_key state = function
   | "Left" | "h" | "H" -> move_agent `Previous { state with focus = Agents }
   | _ -> state
 
-let render ?width state =
+let refresh_age_label ~now captured_at =
+  let age = max 0.0 (now -. captured_at) in
+  if age < 1.0 then "just now"
+  else if age < 60.0 then Printf.sprintf "%.1fs ago" age
+  else if age < 3600.0 then Printf.sprintf "%.1fm ago" (age /. 60.0)
+  else Printf.sprintf "%.1fh ago" (age /. 3600.0)
+
+let render ?(now = Unix.gettimeofday ()) ?width state =
   let dashboard =
     Dashboard_model.render ?width ~selection:(selection state) state.model
   in
-  match state.refresh_status with
-  | Fresh -> dashboard
-  | Refreshing -> "Refresh: REQUESTED\n" ^ dashboard
-  | Stale message -> "Refresh: STALE - " ^ message ^ "\n" ^ dashboard
+  let captured =
+    match state.model.captured_at with
+    | None -> []
+    | Some captured_at ->
+        [ "Last refresh: " ^ refresh_age_label ~now captured_at ]
+  in
+  let refresh =
+    match state.refresh_status with
+    | Fresh -> []
+    | Refreshing -> [ "Refresh: REQUESTED" ]
+    | Stale message -> [ "Refresh: STALE - " ^ message ]
+  in
+  String.concat "\n" (refresh @ captured @ [ dashboard ])
