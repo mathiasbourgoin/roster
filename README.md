@@ -13,7 +13,7 @@ Three principles:
 The harness is the mechanism that enforces these properties across projects:
 
 - canonical configuration in `.harness/`
-- projected into runtime-specific surfaces for Claude Code and Codex
+- projected into runtime-specific surfaces for OpenCode, Claude Code, and Codex
 - assembled and updated via `/recruit`
 
 ## Quick Start
@@ -86,6 +86,10 @@ project/
 │   ├── rules/
 │   ├── harness.json
 │   └── settings.local.json
+├── .opencode/
+│   ├── agents/
+│   └── rules/
+├── opencode.json
 ├── .agents/
 │   └── skills/
 └── AGENTS.md
@@ -94,6 +98,7 @@ project/
 Runtime rule:
 
 - `.harness/` is canonical
+- `.opencode/` and `opencode.json` are generated OpenCode compatibility surfaces
 - `.claude/` is a generated Claude compatibility surface
 - `.agents/skills/` is a generated Codex compatibility surface
 - `AGENTS.md` remains optional project instructions, not the canonical harness store
@@ -132,7 +137,7 @@ What they do:
 - `build:index`: rebuilds `index.json` from local + configured remote sources
 - `build:index -- --refresh-remotes`: refreshes remote snapshots before rebuilding
 - `init-harness.sh`: bootstraps a starter `.harness/` tree in a target project
-- `sync-harness.sh`: projects canonical `.harness/` content into Claude and Codex runtime files
+- `sync-harness.sh`: projects canonical `.harness/` content into OpenCode, Claude, and Codex runtime files
 
 ## Installation
 
@@ -210,6 +215,7 @@ If you are cloning this repo or using its scripts directly:
 This creates:
 
 - `.harness/` canonical state
+- `.opencode/...` OpenCode projection
 - `.claude/...` Claude projection
 - `.agents/skills/...` Codex projection
 

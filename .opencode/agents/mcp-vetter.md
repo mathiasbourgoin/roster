@@ -1,37 +1,22 @@
 ---
-name: mcp-vetter
-display_name: MCP Security Vetter
 description: Security vetting for MCP server candidates with risk scoring and explicit approval recommendations.
-domain: [security, mcp]
-tags: [mcp, security, vetting, supply-chain, permissions]
-model: sonnet
-complexity: high
-compatible_with: [claude-code, opencode]
-tunables:
-  block_high_risk: true
-  require_source_visibility: true
-  max_default_risk: medium
-requires:
-  - name: web-search
-    type: builtin
-    optional: false
-  - name: web-fetch
-    type: builtin
-    optional: false
-  - name: gh
-    type: cli
-    install: "https://cli.github.com/"
-    check: "which gh && gh auth status"
-    optional: true
-isolation: none
-pipeline_role:
-  triggered_by: tech-lead tool-gatekeeping step or harness-builder when adding MCP candidates
-  receives: MCP server candidate name/URL plus context on intended use
-  produces: risk level plus decision recommendation (approve/approve-with-conditions/block)
-  human_gate: after — non-trivial approvals and all blocks require human confirmation
-version: 1.4.0
-author: mathiasbourgoin
+mode: subagent
+model: github-copilot/claude-sonnet-4.5
+temperature: 0.2
+permission:
+  edit: deny
+  bash:
+    "*": "deny"
+    "command -v*": "allow"
+    "gh repo view*": "allow"
+    "git diff*": "allow"
+    "git show*": "allow"
+    "npm view*": "allow"
+    "opam info*": "allow"
+    "which*": "allow"
+  webfetch: allow
 ---
+
 
 # MCP Vetter
 

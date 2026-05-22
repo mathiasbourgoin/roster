@@ -1,80 +1,65 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "agent": {
-    "tech-lead": {
-      "description": "Orchestrates agent teams and enforces quality gates",
-      "mode": "primary",
-      "model": "github-copilot/claude-opus-4.5",
-      "temperature": 0.3,
-      "permission": {
-        "edit": "allow",
-        "bash": "allow",
-        "task": {
-          "*": "allow",
-          "implementer": "allow",
-          "reviewer": "allow",
-          "qa": "allow"
-        }
-      }
-    },
-    "recruiter": {
-      "description": "Analyzes projects and assembles optimal agent teams",
+    "architect": {
+      "description": "Code quality and architecture guardian focused on structural regressions, duplication, and maintainability risks.",
       "mode": "subagent",
-      "model": "github-copilot/claude-opus-4.5",
-      "temperature": 0.3,
-      "permission": {
-        "edit": "allow",
-        "bash": "allow",
-        "webfetch": "allow"
-      }
-    },
-    "reviewer": {
-      "description": "Performs structured code review focused on security and correctness",
-      "mode": "subagent",
-      "model": "github-copilot/claude-opus-4.5",
-      "temperature": 0.1,
+      "model": "github-copilot/claude-sonnet-4.5",
+      "temperature": 0.2,
       "permission": {
         "edit": "deny",
         "bash": {
           "*": "deny",
           "git diff*": "allow",
           "git log*": "allow",
-          "git show*": "allow"
+          "git show*": "allow",
+          "git status*": "allow"
         },
         "webfetch": "deny"
       }
     },
+    "harness-builder": {
+      "description": "Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces.",
+      "mode": "subagent",
+      "model": "github-copilot/claude-opus-4.5",
+      "temperature": 0.3,
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "*": "ask",
+          "./scripts/init-harness.sh*": "allow",
+          "./scripts/sync-harness.sh*": "allow",
+          "git diff*": "allow",
+          "git status*": "allow",
+          "install*": "allow",
+          "jq*": "allow",
+          "mkdir*": "allow",
+          "npm test*": "allow",
+          "npm run build:index*": "allow"
+        },
+        "webfetch": "allow"
+      }
+    },
     "implementer": {
-      "description": "Implements features and fixes with TDD workflow",
+      "description": "Executes scoped feature/fix tasks in isolated worktrees with deterministic verification before handoff.",
       "mode": "subagent",
       "model": "github-copilot/claude-sonnet-4.5",
       "temperature": 0.2,
       "permission": {
         "edit": "allow",
-        "bash": "allow",
-        "webfetch": "deny"
-      }
-    },
-    "qa": {
-      "description": "Verifies implementations and runs test suites",
-      "mode": "subagent",
-      "model": "github-copilot/claude-haiku-4.5",
-      "temperature": 0.1,
-      "permission": {
-        "edit": "deny",
         "bash": {
           "*": "ask",
+          "git diff*": "allow",
+          "git status*": "allow",
           "npm test*": "allow",
-          "pytest*": "allow",
-          "cargo test*": "allow",
-          "go test*": "allow",
-          "npx playwright*": "allow"
+          "opam exec -- dune*": "allow",
+          "dune*": "allow"
         },
         "webfetch": "deny"
       }
     },
-    "architect": {
-      "description": "Code quality guardian with architecture and KB checks",
+    "mcp-vetter": {
+      "description": "Security vetting for MCP server candidates with risk scoring and explicit approval recommendations.",
       "mode": "subagent",
       "model": "github-copilot/claude-sonnet-4.5",
       "temperature": 0.2,
@@ -82,9 +67,169 @@
         "edit": "deny",
         "bash": {
           "*": "deny",
+          "command -v*": "allow",
+          "gh repo view*": "allow",
           "git diff*": "allow",
-          "rg *": "allow",
-          "find *": "allow"
+          "git show*": "allow",
+          "npm view*": "allow",
+          "opam info*": "allow",
+          "which*": "allow"
+        },
+        "webfetch": "allow"
+      }
+    },
+    "ocaml-dune-specialist": {
+      "description": "Specialist for OCaml projects built with dune and packaged with opam. Owns .mli discipline, dune layout choices, opam metadata hygiene, ppx wiring, and standard tool invocations (build, runtest, opam lint, odoc).",
+      "mode": "subagent",
+      "model": "github-copilot/claude-sonnet-4.5",
+      "temperature": 0.2,
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "*": "ask",
+          "git diff*": "allow",
+          "git status*": "allow",
+          "opam exec -- dune*": "allow",
+          "opam install*": "allow",
+          "opam lint*": "allow",
+          "dune*": "allow"
+        },
+        "webfetch": "deny"
+      }
+    },
+    "ocaml-implementer": {
+      "description": "Implements OCaml changes with eio_posix, Caqti, Result-style errors, and mandatory .mli discipline.",
+      "mode": "subagent",
+      "model": "github-copilot/claude-sonnet-4.5",
+      "temperature": 0.2,
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "*": "ask",
+          "git diff*": "allow",
+          "git status*": "allow",
+          "opam exec -- dune*": "allow",
+          "dune*": "allow"
+        },
+        "webfetch": "deny"
+      }
+    },
+    "planner": {
+      "description": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context — no research history.",
+      "mode": "subagent",
+      "model": "github-copilot/claude-opus-4.5",
+      "temperature": 0.3,
+      "permission": {
+        "edit": "allow",
+        "bash": "deny",
+        "webfetch": "deny"
+      }
+    },
+    "qa": {
+      "description": "Verifies implemented behavior through deterministic test execution and focused scenario checks.",
+      "mode": "subagent",
+      "model": "github-copilot/claude-haiku-4.5",
+      "temperature": 0.1,
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "deny",
+          "./scripts/init-harness.sh*": "allow",
+          "./scripts/sync-harness.sh*": "allow",
+          "bash -n*": "allow",
+          "command -v*": "allow",
+          "dune*": "allow",
+          "git diff*": "allow",
+          "git status*": "allow",
+          "jq*": "allow",
+          "node*": "allow",
+          "npm run*": "allow",
+          "npm test*": "allow",
+          "opam exec -- dune*": "allow",
+          "tmux*": "allow",
+          "which*": "allow"
+        },
+        "webfetch": "deny"
+      }
+    },
+    "recruiter": {
+      "description": "Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team across shared harness files and runtime-specific entrypoints.",
+      "mode": "subagent",
+      "model": "github-copilot/claude-opus-4.5",
+      "temperature": 0.3,
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "*": "ask",
+          "./scripts/init-harness.sh*": "allow",
+          "./scripts/sync-harness.sh*": "allow",
+          "git diff*": "allow",
+          "git status*": "allow",
+          "jq*": "allow",
+          "npm run build:index*": "allow",
+          "npm test*": "allow"
+        },
+        "webfetch": "allow"
+      }
+    },
+    "reviewer": {
+      "description": "Performs structured code review focused on correctness, security, and regression risk.",
+      "mode": "subagent",
+      "model": "github-copilot/claude-opus-4.5",
+      "temperature": 0.3,
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "deny",
+          "git diff*": "allow",
+          "git log*": "allow",
+          "git show*": "allow",
+          "git status*": "allow"
+        },
+        "webfetch": "deny"
+      }
+    },
+    "tech-lead": {
+      "description": "Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars.",
+      "mode": "primary",
+      "model": "github-copilot/claude-opus-4.5",
+      "temperature": 0.3,
+      "permission": {
+        "edit": "allow",
+        "bash": {
+          "*": "ask",
+          "./scripts/init-harness.sh*": "allow",
+          "./scripts/sync-harness.sh*": "allow",
+          "git add*": "allow",
+          "git commit*": "allow",
+          "git diff*": "allow",
+          "git log*": "allow",
+          "git push*": "allow",
+          "git status*": "allow",
+          "jq*": "allow",
+          "npm test*": "allow",
+          "opam exec -- dune*": "allow"
+        },
+        "webfetch": "allow"
+      }
+    },
+    "terminal-ux-reviewer": {
+      "description": "Reviews terminal/TUI workflows against product usability goals using tmux evidence and Herdr-style comparison.",
+      "mode": "subagent",
+      "model": "github-copilot/claude-sonnet-4.5",
+      "temperature": 0.2,
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "*": "deny",
+          "command -v*": "allow",
+          "dune exec*": "allow",
+          "git diff*": "allow",
+          "git status*": "allow",
+          "herdr*": "allow",
+          "opam exec -- dune exec*": "allow",
+          "tmux*": "allow",
+          "which*": "allow"
         },
         "webfetch": "deny"
       }

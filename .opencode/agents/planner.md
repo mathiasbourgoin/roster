@@ -1,21 +1,14 @@
 ---
-name: planner
-display_name: Planner
 description: Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context — no research history.
-domain: [management, planning]
-tags: [planning, decomposition, context-compression, brief]
-model: opus
-complexity: high
-compatible_with: [claude-code, opencode]
-pipeline_role:
-  triggered_by: tech-lead spawn request (after research brief validated)
-  receives: full research brief content pasted inline
-  produces: sub-briefs per execution agent at briefs/<task>-<role>.md + spawn requests
-  human_gate: after — human validates decomposition quiz before execution agents are spawned
-isolation: none
-version: 1.2.0
-author: mathiasbourgoin
+mode: subagent
+model: github-copilot/claude-opus-4.5
+temperature: 0.3
+permission:
+  edit: allow
+  bash: deny
+  webfetch: deny
 ---
+
 
 # Planner Agent
 

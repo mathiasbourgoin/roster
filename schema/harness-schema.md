@@ -9,6 +9,7 @@ Canonical location:
 Compatibility views may also be generated for specific runtimes, for example:
 
 - `.claude/harness.json`
+- `opencode.json` and `.opencode/agents/`
 
 ## Top-Level Fields
 
@@ -17,9 +18,9 @@ version: <semver>            # Schema version (currently "1.0.0")
 profile: <string>            # Active install profile: core|developer|security|full
 source_of_truth: <string>    # Canonical shared harness root, usually ".harness"
 runtimes:
-  - name: <claude-code|codex>
+  - name: <claude-code|codex|opencode>
     enabled: <bool>
-    entrypoint: <string>     # e.g. ".claude/" or ".agents/skills/"
+    entrypoint: <string>     # e.g. ".claude/", ".agents/skills/", ".opencode/"
 project:
   name: <string>             # Project name (from package.json, dune-project, etc.)
   languages: [<string>]      # Detected languages (e.g., ["ocaml", "python"])
@@ -42,6 +43,17 @@ Populated by: **tech-lead** (via recruit)
   version: <semver>          # Installed version
   role: <string>             # One-line role description
   tunables: {}               # Local overrides for agent tunables
+```
+
+Runtime-specific permissions belong in canonical tunables so projection scripts
+do not invent role permissions out-of-band. For OpenCode, use:
+
+```yaml
+tunables:
+  opencode_permission:
+    edit: <allow|ask|deny>
+    bash: <allow|ask|deny|object>
+    webfetch: <allow|ask|deny>
 ```
 
 ### `layers.rules`
@@ -106,7 +118,8 @@ auditors: [<string>]                 # Agent names that audit the KB
   "source_of_truth": ".harness",
   "runtimes": [
     { "name": "claude-code", "enabled": true, "entrypoint": ".claude/" },
-    { "name": "codex", "enabled": true, "entrypoint": ".agents/skills/" }
+    { "name": "codex", "enabled": true, "entrypoint": ".agents/skills/" },
+    { "name": "opencode", "enabled": true, "entrypoint": ".opencode/" }
   ],
   "project": {
     "name": "my-ocaml-lib",

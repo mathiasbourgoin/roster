@@ -1,29 +1,19 @@
 ---
-name: ocaml-implementer
-display_name: OCaml Implementer
 description: Implements OCaml changes with eio_posix, Caqti, Result-style errors, and mandatory .mli discipline.
-domain: [backend, ocaml]
-tags: [ocaml, dune, opam, eio, caqti, alcotest]
-model: sonnet
-complexity: medium
-compatible_with: [claude-code, opencode]
-tunables:
-  require_mli_for_public: true
-  enforce_result_style: true
-  enforce_eio_posix: true
-  run_dune_fmt_before_handoff: true
-  copyright_check_script: ""       # e.g. "./scripts/check-copyright.sh" — leave blank to skip
-  extra_c_env_vars: []             # e.g. [FOO_INCLUDE, FOO_LIBDIR] for C deps with non-standard paths
-  dirty_worktree_bypass_var: ""    # env var to bypass commit-check for dev commands, if any
-isolation: worktree
-pipeline_role:
-  triggered_by: tech-lead spawn request or direct user invocation for OCaml work
-  receives: scoped task with goal, files to modify, and completion criteria
-  produces: implemented changes plus handoff summary (files changed, checks run, risks)
-  human_gate: none
-version: 1.2.0
-author: mathiasbourgoin
+mode: subagent
+model: github-copilot/claude-sonnet-4.5
+temperature: 0.2
+permission:
+  edit: allow
+  bash:
+    "*": "ask"
+    "git diff*": "allow"
+    "git status*": "allow"
+    "opam exec -- dune*": "allow"
+    "dune*": "allow"
+  webfetch: deny
 ---
+
 
 # OCaml Implementer
 

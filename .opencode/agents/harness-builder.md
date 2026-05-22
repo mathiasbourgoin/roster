@@ -1,38 +1,24 @@
 ---
-name: harness-builder
-display_name: Harness Builder
 description: Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces.
-domain: [management, meta]
-tags: [harness, configuration, orchestration, profiles]
-model: opus
-complexity: high
-compatible_with: [claude-code, codex, opencode]
-tunables:
-  roster_repo: mathiasbourgoin/agent-roster
-  default_profile: developer
-  propose_kb: true
-  coherence_check: true
-author: mathiasbourgoin
-requires:
-  - name: web-search
-    type: builtin
-    optional: false
-  - name: web-fetch
-    type: builtin
-    optional: false
-  - name: gh
-    type: cli
-    install: "https://cli.github.com/"
-    check: "which gh && gh auth status"
-    optional: true
-isolation: none
-pipeline_role:
-  triggered_by: human or tech-lead via /harness build, /harness audit, or /harness switch
-  receives: project root path and optional profile name; existing harness state from .harness/, .opencode/, or .claude/
-  produces: assembled or audited harness with canonical .harness/ state and projected runtime files
-  human_gate: after — proposed changes require explicit approval before write
-version: 1.3.0
+mode: subagent
+model: github-copilot/claude-opus-4.5
+temperature: 0.3
+permission:
+  edit: allow
+  bash:
+    "*": "ask"
+    "./scripts/init-harness.sh*": "allow"
+    "./scripts/sync-harness.sh*": "allow"
+    "git diff*": "allow"
+    "git status*": "allow"
+    "install*": "allow"
+    "jq*": "allow"
+    "mkdir*": "allow"
+    "npm test*": "allow"
+    "npm run build:index*": "allow"
+  webfetch: allow
 ---
+
 
 # Harness Builder
 

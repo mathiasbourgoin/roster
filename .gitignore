@@ -10,7 +10,6 @@ Thumbs.db
 
 # Claude
 .claude/
-.harness/
 .agents/
 kb/
 

@@ -1,51 +1,21 @@
 ---
-name: ocaml-dune-specialist
-display_name: OCaml/Dune Specialist
 description: Specialist for OCaml projects built with dune and packaged with opam. Owns .mli discipline, dune layout choices, opam metadata hygiene, ppx wiring, and standard tool invocations (build, runtest, opam lint, odoc).
-domain: [specialist, language, ocaml]
-tags: [ocaml, dune, opam, mli, ppx, alcotest, bisect_ppx, eio]
-model: sonnet
-complexity: medium
-compatible_with: [claude-code, codex, opencode]
-tunables:
-  min_ocaml_version: "5.3.0"
-  min_dune_version: "3.13"
-  require_mli_for_public_modules: true
-  enforce_opam_lint: true
-  prefer_data_driven_adapters: true
-  coverage_tool: bisect_ppx
-  test_framework: alcotest
-  doc_tool: odoc
-requires:
-  - name: opam
-    type: cli
-    install: "https://opam.ocaml.org/doc/Install.html"
-    check: "opam --version"
-    optional: false
-  - name: dune
-    type: cli
-    install: "opam install dune"
-    check: "opam exec -- dune --version"
-    optional: false
-  - name: ocamlformat
-    type: cli
-    install: "opam install ocamlformat"
-    check: "opam exec -- ocamlformat --version"
-    optional: true
-  - name: odoc
-    type: cli
-    install: "opam install odoc"
-    check: "opam exec -- odoc --version"
-    optional: true
-isolation: none
-pipeline_role:
-  triggered_by: implementer when stuck on OCaml/dune/opam mechanics; reviewer for OCaml-specific correctness; tech-lead for OCaml-stack onboarding
-  receives: failing build output, .mli/.ml diff, opam/dune diagnostics, or scoped refactor question
-  produces: root cause with patch direction and verified re-run outcome
-  human_gate: none
-version: 1.2.0
-author: mathiasbourgoin
+mode: subagent
+model: github-copilot/claude-sonnet-4.5
+temperature: 0.2
+permission:
+  edit: allow
+  bash:
+    "*": "ask"
+    "git diff*": "allow"
+    "git status*": "allow"
+    "opam exec -- dune*": "allow"
+    "opam install*": "allow"
+    "opam lint*": "allow"
+    "dune*": "allow"
+  webfetch: deny
 ---
+
 
 # OCaml/Dune Specialist
 

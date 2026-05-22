@@ -13,7 +13,7 @@ domain: [<string>, ...]     # Primary domains (e.g., security, devops, frontend)
 tags: [<string>, ...]       # Searchable tags for discovery
 model: <string>             # Recommended model (opus, sonnet, haiku)
 complexity: <low|medium|high>  # Task complexity this agent handles
-compatible_with: [<string>, ...]  # Platforms: claude-code, codex, cursor, aider, etc.
+compatible_with: [<string>, ...]  # Platforms: claude-code, codex, opencode, cursor, aider, etc.
 ---
 ```
 
@@ -40,11 +40,15 @@ runtime_hints:               # Optional runtime-specific recommendations
     model: <string>
   codex:
     model: <string>
+  opencode:
+    model: <string>
 entrypoints:                 # Optional runtime-specific thin wrappers
   claude-code:
     type: <agent|command|rule|hook>
   codex:
     type: <agent|skill|cli|agents-md>
+  opencode:
+    type: <agent|config>
 isolation: <worktree|none>   # Whether the agent needs an isolated workspace
 replaces: [<agent-name>, ...] # Agents this one supersedes (for upgrade proposals)
 version: <semver>            # Version for tracking updates

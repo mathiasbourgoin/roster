@@ -107,8 +107,6 @@ detect_project_metadata() {
       }'
 }
 
-mkdir -p "$AGENTS_DIR" "$SKILLS_DIR" "$RULES_DIR" "$HOOKS_DIR"
-
 copy_files() {
     local target_dir="$1"
     shift
@@ -185,6 +183,8 @@ if [ -d "$HARNESS_DIR" ] && [ "$FORCE" != "--force" ]; then
     echo "Harness already exists at $HARNESS_DIR. Use --force to overwrite." >&2
     exit 1
 fi
+
+mkdir -p "$AGENTS_DIR" "$SKILLS_DIR" "$RULES_DIR" "$HOOKS_DIR"
 
 find "$AGENTS_DIR" -maxdepth 1 -type f -name '*.md' -delete
 find "$SKILLS_DIR" -maxdepth 1 -type f -name '*.md' -delete
@@ -305,6 +305,49 @@ list_layer_json() {
     printf ']'
 }
 
+count_opencode_compatible_agents() {
+    local agents_dir="$1"
+    local count=0
+    local agent_file
+
+    while IFS= read -r -d '' agent_file; do
+        if awk '
+            /^---$/ {
+                markers++
+                if (markers == 2) {
+                    exit found ? 0 : 1
+                }
+                next
+            }
+            markers == 1 {
+                if ($0 ~ /^compatible_with:/) {
+                    in_field = 1
+                    if ($0 ~ /opencode/) {
+                        found = 1
+                    }
+                    next
+                }
+                if (in_field && $0 ~ /^[[:space:]]*-/) {
+                    if ($0 ~ /opencode/) {
+                        found = 1
+                    }
+                    next
+                }
+                if (in_field && $0 ~ /^[A-Za-z_][A-Za-z0-9_-]*:/) {
+                    in_field = 0
+                }
+            }
+            END {
+                exit found ? 0 : 1
+            }
+        ' "$agent_file"; then
+            count=$((count + 1))
+        fi
+    done < <(find "$agents_dir" -maxdepth 1 -type f -name '*.md' -print0)
+
+    printf '%s\n' "$count"
+}
+
 agents_json="$(list_layer_json "$AGENTS_DIR" agents)"
 skills_json="$(list_layer_json "$SKILLS_DIR" skills)"
 rules_json="$(list_layer_json "$RULES_DIR" rules)"
@@ -323,7 +366,8 @@ jq -n \
     source_of_truth: ".harness",
     runtimes: [
       {name: "claude-code", enabled: true, entrypoint: ".claude/"},
-      {name: "codex", enabled: true, entrypoint: ".agents/skills/"}
+      {name: "codex", enabled: true, entrypoint: ".agents/skills/"},
+      {name: "opencode", enabled: true, entrypoint: ".opencode/"}
     ],
     project: $project,
     layers: {
@@ -386,6 +430,32 @@ validate_harness() {
             errors=$((errors + 1))
         else
             printf '  [OK] Claude projection in sync (%d agents)\n' "$claude_count"
+        fi
+    fi
+
+    # Check OpenCode projection
+    if jq -e '.runtimes // [] | any(.name == "opencode" and (.enabled == true))' "$root/.harness/harness.json" >/dev/null 2>&1; then
+        if [ ! -d "$root/.opencode/agents" ] || [ ! -d "$root/.opencode/rules" ] || [ ! -f "$root/opencode.json" ]; then
+            printf '  [WARN] OpenCode projection missing .opencode/agents, .opencode/rules, or opencode.json\n' >&2
+            errors=$((errors + 1))
+        else
+            local harness_count opencode_count config_count harness_rules_count opencode_rules_count
+            harness_count=$(count_opencode_compatible_agents "$root/.harness/agents")
+            opencode_count=$(find "$root/.opencode/agents" -name '*.md' | wc -l)
+            config_count=$(jq '.agent | length' "$root/opencode.json")
+            harness_rules_count=$(find "$root/.harness/rules" -name '*.md' | wc -l)
+            opencode_rules_count=$(find "$root/.opencode/rules" -name '*.md' | wc -l)
+            if [ "$harness_count" -ne "$opencode_count" ] || [ "$harness_count" -ne "$config_count" ]; then
+                printf '  [WARN] Agent count mismatch: .harness/agents=%d .opencode/agents=%d opencode.json=%d\n' \
+                    "$harness_count" "$opencode_count" "$config_count" >&2
+                errors=$((errors + 1))
+            elif [ "$harness_rules_count" -ne "$opencode_rules_count" ]; then
+                printf '  [WARN] Rule count mismatch: .harness/rules=%d .opencode/rules=%d\n' \
+                    "$harness_rules_count" "$opencode_rules_count" >&2
+                errors=$((errors + 1))
+            else
+                printf '  [OK] OpenCode projection in sync (%d compatible agents)\n' "$opencode_count"
+            fi
         fi
     fi
 

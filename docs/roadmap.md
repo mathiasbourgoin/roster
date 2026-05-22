@@ -109,6 +109,13 @@ commit.
   sidebar, agent status table, and selected-agent description panel while
   preserving short-terminal and narrow-terminal behavior under headless and
   tmux Matrix QA.
+- The repo now dogfoods a canonical `.harness/` for TA development with a
+  12-agent roster: `tech-lead`, `recruiter`, `harness-builder`, `planner`,
+  `ocaml-implementer`, `implementer`, `ocaml-dune-specialist`, `reviewer`,
+  `architect`, `terminal-ux-reviewer`, `qa`, and `mcp-vetter`. OpenCode,
+  Claude, and Codex surfaces are generated from that harness.
+- `terminal-ux-reviewer` now exists as a roster source agent with a Herdr-style
+  tmux evidence contract and the two-selection Codex `tech-lead` start bar.
 
 ## Near-Term Milestones
 
@@ -117,6 +124,9 @@ commit.
   without requiring hand-written JSON.
   Acceptance bar: from `dune exec ta`, starting a Codex `tech-lead` must take
   no more than two primary selections in the TUI.
+- Make the full TUI use the installed `.harness` team as its primary runtime
+  source, showing roster roles and privileged creation/connect capabilities
+  without requiring users to know JSON file paths.
 - Add a TUI connection editor: choose source agent, choose target agent, select
   read/write permissions, and persist the ACL edge with an audit event.
 - Add capability-gated agent creation: only roster agents with an explicit

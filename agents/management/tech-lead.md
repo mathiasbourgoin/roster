@@ -6,7 +6,7 @@ domain: [management, orchestration]
 tags: [team-lead, triage, merge, governance]
 model: opus
 complexity: high
-compatible_with: [claude-code]
+compatible_with: [claude-code, opencode]
 tunables:
   merge_strategy: rebase-merge
   require_review: true
@@ -43,6 +43,11 @@ Token discipline:
 ## Spawning Constraint
 
 **You cannot spawn subagents.** You have no Agent tool. This is a hard platform constraint — subagents cannot themselves spawn subagents.
+
+OpenCode note: generated OpenCode wrappers for this agent must not grant
+`task` permission. Even when the runtime supports task delegation, this agent's
+contract is to prepare human-mediated context packets or coordinate through the
+TA runtime, not to directly spawn subagents.
 
 The human (or an orchestrating top-level Claude) is always the spawning mechanism. Two valid modes:
 

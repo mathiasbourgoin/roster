@@ -9,6 +9,10 @@ HARNESS_DIR="$PROJECT_ROOT/.harness"
 CLAUDE_DIR="$PROJECT_ROOT/.claude"
 CODEX_DIR="$PROJECT_ROOT/.agents"
 CODEX_SKILLS_DIR="$CODEX_DIR/skills"
+OPENCODE_DIR="$PROJECT_ROOT/.opencode"
+OPENCODE_AGENTS_DIR="$OPENCODE_DIR/agents"
+OPENCODE_RULES_DIR="$OPENCODE_DIR/rules"
+OPENCODE_CONFIG="$PROJECT_ROOT/opencode.json"
 MANIFEST="$HARNESS_DIR/harness.json"
 
 need_cmd() {
@@ -57,6 +61,42 @@ extract_frontmatter_field() {
     ' "$file"
 }
 
+agent_compatible_with_runtime() {
+    local file="$1"
+    local runtime_name="$2"
+
+    awk -v runtime="$runtime_name" '
+        /^---$/ {
+            markers++
+            if (markers == 2) {
+                exit found ? 0 : 1
+            }
+            next
+        }
+        markers == 1 {
+            if ($0 ~ /^compatible_with:/) {
+                in_field = 1
+                if ($0 ~ runtime) {
+                    found = 1
+                }
+                next
+            }
+            if (in_field && $0 ~ /^[[:space:]]*-/) {
+                if ($0 ~ runtime) {
+                    found = 1
+                }
+                next
+            }
+            if (in_field && $0 ~ /^[A-Za-z_][A-Za-z0-9_-]*:/) {
+                in_field = 0
+            }
+        }
+        END {
+            exit found ? 0 : 1
+        }
+    ' "$file"
+}
+
 extract_command_block() {
     local file="$1"
     awk '
@@ -64,6 +104,129 @@ extract_command_block() {
         /^```$/ && in_block {exit}
         in_block {print}
     ' "$file"
+}
+
+strip_frontmatter() {
+    local file="$1"
+    awk '
+        BEGIN {seen=0}
+        /^---$/ {seen++; next}
+        seen >= 2 {print}
+    ' "$file"
+}
+
+opencode_model() {
+    case "$1" in
+        opus) echo "github-copilot/claude-opus-4.5" ;;
+        sonnet) echo "github-copilot/claude-sonnet-4.5" ;;
+        haiku) echo "github-copilot/claude-haiku-4.5" ;;
+        *) echo "github-copilot/claude-sonnet-4.5" ;;
+    esac
+}
+
+opencode_temperature() {
+    case "$1" in
+        opus) echo "0.3" ;;
+        sonnet) echo "0.2" ;;
+        haiku) echo "0.1" ;;
+        *) echo "0.2" ;;
+    esac
+}
+
+opencode_permission_json() {
+    local name="$1"
+    local permission
+
+    permission="$(jq -c --arg name "$name" '
+      first(.layers.agents[]? | select(.name == $name) | .tunables.opencode_permission) // empty
+    ' "$MANIFEST")"
+
+    if [ -n "$permission" ]; then
+        printf '%s\n' "$permission"
+    else
+        jq -nc '{edit: "deny", bash: "deny", webfetch: "deny"}'
+    fi
+}
+
+write_yaml_permission() {
+    jq -r '
+      def yaml_value:
+        if type == "object" then
+          to_entries
+          | map("    \"" + .key + "\": " + (.value | @json))
+          | join("\n")
+        else
+          tostring
+        end;
+      to_entries[]
+      | if (.value | type) == "object" then
+          "  \(.key):\n" + (.value | yaml_value)
+        else
+          "  \(.key): \(.value | tostring)"
+        end
+    '
+}
+
+sync_opencode_agents() {
+    local src="$1"
+    local agents_json='{}'
+
+    mkdir -p "$OPENCODE_AGENTS_DIR"
+    find "$OPENCODE_AGENTS_DIR" -maxdepth 1 -type f -name '*.md' -delete
+
+    if [ ! -d "$src" ]; then
+        return
+    fi
+
+    while IFS= read -r -d '' agent_file; do
+        local name description source_model model mode temperature permission target
+        name="$(extract_frontmatter_field "$agent_file" "name")"
+        [ -n "$name" ] || name="$(basename "$agent_file" .md)"
+        if ! agent_compatible_with_runtime "$agent_file" "opencode"; then
+            continue
+        fi
+        description="$(extract_frontmatter_field "$agent_file" "description")"
+        source_model="$(extract_frontmatter_field "$agent_file" "model")"
+        mode="subagent"
+        [ "$name" = "tech-lead" ] && mode="primary"
+        temperature="$(opencode_temperature "$source_model")"
+        model="$(opencode_model "$source_model")"
+        permission="$(opencode_permission_json "$name")"
+        target="$OPENCODE_AGENTS_DIR/$name.md"
+
+        {
+            printf '%s\n' '---'
+            printf 'description: %s\n' "${description:-Installed from shared harness}"
+            printf 'mode: %s\n' "$mode"
+            printf 'model: %s\n' "$model"
+            printf 'temperature: %s\n' "$temperature"
+            printf '%s\n' 'permission:'
+            write_yaml_permission <<<"$permission"
+            printf '%s\n\n' '---'
+            strip_frontmatter "$agent_file"
+        } > "$target"
+
+        agents_json="$(jq -c \
+            --arg name "$name" \
+            --arg description "${description:-Installed from shared harness}" \
+            --arg mode "$mode" \
+            --arg model "$model" \
+            --argjson temperature "$temperature" \
+            --argjson permission "$permission" '
+            .[$name] = {
+              description: $description,
+              mode: $mode,
+              model: $model,
+              temperature: $temperature,
+              permission: $permission
+            }
+        ' <<<"$agents_json")"
+    done < <(find "$src" -maxdepth 1 -type f -name '*.md' -print0 | sort -z)
+
+    jq -n --argjson agents "$agents_json" '{
+      "$schema": "https://opencode.ai/config.json",
+      agent: $agents
+    }' > "$OPENCODE_CONFIG"
 }
 
 build_hooks_json() {
@@ -138,6 +301,11 @@ if runtime_enabled "codex"; then
     else
         rm -f "$CODEX_SKILLS_DIR/recruit.md"
     fi
+fi
+
+if runtime_enabled "opencode"; then
+    sync_opencode_agents "$HARNESS_DIR/agents"
+    sync_markdown_dir "$HARNESS_DIR/rules" "$OPENCODE_RULES_DIR"
 fi
 
 printf 'Synced shared harness from %s\n' "$HARNESS_DIR"
