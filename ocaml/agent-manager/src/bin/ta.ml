@@ -13,6 +13,16 @@ let parse_optional_id label parse = function
       let* id = parse_id label parse value in
       Ok (Some id)
 
+type tui_mode = Auto | Always | Never
+
+let tui_mode_to_string = function
+  | Auto -> "auto"
+  | Always -> "always"
+  | Never -> "never"
+
+let tui_mode_conv =
+  Arg.enum [ ("auto", Auto); ("always", Always); ("never", Never) ]
+
 let state_dashboard_model lines state_path =
   match Ta_core.State_file.load ~path:state_path with
   | Error error -> Error (Ta_core.State_file.error_to_string error)
@@ -60,8 +70,21 @@ let parse_dashboard_height = function
       | Ok height -> Ok (Some height)
       | Error _ -> Error "--height must be positive")
 
+let should_run_tui tui_mode =
+  match tui_mode with
+  | Never -> Ok false
+  | Auto -> Ok (Unix.isatty Unix.stdin && Unix.isatty Unix.stdout)
+  | Always ->
+      if Unix.isatty Unix.stdin && Unix.isatty Unix.stdout then Ok true
+      else Error "--tui=always requires stdin and stdout to be terminals"
+
+let render_static_dashboard lines width height interaction =
+  print_endline
+    (Ta_core.Dashboard_interaction.render ~width ?height ~lines interaction);
+  `Ok 0
+
 let render_dashboard_model ~refresh lines width height workspace agent keys
-    dashboard =
+    tui_mode dashboard =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
     `Ok 2)
@@ -103,13 +126,17 @@ let render_dashboard_model ~refresh lines width height workspace agent keys
             | Error message ->
                 prerr_endline message;
                 `Ok 2
-            | Ok interaction ->
-                print_endline
-                  (Ta_core.Dashboard_interaction.render ~width ?height ~lines
-                     interaction);
-                `Ok 0))
+            | Ok interaction -> (
+                match should_run_tui tui_mode with
+                | Error message ->
+                    prerr_endline message;
+                    `Ok 2
+                | Ok true -> `Ok (Ta_tui.run ~lines ~refresh interaction)
+                | Ok false ->
+                    render_static_dashboard lines width height interaction)))
 
-let render_state_dashboard lines width height workspace agent keys state_path =
+let render_state_dashboard lines width height workspace agent keys tui_mode
+    state_path =
   match state_dashboard_model lines state_path with
   | Error message ->
       prerr_endline message;
@@ -117,10 +144,10 @@ let render_state_dashboard lines width height workspace agent keys state_path =
   | Ok dashboard ->
       render_dashboard_model
         ~refresh:(fun () -> state_dashboard_model lines state_path)
-        lines width height workspace agent keys dashboard
+        lines width height workspace agent keys tui_mode dashboard
 
-let render_config_dashboard lines width height workspace agent keys config_path
-    =
+let render_config_dashboard lines width height workspace agent keys tui_mode
+    config_path =
   match config_dashboard_model lines config_path with
   | Error message ->
       prerr_endline message;
@@ -128,17 +155,20 @@ let render_config_dashboard lines width height workspace agent keys config_path
   | Ok dashboard ->
       render_dashboard_model
         ~refresh:(fun () -> config_dashboard_model lines config_path)
-        lines width height workspace agent keys dashboard
+        lines width height workspace agent keys tui_mode dashboard
 
-let dashboard lines width height workspace agent keys state_path config_path =
+let dashboard lines width height workspace agent keys tui_mode state_path
+    config_path =
   match
     Ta_core.Startup_paths.resolve ~exists:Sys.file_exists ?state_path
       ?config_path ()
   with
   | Ta_core.Startup_paths.State { path; explicit = _ } ->
-      render_state_dashboard lines width height workspace agent keys path
+      render_state_dashboard lines width height workspace agent keys tui_mode
+        path
   | Ta_core.Startup_paths.Config { path; explicit = _ } ->
-      render_config_dashboard lines width height workspace agent keys path
+      render_config_dashboard lines width height workspace agent keys tui_mode
+        path
   | Ta_core.Startup_paths.Missing ->
       print_endline Ta_core.Startup_guide.text;
       `Ok 0
@@ -167,14 +197,19 @@ let lines_arg =
 let width_arg =
   Arg.(
     value & opt int 100
-    & info [ "width" ] ~docv:"COLS" ~doc:"Dashboard frame width")
+    & info [ "width" ] ~docv:"COLS"
+        ~doc:
+          "Dashboard frame width for static output; full-screen TUI mode uses \
+           the terminal width")
 
 let height_arg =
   Arg.(
     value
     & opt (some int) None
     & info [ "height" ] ~docv:"ROWS"
-        ~doc:"Optional dashboard frame height for viewport clipping")
+        ~doc:
+          "Optional dashboard frame height for static viewport clipping; \
+           full-screen TUI mode uses the terminal height")
 
 let workspace_arg =
   Arg.(
@@ -194,6 +229,16 @@ let key_arg =
     value & opt_all string []
     & info [ "key" ] ~docv:"KEY"
         ~doc:"Replay one dashboard key before rendering; may be repeated")
+
+let tui_arg =
+  Arg.(
+    value & opt tui_mode_conv Auto
+    & info [ "tui" ] ~docv:"MODE"
+        ~doc:
+          ("Full-screen dashboard mode: "
+         ^ "auto enters the TUI only on a real terminal, always requires a \
+            terminal, never renders one static frame. Values: auto, always, \
+            never. Default: " ^ tui_mode_to_string Auto))
 
 let root_cmd =
   let doc = "Launch the TA roster-agent workspace manager." in
@@ -237,8 +282,9 @@ let root_cmd =
          dune exec ta";
       `S "CURRENT TUI STATUS";
       `P
-        "The concrete MIAOU TUI adapter is not wired in this build yet. The ta \
-         entrypoint starts the terminal dashboard renderer today.";
+        "The concrete MIAOU TUI adapter is not wired in this build yet. On a \
+         real terminal, the ta entrypoint starts a full-screen terminal \
+         dashboard.";
     ]
   in
   Cmd.v
@@ -246,6 +292,6 @@ let root_cmd =
     Term.(
       ret
         (const dashboard $ lines_arg $ width_arg $ height_arg $ workspace_arg
-       $ agent_arg $ key_arg $ state_arg $ config_arg))
+       $ agent_arg $ key_arg $ tui_arg $ state_arg $ config_arg))
 
 let () = exit (Cmd.eval' root_cmd)

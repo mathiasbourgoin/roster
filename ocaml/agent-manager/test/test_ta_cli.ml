@@ -234,6 +234,29 @@ let expect_rejects_bad_height () =
         "height error" true
         (contains_substring ~needle:"--height must be positive" result.stderr))
 
+let expect_tui_never_renders_static_dashboard () =
+  with_temp_state (fun path ->
+      save_state path;
+      let result =
+        run_ta [ "--state"; path; "--tui"; "never"; "--width"; "92" ]
+      in
+      check_exit "exit" 0 result.status;
+      Alcotest.(check string) "stderr" "" result.stderr;
+      Alcotest.(check bool)
+        "dashboard header" true
+        (contains_substring ~needle:"TA Dashboard" result.stdout))
+
+let expect_tui_always_requires_terminal () =
+  with_temp_state (fun path ->
+      save_state path;
+      let result = run_ta [ "--state"; path; "--tui"; "always" ] in
+      check_exit "exit" 2 result.status;
+      Alcotest.(check bool)
+        "tui error" true
+        (contains_substring
+           ~needle:"--tui=always requires stdin and stdout to be terminals"
+           result.stderr))
+
 let expect_no_defaults_prints_quickstart () =
   with_temp_workspace (fun dir ->
       with_chdir dir (fun () ->
@@ -296,7 +319,10 @@ let expect_help_documents_startup () =
     (contains_substring ~needle:"dune exec ta" result.stdout);
   Alcotest.(check bool)
     "tui status" true
-    (contains_substring ~needle:"MIAOU TUI adapter is not wired" result.stdout)
+    (contains_substring ~needle:"MIAOU TUI adapter is not wired" result.stdout);
+  Alcotest.(check bool)
+    "tui option" true
+    (contains_substring ~needle:"--tui=MODE" result.stdout)
 
 let () =
   Alcotest.run "ta-cli"
@@ -322,5 +348,9 @@ let () =
           Alcotest.test_case "rejects bad width" `Quick expect_rejects_bad_width;
           Alcotest.test_case "rejects bad height" `Quick
             expect_rejects_bad_height;
+          Alcotest.test_case "tui never renders static dashboard" `Quick
+            expect_tui_never_renders_static_dashboard;
+          Alcotest.test_case "tui always requires terminal" `Quick
+            expect_tui_always_requires_terminal;
         ] );
     ]

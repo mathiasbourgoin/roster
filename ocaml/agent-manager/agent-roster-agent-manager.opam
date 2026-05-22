@@ -12,6 +12,7 @@ depends: [
   "ocaml" {>= "5.2"}
   "dune" {>= "3.15"}
   "cmdliner"
+  "notty"
   "yojson"
   "alcotest" {with-test}
 ]

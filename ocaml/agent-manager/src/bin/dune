@@ -7,5 +7,5 @@
 (executable
  (name ta)
  (public_name ta)
- (modules ta)
- (libraries ta_core cmdliner unix))
+ (modules ta ta_tui)
+ (libraries ta_core cmdliner unix notty.unix))
