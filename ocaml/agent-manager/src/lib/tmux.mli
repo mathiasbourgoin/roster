@@ -5,6 +5,7 @@
     process boundary testable. *)
 
 type session = private string
+type target = private string
 
 type error = {
   argv : string list;
@@ -19,14 +20,28 @@ type command =
       cwd : string option;
       command : string list;
     }
+  | Split_window of {
+      target : target;
+      cwd : string option;
+      command : string list;
+    }
+  | Select_layout of { target : target; layout : string }
   | Send_keys of { target : session; text : string }
+  | Send_keys_literal of { target : target; text : string }
+  | Send_keys_to of { target : target; text : string }
   | Capture_pane of { target : session; lines : int }
   | Kill_session of session
 
 val session_of_string : string -> (session, string) result
 val unsafe_session_of_string : string -> session
 val session_to_string : session -> string
+val equal_session : session -> session -> bool
+val compare_session : session -> session -> int
+val target_of_string : string -> (target, string) result
+val unsafe_target_of_string : string -> target
+val target_to_string : target -> string
 val argv : command -> string list
+val command_line : command -> string
 val run : command -> (string, error) result
 val smoke : ?session:session -> unit -> (string, error) result
 val error_to_string : error -> string

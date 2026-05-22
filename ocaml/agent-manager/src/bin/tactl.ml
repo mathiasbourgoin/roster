@@ -165,6 +165,48 @@ let launch_plan roster_path config_path =
           print_endline (Ta_core.Launch_plan.describe plan);
           `Ok 0)
 
+let build_launch_plan roster_path config_path =
+  match load_config ?roster_path config_path with
+  | Error errors -> Error (`Config errors)
+  | Ok config -> (
+      match
+        Ta_core.Launch_plan.of_config
+          ~config_dir:(Filename.dirname config_path)
+          config
+      with
+      | Ok plan -> Ok plan
+      | Error errors -> Error (`Config errors))
+
+let print_launch_error = function
+  | `Config errors -> print_errors errors
+  | `Runtime error ->
+      prerr_endline (Ta_core.Launch_runtime.error_to_string error)
+
+let launch_start dry_run roster_path config_path =
+  match build_launch_plan roster_path config_path with
+  | Error error ->
+      print_launch_error error;
+      `Ok 1
+  | Ok plan -> (
+      if dry_run then (
+        match Ta_core.Launch_runtime.command_lines plan with
+        | Ok lines ->
+            List.iter print_endline lines;
+            `Ok 0
+        | Error error ->
+            print_launch_error (`Runtime error);
+            `Ok 1)
+      else
+        match Ta_core.Launch_runtime.run plan with
+        | Ok () ->
+            Printf.printf "launched: %d workspace(s), %d agent(s)\n"
+              (List.length plan.workspaces)
+              (Ta_core.Launch_plan.agent_count plan);
+            `Ok 0
+        | Error error ->
+            print_launch_error (`Runtime error);
+            `Ok 1)
+
 let tmux_status session_name =
   match Ta_core.Tmux.session_of_string session_name with
   | Error message ->
@@ -284,6 +326,11 @@ let smoke_session_arg =
     & info [ "session" ] ~docv:"SESSION"
         ~doc:"Managed temporary tmux session name")
 
+let dry_run_arg =
+  Arg.(
+    value & flag
+    & info [ "dry-run" ] ~doc:"Print tmux commands without executing them")
+
 let validate_cmd =
   let doc = "Validate a TA workspace configuration file." in
   Cmd.v (Cmd.info "validate" ~doc)
@@ -342,9 +389,14 @@ let launch_plan_cmd =
   Cmd.v (Cmd.info "plan" ~doc)
     Term.(ret (const launch_plan $ roster_arg $ config_arg))
 
+let launch_start_cmd =
+  let doc = "Create supervised tmux sessions from a launch plan." in
+  Cmd.v (Cmd.info "start" ~doc)
+    Term.(ret (const launch_start $ dry_run_arg $ roster_arg $ config_arg))
+
 let launch_cmd =
   let doc = "Plan and run supervised tmux workspace launches." in
-  Cmd.group (Cmd.info "launch" ~doc) [ launch_plan_cmd ]
+  Cmd.group (Cmd.info "launch" ~doc) [ launch_plan_cmd; launch_start_cmd ]
 
 let tmux_status_cmd =
   let doc = "Check whether a tmux session exists." in
