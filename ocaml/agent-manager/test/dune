@@ -13,6 +13,12 @@
  (libraries ta_core alcotest unix))
 
 (test
+ (name test_launch_plan)
+ (deps
+  (source_tree fixtures))
+ (libraries ta_core alcotest))
+
+(test
  (name test_tactl_cli)
  (deps
   (source_tree fixtures)

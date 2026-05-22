@@ -107,6 +107,36 @@ let expect_roster_validate_failure () =
     (contains_substring ~needle:"unknown roster agent: missing-agent"
        result.stderr)
 
+let expect_launch_plan () =
+  let result = run_tactl [ "launch"; "plan"; fixture "ta-valid.json" ] in
+  check_exit "exit" 0 result.status;
+  Alcotest.(check string) "stderr" "" result.stderr;
+  Alcotest.(check bool)
+    "plan header" true
+    (contains_substring ~needle:"TA launch plan: 1 workspace(s), 2 agent(s)"
+       result.stdout);
+  Alcotest.(check bool)
+    "lead target" true
+    (contains_substring ~needle:"lead pane=fixture%lead target=ta-fixture:0.0"
+       result.stdout)
+
+let expect_launch_plan_roster_failure () =
+  let result =
+    run_tactl
+      [
+        "launch";
+        "plan";
+        "--roster-index";
+        fixture "roster-index.json";
+        fixture "ta-missing-roster-agent.json";
+      ]
+  in
+  check_exit "exit" 1 result.status;
+  Alcotest.(check bool)
+    "reports missing agent" true
+    (contains_substring ~needle:"unknown roster agent: missing-agent"
+       result.stderr)
+
 let with_temp_state f =
   let path = Filename.temp_file "ta-cli-state" ".json" in
   Fun.protect ~finally:(fun () -> remove_noerr path) (fun () -> f path)
@@ -422,5 +452,11 @@ let () =
             expect_state_unknown_actor_keeps_snapshot;
           Alcotest.test_case "bad status" `Quick expect_state_bad_status;
           Alcotest.test_case "load failure" `Quick expect_state_load_failure;
+        ] );
+      ( "launch",
+        [
+          Alcotest.test_case "plan" `Quick expect_launch_plan;
+          Alcotest.test_case "roster failure" `Quick
+            expect_launch_plan_roster_failure;
         ] );
     ]

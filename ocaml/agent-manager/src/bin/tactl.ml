@@ -147,6 +147,24 @@ let attach_state_pane state_path workspace agent pane actor =
       mutate_state state_path (fun store ->
           Ta_core.State_store.attach_pane store ~workspace ~agent ~pane ~actor)
 
+let launch_plan roster_path config_path =
+  match load_config ?roster_path config_path with
+  | Error errors ->
+      print_errors errors;
+      `Ok 1
+  | Ok config -> (
+      match
+        Ta_core.Launch_plan.of_config
+          ~config_dir:(Filename.dirname config_path)
+          config
+      with
+      | Error errors ->
+          print_errors errors;
+          `Ok 1
+      | Ok plan ->
+          print_endline (Ta_core.Launch_plan.describe plan);
+          `Ok 0)
+
 let tmux_status session_name =
   match Ta_core.Tmux.session_of_string session_name with
   | Error message ->
@@ -319,6 +337,15 @@ let state_cmd =
       state_attach_pane_cmd;
     ]
 
+let launch_plan_cmd =
+  let doc = "Print a deterministic supervised tmux launch plan." in
+  Cmd.v (Cmd.info "plan" ~doc)
+    Term.(ret (const launch_plan $ roster_arg $ config_arg))
+
+let launch_cmd =
+  let doc = "Plan and run supervised tmux workspace launches." in
+  Cmd.group (Cmd.info "launch" ~doc) [ launch_plan_cmd ]
+
 let tmux_status_cmd =
   let doc = "Check whether a tmux session exists." in
   Cmd.v (Cmd.info "status" ~doc) Term.(ret (const tmux_status $ session_arg))
@@ -336,6 +363,6 @@ let root_cmd =
   let doc = "Control TA roster-agent workspaces." in
   Cmd.group
     (Cmd.info "tactl" ~version:"0.1.0" ~doc)
-    [ validate_cmd; summary_cmd; state_cmd; tmux_cmd ]
+    [ validate_cmd; summary_cmd; state_cmd; launch_cmd; tmux_cmd ]
 
 let () = exit (Cmd.eval' root_cmd)
