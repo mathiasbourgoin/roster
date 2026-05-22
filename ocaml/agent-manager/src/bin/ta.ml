@@ -71,11 +71,14 @@ let parse_dashboard_height = function
       | Error _ -> Error "--height must be positive")
 
 let should_run_tui tui_mode =
+  let miaou_headless = Sys.getenv_opt "MIAOU_DRIVER" = Some "headless" in
   match tui_mode with
   | Never -> Ok false
-  | Auto -> Ok (Unix.isatty Unix.stdin && Unix.isatty Unix.stdout)
+  | Auto ->
+      Ok (miaou_headless || (Unix.isatty Unix.stdin && Unix.isatty Unix.stdout))
   | Always ->
-      if Unix.isatty Unix.stdin && Unix.isatty Unix.stdout then Ok true
+      if miaou_headless || (Unix.isatty Unix.stdin && Unix.isatty Unix.stdout)
+      then Ok true
       else Error "--tui=always requires stdin and stdout to be terminals"
 
 let render_static_dashboard lines width height interaction =
@@ -236,9 +239,10 @@ let tui_arg =
     & info [ "tui" ] ~docv:"MODE"
         ~doc:
           ("Full-screen dashboard mode: "
-         ^ "auto enters the TUI only on a real terminal, always requires a \
-            terminal, never renders one static frame. Values: auto, always, \
-            never. Default: " ^ tui_mode_to_string Auto))
+         ^ "auto enters the TUI on a real terminal or when \
+            MIAOU_DRIVER=headless, always requires a terminal unless \
+            MIAOU_DRIVER=headless is set, never renders one static frame. \
+            Values: auto, always, never. Default: " ^ tui_mode_to_string Auto))
 
 let root_cmd =
   let doc = "Launch the TA roster-agent workspace manager." in
@@ -282,9 +286,9 @@ let root_cmd =
          dune exec ta";
       `S "CURRENT TUI STATUS";
       `P
-        "The concrete MIAOU TUI adapter is not wired in this build yet. On a \
-         real terminal, the ta entrypoint starts a full-screen terminal \
-         dashboard.";
+        "TA uses the MIAOU terminal runner from the miaou-tui opam package for \
+         the full-screen dashboard. Set MIAOU_DRIVER=headless for JSON-driven \
+         test and automation runs.";
     ]
   in
   Cmd.v

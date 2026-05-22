@@ -12,7 +12,9 @@ depends: [
   "ocaml" {>= "5.2"}
   "dune" {>= "3.15"}
   "cmdliner"
-  "notty"
+  "miaou-tui"
+  "eio_main"
+  "lambda-term"
   "yojson"
   "alcotest" {with-test}
 ]

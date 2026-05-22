@@ -8,4 +8,13 @@
  (name ta)
  (public_name ta)
  (modules ta ta_tui)
- (libraries ta_core cmdliner unix notty.unix))
+ (libraries
+  ta_core
+  cmdliner
+  unix
+  lambda-term
+  miaou-core.core
+  miaou-core.helpers
+  miaou-core.widgets.display
+  miaou-runner.tui
+  eio_main))
