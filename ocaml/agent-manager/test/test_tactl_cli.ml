@@ -512,6 +512,40 @@ let expect_runtime_snapshot_rejects_large_lines () =
         "line cap" true
         (contains_substring ~needle:"--lines must be at most" result.stderr))
 
+let expect_dashboard_render () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result = run_tactl [ "dashboard"; "render"; "--width"; "92"; path ] in
+      check_exit "dashboard exit" 0 result.status;
+      Alcotest.(check string) "dashboard stderr" "" result.stderr;
+      Alcotest.(check bool)
+        "dashboard header" true
+        (contains_substring ~needle:"TA Dashboard" result.stdout);
+      Alcotest.(check bool)
+        "workspace row" true
+        (contains_substring ~needle:"fixture" result.stdout);
+      Alcotest.(check bool)
+        "agent row" true
+        (contains_substring ~needle:"lead" result.stdout);
+      Alcotest.(check bool)
+        "preview panel" true
+        (contains_substring ~needle:"Preview: fixture/lead" result.stdout))
+
+let expect_dashboard_render_rejects_bad_width () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result = run_tactl [ "dashboard"; "render"; "--width"; "0"; path ] in
+      check_exit "dashboard exit" 2 result.status;
+      Alcotest.(check bool)
+        "width error" true
+        (contains_substring ~needle:"--width must be positive" result.stderr))
+
 let () =
   Alcotest.run "tactl-cli"
     [
@@ -552,5 +586,11 @@ let () =
             expect_runtime_snapshot_rejects_bad_lines;
           Alcotest.test_case "snapshot rejects large lines" `Quick
             expect_runtime_snapshot_rejects_large_lines;
+        ] );
+      ( "dashboard",
+        [
+          Alcotest.test_case "render" `Quick expect_dashboard_render;
+          Alcotest.test_case "render rejects bad width" `Quick
+            expect_dashboard_render_rejects_bad_width;
         ] );
     ]

@@ -2,8 +2,9 @@
  (name ta_core)
  (public_name agent-roster-agent-manager.core)
  (modules
-  id
-  launch_plan
+ id
+ dashboard_model
+ launch_plan
   launch_runtime
   launch_state
   permission

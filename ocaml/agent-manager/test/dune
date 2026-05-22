@@ -31,6 +31,10 @@
  (libraries ta_core alcotest unix yojson))
 
 (test
+ (name test_dashboard_model)
+ (libraries ta_core alcotest unix))
+
+(test
  (name test_tactl_cli)
  (deps
   (source_tree fixtures)
@@ -53,6 +57,18 @@
    %{exe:../src/bin/tactl.exe}
    (run %{test})))
  (libraries alcotest unix))
+
+(test
+ (name test_ta_cli)
+ (deps
+  (source_tree fixtures)
+  ../src/bin/ta.exe)
+ (action
+  (setenv
+   TA_EXE
+   %{exe:../src/bin/ta.exe}
+   (run %{test})))
+ (libraries ta_core alcotest unix))
 
 (test
  (name test_tactl_socket_cli)
