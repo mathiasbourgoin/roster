@@ -10,7 +10,7 @@
  (name test_state_file)
  (deps
   (source_tree fixtures))
- (libraries ta_core alcotest))
+ (libraries ta_core alcotest unix))
 
 (test
  (name test_tactl_cli)
@@ -22,4 +22,4 @@
    TACTL_EXE
    %{exe:../src/bin/tactl.exe}
    (run %{test})))
- (libraries alcotest unix))
+ (libraries alcotest unix yojson))

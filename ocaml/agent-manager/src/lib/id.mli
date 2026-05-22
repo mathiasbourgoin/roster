@@ -2,7 +2,7 @@
 
     These modules deliberately avoid plain strings at public boundaries. IDs
     must be non-empty and contain only ASCII letters, digits, [_], [-], or [.].
-*)
+    Pane IDs additionally accept [%] for native tmux pane ids such as [%77]. *)
 
 module type S = sig
   type t = private string
