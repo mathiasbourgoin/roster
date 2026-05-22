@@ -55,10 +55,13 @@ commit.
 - Pure dashboard refresh cadence policy for the future TUI runner, including
   interval decisions, manual override, retry throttling, stale thresholds, and
   user-visible last-refresh metadata.
+- Dashboard roster enrichment from `index.json`, showing role/domain/source/tag
+  hints while preserving compact agent rows and selected preview detail.
 
 ## Near-Term Milestones
 
-- Add roster metadata loading from `index.json` and agent markdown frontmatter.
+- Add agent markdown frontmatter loading for richer roster metadata beyond the
+  generated `index.json` fields.
 - Add a concrete MIAOU runner once `miaou-tui` is available, using the existing
   dashboard interaction, cadence policy, and socket refresh boundary.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent

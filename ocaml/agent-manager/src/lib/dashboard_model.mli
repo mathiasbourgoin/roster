@@ -7,10 +7,19 @@
 type runtime_state = Unknown | Unattached | Live | Missing of string
 type connections = { readable : Id.Agent.t list; writable : Id.Agent.t list }
 
+type roster_metadata = {
+  display_name : string option;
+  description : string option;
+  domain : string list;
+  tags : string list;
+  source : string option;
+}
+
 type agent = {
   workspace : Id.Workspace.t;
   name : Id.Agent.t;
   roster_agent : string;
+  roster_metadata : roster_metadata option;
   status : State_store.agent_status;
   pane : Id.Pane.t option;
   runtime_state : runtime_state;
@@ -51,4 +60,5 @@ type selection = {
 }
 
 val of_state_runtime : State_store.t -> Runtime_snapshot.t -> t
+val enrich_with_roster : Roster_index.t -> t -> t
 val render : ?width:int -> ?selection:selection -> t -> string

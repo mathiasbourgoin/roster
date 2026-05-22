@@ -131,6 +131,63 @@ let expect_dashboard_render_frame () =
     "preview body" true
     (contains_substring ~needle:"lead-ready" rendered)
 
+let expect_dashboard_roster_enrichment () =
+  let store = store () in
+  let runtime =
+    Ta_core.Runtime_snapshot.collect ~now:42.0 ~lines:8 ~runner store
+  in
+  let roster =
+    match
+      Ta_core.Roster_index.parse_string
+        {|
+[
+  {
+    "name": "tech-lead",
+    "display_name": "Tech Lead",
+    "description": "Coordinates implementation.",
+    "domain": ["management"],
+    "tags": ["planning"],
+    "source": "local",
+    "component_type": "agent"
+  },
+  {
+    "name": "qa",
+    "display_name": "QA",
+    "domain": ["testing"],
+    "tags": ["tmux"],
+    "source": "local",
+    "component_type": "agent"
+  }
+]
+|}
+    with
+    | Ok roster -> roster
+    | Error errors ->
+        Alcotest.fail
+          (String.concat "\n"
+             (List.map Ta_core.Roster_index.error_to_string errors))
+  in
+  let model =
+    Ta_core.Dashboard_model.of_state_runtime store runtime
+    |> Ta_core.Dashboard_model.enrich_with_roster roster
+  in
+  let rendered = Ta_core.Dashboard_model.render ~width:120 model in
+  Alcotest.(check bool)
+    "roster header" true
+    (contains_substring ~needle:"ROSTER" rendered);
+  Alcotest.(check bool)
+    "lead metadata" true
+    (contains_substring ~needle:"Tech Lead/management" rendered);
+  Alcotest.(check bool)
+    "lead preview metadata" true
+    (contains_substring
+       ~needle:
+         "Roster: Tech Lead | domain management | source local | tags planning"
+       rendered);
+  Alcotest.(check bool)
+    "qa metadata" true
+    (contains_substring ~needle:"QA/testing" rendered)
+
 let expect_dashboard_render_respects_width () =
   let long_workspace =
     Ta_core.Id.Workspace.unsafe_of_string
@@ -202,6 +259,8 @@ let () =
         [
           Alcotest.test_case "counts" `Quick expect_dashboard_model_counts;
           Alcotest.test_case "render frame" `Quick expect_dashboard_render_frame;
+          Alcotest.test_case "roster enrichment" `Quick
+            expect_dashboard_roster_enrichment;
           Alcotest.test_case "render respects width" `Quick
             expect_dashboard_render_respects_width;
         ] );

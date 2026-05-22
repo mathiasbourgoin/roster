@@ -550,6 +550,35 @@ let expect_dashboard_render_replays_key () =
         "selected qa preview" true
         (contains_substring ~needle:"Preview: fixture/qa" result.stdout))
 
+let expect_dashboard_render_uses_roster_index () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result =
+        run_tactl
+          [
+            "dashboard";
+            "render";
+            "--width";
+            "96";
+            "--roster-index";
+            fixture "roster-index.json";
+            path;
+          ]
+      in
+      check_exit "dashboard exit" 0 result.status;
+      Alcotest.(check string) "dashboard stderr" "" result.stderr;
+      Alcotest.(check bool)
+        "row metadata" true
+        (contains_substring ~needle:"Tech Lead/management" result.stdout);
+      Alcotest.(check bool)
+        "preview metadata" true
+        (contains_substring
+           ~needle:"Roster: Tech Lead | domain management | source local"
+           result.stdout))
+
 let expect_dashboard_render_rejects_bad_width () =
   with_temp_state (fun path ->
       let save =
@@ -608,6 +637,8 @@ let () =
           Alcotest.test_case "render" `Quick expect_dashboard_render;
           Alcotest.test_case "render replays key" `Quick
             expect_dashboard_render_replays_key;
+          Alcotest.test_case "render uses roster index" `Quick
+            expect_dashboard_render_uses_roster_index;
           Alcotest.test_case "render rejects bad width" `Quick
             expect_dashboard_render_rejects_bad_width;
         ] );

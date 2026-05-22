@@ -1,10 +1,19 @@
 type runtime_state = Unknown | Unattached | Live | Missing of string
 type connections = { readable : Id.Agent.t list; writable : Id.Agent.t list }
 
+type roster_metadata = {
+  display_name : string option;
+  description : string option;
+  domain : string list;
+  tags : string list;
+  source : string option;
+}
+
 type agent = {
   workspace : Id.Workspace.t;
   name : Id.Agent.t;
   roster_agent : string;
+  roster_metadata : roster_metadata option;
   status : State_store.agent_status;
   pane : Id.Pane.t option;
   runtime_state : runtime_state;
@@ -89,6 +98,7 @@ let agent_of_state runtime workspace_id links (agent : State_store.agent) =
         workspace = workspace_id;
         name = agent.name;
         roster_agent = agent.roster_agent;
+        roster_metadata = None;
         status = agent.status;
         pane = agent.pane;
         runtime_state = Unknown;
@@ -100,6 +110,7 @@ let agent_of_state runtime workspace_id links (agent : State_store.agent) =
         workspace = workspace_id;
         name = agent.name;
         roster_agent = agent.roster_agent;
+        roster_metadata = None;
         status = agent.status;
         pane = runtime_agent.pane;
         runtime_state = runtime_state_of_snapshot runtime_agent.pane_state;
@@ -168,6 +179,30 @@ let of_state_runtime store runtime =
     totals = totals workspaces;
   }
 
+let metadata_of_entry (entry : Roster_index.entry) =
+  {
+    display_name = entry.display_name;
+    description = entry.description;
+    domain = entry.domain;
+    tags = entry.tags;
+    source = entry.source;
+  }
+
+let enrich_agent roster agent =
+  match Roster_index.find_agent roster agent.roster_agent with
+  | None -> agent
+  | Some entry ->
+      { agent with roster_metadata = Some (metadata_of_entry entry) }
+
+let enrich_workspace roster workspace =
+  { workspace with agents = List.map (enrich_agent roster) workspace.agents }
+
+let enrich_with_roster roster model =
+  {
+    model with
+    workspaces = List.map (enrich_workspace roster) model.workspaces;
+  }
+
 let clamp_width width = max 72 (min 160 width)
 
 let fit width value =
@@ -195,6 +230,39 @@ let runtime_state_to_string = function
 let status_to_string status =
   State_store.status_to_string status |> fit 18 |> String.trim
 
+let first_nonempty = function [] -> None | value :: _ -> Some value
+let compact_source = function None -> "?" | Some source -> source
+let join_text values = String.concat "," values
+
+let compact_metadata agent =
+  match agent.roster_metadata with
+  | None -> agent.roster_agent
+  | Some metadata ->
+      let label =
+        Option.value metadata.display_name ~default:agent.roster_agent
+      in
+      let domain = Option.value (first_nonempty metadata.domain) ~default:"-" in
+      Printf.sprintf "%s/%s" label domain
+
+let roster_preview_line agent =
+  match agent.roster_metadata with
+  | None -> None
+  | Some metadata ->
+      let label =
+        Option.value metadata.display_name ~default:agent.roster_agent
+      in
+      let domain =
+        match metadata.domain with [] -> "-" | domain -> join_text domain
+      in
+      let tags =
+        match metadata.tags with [] -> "-" | tags -> join_text tags
+      in
+      Some
+        (Printf.sprintf "Roster: %s | domain %s | source %s | tags %s" label
+           domain
+           (compact_source metadata.source)
+           tags)
+
 let rule width = String.make width '-'
 
 let workspace_line selected workspace =
@@ -211,14 +279,15 @@ let agent_line selected workspace agent =
       (join_agent_ids agent.outgoing.readable)
       (join_agent_ids agent.outgoing.writable)
   in
-  Printf.sprintf "%s %-11s %-14s %-16s %-9s %-8s %s"
+  Printf.sprintf "%s %-9s %-12s %-12s %-7s %-8s %-20s %s"
     (if selected then ">" else " ")
-    (fit 12 (Id.Workspace.to_string workspace.id))
-    (fit 14 (Id.Agent.to_string agent.name))
-    (fit 16 (status_to_string agent.status))
-    (fit 9 (pane_to_string agent.pane))
+    (fit 9 (Id.Workspace.to_string workspace.id))
+    (fit 12 (Id.Agent.to_string agent.name))
+    (fit 12 (status_to_string agent.status))
+    (fit 7 (pane_to_string agent.pane))
     (fit 8 (runtime_state_to_string agent.runtime_state))
-    (fit 24 acl)
+    (fit 20 (compact_metadata agent))
+    (fit 18 acl)
 
 let selection_workspace selection =
   match selection with None -> None | Some selection -> selection.workspace
@@ -293,7 +362,12 @@ let preview_lines width workspaces selection =
         | [] -> [ "(no pane preview captured)" ]
         | lines -> List.map (fit width) lines
       in
-      fit width header :: body
+      let metadata =
+        match roster_preview_line agent with
+        | None -> []
+        | Some line -> [ fit width line ]
+      in
+      (fit width header :: metadata) @ body
 
 let render ?(width = 100) ?selection model =
   let width = clamp_width width in
@@ -335,7 +409,7 @@ let render ?(width = 100) ?selection model =
     in
     "Agents"
     :: fit width
-         "  WORKSPACE  AGENT          STATUS           PANE      RUNTIME  \
+         "  WORKSPACE AGENT        STATUS       PANE    RUNTIME  ROSTER      \
           CONNECTIONS"
     ::
     (match rows with
