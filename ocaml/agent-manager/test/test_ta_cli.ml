@@ -399,6 +399,9 @@ let expect_miaou_headless_tui_renders_dashboard () =
         "agent table" true
         (contains_substring ~needle:"tech-lead | id tech-lead" result.stdout);
       Alcotest.(check bool)
+        "start action" true
+        (contains_substring ~needle:"s Start lead" result.stdout);
+      Alcotest.(check bool)
         "pipeline edge" true
         (contains_substring ~needle:"Pipeline edge" result.stdout))
 
@@ -444,7 +447,10 @@ let expect_miaou_headless_tui_uses_full_collapsed_width () =
       Alcotest.(check int) "frame cols" 39 frame.frame_cols;
       Alcotest.(check bool)
         "collapsed view uses full width" true
-        (contains_substring ~needle:"tech-lead | id tech-lead" frame.frame_text))
+        (contains_substring ~needle:"tech-lead | id tech-lead" frame.frame_text);
+      Alcotest.(check bool)
+        "collapsed action remains visible" true
+        (contains_substring ~needle:"s Start lead" frame.frame_text))
 
 let expect_miaou_headless_tui_start_without_socket_marks_stale () =
   with_temp_workspace (fun dir ->
@@ -538,7 +544,7 @@ let expect_miaou_headless_tui_direct_start_with_config () =
                    frame.frame_text);
               Alcotest.(check bool)
                 "attached action" true
-                (contains_substring ~needle:"attached | r refresh"
+                (contains_substring ~needle:"r Refresh | attached"
                    frame.frame_text))))
 
 let expect_no_defaults_prints_quickstart () =
@@ -602,8 +608,11 @@ let expect_help_documents_startup () =
     "default startup section" true
     (contains_substring ~needle:"DEFAULT STARTUP" result.stdout);
   Alcotest.(check bool)
-    "source command" true
-    (contains_substring ~needle:"dune exec ta" result.stdout);
+    "normal flow" true
+    (contains_substring ~needle:"NORMAL TUI FLOW" result.stdout);
+  Alcotest.(check bool)
+    "press start" true
+    (contains_substring ~needle:"press s" result.stdout);
   Alcotest.(check bool)
     "tui status" true
     (contains_substring ~needle:"MIAOU terminal runner" result.stdout);

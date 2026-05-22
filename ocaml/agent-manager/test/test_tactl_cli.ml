@@ -85,11 +85,16 @@ let expect_quickstart () =
     "quickstart header" true
     (contains_substring ~needle:"TA quickstart" result.stdout);
   Alcotest.(check bool)
-    "real workspace command" true
+    "simple flow" true
+    (contains_substring ~needle:"Select an agent and press s" result.stdout);
+  Alcotest.(check bool)
+    "auto state" true
+    (contains_substring ~needle:"TA creates .ta-state.json automatically"
+       result.stdout);
+  Alcotest.(check bool)
+    "advanced fallback" true
     (contains_substring
-       ~needle:
-         "dune exec tactl -- state save --output .ta-state.json \
-          .harness/ta.json"
+       ~needle:"tactl state save --output .ta-state.json .harness/ta.json"
        result.stdout);
   Alcotest.(check bool)
     "bundled example command" true
@@ -108,7 +113,16 @@ let expect_root_help_mentions_quickstart () =
     (contains_substring ~needle:"quickstart" result.stdout);
   Alcotest.(check bool)
     "dashboard start section" true
-    (contains_substring ~needle:"STARTING THE DASHBOARD" result.stdout)
+    (contains_substring ~needle:"STARTING THE DASHBOARD" result.stdout);
+  Alcotest.(check bool)
+    "tui first flow" true
+    (contains_substring ~needle:"simple TUI-first flow" result.stdout);
+  Alcotest.(check bool)
+    "normal ta entrypoint" true
+    (contains_substring ~needle:"dune exec ta" result.stdout);
+  Alcotest.(check bool)
+    "start key" true
+    (contains_substring ~needle:"select an agent, press s" result.stdout)
 
 let expect_plain_validate_success () =
   let result = run_tactl [ "validate"; fixture "ta-valid.json" ] in

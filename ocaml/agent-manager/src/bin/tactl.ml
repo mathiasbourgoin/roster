@@ -1186,13 +1186,12 @@ let root_cmd =
       `S "STARTING THE DASHBOARD";
       `P
         "For the app entrypoint, run ta with no flags. tactl quickstart prints \
-         the full source-tree and installed command flow.";
+         the simple TUI-first flow and advanced CLI fallbacks.";
       `Pre
         "cd ocaml/agent-manager\n\
+         cp examples/ta.example.json ta.json\n\
          dune exec ta\n\
-         dune exec tactl -- quickstart\n\
-         dune exec tactl -- launch start --state .ta-state.json .harness/ta.json\n\
-         dune exec tactl -- launch start --state .ta-state.json ta.json";
+         # select an agent, press s";
       `P
         "Use .harness/ta.json for a real workspace config. Use ta.json when \
          copying the bundled example unchanged, because that example has root \

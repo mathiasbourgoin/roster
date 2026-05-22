@@ -54,6 +54,12 @@ let pane_to_string = function
   | None -> "-"
   | Some pane -> Ta_core.Id.Pane.to_string pane
 
+let action_bar_for_agent (agent : Ta_core.Dashboard_model.agent) =
+  let name = Ta_core.Id.Agent.to_string agent.name in
+  match agent.pane with
+  | None -> "s Start " ^ name
+  | Some pane -> "r Refresh | attached " ^ Ta_core.Id.Pane.to_string pane
+
 let join_agents values =
   match values with
   | [] -> "-"
@@ -79,6 +85,11 @@ let selected_agent interaction =
           Ta_core.Id.Agent.equal agent.name selected)
       |> Option.map (fun agent -> (workspace, agent))
   | _ -> None
+
+let selected_action_line interaction =
+  match selected_agent interaction with
+  | None -> None
+  | Some (_, agent) -> Some (action_bar_for_agent agent)
 
 let selected_agent_index interaction
     (workspace : Ta_core.Dashboard_model.workspace) =
@@ -137,7 +148,9 @@ let sidebar_text width interaction =
         ^ "\n"
         ^ agent_table (max 20 (width - 2)) interaction workspace
   in
-  String.concat "\n\n" [ workspaces; agents ]
+  match selected_action_line interaction with
+  | None -> String.concat "\n\n" [ workspaces; agents ]
+  | Some action -> String.concat "\n\n" [ workspaces; agents; action ]
 
 let roster_label (agent : Ta_core.Dashboard_model.agent) =
   match agent.roster_metadata with
@@ -146,12 +159,6 @@ let roster_label (agent : Ta_core.Dashboard_model.agent) =
       Option.value metadata.display_name ~default:agent.roster_agent
 
 let agent_detail width workspace agent =
-  let start_label =
-    match (agent.Ta_core.Dashboard_model.pane, agent.runtime_state) with
-    | None, _ -> "s start selected agent"
-    | Some _, Live -> "attached | r refresh"
-    | Some _, _ -> "attached | r refresh"
-  in
   let items =
     [
       ( "Agent",
@@ -167,7 +174,7 @@ let agent_detail width workspace agent =
         ^ join_agents agent.outgoing.readable
         ^ " | write "
         ^ join_agents agent.outgoing.writable );
-      ("Actions", start_label);
+      ("Actions", action_bar_for_agent agent);
     ]
   in
   Desc.create ~title:"Agent detail" ~key_width:12 ~items () |> fun desc ->
@@ -192,6 +199,7 @@ let main_text profile width layout interaction =
       | Some (workspace, agent) ->
           String.concat "\n\n"
             [
+              action_bar_for_agent agent;
               agent_detail width workspace agent;
               preview_text profile.lines agent;
             ])

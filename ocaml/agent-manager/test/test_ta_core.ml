@@ -716,11 +716,12 @@ let expect_startup_guide_names_entrypoint () =
     "names dune entrypoint" true
     (contains_substring ~needle:"dune exec ta" Ta_core.Startup_guide.text);
   Alcotest.(check bool)
-    "mentions source command" true
-    (contains_substring
-       ~needle:
-         "dune exec tactl -- state save --output .ta-state.json \
-          .harness/ta.json"
+    "mentions simple start" true
+    (contains_substring ~needle:"Select an agent and press s"
+       Ta_core.Startup_guide.text);
+  Alcotest.(check bool)
+    "mentions automatic state" true
+    (contains_substring ~needle:"TA creates .ta-state.json automatically"
        Ta_core.Startup_guide.text);
   Alcotest.(check bool)
     "mentions default config" true

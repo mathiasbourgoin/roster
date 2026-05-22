@@ -118,6 +118,11 @@ commit.
   trusted config path, without requiring a manually launched socket server.
   Config-only startup also bootstraps `.ta-state.json`, and successful starts
   mark the selected agent `running`.
+- `ta` now presents the TUI as the normal startup path. Help, quickstart, and
+  startup guide text lead with `dune exec ta`, selecting an agent, and pressing
+  `s`; manual `tactl state save` and `launch start` flows are documented as
+  advanced CLI fallbacks. The MIAOU dashboard mirrors this with a compact
+  selected-agent action bar in both full and collapsed layouts.
 - The repo now dogfoods a canonical `.harness/` for TA development with a
   12-agent roster: `tech-lead`, `recruiter`, `harness-builder`, `planner`,
   `ocaml-implementer`, `implementer`, `ocaml-dune-specialist`, `reviewer`,

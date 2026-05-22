@@ -324,8 +324,13 @@ let root_cmd =
         ^ ".");
       `P
         "If a state snapshot exists, TA renders the dashboard from that state. \
-         If only a config exists, TA renders a config-backed dashboard without \
-         attached panes so the UI still opens.";
+         If only a config exists, TA creates .ta-state.json from that config \
+         and opens the state-backed dashboard.";
+      `S "NORMAL TUI FLOW";
+      `Pre
+        "cp examples/ta.example.json ta.json\n\
+         dune exec ta\n\
+         # select an agent, press s";
       `S "STARTING AGENTS FROM THE TUI";
       `P
         "In a state-backed dashboard, press s on the selected agent to start \
@@ -335,19 +340,18 @@ let root_cmd =
       `S "STARTING FROM SOURCE";
       `Pre
         "cd ocaml/agent-manager\n\
-         dune exec ta\n\
          mkdir -p .harness\n\
          cp /path/to/your-ta.json .harness/ta.json\n\
-         dune exec tactl -- state save --output .ta-state.json .harness/ta.json\n\
-         dune exec tactl -- launch start --state .ta-state.json .harness/ta.json\n\
          dune exec ta";
       `S "BUNDLED EXAMPLE";
       `Pre
         "cd ocaml/agent-manager\n\
          cp examples/ta.example.json ta.json\n\
-         dune exec tactl -- state save --output .ta-state.json ta.json\n\
-         dune exec tactl -- launch start --state .ta-state.json ta.json\n\
          dune exec ta";
+      `S "ADVANCED CLI FALLBACK";
+      `Pre
+        "dune exec tactl -- state save --output .ta-state.json .harness/ta.json\n\
+         dune exec tactl -- launch start --state .ta-state.json .harness/ta.json";
       `S "CURRENT TUI STATUS";
       `P
         "TA uses the MIAOU terminal runner from the miaou-tui opam package for \
