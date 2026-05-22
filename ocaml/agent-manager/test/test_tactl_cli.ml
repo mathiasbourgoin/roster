@@ -97,7 +97,7 @@ let expect_quickstart () =
        result.stdout);
   Alcotest.(check bool)
     "tui status" true
-    (contains_substring ~needle:"MIAOU TUI adapter is not wired" result.stdout)
+    (contains_substring ~needle:"miaou-tui terminal runner" result.stdout)
 
 let expect_root_help_mentions_quickstart () =
   let result = run_tactl [ "--help=plain" ] in

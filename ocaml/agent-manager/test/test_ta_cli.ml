@@ -56,6 +56,73 @@ let run_ta args =
         (fun () ->
           { status; stdout = read_all stdout_in; stderr = read_all stderr_in }))
 
+let waitpid_with_timeout ~seconds pid =
+  let deadline = Unix.gettimeofday () +. seconds in
+  let rec loop () =
+    match Unix.waitpid [ Unix.WNOHANG ] pid with
+    | 0, _ when Unix.gettimeofday () >= deadline ->
+        Unix.kill pid Sys.sigkill;
+        snd (Unix.waitpid [] pid)
+    | 0, _ ->
+        Unix.sleepf 0.05;
+        loop ()
+    | _, status -> status
+  in
+  loop ()
+
+let run_ta_with_input ~env ~stdin args =
+  let argv = Array.of_list (ta_exe () :: args) in
+  let env =
+    Unix.environment () |> Array.to_list
+    |> List.filter (fun value ->
+        not
+          (List.exists
+             (fun (name, _) -> String.starts_with ~prefix:(name ^ "=") value)
+             env))
+    |> fun base ->
+    base @ List.map (fun (name, value) -> name ^ "=" ^ value) env
+    |> Array.of_list
+  in
+  let stdin_tmp, stdin_channel = Filename.open_temp_file "ta-cli" ".in" in
+  let stdout_tmp, stdout_channel = Filename.open_temp_file "ta-cli" ".out" in
+  let stderr_tmp, stderr_channel = Filename.open_temp_file "ta-cli" ".err" in
+  Fun.protect
+    ~finally:(fun () ->
+      close_out_noerr stdin_channel;
+      close_out_noerr stdout_channel;
+      close_out_noerr stderr_channel;
+      remove_noerr stdin_tmp;
+      remove_noerr stdout_tmp;
+      remove_noerr stderr_tmp)
+    (fun () ->
+      output_string stdin_channel stdin;
+      close_out stdin_channel;
+      let stdin_in = open_in stdin_tmp in
+      Fun.protect
+        ~finally:(fun () -> close_in_noerr stdin_in)
+        (fun () ->
+          let pid =
+            Unix.create_process_env (ta_exe ()) argv env
+              (Unix.descr_of_in_channel stdin_in)
+              (Unix.descr_of_out_channel stdout_channel)
+              (Unix.descr_of_out_channel stderr_channel)
+          in
+          let status = waitpid_with_timeout ~seconds:5.0 pid in
+          close_out stdout_channel;
+          close_out stderr_channel;
+          let stdout_in = open_in stdout_tmp in
+          let stderr_in = open_in stderr_tmp in
+          Fun.protect
+            ~finally:(fun () ->
+              close_in_noerr stdout_in;
+              close_in_noerr stderr_in)
+            (fun () ->
+              {
+                status;
+                stdout = read_all stdout_in;
+                stderr = read_all stderr_in;
+              })))
+
 let check_exit label expected = function
   | Unix.WEXITED code -> Alcotest.(check int) label expected code
   | Unix.WSIGNALED signal ->
@@ -257,6 +324,30 @@ let expect_tui_always_requires_terminal () =
            ~needle:"--tui=always requires stdin and stdout to be terminals"
            result.stderr))
 
+let expect_miaou_headless_tui_renders_dashboard () =
+  with_temp_state (fun path ->
+      save_state path;
+      let result =
+        run_ta_with_input
+          ~env:[ ("MIAOU_DRIVER", "headless") ]
+          ~stdin:"{\"cmd\":\"render\"}\n{\"cmd\":\"key\",\"key\":\"q\"}\n"
+          [ "--state"; path; "--tui"; "always" ]
+      in
+      check_exit "exit" 0 result.status;
+      Alcotest.(check string) "stderr" "" result.stderr;
+      Alcotest.(check bool)
+        "json frame" true
+        (contains_substring ~needle:"\"type\":\"frame\"" result.stdout);
+      Alcotest.(check bool)
+        "dashboard header" true
+        (contains_substring ~needle:"TA Dashboard" result.stdout);
+      Alcotest.(check bool)
+        "layout sidebar" true
+        (contains_substring ~needle:"Workspaces" result.stdout);
+      Alcotest.(check bool)
+        "agent detail" true
+        (contains_substring ~needle:"Agent fixture/lead" result.stdout))
+
 let expect_no_defaults_prints_quickstart () =
   with_temp_workspace (fun dir ->
       with_chdir dir (fun () ->
@@ -319,10 +410,13 @@ let expect_help_documents_startup () =
     (contains_substring ~needle:"dune exec ta" result.stdout);
   Alcotest.(check bool)
     "tui status" true
-    (contains_substring ~needle:"MIAOU TUI adapter is not wired" result.stdout);
+    (contains_substring ~needle:"MIAOU terminal runner" result.stdout);
   Alcotest.(check bool)
     "tui option" true
-    (contains_substring ~needle:"--tui=MODE" result.stdout)
+    (contains_substring ~needle:"--tui=MODE" result.stdout);
+  Alcotest.(check bool)
+    "headless documented" true
+    (contains_substring ~needle:"MIAOU_DRIVER=headless" result.stdout)
 
 let () =
   Alcotest.run "ta-cli"
@@ -352,5 +446,7 @@ let () =
             expect_tui_never_renders_static_dashboard;
           Alcotest.test_case "tui always requires terminal" `Quick
             expect_tui_always_requires_terminal;
+          Alcotest.test_case "miaou headless tui renders dashboard" `Quick
+            expect_miaou_headless_tui_renders_dashboard;
         ] );
     ]

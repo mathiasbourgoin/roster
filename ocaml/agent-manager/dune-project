@@ -13,6 +13,8 @@
  (depends
   (ocaml (>= 5.2))
   cmdliner
-  notty
+  miaou-tui
+  eio_main
+  lambda-term
   yojson
   alcotest))

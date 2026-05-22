@@ -63,6 +63,10 @@
  (libraries ta_core alcotest unix))
 
 (test
+ (name test_dashboard_tui_layout)
+ (libraries ta_core alcotest unix))
+
+(test
  (name test_dashboard_snapshot)
  (libraries ta_core alcotest unix yojson))
 

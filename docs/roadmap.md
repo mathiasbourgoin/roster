@@ -98,15 +98,19 @@ commit.
   alternate-screen terminal loop on real terminals while redirected output stays
   static; `--tui=always` and `--tui=never` make the mode explicit for QA and
   automation.
+- `ta` now uses the `miaou-tui` opam package for full-screen terminal mode.
+  The executable is a MIAOU `Direct_page` backed by the pure dashboard runner,
+  with JSON-driveable `MIAOU_DRIVER=headless` coverage and tmux QA over the
+  MIAOU terminal backend.
 
 ## Near-Term Milestones
 
-- Upgrade the first full-screen TUI from text-frame rendering to a Herdr-grade
+- Upgrade the MIAOU full-screen TUI from text-frame sections to a Herdr-grade
   layout with workspace/agent sidebar, pane preview focus area, action footer,
   mouse/keyboard affordances, and blocked/working/done rollups.
-- Add a concrete MIAOU page adapter once `miaou-tui` is installed or vendored in
-  the current switch, using the dashboard runner, interaction state, cadence
-  policy, and socket refresh boundary.
+- Replace the current section text renderer with MIAOU widgets/layout helpers,
+  including tables/lists for agents, richer preview panes, and explicit focus
+  rings.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts beyond the first height-clipping

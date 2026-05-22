@@ -41,9 +41,10 @@ let text =
       "  tactl dashboard render-socket --socket /tmp/ta.sock --actor <agent>";
       "";
       "Current TUI status:";
-      "  The concrete MIAOU TUI adapter is not wired in this build yet.";
-      "  On a real terminal, the ta entrypoint starts a full-screen terminal \
-       dashboard.";
+      "  The ta entrypoint uses the miaou-tui terminal runner for full-screen \
+       dashboard mode.";
+      "  Set MIAOU_DRIVER=headless to drive the TUI with JSON commands in \
+       automation.";
       "";
       "Dashboard keys:";
       "  p: pipeline focus";
