@@ -12,6 +12,7 @@ type entry = {
   version : string option;
   author : string option;
   isolation : string option;
+  pipeline_role : Roster_pipeline_role.t option;
   path : string option;
   source : string option;
 }

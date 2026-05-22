@@ -13,6 +13,7 @@
   launch_state
   permission
   roster_frontmatter
+  roster_pipeline_role
   roster_index
   runtime_snapshot
   socket_api

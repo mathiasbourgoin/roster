@@ -60,11 +60,14 @@ commit.
 - Dashboard roster enrichment now also loads local agent markdown frontmatter
   client-side, adding model, complexity, compatibility, version, author,
   isolation, and description detail without changing socket payloads.
+- Dashboard selected-agent details now include typed `pipeline_role`
+  frontmatter metadata: trigger, input contract, output contract, and human
+  gate text.
 
 ## Near-Term Milestones
 
-- Add pipeline topology views from frontmatter `pipeline_role` blocks once a
-  typed nested metadata parser is introduced.
+- Add pipeline topology views from typed `pipeline_role` metadata without
+  inferring graph edges from natural-language contracts.
 - Add a concrete MIAOU runner once `miaou-tui` is available, using the existing
   dashboard interaction, cadence policy, and socket refresh boundary.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent

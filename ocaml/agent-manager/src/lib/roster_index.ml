@@ -10,6 +10,7 @@ type entry = {
   version : string option;
   author : string option;
   isolation : string option;
+  pipeline_role : Roster_pipeline_role.t option;
   path : string option;
   source : string option;
 }
@@ -92,6 +93,7 @@ let parse_entry path json =
              version;
              author;
              isolation;
+             pipeline_role = None;
              path = path_value;
              source;
            })
@@ -165,32 +167,43 @@ let name_matches entry frontmatter =
   | Some name -> String.equal name entry.name
   | None -> false
 
+let overlay_pipeline_role current text =
+  match Roster_pipeline_role.parse_string text with
+  | Some pipeline_role -> Some pipeline_role
+  | None -> current
+
 let enrich_entry_from_frontmatter ~root (entry : entry) =
   match (entry.source, entry.path) with
   | Some source, Some path
     when String.equal source "local" && is_safe_relative_path path -> (
       let metadata_path = metadata_path ~root path in
-      match Roster_frontmatter.load metadata_path with
-      | Error _ | Ok None -> entry
-      | Ok (Some frontmatter) when not (name_matches entry frontmatter) -> entry
-      | Ok (Some frontmatter) ->
-          {
-            entry with
-            display_name =
-              overlay_scalar "display_name" entry.display_name frontmatter;
-            description =
-              overlay_scalar "description" entry.description frontmatter;
-            domain = overlay_list "domain" entry.domain frontmatter;
-            tags = overlay_list "tags" entry.tags frontmatter;
-            model = overlay_scalar "model" entry.model frontmatter;
-            complexity =
-              overlay_scalar "complexity" entry.complexity frontmatter;
-            compatible_with =
-              overlay_list "compatible_with" entry.compatible_with frontmatter;
-            version = overlay_scalar "version" entry.version frontmatter;
-            author = overlay_scalar "author" entry.author frontmatter;
-            isolation = overlay_scalar "isolation" entry.isolation frontmatter;
-          })
+      match Roster_frontmatter.read_file metadata_path with
+      | Error _ -> entry
+      | Ok text -> (
+          match Roster_frontmatter.parse_string text with
+          | None -> entry
+          | Some frontmatter when not (name_matches entry frontmatter) -> entry
+          | Some frontmatter ->
+              {
+                entry with
+                display_name =
+                  overlay_scalar "display_name" entry.display_name frontmatter;
+                description =
+                  overlay_scalar "description" entry.description frontmatter;
+                domain = overlay_list "domain" entry.domain frontmatter;
+                tags = overlay_list "tags" entry.tags frontmatter;
+                model = overlay_scalar "model" entry.model frontmatter;
+                complexity =
+                  overlay_scalar "complexity" entry.complexity frontmatter;
+                compatible_with =
+                  overlay_list "compatible_with" entry.compatible_with
+                    frontmatter;
+                version = overlay_scalar "version" entry.version frontmatter;
+                author = overlay_scalar "author" entry.author frontmatter;
+                isolation =
+                  overlay_scalar "isolation" entry.isolation frontmatter;
+                pipeline_role = overlay_pipeline_role entry.pipeline_role text;
+              }))
   | _ -> entry
 
 let enrich_from_frontmatter ~root index =

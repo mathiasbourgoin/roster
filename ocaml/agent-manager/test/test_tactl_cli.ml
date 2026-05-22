@@ -22,6 +22,9 @@ let contains_substring ~needle value =
   in
   String.equal needle "" || loop 0
 
+let lines_containing ~needle value =
+  value |> String.split_on_char '\n' |> List.filter (contains_substring ~needle)
+
 let read_all channel =
   let buffer = Buffer.create 256 in
   let bytes = Bytes.create 4096 in
@@ -594,7 +597,26 @@ let expect_dashboard_render_uses_roster_index () =
         "frontmatter role metadata" true
         (contains_substring
            ~needle:"Role: Frontmatter coordinates implementation and review."
-           result.stdout))
+           result.stdout);
+      Alcotest.(check bool)
+        "pipeline trigger metadata" true
+        (contains_substring ~needle:"Pipeline: triggered by fixture"
+           result.stdout);
+      Alcotest.(check bool)
+        "pipeline receives metadata" true
+        (contains_substring ~needle:"Receives: fixture task" result.stdout);
+      Alcotest.(check bool)
+        "pipeline produces metadata" true
+        (contains_substring ~needle:"Produces: fixture plan" result.stdout);
+      Alcotest.(check bool)
+        "pipeline gate metadata" true
+        (contains_substring ~needle:"Human gate: none" result.stdout);
+      Alcotest.(check (list string))
+        "pipeline appears only in preview detail"
+        [ "Pipeline: triggered by fixture" ]
+        (result.stdout
+        |> lines_containing ~needle:"Pipeline:"
+        |> List.map String.trim))
 
 let expect_dashboard_render_rejects_bad_width () =
   with_temp_state (fun path ->
