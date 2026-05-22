@@ -4,6 +4,12 @@ type entry = {
   description : string option;
   domain : string list;
   tags : string list;
+  model : string option;
+  complexity : string option;
+  compatible_with : string list;
+  version : string option;
+  author : string option;
+  isolation : string option;
   path : string option;
   source : string option;
 }
@@ -62,6 +68,14 @@ let parse_entry path json =
       let* description = optional_string_field path "description" fields in
       let* domain = optional_string_list_field path "domain" fields in
       let* tags = optional_string_list_field path "tags" fields in
+      let* model = optional_string_field path "model" fields in
+      let* complexity = optional_string_field path "complexity" fields in
+      let* compatible_with =
+        optional_string_list_field path "compatible_with" fields
+      in
+      let* version = optional_string_field path "version" fields in
+      let* author = optional_string_field path "author" fields in
+      let* isolation = optional_string_field path "isolation" fields in
       let* path_value = optional_string_field path "path" fields in
       let* source = optional_string_field path "source" fields in
       Ok
@@ -72,6 +86,12 @@ let parse_entry path json =
              description;
              domain;
              tags;
+             model;
+             complexity;
+             compatible_with;
+             version;
+             author;
+             isolation;
              path = path_value;
              source;
            })
@@ -120,6 +140,61 @@ let read_file path =
 let load path =
   let* text = read_file path in
   parse_string text
+
+let is_safe_relative_path path =
+  Filename.is_relative path
+  && not
+       (List.exists
+          (fun segment -> String.equal segment Filename.parent_dir_name)
+          (String.split_on_char Filename.dir_sep.[0] path))
+
+let metadata_path ~root path = Filename.concat root path
+
+let overlay_scalar key current frontmatter =
+  match Roster_frontmatter.find_scalar key frontmatter with
+  | Some value when not (String.equal value "") -> Some value
+  | _ -> current
+
+let overlay_list key current frontmatter =
+  match Roster_frontmatter.find_list key frontmatter with
+  | Some values when values <> [] -> values
+  | _ -> current
+
+let name_matches entry frontmatter =
+  match Roster_frontmatter.find_scalar "name" frontmatter with
+  | Some name -> String.equal name entry.name
+  | None -> false
+
+let enrich_entry_from_frontmatter ~root (entry : entry) =
+  match (entry.source, entry.path) with
+  | Some source, Some path
+    when String.equal source "local" && is_safe_relative_path path -> (
+      let metadata_path = metadata_path ~root path in
+      match Roster_frontmatter.load metadata_path with
+      | Error _ | Ok None -> entry
+      | Ok (Some frontmatter) when not (name_matches entry frontmatter) -> entry
+      | Ok (Some frontmatter) ->
+          {
+            entry with
+            display_name =
+              overlay_scalar "display_name" entry.display_name frontmatter;
+            description =
+              overlay_scalar "description" entry.description frontmatter;
+            domain = overlay_list "domain" entry.domain frontmatter;
+            tags = overlay_list "tags" entry.tags frontmatter;
+            model = overlay_scalar "model" entry.model frontmatter;
+            complexity =
+              overlay_scalar "complexity" entry.complexity frontmatter;
+            compatible_with =
+              overlay_list "compatible_with" entry.compatible_with frontmatter;
+            version = overlay_scalar "version" entry.version frontmatter;
+            author = overlay_scalar "author" entry.author frontmatter;
+            isolation = overlay_scalar "isolation" entry.isolation frontmatter;
+          })
+  | _ -> entry
+
+let enrich_from_frontmatter ~root index =
+  { agents = List.map (enrich_entry_from_frontmatter ~root) index.agents }
 
 let mem_agent index name =
   List.exists (fun entry -> String.equal entry.name name) index.agents

@@ -678,7 +678,26 @@ let expect_dashboard_render_socket_uses_roster_index () =
           Alcotest.(check bool)
             "preview metadata" true
             (contains_substring
-               ~needle:"Roster: Tech Lead | domain management | source local"
+               ~needle:
+                 "Roster: Tech Lead | domain management,orchestration | source \
+                  local"
+               result.stdout);
+          Alcotest.(check bool)
+            "frontmatter profile metadata" true
+            (contains_substring
+               ~needle:"Profile: model opus | complexity high | isolation none"
+               result.stdout);
+          Alcotest.(check bool)
+            "frontmatter compatibility metadata" true
+            (contains_substring
+               ~needle:
+                 "Compat: claude-code,codex | version 9.9.9 | author mathias"
+               result.stdout);
+          Alcotest.(check bool)
+            "frontmatter role metadata" true
+            (contains_substring
+               ~needle:
+                 "Role: Frontmatter coordinates implementation and review."
                result.stdout)))
 
 let expect_dashboard_render_socket_refresh_failure_is_stale () =

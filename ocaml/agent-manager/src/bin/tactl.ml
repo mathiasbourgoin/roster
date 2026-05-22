@@ -182,6 +182,10 @@ let load_roster_dashboard roster_path dashboard =
   | Some path -> (
       match Ta_core.Roster_index.load path with
       | Ok roster ->
+          let root = Filename.dirname path in
+          let roster =
+            Ta_core.Roster_index.enrich_from_frontmatter ~root roster
+          in
           Ok (Ta_core.Dashboard_model.enrich_with_roster roster dashboard)
       | Error errors ->
           Error

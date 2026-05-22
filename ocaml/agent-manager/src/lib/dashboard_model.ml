@@ -6,6 +6,12 @@ type roster_metadata = {
   description : string option;
   domain : string list;
   tags : string list;
+  model : string option;
+  complexity : string option;
+  compatible_with : string list;
+  version : string option;
+  author : string option;
+  isolation : string option;
   source : string option;
 }
 
@@ -185,6 +191,12 @@ let metadata_of_entry (entry : Roster_index.entry) =
     description = entry.description;
     domain = entry.domain;
     tags = entry.tags;
+    model = entry.model;
+    complexity = entry.complexity;
+    compatible_with = entry.compatible_with;
+    version = entry.version;
+    author = entry.author;
+    isolation = entry.isolation;
     source = entry.source;
   }
 
@@ -232,6 +244,7 @@ let status_to_string status =
 
 let first_nonempty = function [] -> None | value :: _ -> Some value
 let compact_source = function None -> "?" | Some source -> source
+let compact_optional = function None -> "-" | Some value -> value
 let join_text values = String.concat "," values
 
 let compact_metadata agent =
@@ -244,9 +257,41 @@ let compact_metadata agent =
       let domain = Option.value (first_nonempty metadata.domain) ~default:"-" in
       Printf.sprintf "%s/%s" label domain
 
-let roster_preview_line agent =
-  match agent.roster_metadata with
+let roster_profile_line metadata =
+  match (metadata.model, metadata.complexity, metadata.isolation) with
+  | None, None, None -> None
+  | _ ->
+      Some
+        (Printf.sprintf "Profile: model %s | complexity %s | isolation %s"
+           (compact_optional metadata.model)
+           (compact_optional metadata.complexity)
+           (compact_optional metadata.isolation))
+
+let roster_compatibility_line metadata =
+  let compatible =
+    match metadata.compatible_with with
+    | [] -> "-"
+    | compatible -> join_text compatible
+  in
+  match (metadata.compatible_with, metadata.version, metadata.author) with
+  | [], None, None -> None
+  | _ ->
+      Some
+        (Printf.sprintf "Compat: %s | version %s | author %s" compatible
+           (compact_optional metadata.version)
+           (compact_optional metadata.author))
+
+let roster_description_line metadata =
+  match metadata.description with
   | None -> None
+  | Some description when String.equal description "" -> None
+  | Some description -> Some ("Role: " ^ description)
+
+let option_to_list = function None -> [] | Some value -> [ value ]
+
+let roster_preview_lines agent =
+  match agent.roster_metadata with
+  | None -> []
   | Some metadata ->
       let label =
         Option.value metadata.display_name ~default:agent.roster_agent
@@ -257,11 +302,15 @@ let roster_preview_line agent =
       let tags =
         match metadata.tags with [] -> "-" | tags -> join_text tags
       in
-      Some
-        (Printf.sprintf "Roster: %s | domain %s | source %s | tags %s" label
-           domain
-           (compact_source metadata.source)
-           tags)
+      let roster =
+        Printf.sprintf "Roster: %s | domain %s | source %s | tags %s" label
+          domain
+          (compact_source metadata.source)
+          tags
+      in
+      (roster :: option_to_list (roster_profile_line metadata))
+      @ option_to_list (roster_compatibility_line metadata)
+      @ option_to_list (roster_description_line metadata)
 
 let rule width = String.make width '-'
 
@@ -362,11 +411,7 @@ let preview_lines width workspaces selection =
         | [] -> [ "(no pane preview captured)" ]
         | lines -> List.map (fit width) lines
       in
-      let metadata =
-        match roster_preview_line agent with
-        | None -> []
-        | Some line -> [ fit width line ]
-      in
+      let metadata = roster_preview_lines agent |> List.map (fit width) in
       (fit width header :: metadata) @ body
 
 let render ?(width = 100) ?selection model =
