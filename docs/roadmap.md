@@ -36,13 +36,16 @@ commit.
   state inspection.
 - Unix socket state mutations for agent status and pane attachment, guarded by
   owner-only sockets and workspace write permissions.
+- Unix socket supervised launch requests for dry-run and start, reusing the
+  launch runtime and persisting captured native pane ids back into state.
 
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
-- Add supervised agent launch from workspace config.
-- Extend the Unix socket API with supervised launch requests.
-- Add MIAOU dashboard with cached runtime state, not direct render-time polling.
+- Add cached runtime state snapshots for live tmux sessions, panes, and pane
+  previews.
+- Add MIAOU dashboard foundation with cached runtime state, not direct
+  render-time polling.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts at common viewport sizes.

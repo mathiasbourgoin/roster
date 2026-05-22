@@ -15,6 +15,12 @@ type request =
       pane : Id.Pane.t;
       actor : Id.Agent.t option;
     }
+  | Launch_dry_run of { config_path : string; roster_index : string option }
+  | Launch_start of {
+      config_path : string;
+      roster_index : string option;
+      actor : Id.Agent.t;
+    }
 
 type response = Success of string | Failure of string
 

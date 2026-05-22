@@ -1,8 +1,10 @@
 type error = Io of string | Protocol of string
 
 let error_to_string = function Io message | Protocol message -> message
-let client_timeout_seconds = 2.0
+let request_timeout_seconds = 2.0
+let response_timeout_seconds = 30.0
 let max_line_bytes = 1_048_576
+let max_launch_file_bytes = 1_048_576
 let unix_error_message error = Unix.error_message error
 
 let remove_socket_noerr path =
@@ -56,10 +58,10 @@ let write_all fd value =
 
 let write_line fd value = write_all fd (value ^ "\n")
 
-let read_line fd =
+let read_line ?(timeout_seconds = request_timeout_seconds) fd =
   let buffer = Buffer.create 256 in
   let byte = Bytes.create 1 in
-  let deadline = Unix.gettimeofday () +. client_timeout_seconds in
+  let deadline = Unix.gettimeofday () +. timeout_seconds in
   let rec loop () =
     if Buffer.length buffer > max_line_bytes then Error "request line too long"
     else
@@ -105,6 +107,127 @@ let authorize_write store ~workspace ~actor ~agent =
          (Id.Agent.to_string actor) (Id.Agent.to_string agent)
          (Id.Workspace.to_string workspace))
 
+let config_errors_to_string errors =
+  errors |> List.map Workspace_config.error_to_string |> String.concat "\n"
+
+let roster_errors_to_string errors =
+  errors
+  |> List.map (fun (error : Roster_index.error) ->
+      error.path ^ ": " ^ error.message)
+  |> String.concat "\n"
+
+let validate_regular_file path =
+  try
+    let stats = Unix.stat path in
+    match stats.Unix.st_kind with
+    | Unix.S_REG when stats.Unix.st_size <= max_launch_file_bytes -> Ok ()
+    | Unix.S_REG ->
+        Error
+          (Printf.sprintf "%s: file exceeds %d bytes" path max_launch_file_bytes)
+    | _ -> Error (path ^ ": expected a regular file")
+  with
+  | Sys_error message -> Error (path ^ ": " ^ message)
+  | Unix.Unix_error (error, _, _) ->
+      Error (path ^ ": " ^ unix_error_message error)
+
+let load_config ?roster_index config_path =
+  let ( let* ) = Result.bind in
+  let* () = validate_regular_file config_path in
+  match Workspace_config.load config_path with
+  | Error errors -> Error (config_errors_to_string errors)
+  | Ok config -> (
+      match roster_index with
+      | None -> (
+          match Workspace_config.validate config with
+          | [] -> Ok config
+          | errors -> Error (config_errors_to_string errors))
+      | Some roster_path -> (
+          let* () = validate_regular_file roster_path in
+          match Roster_index.load roster_path with
+          | Error errors -> Error (roster_errors_to_string errors)
+          | Ok roster -> (
+              match Workspace_config.validate_with_roster ~roster config with
+              | [] -> Ok config
+              | errors -> Error (config_errors_to_string errors))))
+
+let launch_plan ~config_path ?roster_index () =
+  let ( let* ) = Result.bind in
+  let* config = load_config ?roster_index config_path in
+  match
+    Launch_plan.of_config ~config_dir:(Filename.dirname config_path) config
+  with
+  | Ok plan -> Ok plan
+  | Error errors -> Error (config_errors_to_string errors)
+
+let authorize_launch store ~actor plan =
+  let rec workspaces = function
+    | [] -> Ok ()
+    | workspace :: rest ->
+        let rec agents = function
+          | [] -> workspaces rest
+          | agent :: rest -> (
+              match
+                authorize_write store ~workspace:agent.Launch_plan.workspace
+                  ~actor ~agent:agent.name
+              with
+              | Ok () -> agents rest
+              | Error _ as error -> error)
+        in
+        agents workspace.Launch_plan.agents
+  in
+  workspaces plan.Launch_plan.workspaces
+
+let preflight_launch_state state_path ~actor plan =
+  match State_file.load ~path:state_path with
+  | Error error -> Error (State_file.error_to_string error)
+  | Ok store ->
+      let ( let* ) = Result.bind in
+      let* () = Launch_state.preflight store plan in
+      authorize_launch store ~actor plan
+
+let update_launch_state state_path ~actor attachments =
+  match
+    State_file.update ~path:state_path (fun store ->
+        Launch_state.apply_attachments ~actor store attachments)
+  with
+  | Ok store -> Ok store
+  | Error error -> Error (State_file.error_to_string error)
+
+let launch_dry_run ~config_path ?roster_index () =
+  match launch_plan ~config_path ?roster_index () with
+  | Error message -> Socket_protocol.Failure message
+  | Ok plan -> (
+      match Launch_runtime.dry_run_lines plan with
+      | Ok lines -> Socket_protocol.Success (String.concat "\n" lines)
+      | Error error ->
+          Socket_protocol.Failure (Launch_runtime.error_to_string error))
+
+let launch_start state_path ~config_path ?roster_index ~actor () =
+  match launch_plan ~config_path ?roster_index () with
+  | Error message -> Socket_protocol.Failure message
+  | Ok plan -> (
+      match preflight_launch_state state_path ~actor plan with
+      | Error message -> Socket_protocol.Failure message
+      | Ok () -> (
+          match Launch_runtime.run plan with
+          | Error error ->
+              Socket_protocol.Failure (Launch_runtime.error_to_string error)
+          | Ok attachments -> (
+              match update_launch_state state_path ~actor attachments with
+              | Ok store ->
+                  Socket_protocol.Success
+                    (Printf.sprintf "launched: %d workspace(s), %d agent(s)\n%s"
+                       (List.length plan.Launch_plan.workspaces)
+                       (Launch_plan.agent_count plan)
+                       (State_store.summarize store))
+              | Error message ->
+                  Launch_runtime.cleanup_plan plan;
+                  Socket_protocol.Failure
+                    (message
+                   ^ "\n\
+                      launch-created tmux sessions cleaned up after state \
+                      update failure"))))
+
 let execute state_path = function
   | Socket_protocol.State_summary -> (
       match State_file.load ~path:state_path with
@@ -144,6 +267,10 @@ let execute state_path = function
       | Ok store -> Socket_protocol.Success (State_store.summarize store)
       | Error error ->
           Socket_protocol.Failure (State_file.error_to_string error))
+  | Launch_dry_run { config_path; roster_index } ->
+      launch_dry_run ~config_path ?roster_index ()
+  | Launch_start { config_path; roster_index; actor } ->
+      launch_start state_path ~config_path ?roster_index ~actor ()
 
 let handle_client ~state_path client =
   try
@@ -201,7 +328,9 @@ let request ~socket_path request =
         match write_line client (Socket_protocol.encode_request request) with
         | Error message -> Error (Io message)
         | Ok () -> (
-            match read_line client with
+            match
+              read_line ~timeout_seconds:response_timeout_seconds client
+            with
             | Error message -> Error (Io message)
             | Ok line -> (
                 match Socket_protocol.decode_response line with

@@ -20,14 +20,14 @@ let preflight store (plan : Launch_plan.t) =
   in
   loop plan.workspaces
 
-let apply_attachment store (attachment : Launch_runtime.attachment) =
+let apply_attachment ?actor store (attachment : Launch_runtime.attachment) =
   State_store.attach_pane store ~workspace:attachment.workspace
-    ~agent:attachment.agent ~pane:attachment.pane ~actor:None
+    ~agent:attachment.agent ~pane:attachment.pane ~actor
 
-let apply_attachments store attachments =
+let apply_attachments ?actor store attachments =
   List.fold_left
     (fun acc attachment ->
       match acc with
       | Error _ as error -> error
-      | Ok store -> apply_attachment store attachment)
+      | Ok store -> apply_attachment ?actor store attachment)
     (Ok store) attachments
