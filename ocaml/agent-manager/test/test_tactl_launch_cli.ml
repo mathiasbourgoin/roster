@@ -12,6 +12,31 @@ let tactl_exe () =
 let fixture name = Filename.concat "fixtures" name
 let remove_noerr path = try Sys.remove path with Sys_error _ -> ()
 
+let prompt_config =
+  {|
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture",
+      "root": ".",
+      "tmux_session": "ta-fixture-prompt",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {
+          "name": "lead",
+          "roster_agent": "tech-lead",
+          "command": ["codex"],
+          "startup_prompt": "Start lead"
+        }
+      ]
+    }
+  ]
+}
+|}
+
 let read_all channel =
   let buffer = Buffer.create 256 in
   let bytes = Bytes.create 4096 in
@@ -52,6 +77,15 @@ let run_tactl args =
         (fun () ->
           { status; stdout = read_all stdout_in; stderr = read_all stderr_in }))
 
+let with_temp_file contents f =
+  let path, channel = Filename.open_temp_file "ta-prompt" ".json" in
+  Fun.protect
+    ~finally:(fun () -> remove_noerr path)
+    (fun () ->
+      output_string channel contents;
+      close_out channel;
+      f path)
+
 let check_exit label expected = function
   | Unix.WEXITED code -> Alcotest.(check int) label expected code
   | Unix.WSIGNALED signal ->
@@ -68,9 +102,11 @@ let expect_launch_start_dry_run () =
     "stdout"
     (String.concat "\n"
        [
-         "tmux new-session -d -s ta-fixture -c fixtures 'codex'";
-         "tmux split-window -d -t ta-fixture:0 -c fixtures 'codex'";
-         "tmux select-layout -t ta-fixture:0 tiled";
+         "tmux new-session -d -P -F '#{pane_id}' -s ta-fixture -c fixtures \
+          'codex'";
+         "tmux split-window -d -P -F '#{pane_id}' -t ta-fixture -c fixtures \
+          'codex'";
+         "tmux select-layout -t ta-fixture tiled";
        ]
     ^ "\n")
     result.stdout
@@ -90,6 +126,19 @@ let expect_launch_start_dry_run_accepts_state () =
   check_exit "exit" 0 result.status;
   Alcotest.(check string) "stderr" "" result.stderr
 
+let expect_launch_start_dry_run_shows_prompt_placeholder () =
+  with_temp_file prompt_config (fun path ->
+      let result = run_tactl [ "launch"; "start"; "--dry-run"; path ] in
+      check_exit "exit" 0 result.status;
+      Alcotest.(check string) "stderr" "" result.stderr;
+      Alcotest.(check bool)
+        "prompt placeholder" true
+        (List.exists
+           (String.equal
+              "# startup prompt for fixture/lead will be sent to the captured \
+               native pane id")
+           (String.split_on_char '\n' result.stdout)))
+
 let () =
   Alcotest.run "tactl-launch-cli"
     [
@@ -98,5 +147,7 @@ let () =
           Alcotest.test_case "start dry run" `Quick expect_launch_start_dry_run;
           Alcotest.test_case "start dry run accepts state" `Quick
             expect_launch_start_dry_run_accepts_state;
+          Alcotest.test_case "start dry run shows prompt placeholder" `Quick
+            expect_launch_start_dry_run_shows_prompt_placeholder;
         ] );
     ]

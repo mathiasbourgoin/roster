@@ -280,6 +280,44 @@ let expect_tmux_launch_argv () =
     (Ta_core.Tmux.argv
        (Ta_core.Tmux.Select_layout { target; layout = "tiled" }))
 
+let expect_tmux_capture_pane_id_argv () =
+  let session = Ta_core.Tmux.unsafe_session_of_string "ta-test" in
+  let target = Ta_core.Tmux.unsafe_target_of_string "ta-test" in
+  Alcotest.(check (list string))
+    "new session with pane id argv"
+    [
+      "new-session";
+      "-d";
+      "-P";
+      "-F";
+      "#{pane_id}";
+      "-s";
+      "ta-test";
+      "-c";
+      "/tmp/project";
+      "'codex'";
+    ]
+    (Ta_core.Tmux.argv
+       (Ta_core.Tmux.New_detached_session_with_pane_id
+          { session; cwd = Some "/tmp/project"; command = [ "codex" ] }));
+  Alcotest.(check (list string))
+    "split with pane id argv"
+    [
+      "split-window";
+      "-d";
+      "-P";
+      "-F";
+      "#{pane_id}";
+      "-t";
+      "ta-test";
+      "-c";
+      "/tmp/project";
+      "'codex'";
+    ]
+    (Ta_core.Tmux.argv
+       (Ta_core.Tmux.Split_window_with_pane_id
+          { target; cwd = Some "/tmp/project"; command = [ "codex" ] }))
+
 let expect_tmux_pane_id_argv () =
   let target = Ta_core.Tmux.unsafe_target_of_string "ta-test:0.1" in
   Alcotest.(check (list string))
@@ -317,6 +355,8 @@ let () =
           Alcotest.test_case "argv" `Quick expect_tmux_argv;
           Alcotest.test_case "quotes command" `Quick expect_tmux_quotes_command;
           Alcotest.test_case "launch argv" `Quick expect_tmux_launch_argv;
+          Alcotest.test_case "capture pane id argv" `Quick
+            expect_tmux_capture_pane_id_argv;
           Alcotest.test_case "pane id argv" `Quick expect_tmux_pane_id_argv;
         ] );
     ]

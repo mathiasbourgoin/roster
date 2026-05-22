@@ -23,6 +23,7 @@ type runner = Tmux.command -> (string, Tmux.error) result
 
 val commands : Launch_plan.t -> (Tmux.command list, error) result
 val command_lines : Launch_plan.t -> (string list, error) result
+val dry_run_lines : Launch_plan.t -> (string list, error) result
 val run_with : runner -> Launch_plan.t -> (attachment list, error) result
 val run : Launch_plan.t -> (attachment list, error) result
 val cleanup_plan : Launch_plan.t -> unit

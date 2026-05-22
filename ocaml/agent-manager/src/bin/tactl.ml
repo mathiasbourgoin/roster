@@ -224,7 +224,7 @@ let launch_start dry_run state_path roster_path config_path =
       `Ok 1
   | Ok plan -> (
       if dry_run then (
-        match Ta_core.Launch_runtime.command_lines plan with
+        match Ta_core.Launch_runtime.dry_run_lines plan with
         | Ok lines ->
             List.iter print_endline lines;
             `Ok 0
