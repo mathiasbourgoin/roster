@@ -2,7 +2,7 @@
  (name tactl)
  (public_name tactl)
  (modules tactl)
- (libraries ta_core cmdliner unix))
+ (libraries ta_core cmdliner unix yojson))
 
 (executable
  (name ta)

@@ -21,8 +21,9 @@ let preflight store (plan : Launch_plan.t) =
   loop plan.workspaces
 
 let apply_attachment ?actor store (attachment : Launch_runtime.attachment) =
-  State_store.attach_pane store ~workspace:attachment.workspace
-    ~agent:attachment.agent ~pane:attachment.pane ~actor
+  State_store.attach_pane ~identity:attachment.identity store
+    ~workspace:attachment.workspace ~agent:attachment.agent
+    ~pane:attachment.pane ~actor
 
 let apply_attachments ?actor store attachments =
   List.fold_left

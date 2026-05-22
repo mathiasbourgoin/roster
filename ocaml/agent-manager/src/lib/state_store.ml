@@ -12,6 +12,7 @@ let agent_of_config (agent : Workspace_config.agent) =
     roster_agent = agent.roster_agent;
     status = Not_started;
     pane = None;
+    pane_identity = None;
   }
 
 let link_of_config (link : Workspace_config.link) =
@@ -27,6 +28,7 @@ let workspace_of_config (workspace : Workspace_config.workspace) =
     id = workspace.id;
     label = workspace.label;
     root = workspace.root;
+    tmux_session = Some workspace.tmux_session;
     active_view = workspace.default_view;
     agents = List.map agent_of_config workspace.agents;
     links = List.map link_of_config workspace.links;
@@ -139,6 +141,11 @@ let describe_workspace workspace =
       (Id.Workspace.to_string workspace.id)
       workspace.label;
     "  root: " ^ workspace.root;
+    ("  tmux_session: "
+    ^
+    match workspace.tmux_session with
+    | None -> "-"
+    | Some session -> Tmux.session_to_string session);
     "  active_view: " ^ Id.View.to_string workspace.active_view;
     "  Agents:";
   ]
@@ -246,7 +253,7 @@ let set_agent_status store ~workspace ~agent ~status ~actor =
        (Agent_status_changed
           { agent; before = current_agent.status; after = status }))
 
-let attach_pane store ~workspace ~agent ~pane ~actor =
+let attach_pane ?identity store ~workspace ~agent ~pane ~actor =
   let* current_workspace = find_workspace store workspace in
   let* () = validate_actor current_workspace actor in
   let* _current_agent = find_agent current_workspace agent in
@@ -255,7 +262,7 @@ let attach_pane store ~workspace ~agent ~pane ~actor =
         let agents =
           match
             update_agent workspace.agents agent (fun agent ->
-                { agent with pane = Some pane })
+                { agent with pane = Some pane; pane_identity = identity })
           with
           | Ok agents -> agents
           | Error _ -> workspace.agents

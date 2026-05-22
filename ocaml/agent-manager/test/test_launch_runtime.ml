@@ -131,6 +131,12 @@ let tmux_error command output =
     output;
   }
 
+let identity_for_target target =
+  match Ta_core.Tmux.target_to_string target with
+  | "%10" -> Ok "$1\t@1\n"
+  | "%11" -> Ok "$1\t@2\n"
+  | _ -> Ok "$1\t@9\n"
+
 let expect_run_returns_attachments () =
   let commands = ref [] in
   let runner command =
@@ -139,6 +145,7 @@ let expect_run_returns_attachments () =
     | Ta_core.Tmux.Has_session _ -> Error (tmux_error command "missing")
     | Ta_core.Tmux.New_detached_session_with_pane_id _ -> Ok "%10\n"
     | Ta_core.Tmux.Split_window_with_pane_id _ -> Ok "%11\n"
+    | Ta_core.Tmux.Display_pane_identity target -> identity_for_target target
     | _ -> Ok ""
   in
   match Ta_core.Launch_runtime.run_with runner (parsed_plan ()) with
@@ -155,6 +162,13 @@ let expect_run_returns_attachments () =
         (List.map
            (fun (attachment : Ta_core.Launch_runtime.attachment) ->
              Ta_core.Id.Agent.to_string attachment.agent)
+           attachments);
+      Alcotest.(check (list string))
+        "identities" [ "$1/@1"; "$1/@2" ]
+        (List.map
+           (fun (attachment : Ta_core.Launch_runtime.attachment) ->
+             attachment.identity.session_id ^ "/"
+             ^ attachment.identity.window_id)
            attachments);
       let prompt_targets =
         !commands
@@ -198,6 +212,7 @@ let expect_split_failure_cleans_created_session () =
     match command with
     | Ta_core.Tmux.Has_session _ -> Error (tmux_error command "missing")
     | Ta_core.Tmux.New_detached_session_with_pane_id _ -> Ok "%10\n"
+    | Ta_core.Tmux.Display_pane_identity target -> identity_for_target target
     | Ta_core.Tmux.Split_window_with_pane_id _ -> Ok "not a pane id\n"
     | _ -> Ok ""
   in
@@ -224,6 +239,7 @@ let expect_prompt_failure_cleans_created_session () =
     | Ta_core.Tmux.Has_session _ -> Error (tmux_error command "missing")
     | Ta_core.Tmux.New_detached_session_with_pane_id _ -> Ok "%10\n"
     | Ta_core.Tmux.Split_window_with_pane_id _ -> Ok "%11\n"
+    | Ta_core.Tmux.Display_pane_identity target -> identity_for_target target
     | Ta_core.Tmux.Send_keys_literal _ -> Error (tmux_error command "prompt")
     | _ -> Ok ""
   in

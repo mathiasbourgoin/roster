@@ -226,12 +226,11 @@ let expect_bad_id () =
   | Error message -> Alcotest.fail message
 
 let expect_tmux_argv () =
-  let session = Ta_core.Tmux.unsafe_session_of_string "ta-test" in
+  let target = Ta_core.Tmux.unsafe_target_of_string "ta-test" in
   Alcotest.(check (list string))
     "capture argv"
     [ "capture-pane"; "-p"; "-t"; "ta-test"; "-S"; "-40" ]
-    (Ta_core.Tmux.argv
-       (Ta_core.Tmux.Capture_pane { target = session; lines = 40 }))
+    (Ta_core.Tmux.argv (Ta_core.Tmux.Capture_pane { target; lines = 40 }))
 
 let expect_tmux_quotes_command () =
   let session = Ta_core.Tmux.unsafe_session_of_string "ta-test" in
@@ -328,6 +327,31 @@ let expect_tmux_pane_id_argv () =
     "pane id command line" "tmux display-message -p -t ta-test:0.1 '#{pane_id}'"
     (Ta_core.Tmux.command_line (Ta_core.Tmux.Display_pane_id target))
 
+let expect_tmux_session_name_argv () =
+  let target = Ta_core.Tmux.unsafe_target_of_string "%11" in
+  Alcotest.(check (list string))
+    "session name argv"
+    [ "display-message"; "-p"; "-t"; "%11"; "#{session_name}" ]
+    (Ta_core.Tmux.argv (Ta_core.Tmux.Display_session_name target));
+  Alcotest.(check string)
+    "session name command line"
+    "tmux display-message -p -t %11 '#{session_name}'"
+    (Ta_core.Tmux.command_line (Ta_core.Tmux.Display_session_name target))
+
+let expect_tmux_pane_identity_argv () =
+  let target = Ta_core.Tmux.unsafe_target_of_string "%11" in
+  Alcotest.(check (list string))
+    "pane identity argv"
+    [ "display-message"; "-p"; "-t"; "%11"; "#{session_id}\t#{window_id}" ]
+    (Ta_core.Tmux.argv (Ta_core.Tmux.Display_pane_identity target));
+  Alcotest.(check bool)
+    "parse identity" true
+    (match Ta_core.Tmux.parse_pane_identity "$1\t@2\n" with
+    | Ok identity ->
+        String.equal "$1" identity.session_id
+        && String.equal "@2" identity.window_id
+    | Error _ -> false)
+
 let () =
   Alcotest.run "ta-core"
     [
@@ -358,5 +382,9 @@ let () =
           Alcotest.test_case "capture pane id argv" `Quick
             expect_tmux_capture_pane_id_argv;
           Alcotest.test_case "pane id argv" `Quick expect_tmux_pane_id_argv;
+          Alcotest.test_case "session name argv" `Quick
+            expect_tmux_session_name_argv;
+          Alcotest.test_case "pane identity argv" `Quick
+            expect_tmux_pane_identity_argv;
         ] );
     ]

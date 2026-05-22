@@ -84,6 +84,62 @@ let show_state audit_limit state_path =
         print_state_file_error error;
         `Ok 1
 
+let remove_noerr path = try Sys.remove path with Sys_error _ -> ()
+
+let save_runtime_json ~path json =
+  let temp_dir = Filename.dirname path in
+  let temp_prefix = "." ^ Filename.basename path ^ "." in
+  let temp_path, temp_channel =
+    Filename.open_temp_file ~temp_dir temp_prefix ".tmp"
+  in
+  close_out temp_channel;
+  let committed = ref false in
+  Fun.protect
+    ~finally:(fun () -> if not !committed then remove_noerr temp_path)
+    (fun () ->
+      Yojson.Safe.to_file temp_path json;
+      Unix.chmod temp_path 0o600;
+      Sys.rename temp_path path;
+      committed := true)
+
+let runtime_snapshot lines output_path state_path =
+  if lines < 1 then (
+    prerr_endline "--lines must be positive";
+    `Ok 2)
+  else if lines > Ta_core.Runtime_snapshot.max_preview_lines then (
+    prerr_endline
+      ("--lines must be at most "
+      ^ string_of_int Ta_core.Runtime_snapshot.max_preview_lines);
+    `Ok 2)
+  else
+    match Ta_core.State_file.load ~path:state_path with
+    | Error error ->
+        print_state_file_error error;
+        `Ok 1
+    | Ok store -> (
+        let snapshot = Ta_core.Runtime_snapshot.collect ~lines store in
+        let json = Ta_core.Runtime_snapshot.to_yojson snapshot in
+        match output_path with
+        | None ->
+            print_endline (Yojson.Safe.pretty_to_string json);
+            `Ok 0
+        | Some path -> (
+            try
+              save_runtime_json ~path json;
+              print_endline ("runtime snapshot written: " ^ path);
+              print_endline (Ta_core.Runtime_snapshot.summarize snapshot);
+              `Ok 0
+            with
+            | Sys_error message ->
+                prerr_endline (path ^ ": " ^ message);
+                `Ok 1
+            | Unix.Unix_error (error, _, _) ->
+                prerr_endline (path ^ ": " ^ Unix.error_message error);
+                `Ok 1
+            | Yojson.Json_error message ->
+                prerr_endline (path ^ ": " ^ message);
+                `Ok 1))
+
 let parse_id label parse value =
   match parse value with
   | Ok id -> Ok id
@@ -465,6 +521,21 @@ let audit_limit_arg =
     & info [ "audit-limit" ] ~docv:"N"
         ~doc:"Maximum number of recent audit events to print")
 
+let runtime_lines_arg =
+  Arg.(
+    value & opt int 20
+    & info [ "lines" ] ~docv:"N"
+        ~doc:
+          ("Pane preview lines to capture per attached agent, max "
+          ^ string_of_int Ta_core.Runtime_snapshot.max_preview_lines))
+
+let runtime_output_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "output"; "o" ] ~docv:"JSON"
+        ~doc:"Optional runtime snapshot JSON output path")
+
 let socket_path_opt =
   Arg.(
     required
@@ -608,6 +679,18 @@ let state_cmd =
       state_attach_pane_cmd;
     ]
 
+let runtime_snapshot_cmd =
+  let doc = "Capture a cacheable runtime snapshot from attached tmux panes." in
+  Cmd.v (Cmd.info "snapshot" ~doc)
+    Term.(
+      ret
+        (const runtime_snapshot $ runtime_lines_arg $ runtime_output_arg
+       $ state_path_arg))
+
+let runtime_cmd =
+  let doc = "Inspect live tmux runtime state for cached UI views." in
+  Cmd.group (Cmd.info "runtime" ~doc) [ runtime_snapshot_cmd ]
+
 let launch_plan_cmd =
   let doc = "Print a deterministic supervised tmux launch plan." in
   Cmd.v (Cmd.info "plan" ~doc)
@@ -662,6 +745,14 @@ let root_cmd =
   let doc = "Control TA roster-agent workspaces." in
   Cmd.group
     (Cmd.info "tactl" ~version:"0.1.0" ~doc)
-    [ validate_cmd; summary_cmd; state_cmd; launch_cmd; tmux_cmd; socket_cmd ]
+    [
+      validate_cmd;
+      summary_cmd;
+      state_cmd;
+      runtime_cmd;
+      launch_cmd;
+      tmux_cmd;
+      socket_cmd;
+    ]
 
 let () = exit (Cmd.eval' root_cmd)

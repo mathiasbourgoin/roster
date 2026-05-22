@@ -30,6 +30,16 @@ let status_to_yojson status =
 let permission_to_yojson permission = `String (Permission.to_string permission)
 
 let agent_to_yojson agent =
+  let pane_identity =
+    match agent.pane_identity with
+    | None -> `Null
+    | Some identity ->
+        `Assoc
+          [
+            ("session_id", `String identity.Tmux.session_id);
+            ("window_id", `String identity.Tmux.window_id);
+          ]
+  in
   `Assoc
     [
       ("name", `String (Id.Agent.to_string agent.name));
@@ -39,6 +49,7 @@ let agent_to_yojson agent =
         match agent.pane with
         | None -> `Null
         | Some pane -> `String (Id.Pane.to_string pane) );
+      ("pane_identity", pane_identity);
     ]
 
 let link_to_yojson link =
@@ -56,6 +67,10 @@ let workspace_to_yojson workspace =
       ("id", `String (Id.Workspace.to_string workspace.id));
       ("label", `String workspace.label);
       ("root", `String workspace.root);
+      ( "tmux_session",
+        match workspace.tmux_session with
+        | None -> `Null
+        | Some session -> `String (Tmux.session_to_string session) );
       ("active_view", `String (Id.View.to_string workspace.active_view));
       ("agents", `List (List.map agent_to_yojson workspace.agents));
       ("links", `List (List.map link_to_yojson workspace.links));
@@ -174,7 +189,28 @@ let parse_agent path json =
         let* pane = parse_id (path ^ ".pane") Id.Pane.of_string value in
         Ok (Some pane)
   in
-  Ok { name; roster_agent; status; pane }
+  let* pane_identity =
+    match optional_field "pane_identity" fields with
+    | None | Some `Null -> Ok None
+    | Some value -> (
+        let* identity_fields = object_fields (path ^ ".pane_identity") value in
+        let* session_id_json =
+          required_field (path ^ ".pane_identity") "session_id" identity_fields
+        in
+        let* session_id =
+          string_at (path ^ ".pane_identity.session_id") session_id_json
+        in
+        let* window_id_json =
+          required_field (path ^ ".pane_identity") "window_id" identity_fields
+        in
+        let* window_id =
+          string_at (path ^ ".pane_identity.window_id") window_id_json
+        in
+        match Tmux.pane_identity_of_strings ~session_id ~window_id with
+        | Ok identity -> Ok (Some identity)
+        | Error message -> fail (path ^ ".pane_identity") message)
+  in
+  Ok { name; roster_agent; status; pane; pane_identity }
 
 let parse_permission path json =
   let* text = string_at path json in
@@ -204,6 +240,15 @@ let parse_workspace path json =
   let* label = string_at (path ^ ".label") label_json in
   let* root_json = required_field path "root" fields in
   let* root = string_at (path ^ ".root") root_json in
+  let* tmux_session =
+    match optional_field "tmux_session" fields with
+    | None | Some `Null -> Ok None
+    | Some value ->
+        let* session =
+          parse_id (path ^ ".tmux_session") Tmux.session_of_string value
+        in
+        Ok (Some session)
+  in
   let* active_view_json = required_field path "active_view" fields in
   let* active_view =
     parse_id (path ^ ".active_view") Id.View.of_string active_view_json
@@ -212,7 +257,7 @@ let parse_workspace path json =
   let* agents = list_at (path ^ ".agents") parse_agent agents_json in
   let* links_json = required_field path "links" fields in
   let* links = list_at (path ^ ".links") parse_link links_json in
-  Ok { id; label; root; active_view; agents; links }
+  Ok { id; label; root; tmux_session; active_view; agents; links }
 
 let parse_audit_kind path json =
   let* fields = object_fields path json in

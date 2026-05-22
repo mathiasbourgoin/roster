@@ -27,6 +27,10 @@
  (libraries ta_core alcotest))
 
 (test
+ (name test_runtime_snapshot)
+ (libraries ta_core alcotest unix yojson))
+
+(test
  (name test_tactl_cli)
  (deps
   (source_tree fixtures)
