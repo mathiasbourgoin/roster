@@ -181,8 +181,43 @@ let print_launch_error = function
   | `Config errors -> print_errors errors
   | `Runtime error ->
       prerr_endline (Ta_core.Launch_runtime.error_to_string error)
+  | `State_file error -> print_state_file_error error
+  | `State_validation message -> prerr_endline message
 
-let launch_start dry_run roster_path config_path =
+let validate_launch_state state_path plan =
+  match state_path with
+  | None -> Ok ()
+  | Some path -> (
+      match Ta_core.State_file.load ~path with
+      | Error error -> Error (`State_file error)
+      | Ok store -> (
+          match Ta_core.Launch_state.preflight store plan with
+          | Ok () -> Ok ()
+          | Error message -> Error (`State_validation message)))
+
+let update_launch_state state_path attachments =
+  match state_path with
+  | None -> Ok None
+  | Some path -> (
+      match
+        Ta_core.State_file.update ~path (fun store ->
+            Ta_core.Launch_state.apply_attachments store attachments)
+      with
+      | Ok store -> Ok (Some (path, store))
+      | Error error -> Error (`State_file error))
+
+let print_launch_success plan state_update =
+  Printf.printf "launched: %d workspace(s), %d agent(s)\n"
+    (List.length plan.Ta_core.Launch_plan.workspaces)
+    (Ta_core.Launch_plan.agent_count plan);
+  match state_update with
+  | None -> `Ok 0
+  | Some (path, store) ->
+      print_endline ("state snapshot updated: " ^ path);
+      print_endline (Ta_core.State_store.summarize store);
+      `Ok 0
+
+let launch_start dry_run state_path roster_path config_path =
   match build_launch_plan roster_path config_path with
   | Error error ->
       print_launch_error error;
@@ -197,15 +232,25 @@ let launch_start dry_run roster_path config_path =
             print_launch_error (`Runtime error);
             `Ok 1)
       else
-        match Ta_core.Launch_runtime.run plan with
-        | Ok () ->
-            Printf.printf "launched: %d workspace(s), %d agent(s)\n"
-              (List.length plan.workspaces)
-              (Ta_core.Launch_plan.agent_count plan);
-            `Ok 0
+        match validate_launch_state state_path plan with
         | Error error ->
-            print_launch_error (`Runtime error);
-            `Ok 1)
+            print_launch_error error;
+            `Ok 1
+        | Ok () -> (
+            match Ta_core.Launch_runtime.run plan with
+            | Ok attachments -> (
+                match update_launch_state state_path attachments with
+                | Ok state_update -> print_launch_success plan state_update
+                | Error error ->
+                    Ta_core.Launch_runtime.cleanup_plan plan;
+                    print_launch_error error;
+                    prerr_endline
+                      "launch-created tmux sessions cleaned up after state \
+                       update failure";
+                    `Ok 1)
+            | Error error ->
+                print_launch_error (`Runtime error);
+                `Ok 1))
 
 let tmux_status session_name =
   match Ta_core.Tmux.session_of_string session_name with
@@ -331,6 +376,13 @@ let dry_run_arg =
     value & flag
     & info [ "dry-run" ] ~doc:"Print tmux commands without executing them")
 
+let launch_state_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "state" ] ~docv:"STATE"
+        ~doc:"Write discovered tmux pane ids to a state snapshot after launch")
+
 let validate_cmd =
   let doc = "Validate a TA workspace configuration file." in
   Cmd.v (Cmd.info "validate" ~doc)
@@ -392,7 +444,10 @@ let launch_plan_cmd =
 let launch_start_cmd =
   let doc = "Create supervised tmux sessions from a launch plan." in
   Cmd.v (Cmd.info "start" ~doc)
-    Term.(ret (const launch_start $ dry_run_arg $ roster_arg $ config_arg))
+    Term.(
+      ret
+        (const launch_start $ dry_run_arg $ launch_state_arg $ roster_arg
+       $ config_arg))
 
 let launch_cmd =
   let doc = "Plan and run supervised tmux workspace launches." in

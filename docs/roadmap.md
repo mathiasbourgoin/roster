@@ -29,12 +29,14 @@ commit.
 - Deterministic supervised tmux launch planning with pane and target metadata.
 - Supervised tmux launch start with dry-run, literal prompt sending, and
   cleanup ownership.
+- Launch-created native tmux pane ids persisted back into state snapshots.
 
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
 - Add supervised agent launch from workspace config.
-- Write launch-created pane metadata back into state snapshots.
+- Discover tmux window and pane targets from tmux instead of assuming default
+  `base-index` and `pane-base-index` settings.
 - Add Unix socket API mirroring `tactl` commands.
 - Add MIAOU dashboard with cached runtime state, not direct render-time polling.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent

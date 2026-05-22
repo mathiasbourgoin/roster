@@ -280,6 +280,16 @@ let expect_tmux_launch_argv () =
     (Ta_core.Tmux.argv
        (Ta_core.Tmux.Select_layout { target; layout = "tiled" }))
 
+let expect_tmux_pane_id_argv () =
+  let target = Ta_core.Tmux.unsafe_target_of_string "ta-test:0.1" in
+  Alcotest.(check (list string))
+    "pane id argv"
+    [ "display-message"; "-p"; "-t"; "ta-test:0.1"; "#{pane_id}" ]
+    (Ta_core.Tmux.argv (Ta_core.Tmux.Display_pane_id target));
+  Alcotest.(check string)
+    "pane id command line" "tmux display-message -p -t ta-test:0.1 '#{pane_id}'"
+    (Ta_core.Tmux.command_line (Ta_core.Tmux.Display_pane_id target))
+
 let () =
   Alcotest.run "ta-core"
     [
@@ -307,5 +317,6 @@ let () =
           Alcotest.test_case "argv" `Quick expect_tmux_argv;
           Alcotest.test_case "quotes command" `Quick expect_tmux_quotes_command;
           Alcotest.test_case "launch argv" `Quick expect_tmux_launch_argv;
+          Alcotest.test_case "pane id argv" `Quick expect_tmux_pane_id_argv;
         ] );
     ]

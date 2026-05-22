@@ -23,6 +23,10 @@
  (libraries ta_core alcotest))
 
 (test
+ (name test_launch_state)
+ (libraries ta_core alcotest))
+
+(test
  (name test_tactl_cli)
  (deps
   (source_tree fixtures)

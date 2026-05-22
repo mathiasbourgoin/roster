@@ -1,10 +1,11 @@
 (library
  (name ta_core)
  (public_name agent-roster-agent-manager.core)
-(modules
+ (modules
   id
   launch_plan
   launch_runtime
+  launch_state
   permission
   roster_index
   state_file

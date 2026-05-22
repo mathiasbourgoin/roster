@@ -75,11 +75,28 @@ let expect_launch_start_dry_run () =
     ^ "\n")
     result.stdout
 
+let expect_launch_start_dry_run_accepts_state () =
+  let result =
+    run_tactl
+      [
+        "launch";
+        "start";
+        "--dry-run";
+        "--state";
+        "fixtures/unused-state.json";
+        fixture "ta-valid.json";
+      ]
+  in
+  check_exit "exit" 0 result.status;
+  Alcotest.(check string) "stderr" "" result.stderr
+
 let () =
   Alcotest.run "tactl-launch-cli"
     [
       ( "launch",
         [
           Alcotest.test_case "start dry run" `Quick expect_launch_start_dry_run;
+          Alcotest.test_case "start dry run accepts state" `Quick
+            expect_launch_start_dry_run_accepts_state;
         ] );
     ]
