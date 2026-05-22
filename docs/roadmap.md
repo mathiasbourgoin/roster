@@ -26,7 +26,7 @@ commit.
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
-- Add persistent workspace state store and audit log.
+- Add JSON snapshot persistence/reload for workspace state and audit log.
 - Add supervised agent launch from workspace config.
 - Add Unix socket API mirroring `tactl` commands.
 - Add MIAOU dashboard with cached runtime state, not direct render-time polling.
