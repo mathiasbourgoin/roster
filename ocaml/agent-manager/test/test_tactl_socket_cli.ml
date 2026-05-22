@@ -732,7 +732,64 @@ let expect_dashboard_render_socket_uses_roster_index () =
             [ "Pipeline: triggered by fixture" ]
             (result.stdout
             |> lines_containing ~needle:"Pipeline:"
-            |> List.map String.trim)))
+            |> List.map String.trim);
+          Alcotest.(check bool)
+            "pipeline overview section" true
+            (contains_substring ~needle:"Pipeline overview" result.stdout);
+          Alcotest.(check bool)
+            "pipeline overview contract flag" true
+            (contains_substring ~needle:"Tech Lead              contract"
+               result.stdout);
+          Alcotest.(check bool)
+            "pipeline overview acl disclaimer" true
+            (contains_substring
+               ~needle:"ACL edges (declared links, not inferred workflow order)"
+               result.stdout);
+          Alcotest.(check bool)
+            "pipeline overview acl edge" true
+            (contains_substring ~needle:"ACL fixture/lead -> read qa | write -"
+               result.stdout)))
+
+let expect_dashboard_render_socket_redacts_pipeline_overview () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "dashboard";
+                "render-socket";
+                "--socket";
+                socket_path;
+                "--actor";
+                "qa";
+                "--roster-index";
+                fixture "roster-index.json";
+                "--width";
+                "96";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "pipeline overview section" true
+            (contains_substring ~needle:"Pipeline overview" result.stdout);
+          Alcotest.(check bool)
+            "qa contract visible" true
+            (contains_substring ~needle:"QA                     contract"
+               result.stdout);
+          Alcotest.(check bool)
+            "lead metadata hidden" false
+            (contains_substring ~needle:"Tech Lead" result.stdout);
+          Alcotest.(check bool)
+            "lead acl edge hidden" false
+            (contains_substring ~needle:"ACL fixture/lead" result.stdout);
+          Alcotest.(check bool)
+            "lead preview hidden" false
+            (contains_substring ~needle:"Frontmatter coordinates implementation"
+               result.stdout)))
 
 let expect_dashboard_render_socket_refresh_failure_is_stale () =
   with_temp_dir (fun dir ->
@@ -1097,6 +1154,8 @@ let () =
             expect_dashboard_render_socket;
           Alcotest.test_case "dashboard render socket uses roster index" `Quick
             expect_dashboard_render_socket_uses_roster_index;
+          Alcotest.test_case "dashboard render socket redacts pipeline overview"
+            `Quick expect_dashboard_render_socket_redacts_pipeline_overview;
           Alcotest.test_case "dashboard render socket stale refresh" `Quick
             expect_dashboard_render_socket_refresh_failure_is_stale;
           Alcotest.test_case "launch dry run" `Quick

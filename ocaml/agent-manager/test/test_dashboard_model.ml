@@ -66,6 +66,27 @@ let store () =
               | Error message -> Alcotest.fail message
               | Ok store -> store)))
 
+let store_of_config_text text =
+  match Ta_core.Workspace_config.parse_string text with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+  | Ok config -> (
+      match Ta_core.State_store.of_config config with
+      | Ok store -> store
+      | Error errors ->
+          Alcotest.fail
+            (String.concat "\n"
+               (List.map Ta_core.Workspace_config.error_to_string errors)))
+
+let write_temp_file contents =
+  let path, channel = Filename.open_temp_file "ta-dashboard-roster" ".md" in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr channel)
+    (fun () -> output_string channel contents);
+  path
+
 let tmux_error output =
   {
     Ta_core.Tmux.argv = [ "tmux"; "capture-pane" ];
@@ -90,6 +111,9 @@ let contains_substring ~needle value =
     else loop (idx + 1)
   in
   String.equal needle "" || loop 0
+
+let lines_containing ~needle value =
+  value |> String.split_on_char '\n' |> List.filter (contains_substring ~needle)
 
 let expect_dashboard_model_counts () =
   let store = store () in
@@ -124,6 +148,18 @@ let expect_dashboard_render_frame () =
   Alcotest.(check bool)
     "connections" true
     (contains_substring ~needle:"R:qa W:qa" rendered);
+  Alcotest.(check bool)
+    "pipeline section" true
+    (contains_substring ~needle:"Pipeline overview" rendered);
+  Alcotest.(check bool)
+    "acl disclaimer" true
+    (contains_substring
+       ~needle:"ACL edges (declared links, not inferred workflow order)"
+       rendered);
+  Alcotest.(check bool)
+    "pipeline acl edge" true
+    (contains_substring ~needle:"ACL fixture/lead -> read qa | write qa"
+       rendered);
   Alcotest.(check bool)
     "preview header" true
     (contains_substring ~needle:"Preview: fixture/lead" rendered);
@@ -203,7 +239,91 @@ let expect_dashboard_roster_enrichment () =
     (contains_substring ~needle:"Role: Coordinates implementation." rendered);
   Alcotest.(check bool)
     "qa metadata" true
-    (contains_substring ~needle:"QA/testing" rendered)
+    (contains_substring ~needle:"QA/testing" rendered);
+  Alcotest.(check bool)
+    "lead contract flag" true
+    (contains_substring ~needle:"Tech Lead              unknown" rendered);
+  Alcotest.(check bool)
+    "qa unknown contract flag" true
+    (contains_substring ~needle:"QA                     unknown" rendered);
+  Alcotest.(check (list string))
+    "pipeline overview appears once" [ "Pipeline overview" ]
+    (rendered
+    |> lines_containing ~needle:"Pipeline overview"
+    |> List.map String.trim)
+
+let expect_pipeline_overview_does_not_infer_edges () =
+  let frontmatter_path =
+    write_temp_file
+      {|---
+name: tech-lead
+display_name: Tech Lead
+domain: [management]
+pipeline_role:
+  triggered_by: qa handoff
+  receives: qa report
+  produces: qa follow-up
+  human_gate: none
+---
+|}
+  in
+  Fun.protect
+    ~finally:(fun () ->
+      try Sys.remove frontmatter_path with Sys_error _ -> ())
+    (fun () ->
+      let store =
+        store_of_config_text
+          {|
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture Workspace",
+      "root": ".",
+      "tmux_session": "ta-fixture",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},
+        {"name": "qa", "roster_agent": "qa", "command": ["codex"]}
+      ]
+    }
+  ]
+}
+|}
+      in
+      let roster =
+        match
+          Ta_core.Roster_index.parse_string
+            (Printf.sprintf
+               {|[{"name": "tech-lead", "display_name": "Tech Lead", "path": %S, "source": "local", "component_type": "agent"}]|}
+               (Filename.basename frontmatter_path))
+        with
+        | Ok roster ->
+            Ta_core.Roster_index.enrich_from_frontmatter
+              ~root:(Filename.dirname frontmatter_path)
+              roster
+        | Error errors ->
+            Alcotest.fail
+              (String.concat "\n"
+                 (List.map Ta_core.Roster_index.error_to_string errors))
+      in
+      let rendered =
+        Ta_core.Runtime_snapshot.collect ~now:42.0 store
+        |> Ta_core.Dashboard_model.of_state_runtime store
+        |> Ta_core.Dashboard_model.enrich_with_roster roster
+        |> Ta_core.Dashboard_model.render ~width:120
+      in
+      Alcotest.(check bool)
+        "contract flag" true
+        (contains_substring ~needle:"Tech Lead              contract" rendered);
+      Alcotest.(check bool)
+        "natural language pipeline detail" true
+        (contains_substring ~needle:"Receives: qa report" rendered);
+      Alcotest.(check bool)
+        "no inferred acl edge" false
+        (contains_substring ~needle:"ACL fixture/lead ->" rendered))
 
 let expect_dashboard_render_respects_width () =
   let long_workspace =
@@ -278,6 +398,8 @@ let () =
           Alcotest.test_case "render frame" `Quick expect_dashboard_render_frame;
           Alcotest.test_case "roster enrichment" `Quick
             expect_dashboard_roster_enrichment;
+          Alcotest.test_case "pipeline overview does not infer edges" `Quick
+            expect_pipeline_overview_does_not_infer_edges;
           Alcotest.test_case "render respects width" `Quick
             expect_dashboard_render_respects_width;
         ] );

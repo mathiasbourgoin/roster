@@ -63,11 +63,14 @@ commit.
 - Dashboard selected-agent details now include typed `pipeline_role`
   frontmatter metadata: trigger, input contract, output contract, and human
   gate text.
+- Dashboard now includes a first pipeline overview section that lists visible
+  agents, whether each has a typed contract, and declared ACL edges while
+  labelling them as non-inferred workflow order.
 
 ## Near-Term Milestones
 
-- Add pipeline topology views from typed `pipeline_role` metadata without
-  inferring graph edges from natural-language contracts.
+- Add a richer pipeline topology view with explicit inferred/declared edge
+  categories and keyboard focus once the MIAOU runner is introduced.
 - Add a concrete MIAOU runner once `miaou-tui` is available, using the existing
   dashboard interaction, cadence policy, and socket refresh boundary.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
