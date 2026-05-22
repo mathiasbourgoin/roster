@@ -69,14 +69,17 @@ commit.
 - Dashboard key/tick handling now has a pure typed runner boundary for future
   MIAOU pages, with cadence-aware refresh outcomes and existing CLI key replay
   routed through that boundary where refresh sources are available.
+- Dashboard pipeline topology now has a pure focusable model with typed node
+  ids, declared ACL edge categories, and keyboard traversal across visible
+  agents without inferring workflow edges from `pipeline_role` prose.
 
 ## Near-Term Milestones
 
 - Add a concrete MIAOU page adapter once `miaou-tui` is installed in the
   current switch, using the dashboard runner, interaction state, cadence
   policy, and socket refresh boundary.
-- Add a richer pipeline topology view with explicit declared/future-structured
-  edge categories and keyboard focus on top of the runner boundary.
+- Add topology edge traversal and command affordances for opening source/target
+  panes from the focusable pipeline section.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts at common viewport sizes.

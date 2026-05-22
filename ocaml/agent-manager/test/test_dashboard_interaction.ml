@@ -97,13 +97,59 @@ let expect_agent_navigation () =
 
 let expect_workspace_navigation () =
   let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
-  let state = Ta_core.Dashboard_interaction.handle_key state "Tab" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "w" in
   let state = Ta_core.Dashboard_interaction.handle_key state "Down" in
   Alcotest.(check string)
     "next workspace" "docs"
     (as_workspace (Ta_core.Dashboard_interaction.selected_workspace state));
   Alcotest.(check string)
     "workspace first agent" "writer"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent state))
+
+let expect_tab_cycles_focus () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  Alcotest.(check bool)
+    "initial agents" true
+    (match Ta_core.Dashboard_interaction.focus state with
+    | Ta_core.Dashboard_interaction.Agents -> true
+    | Workspaces | Pipeline -> false);
+  let state = Ta_core.Dashboard_interaction.handle_key state "Tab" in
+  Alcotest.(check bool)
+    "pipeline" true
+    (match Ta_core.Dashboard_interaction.focus state with
+    | Ta_core.Dashboard_interaction.Pipeline -> true
+    | Workspaces | Agents -> false);
+  let state = Ta_core.Dashboard_interaction.handle_key state "Tab" in
+  Alcotest.(check bool)
+    "workspaces" true
+    (match Ta_core.Dashboard_interaction.focus state with
+    | Ta_core.Dashboard_interaction.Workspaces -> true
+    | Agents | Pipeline -> false);
+  let state = Ta_core.Dashboard_interaction.handle_key state "Tab" in
+  Alcotest.(check bool)
+    "agents" true
+    (match Ta_core.Dashboard_interaction.focus state with
+    | Ta_core.Dashboard_interaction.Agents -> true
+    | Workspaces | Pipeline -> false)
+
+let expect_pipeline_navigation () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Down" in
+  Alcotest.(check bool)
+    "focus" true
+    (match Ta_core.Dashboard_interaction.focus state with
+    | Ta_core.Dashboard_interaction.Pipeline -> true
+    | Workspaces | Agents -> false);
+  Alcotest.(check string)
+    "next pipeline agent" "qa"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent state));
+  let state = Ta_core.Dashboard_interaction.handle_key state "Down" in
+  Alcotest.(check string)
+    "next pipeline workspace" "docs"
+    (as_workspace (Ta_core.Dashboard_interaction.selected_workspace state));
+  Alcotest.(check string)
+    "next pipeline agent" "writer"
     (as_string (Ta_core.Dashboard_interaction.selected_agent state))
 
 let expect_refresh_preserves_selection () =
@@ -122,6 +168,21 @@ let expect_refresh_preserves_selection () =
     (match Ta_core.Dashboard_interaction.refresh_status refreshed with
     | Ta_core.Dashboard_interaction.Fresh -> true
     | Refreshing | Stale _ -> false);
+  Alcotest.(check string)
+    "agent preserved" "qa"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent refreshed))
+
+let expect_refresh_preserves_pipeline_focus () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Down" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "r" in
+  let refreshed = Ta_core.Dashboard_interaction.refresh (dashboard ()) state in
+  Alcotest.(check bool)
+    "pipeline focus" true
+    (match Ta_core.Dashboard_interaction.focus refreshed with
+    | Ta_core.Dashboard_interaction.Pipeline -> true
+    | Workspaces | Agents -> false);
   Alcotest.(check string)
     "agent preserved" "qa"
     (as_string (Ta_core.Dashboard_interaction.selected_agent refreshed))
@@ -180,8 +241,13 @@ let () =
           Alcotest.test_case "agent navigation" `Quick expect_agent_navigation;
           Alcotest.test_case "workspace navigation" `Quick
             expect_workspace_navigation;
+          Alcotest.test_case "tab cycles focus" `Quick expect_tab_cycles_focus;
+          Alcotest.test_case "pipeline navigation" `Quick
+            expect_pipeline_navigation;
           Alcotest.test_case "refresh preserves selection" `Quick
             expect_refresh_preserves_selection;
+          Alcotest.test_case "refresh preserves pipeline focus" `Quick
+            expect_refresh_preserves_pipeline_focus;
           Alcotest.test_case "refresh failure renders stale" `Quick
             expect_refresh_failure_renders_stale;
           Alcotest.test_case "render uses selection" `Quick

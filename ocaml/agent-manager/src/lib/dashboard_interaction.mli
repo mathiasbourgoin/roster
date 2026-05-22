@@ -4,7 +4,7 @@
     keeping this package free of a hard MIAOU dependency until the runner is
     available in the local switch. *)
 
-type focus = Workspaces | Agents
+type focus = Workspaces | Agents | Pipeline
 type refresh_status = Fresh | Refreshing | Stale of string
 type t
 

@@ -61,6 +61,8 @@ type t = {
   totals : totals;
 }
 
+type focus = Workspaces | Agents | Pipeline
+
 type selection = {
   workspace : Id.Workspace.t option;
   agent : Id.Agent.t option;
@@ -68,4 +70,5 @@ type selection = {
 
 val of_state_runtime : State_store.t -> Runtime_snapshot.t -> t
 val enrich_with_roster : Roster_index.t -> t -> t
-val render : ?width:int -> ?selection:selection -> t -> string
+val topology : t -> Dashboard_topology.t
+val render : ?width:int -> ?selection:selection -> ?focus:focus -> t -> string

@@ -157,6 +157,10 @@ let expect_dashboard_render_frame () =
        ~needle:"ACL edges (declared links, not inferred workflow order)"
        rendered);
   Alcotest.(check bool)
+    "edge categories" true
+    (contains_substring
+       ~needle:"Edge categories: declared-acl, structured-workflow" rendered);
+  Alcotest.(check bool)
     "pipeline acl edge" true
     (contains_substring ~needle:"ACL fixture/lead -> read qa | write qa"
        rendered);
@@ -325,6 +329,27 @@ pipeline_role:
         "no inferred acl edge" false
         (contains_substring ~needle:"ACL fixture/lead ->" rendered))
 
+let expect_pipeline_focused_render_marks_selection () =
+  let store = store () in
+  let runtime =
+    Ta_core.Runtime_snapshot.collect ~now:42.0 ~lines:8 ~runner store
+  in
+  let model = Ta_core.Dashboard_model.of_state_runtime store runtime in
+  let rendered =
+    Ta_core.Dashboard_model.render ~width:120
+      ~selection:{ workspace = Some workspace; agent = Some qa }
+      ~focus:Ta_core.Dashboard_model.Pipeline model
+  in
+  Alcotest.(check bool)
+    "focused title" true
+    (contains_substring ~needle:"Pipeline overview [focus]" rendered);
+  Alcotest.(check bool)
+    "selected pipeline row" true
+    (contains_substring ~needle:"> fixture   qa" rendered);
+  Alcotest.(check bool)
+    "preview follows selected pipeline node" true
+    (contains_substring ~needle:"Preview: fixture/qa" rendered)
+
 let expect_dashboard_render_respects_width () =
   let long_workspace =
     Ta_core.Id.Workspace.unsafe_of_string
@@ -400,6 +425,8 @@ let () =
             expect_dashboard_roster_enrichment;
           Alcotest.test_case "pipeline overview does not infer edges" `Quick
             expect_pipeline_overview_does_not_infer_edges;
+          Alcotest.test_case "pipeline focused render marks selection" `Quick
+            expect_pipeline_focused_render_marks_selection;
           Alcotest.test_case "render respects width" `Quick
             expect_dashboard_render_respects_width;
         ] );
