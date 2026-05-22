@@ -1,0 +1,20 @@
+[
+  {
+    "name": "tech-lead",
+    "display_name": "Tech Lead",
+    "component_type": "agent",
+    "path": "agents/management/tech-lead.md",
+    "source": "local"
+  },
+  {
+    "name": "qa",
+    "display_name": "QA",
+    "component_type": "agent",
+    "path": "agents/testing/qa.md",
+    "source": "local"
+  },
+  {
+    "name": "not-agent",
+    "component_type": "skill"
+  }
+]

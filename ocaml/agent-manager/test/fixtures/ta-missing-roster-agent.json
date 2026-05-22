@@ -1,0 +1,27 @@
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture",
+      "root": ".",
+      "tmux_session": "ta-fixture",
+      "default_view": "agents",
+      "views": [
+        {
+          "id": "agents",
+          "label": "Agents"
+        }
+      ],
+      "agents": [
+        {
+          "name": "lead",
+          "roster_agent": "missing-agent",
+          "command": [
+            "codex"
+          ]
+        }
+      ]
+    }
+  ]
+}
