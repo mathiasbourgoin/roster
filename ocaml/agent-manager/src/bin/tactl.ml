@@ -372,13 +372,33 @@ let require_socket_actor command actor =
   | Some actor -> Ok actor
   | None -> Error ("--actor is required for " ^ command)
 
-let build_socket_request command audit_limit config_path roster_path workspace
-    agent status reason pane actor =
+let validate_runtime_lines lines =
+  if lines < 1 then Error "--lines must be positive"
+  else if lines > Ta_core.Runtime_snapshot.max_preview_lines then
+    Error
+      ("--lines must be at most "
+      ^ string_of_int Ta_core.Runtime_snapshot.max_preview_lines)
+  else Ok ()
+
+let build_socket_request command audit_limit runtime_lines config_path
+    roster_path workspace agent status reason pane actor =
   if audit_limit < 0 then Error "--audit-limit must be non-negative"
   else
     match command with
     | "state-summary" -> Ok Ta_core.Socket_protocol.State_summary
     | "state-show" -> Ok (Ta_core.Socket_protocol.State_show { audit_limit })
+    | "runtime-snapshot" ->
+        let* workspace = require_socket_option "--workspace" workspace in
+        let* agent = require_socket_option "--agent" agent in
+        let* actor = require_socket_actor "runtime-snapshot" actor in
+        let* () = validate_runtime_lines runtime_lines in
+        let* workspace =
+          parse_id "--workspace" Ta_core.Id.Workspace.of_string workspace
+        in
+        let* agent = parse_id "--agent" Ta_core.Id.Agent.of_string agent in
+        Ok
+          (Ta_core.Socket_protocol.Runtime_snapshot
+             { workspace; agent; actor; lines = runtime_lines })
     | "launch-dry-run" ->
         let* config_path = require_socket_option "--config" config_path in
         Ok
@@ -424,11 +444,11 @@ let build_socket_request command audit_limit config_path roster_path workspace
           (Ta_core.Socket_protocol.Attach_pane { workspace; agent; pane; actor })
     | value -> Error ("unknown socket command: " ^ value)
 
-let socket_request socket_path audit_limit config_path roster_path workspace
-    agent status reason pane actor command =
+let socket_request socket_path audit_limit runtime_lines config_path roster_path
+    workspace agent status reason pane actor command =
   match
-    build_socket_request command audit_limit config_path roster_path workspace
-      agent status reason pane actor
+    build_socket_request command audit_limit runtime_lines config_path
+      roster_path workspace agent status reason pane actor
   with
   | Error message ->
       prerr_endline message;
@@ -560,7 +580,7 @@ let socket_command_arg =
     & info [] ~docv:"COMMAND"
         ~doc:
           "Socket command: state-summary, state-show, set-status, attach-pane, \
-           launch-dry-run, or launch-start")
+           runtime-snapshot, launch-dry-run, or launch-start")
 
 let socket_config_arg =
   Arg.(
@@ -605,7 +625,9 @@ let socket_actor_arg =
     value
     & opt (some string) None
     & info [ "actor" ] ~docv:"AGENT"
-        ~doc:"Actor agent id for socket mutations and launch-start")
+        ~doc:
+          "Actor agent id for authorized socket requests, mutations, and \
+           launch-start")
 
 let smoke_session_arg =
   Arg.(
@@ -733,9 +755,10 @@ let socket_request_cmd =
     Term.(
       ret
         (const socket_request $ socket_path_opt $ audit_limit_arg
-       $ socket_config_arg $ roster_arg $ socket_workspace_arg
-       $ socket_agent_arg $ socket_status_arg $ socket_reason_arg
-       $ socket_pane_arg $ socket_actor_arg $ socket_command_arg))
+       $ runtime_lines_arg $ socket_config_arg $ roster_arg
+       $ socket_workspace_arg $ socket_agent_arg $ socket_status_arg
+       $ socket_reason_arg $ socket_pane_arg $ socket_actor_arg
+       $ socket_command_arg))
 
 let socket_cmd =
   let doc = "Local Unix socket API for TA state." in

@@ -1,6 +1,12 @@
 type request =
   | State_summary
   | State_show of { audit_limit : int }
+  | Runtime_snapshot of {
+      workspace : Id.Workspace.t;
+      agent : Id.Agent.t;
+      actor : Id.Agent.t;
+      lines : int;
+    }
   | Set_status of {
       workspace : Id.Workspace.t;
       agent : Id.Agent.t;
@@ -85,6 +91,15 @@ let request_to_yojson = function
   | State_show { audit_limit } ->
       `Assoc
         [ ("command", `String "state-show"); ("audit_limit", `Int audit_limit) ]
+  | Runtime_snapshot { workspace; agent; actor; lines } ->
+      `Assoc
+        [
+          ("command", `String "runtime-snapshot");
+          ("workspace", `String (Id.Workspace.to_string workspace));
+          ("agent", `String (Id.Agent.to_string agent));
+          ("actor", `String (Id.Agent.to_string actor));
+          ("lines", `Int lines);
+        ]
   | Set_status { workspace; agent; status; actor } ->
       let status, reason = status_fields status in
       `Assoc
@@ -127,10 +142,10 @@ let launch_fields fields =
   let* roster_index = optional_string_field "roster_index" fields in
   Ok (config_path, roster_index)
 
-let required_actor_field fields =
+let required_actor_field command fields =
   match actor_field fields with
   | Ok (Some actor) -> Ok actor
-  | Ok None -> Error "actor is required for launch-start"
+  | Ok None -> Error ("actor is required for " ^ command)
   | Error _ as error -> error
 
 let set_status_of_fields fields =
@@ -151,6 +166,14 @@ let attach_pane_of_fields fields =
   let* actor = actor_field fields in
   Ok (Attach_pane { workspace; agent; pane; actor })
 
+let runtime_snapshot_of_fields fields =
+  let ( let* ) = Result.bind in
+  let* workspace = id_field "workspace" Id.Workspace.of_string fields in
+  let* agent = id_field "agent" Id.Agent.of_string fields in
+  let* lines = int_field "lines" fields in
+  let* actor = required_actor_field "runtime-snapshot" fields in
+  Ok (Runtime_snapshot { workspace; agent; actor; lines })
+
 let request_of_yojson = function
   | `Assoc fields -> (
       match string_field "command" fields with
@@ -160,6 +183,7 @@ let request_of_yojson = function
           match int_field "audit_limit" fields with
           | Ok audit_limit -> Ok (State_show { audit_limit })
           | Error _ as error -> error)
+      | Ok "runtime-snapshot" -> runtime_snapshot_of_fields fields
       | Ok "set-status" -> set_status_of_fields fields
       | Ok "attach-pane" -> attach_pane_of_fields fields
       | Ok "launch-dry-run" -> (
@@ -170,7 +194,7 @@ let request_of_yojson = function
       | Ok "launch-start" -> (
           match launch_fields fields with
           | Ok (config_path, roster_index) -> (
-              match required_actor_field fields with
+              match required_actor_field "launch-start" fields with
               | Ok actor ->
                   Ok (Launch_start { config_path; roster_index; actor })
               | Error _ as error -> error)

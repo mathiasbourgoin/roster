@@ -107,6 +107,22 @@ let authorize_write store ~workspace ~actor ~agent =
          (Id.Agent.to_string actor) (Id.Agent.to_string agent)
          (Id.Workspace.to_string workspace))
 
+let authorize_read store ~workspace ~actor ~agent =
+  let ( let* ) = Result.bind in
+  let* workspace_state = State_store.find_workspace store workspace in
+  let* _actor = State_store.find_agent workspace_state actor in
+  let* _agent = State_store.find_agent workspace_state agent in
+  if Id.Agent.equal actor agent then Ok ()
+  else if
+    State_store.can_access store ~workspace ~from_agent:actor ~to_agent:agent
+      Permission.Read
+  then Ok ()
+  else
+    Error
+      (Printf.sprintf "actor %s cannot read agent %s in workspace %s"
+         (Id.Agent.to_string actor) (Id.Agent.to_string agent)
+         (Id.Workspace.to_string workspace))
+
 let config_errors_to_string errors =
   errors |> List.map Workspace_config.error_to_string |> String.concat "\n"
 
@@ -228,6 +244,28 @@ let launch_start state_path ~config_path ?roster_index ~actor () =
                       launch-created tmux sessions cleaned up after state \
                       update failure"))))
 
+let runtime_snapshot state_path ~workspace ~agent ~actor ~lines =
+  if lines < 1 then Socket_protocol.Failure "lines must be positive"
+  else if lines > Runtime_snapshot.max_preview_lines then
+    Socket_protocol.Failure
+      ("lines must be at most "
+      ^ string_of_int Runtime_snapshot.max_preview_lines)
+  else
+    match State_file.load ~path:state_path with
+    | Error error -> Socket_protocol.Failure (State_file.error_to_string error)
+    | Ok store -> (
+        match authorize_read store ~workspace ~actor ~agent with
+        | Error message -> Socket_protocol.Failure message
+        | Ok () -> (
+            match
+              Runtime_snapshot.collect_agent ~lines store ~workspace ~agent
+            with
+            | Error message -> Socket_protocol.Failure message
+            | Ok snapshot ->
+                Socket_protocol.Success
+                  (Yojson.Safe.to_string (Runtime_snapshot.to_yojson snapshot)))
+        )
+
 let execute state_path = function
   | Socket_protocol.State_summary -> (
       match State_file.load ~path:state_path with
@@ -243,6 +281,8 @@ let execute state_path = function
             Socket_protocol.Success (State_store.describe ~audit_limit store)
         | Error error ->
             Socket_protocol.Failure (State_file.error_to_string error))
+  | Runtime_snapshot { workspace; agent; actor; lines } ->
+      runtime_snapshot state_path ~workspace ~agent ~actor ~lines
   | Set_status { workspace; agent; status; actor } -> (
       match
         State_file.update ~path:state_path (fun store ->

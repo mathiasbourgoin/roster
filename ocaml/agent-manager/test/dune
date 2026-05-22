@@ -64,4 +64,4 @@
    TACTL_EXE
    %{exe:../src/bin/tactl.exe}
    (run %{test})))
- (libraries alcotest unix))
+ (libraries alcotest unix yojson))

@@ -16,6 +16,29 @@ type workspace = { id : Id.Workspace.t; agents : agent list }
 type t = { captured_at : float; workspaces : workspace list }
 
 let max_preview_lines = 200
+let max_preview_line_bytes = 4_096
+let max_preview_bytes = 65_536
+let truncation_marker = "... [truncated]"
+
+let truncate_to limit value =
+  if String.length value <= limit then value
+  else
+    let marker_length = String.length truncation_marker in
+    if limit <= 0 then ""
+    else if limit <= marker_length then String.sub truncation_marker 0 limit
+    else String.sub value 0 (limit - marker_length) ^ truncation_marker
+
+let cap_preview_lines lines =
+  let rec loop remaining acc = function
+    | [] -> List.rev acc
+    | _ when remaining <= 0 -> List.rev acc
+    | line :: rest ->
+        let line = truncate_to max_preview_line_bytes line in
+        if String.length line <= remaining then
+          loop (remaining - String.length line) (line :: acc) rest
+        else List.rev (truncate_to remaining line :: acc)
+  in
+  loop max_preview_bytes [] lines
 
 let split_lines value =
   let length = String.length value in
@@ -65,10 +88,10 @@ let capture_pane runner lines pane_identity pane =
       | Error message -> (Missing message, [])
       | Ok () -> (
           match runner (Tmux.Capture_pane { target; lines }) with
-          | Ok output -> (Live, split_lines output)
+          | Ok output -> (Live, output |> split_lines |> cap_preview_lines)
           | Error error -> (Missing (Tmux.error_to_string error), [])))
 
-let collect_agent runner lines workspace_id expected_session
+let observe_agent runner lines workspace_id expected_session
     (agent : State_store.agent) =
   let pane_state, preview =
     match agent.pane with
@@ -92,7 +115,7 @@ let collect_workspace runner lines (workspace : State_store.workspace) =
     id = workspace.id;
     agents =
       List.map
-        (collect_agent runner lines workspace.id workspace.tmux_session)
+        (observe_agent runner lines workspace.id workspace.tmux_session)
         workspace.agents;
   }
 
@@ -104,6 +127,28 @@ let collect ?(now = Unix.gettimeofday ()) ?(lines = 20) ?(runner = Tmux.run)
     workspaces =
       State_store.workspaces store |> List.map (collect_workspace runner lines);
   }
+
+let collect_agent ?(now = Unix.gettimeofday ()) ?(lines = 20)
+    ?(runner = Tmux.run) store ~workspace ~agent =
+  let lines = max 1 (min max_preview_lines lines) in
+  let ( let* ) = Result.bind in
+  let* workspace_state = State_store.find_workspace store workspace in
+  let* agent_state = State_store.find_agent workspace_state agent in
+  Ok
+    {
+      captured_at = now;
+      workspaces =
+        [
+          {
+            id = workspace_state.id;
+            agents =
+              [
+                observe_agent runner lines workspace_state.id
+                  workspace_state.tmux_session agent_state;
+              ];
+          };
+        ];
+    }
 
 let pane_state_to_yojson = function
   | Unattached -> `Assoc [ ("kind", `String "unattached") ]

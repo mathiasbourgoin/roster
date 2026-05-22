@@ -3,6 +3,12 @@
 type request =
   | State_summary
   | State_show of { audit_limit : int }
+  | Runtime_snapshot of {
+      workspace : Id.Workspace.t;
+      agent : Id.Agent.t;
+      actor : Id.Agent.t;
+      lines : int;
+    }
   | Set_status of {
       workspace : Id.Workspace.t;
       agent : Id.Agent.t;
