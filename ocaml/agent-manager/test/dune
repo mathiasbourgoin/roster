@@ -7,6 +7,12 @@
  (libraries ta_core alcotest))
 
 (test
+ (name test_state_file)
+ (deps
+  (source_tree fixtures))
+ (libraries ta_core alcotest))
+
+(test
  (name test_tactl_cli)
  (deps
   (source_tree fixtures)

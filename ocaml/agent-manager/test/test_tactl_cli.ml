@@ -107,6 +107,37 @@ let expect_roster_validate_failure () =
     (contains_substring ~needle:"unknown roster agent: missing-agent"
        result.stderr)
 
+let with_temp_state f =
+  let path = Filename.temp_file "ta-cli-state" ".json" in
+  Fun.protect ~finally:(fun () -> remove_noerr path) (fun () -> f path)
+
+let expect_state_save_and_load () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      Alcotest.(check string) "save stderr" "" save.stderr;
+      Alcotest.(check bool)
+        "save output" true
+        (contains_substring ~needle:"state snapshot written:" save.stdout);
+      let load = run_tactl [ "state"; "load"; path ] in
+      check_exit "load exit" 0 load.status;
+      Alcotest.(check string) "load stderr" "" load.stderr;
+      Alcotest.(check bool)
+        "load summary" true
+        (contains_substring
+           ~needle:
+             "TA state snapshot: 1 workspace(s), 2 agent(s), 1 audit event(s)"
+           load.stdout))
+
+let expect_state_load_failure () =
+  let result = run_tactl [ "state"; "load"; fixture "missing-state.json" ] in
+  check_exit "exit" 1 result.status;
+  Alcotest.(check bool)
+    "reports load error" true
+    (contains_substring ~needle:"missing-state.json" result.stderr)
+
 let () =
   Alcotest.run "tactl-cli"
     [
@@ -118,5 +149,10 @@ let () =
             expect_roster_validate_success;
           Alcotest.test_case "roster failure" `Quick
             expect_roster_validate_failure;
+        ] );
+      ( "state",
+        [
+          Alcotest.test_case "save and load" `Quick expect_state_save_and_load;
+          Alcotest.test_case "load failure" `Quick expect_state_load_failure;
         ] );
     ]

@@ -5,6 +5,7 @@
   id
   permission
   roster_index
+  state_file
   state_model
   state_snapshot
   state_store

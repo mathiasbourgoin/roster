@@ -56,6 +56,30 @@ let of_config (config : Workspace_config.t) =
 let workspaces store = store.workspaces
 let audit_events store = List.rev store.audit_events
 
+let summarize store =
+  let workspace_count = List.length store.workspaces in
+  let agent_count =
+    List.fold_left
+      (fun count (workspace : workspace) ->
+        count + List.length workspace.agents)
+      0 store.workspaces
+  in
+  let event_count = List.length store.audit_events in
+  let header =
+    Printf.sprintf
+      "TA state snapshot: %d workspace(s), %d agent(s), %d audit event(s)"
+      workspace_count agent_count event_count
+  in
+  let lines =
+    store.workspaces
+    |> List.map (fun (workspace : workspace) ->
+        Printf.sprintf "- %s: %d agents, %d links"
+          (Id.Workspace.to_string workspace.id)
+          (List.length workspace.agents)
+          (List.length workspace.links))
+  in
+  String.concat "\n" (header :: lines)
+
 let find_workspace store workspace_id =
   match
     List.find_opt
