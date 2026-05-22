@@ -75,15 +75,18 @@ commit.
 - Dashboard pipeline topology can now focus declared ACL edges, move from a
   source node to its visible target, and keep the selected edge highlighted
   across refreshes.
+- Dashboard focused pipeline edges now expose pure socket-safe affordances,
+  including source/target pane metadata and typed read/write action
+  descriptions for future MIAOU bindings.
 
 ## Near-Term Milestones
 
 - Add a concrete MIAOU page adapter once `miaou-tui` is installed in the
   current switch, using the dashboard runner, interaction state, cadence
   policy, and socket refresh boundary.
-- Add command affordances for focused topology edges, including source/target
-  pane metadata in the preview panel and socket-safe action descriptions for
-  future MIAOU key bindings.
+- Add target-specific focused-edge commands, including cycling among multiple
+  edge targets and exposing explicit source/target pane jump intents for future
+  MIAOU key bindings.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts at common viewport sizes.

@@ -17,6 +17,13 @@ let focus state = state.focus
 let selected_workspace state = state.selected_workspace
 let selected_agent state = state.selected_agent
 let selected_edge state = state.selected_edge
+
+let focused_edge_affordance ?actor ?lines state =
+  match (state.focus, state.selected_edge) with
+  | Pipeline, Some edge ->
+      Dashboard_model.edge_affordance ?actor ?lines edge state.model
+  | Pipeline, None | Workspaces, _ | Agents, _ -> None
+
 let refresh_requested state = state.refresh_requested
 let refresh_status state = state.refresh_status
 let should_quit state = state.should_quit
@@ -213,12 +220,13 @@ let selected_topology_node state =
   | _ -> None
 
 let topology_focus state =
-  match state.selected_edge with
-  | Some edge -> Some (Dashboard_topology.Edge edge)
-  | None ->
+  match (state.focus, state.selected_edge) with
+  | Pipeline, Some edge -> Some (Dashboard_topology.Edge edge)
+  | Pipeline, None ->
       Option.map
         (fun node -> Dashboard_topology.Node node)
         (selected_topology_node state)
+  | Workspaces, _ | Agents, _ -> None
 
 let select_node ?(clear_edge = true) selected state =
   let state =
@@ -310,9 +318,9 @@ let refresh_age_label ~now captured_at =
   else if age < 3600.0 then Printf.sprintf "%.1fm ago" (age /. 60.0)
   else Printf.sprintf "%.1fh ago" (age /. 3600.0)
 
-let render ?(now = Unix.gettimeofday ()) ?width state =
+let render ?(now = Unix.gettimeofday ()) ?width ?lines ?actor state =
   let dashboard =
-    Dashboard_model.render ?width ~selection:(selection state)
+    Dashboard_model.render ?width ?lines ?actor ~selection:(selection state)
       ~focus:(model_focus state.focus) ?topology_focus:(topology_focus state)
       state.model
   in

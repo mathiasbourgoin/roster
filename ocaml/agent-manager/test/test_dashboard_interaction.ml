@@ -65,6 +65,8 @@ let config_without_links =
 }
 |}
 
+let agent value = Ta_core.Id.Agent.unsafe_of_string value
+
 let parse_config () =
   match Ta_core.Workspace_config.parse_string config with
   | Ok config -> config
@@ -228,6 +230,61 @@ let expect_pipeline_edge_navigation () =
     "target preview" true
     (contains_substring ~needle:"Preview: fixture/qa" rendered)
 
+let expect_pipeline_edge_affordance () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
+  let affordance =
+    match
+      Ta_core.Dashboard_interaction.focused_edge_affordance
+        ~actor:(agent "lead") state
+    with
+    | Some affordance -> affordance
+    | None -> Alcotest.fail "expected focused edge affordance"
+  in
+  Alcotest.(check string)
+    "source" "fixture/lead"
+    (Ta_core.Dashboard_edge_affordance.endpoint_ref affordance.source);
+  Alcotest.(check int) "actions" 3 (List.length affordance.actions);
+  let rendered =
+    Ta_core.Dashboard_interaction.render ~now:45.0 ~width:120
+      ~actor:(agent "lead") state
+  in
+  Alcotest.(check bool)
+    "source metadata" true
+    (contains_substring
+       ~needle:
+         "Edge source: fixture/lead pane - session ta-fixture runtime DETACHED"
+       rendered);
+  Alcotest.(check bool)
+    "write action" true
+    (contains_substring
+       ~needle:
+         "Action: draft message handoff | future-agent-message fixture/lead -> \
+          qa"
+       rendered)
+
+let expect_edge_affordance_hidden_outside_pipeline_focus () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "p" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Tab" in
+  Alcotest.(check bool)
+    "affordance hidden" true
+    (Option.is_none
+       (Ta_core.Dashboard_interaction.focused_edge_affordance
+          ~actor:(agent "lead") state));
+  let rendered =
+    Ta_core.Dashboard_interaction.render ~now:45.0 ~width:120
+      ~actor:(agent "lead") state
+  in
+  Alcotest.(check bool)
+    "focused edge hidden" false
+    (contains_substring ~needle:"Focused edge:" rendered);
+  Alcotest.(check bool)
+    "actions hidden" false
+    (contains_substring ~needle:"Action:" rendered)
+
 let expect_agent_navigation_clears_edge_focus () =
   let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
   let state = Ta_core.Dashboard_interaction.handle_key state "p" in
@@ -359,6 +416,10 @@ let () =
             expect_pipeline_navigation;
           Alcotest.test_case "pipeline edge navigation" `Quick
             expect_pipeline_edge_navigation;
+          Alcotest.test_case "pipeline edge affordance" `Quick
+            expect_pipeline_edge_affordance;
+          Alcotest.test_case "edge affordance hidden outside pipeline focus"
+            `Quick expect_edge_affordance_hidden_outside_pipeline_focus;
           Alcotest.test_case "agent navigation clears edge focus" `Quick
             expect_agent_navigation_clears_edge_focus;
           Alcotest.test_case "refresh preserves selection" `Quick

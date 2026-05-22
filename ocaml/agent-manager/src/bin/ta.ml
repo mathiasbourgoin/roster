@@ -86,7 +86,8 @@ let render_state_dashboard lines width workspace agent keys state_path =
                 `Ok 2
             | Ok interaction ->
                 print_endline
-                  (Ta_core.Dashboard_interaction.render ~width interaction);
+                  (Ta_core.Dashboard_interaction.render ~width ~lines
+                     interaction);
                 `Ok 0))
 
 let render_config_summary path =
