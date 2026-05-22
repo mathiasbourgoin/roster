@@ -114,6 +114,10 @@ commit.
   write ACLs, reuses server-trusted typed launch planning, persists the
   captured tmux pane id, and cleans up a created pane/session if state
   persistence fails.
+- The local `ta` TUI can now start the selected agent directly when it has a
+  trusted config path, without requiring a manually launched socket server.
+  Config-only startup also bootstraps `.ta-state.json`, and successful starts
+  mark the selected agent `running`.
 - The repo now dogfoods a canonical `.harness/` for TA development with a
   12-agent roster: `tech-lead`, `recruiter`, `harness-builder`, `planner`,
   `ocaml-implementer`, `implementer`, `ocaml-dune-specialist`, `reviewer`,
@@ -124,10 +128,10 @@ commit.
 
 ## Near-Term Milestones
 
-- Upgrade the selected-agent start action into the full TUI-first start
-  workflow: pick workspace, pick roster agent or template, confirm
-  command/profile, and TA creates the tmux pane plus state snapshot without
-  requiring hand-written JSON.
+- Upgrade selected-agent start into the full two-selection TUI workflow: pick
+  workspace, pick roster agent or template, confirm command/profile only when
+  needed, and TA creates the tmux pane plus state snapshot without requiring
+  hand-written JSON.
   Acceptance bar: from `dune exec ta`, starting a Codex `tech-lead` must take
   no more than two primary selections in the TUI.
 - Make the full TUI use the installed `.harness` team as its primary runtime

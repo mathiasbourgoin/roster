@@ -30,7 +30,7 @@ let state_dashboard_model lines state_path =
       let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
       Ok (Ta_core.Dashboard_model.of_state_runtime store runtime)
 
-let config_dashboard_model lines config_path =
+let state_store_from_config config_path =
   match Ta_core.Workspace_config.load config_path with
   | Error errors ->
       Error
@@ -42,9 +42,17 @@ let config_dashboard_model lines config_path =
           Error
             (String.concat "\n"
                (List.map Ta_core.Workspace_config.error_to_string errors))
-      | Ok store ->
-          let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
-          Ok (Ta_core.Dashboard_model.of_state_runtime store runtime))
+      | Ok store -> Ok store)
+
+let create_state_from_config ~state_path ~config_path =
+  if Sys.file_exists state_path then Ok state_path
+  else
+    match state_store_from_config config_path with
+    | Error _ as error -> error
+    | Ok store -> (
+        match Ta_core.State_file.save ~path:state_path store with
+        | Ok () -> Ok state_path
+        | Error error -> Error (Ta_core.State_file.error_to_string error))
 
 let dashboard_timestamp () =
   match Ta_core.Dashboard_refresh_cadence.timestamp (Unix.gettimeofday ()) with
@@ -70,6 +78,15 @@ let parse_dashboard_height = function
       | Ok height -> Ok (Some height)
       | Error _ -> Error "--height must be positive")
 
+let absolute_path path =
+  if Filename.is_relative path then Filename.concat (Sys.getcwd ()) path
+  else path
+
+let default_config_path explicit =
+  match explicit with
+  | Some path -> Some path
+  | None -> Ta_core.Startup_paths.first_config_path ~exists:Sys.file_exists
+
 let should_run_tui tui_mode =
   let miaou_headless = Sys.getenv_opt "MIAOU_DRIVER" = Some "headless" in
   match tui_mode with
@@ -86,7 +103,23 @@ let render_static_dashboard lines width height interaction =
     (Ta_core.Dashboard_interaction.render ~width ?height ~lines interaction);
   `Ok 0
 
-let start_agent_model lines state_path socket_path ~workspace ~agent =
+let direct_start_agent lines state_path config_path ~workspace ~agent =
+  match config_path with
+  | None -> Error "start-agent requires --socket or a config/default config"
+  | Some config_path -> (
+      let launch_config =
+        Ta_core.Socket_api.launch_config
+          ~config_path:(absolute_path config_path) ()
+      in
+      match
+        Ta_core.Socket_api.start_agent ~state_path ~launch_config ~workspace
+          ~agent ~actor:agent ()
+      with
+      | Ta_core.Socket_protocol.Failure message -> Error message
+      | Ta_core.Socket_protocol.Success _ -> state_dashboard_model lines state_path)
+
+let start_agent_model lines state_path socket_path config_path ~workspace ~agent
+    =
   match socket_path with
   | Some socket_path -> (
       let request = Ta_core.Socket_protocol.Start_agent { workspace; agent } in
@@ -95,10 +128,7 @@ let start_agent_model lines state_path socket_path ~workspace ~agent =
       | Ok (Ta_core.Socket_protocol.Failure message) -> Error message
       | Ok (Ta_core.Socket_protocol.Success _) ->
           state_dashboard_model lines state_path)
-  | None -> Error "start-agent requires --socket"
-
-let disabled_start_agent ~workspace:_ ~agent:_ =
-  Error "start-agent requires a state dashboard"
+  | None -> direct_start_agent lines state_path config_path ~workspace ~agent
 
 let render_dashboard_model ~refresh ~start lines width height workspace agent
     keys tui_mode dashboard =
@@ -160,22 +190,24 @@ let render_state_dashboard lines width height workspace agent keys tui_mode
       prerr_endline message;
       `Ok 1
   | Ok dashboard ->
-      let start = start_agent_model lines state_path socket_path in
+      let config_path = default_config_path _config_path in
+      let start = start_agent_model lines state_path socket_path config_path in
       render_dashboard_model
         ~refresh:(fun () -> state_dashboard_model lines state_path)
         ~start lines width height workspace agent keys tui_mode dashboard
 
-let render_config_dashboard lines width height workspace agent keys tui_mode
-    config_path =
-  match config_dashboard_model lines config_path with
+let bootstrap_state_dashboard lines width height workspace agent keys tui_mode
+    socket_path config_path =
+  match
+    create_state_from_config
+      ~state_path:Ta_core.Startup_paths.default_state_path ~config_path
+  with
   | Error message ->
       prerr_endline message;
       `Ok 1
-  | Ok dashboard ->
-      render_dashboard_model
-        ~refresh:(fun () -> config_dashboard_model lines config_path)
-        ~start:disabled_start_agent lines width height workspace agent keys
-        tui_mode dashboard
+  | Ok state_path ->
+      render_state_dashboard lines width height workspace agent keys tui_mode
+        socket_path (Some config_path) state_path
 
 let dashboard lines width height workspace agent keys tui_mode state_path
     socket_path config_path =
@@ -187,8 +219,8 @@ let dashboard lines width height workspace agent keys tui_mode state_path
       render_state_dashboard lines width height workspace agent keys tui_mode
         socket_path config_path path
   | Ta_core.Startup_paths.Config { path; explicit = _ } ->
-      render_config_dashboard lines width height workspace agent keys tui_mode
-        path
+      bootstrap_state_dashboard lines width height workspace agent keys tui_mode
+        socket_path path
   | Ta_core.Startup_paths.Missing ->
       print_endline Ta_core.Startup_guide.text;
       `Ok 0
@@ -266,7 +298,9 @@ let socket_arg =
     value
     & opt (some string) None
     & info [ "socket" ] ~docv:"SOCKET"
-        ~doc:"TA Unix socket used by TUI actions such as start-agent")
+        ~doc:
+          "Optional TA Unix socket used by TUI actions such as start-agent; \
+           without it, a state dashboard with a config starts agents directly")
 
 let root_cmd =
   let doc = "Launch the TA roster-agent workspace manager." in
@@ -292,6 +326,12 @@ let root_cmd =
         "If a state snapshot exists, TA renders the dashboard from that state. \
          If only a config exists, TA renders a config-backed dashboard without \
          attached panes so the UI still opens.";
+      `S "STARTING AGENTS FROM THE TUI";
+      `P
+        "In a state-backed dashboard, press s on the selected agent to start \
+         it. When TA has a config path, the TUI starts the agent directly and \
+         persists the captured tmux pane id. If --socket is supplied, the TUI \
+         sends the start request to that local control socket instead.";
       `S "STARTING FROM SOURCE";
       `Pre
         "cd ocaml/agent-manager\n\

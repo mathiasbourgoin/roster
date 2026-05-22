@@ -206,6 +206,7 @@ let with_temp_workspace f =
   Fun.protect
     ~finally:(fun () ->
       remove_noerr (Filename.concat path ".ta-state.json");
+      remove_noerr (Filename.concat path ".ta-state.json.lock");
       remove_noerr (Filename.concat path "ta.json");
       remove_noerr
         (Filename.concat path "ocaml/agent-manager/examples/ta.example.json");
@@ -266,6 +267,11 @@ let save_state path =
           | Ok () -> ()
           | Error error ->
               Alcotest.fail (Ta_core.State_file.error_to_string error)))
+
+let kill_tmux_session session =
+  ignore
+    (Ta_core.Tmux.run
+       (Ta_core.Tmux.Kill_session (Ta_core.Tmux.unsafe_session_of_string session)))
 
 let expect_state_dashboard () =
   with_temp_state (fun path ->
@@ -441,31 +447,99 @@ let expect_miaou_headless_tui_uses_full_collapsed_width () =
         (contains_substring ~needle:"tech-lead | id tech-lead" frame.frame_text))
 
 let expect_miaou_headless_tui_start_without_socket_marks_stale () =
-  with_temp_state (fun path ->
-      save_state path;
-      let result =
-        run_ta_with_input
-          ~env:[ ("MIAOU_DRIVER", "headless") ]
-          ~stdin:
-            "{\"cmd\":\"key\",\"key\":\"s\"}\n\
-             {\"cmd\":\"render\"}\n\
-             {\"cmd\":\"quit\"}\n"
-          [
-            "--state";
-            path;
-            "--config";
-            fixture "ta-valid.json";
-            "--tui";
-            "always";
-          ]
+  with_temp_workspace (fun dir ->
+      let state_path = Filename.concat dir ".ta-state.json" in
+      save_state state_path;
+      with_chdir dir (fun () ->
+          let result =
+            run_ta_with_input
+              ~env:[ ("MIAOU_DRIVER", "headless") ]
+              ~stdin:
+                "{\"cmd\":\"key\",\"key\":\"s\"}\n\
+                 {\"cmd\":\"render\"}\n\
+                 {\"cmd\":\"quit\"}\n"
+              [ "--state"; state_path; "--tui"; "always" ]
+          in
+          check_exit "exit" 0 result.status;
+          Alcotest.(check string) "stderr" "" result.stderr;
+          let frame = last_frame result.stdout in
+          Alcotest.(check bool)
+            "stale start failure" true
+            (contains_substring
+               ~needle:"stale: start-agent requires --socket or a config"
+               frame.frame_text)))
+
+let expect_miaou_headless_tui_direct_start_with_config () =
+  with_temp_workspace (fun dir ->
+      let session =
+        Printf.sprintf "ta-loop40-direct-%d" (Unix.getpid ())
       in
-      check_exit "exit" 0 result.status;
-      Alcotest.(check string) "stderr" "" result.stderr;
-      let frame = last_frame result.stdout in
-      Alcotest.(check bool)
-        "stale start failure" true
-        (contains_substring ~needle:"stale: start-agent requires --socket"
-           frame.frame_text))
+      let config_path = Filename.concat dir "ta.json" in
+      let state_path = Filename.concat dir ".ta-state.json" in
+      write_file config_path
+        (Printf.sprintf
+           {|{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "smoke",
+      "label": "Smoke",
+      "root": ".",
+      "tmux_session": "%s",
+      "default_view": "agents",
+      "views": [{ "id": "agents", "label": "Agents" }],
+      "agents": [
+        {
+          "name": "lead",
+          "roster_agent": "tech-lead",
+          "command": ["sh", "-lc", "printf direct-start-ready; sleep 60"]
+        }
+      ],
+      "links": []
+    }
+  ]
+}|}
+           session);
+      Fun.protect
+        ~finally:(fun () -> kill_tmux_session session)
+        (fun () ->
+          with_chdir dir (fun () ->
+              let result =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"key\",\"key\":\"s\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--config";
+                    config_path;
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "exit" 0 result.status;
+              Alcotest.(check string) "stderr" "" result.stderr;
+              Alcotest.(check bool)
+                "state bootstrapped" true
+                (Sys.file_exists state_path);
+              let frame = last_frame result.stdout in
+              Alcotest.(check bool)
+                "live runtime" true
+                (contains_substring ~needle:"Runtime       LIVE"
+                   frame.frame_text);
+              Alcotest.(check bool)
+                "running status" true
+                (contains_substring ~needle:"Status        running"
+                   frame.frame_text);
+              Alcotest.(check bool)
+                "attached action" true
+                (contains_substring ~needle:"attached | r refresh"
+                   frame.frame_text))))
 
 let expect_no_defaults_prints_quickstart () =
   with_temp_workspace (fun dir ->
@@ -498,7 +572,10 @@ let expect_default_config_renders_dashboard () =
             (contains_substring ~needle:"fixture" result.stdout);
           Alcotest.(check bool)
             "config pane state" true
-            (contains_substring ~needle:"DETACHED" result.stdout)))
+            (contains_substring ~needle:"DETACHED" result.stdout);
+          Alcotest.(check bool)
+            "state bootstrapped" true
+            (Sys.file_exists ".ta-state.json")))
 
 let expect_source_tree_example_renders_dashboard () =
   with_temp_workspace (fun dir ->
@@ -573,5 +650,7 @@ let () =
             expect_miaou_headless_tui_uses_full_collapsed_width;
           Alcotest.test_case "miaou headless start without socket marks stale"
             `Quick expect_miaou_headless_tui_start_without_socket_marks_stale;
+          Alcotest.test_case "miaou headless direct start with config" `Quick
+            expect_miaou_headless_tui_direct_start_with_config;
         ] );
     ]

@@ -9,6 +9,15 @@ type launch_config
 val launch_config :
   config_path:string -> ?roster_index:string -> unit -> launch_config
 
+val start_agent :
+  state_path:string ->
+  launch_config:launch_config ->
+  workspace:Id.Workspace.t ->
+  agent:Id.Agent.t ->
+  actor:Id.Agent.t ->
+  unit ->
+  Socket_protocol.response
+
 val serve :
   ?launch_config:launch_config ->
   ?start_actor:Id.Agent.t ->

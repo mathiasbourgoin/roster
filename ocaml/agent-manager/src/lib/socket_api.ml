@@ -239,8 +239,12 @@ let update_started_agent_state state_path ~actor
           authorize_write store ~workspace:agent.workspace ~actor
             ~agent:agent.name
         in
-        Launch_state.apply_attachments ~actor store
-          [ started.Launch_runtime.attachment ])
+        let* store =
+          Launch_state.apply_attachments ~actor store
+            [ started.Launch_runtime.attachment ]
+        in
+        State_store.set_agent_status store ~workspace:agent.workspace
+          ~agent:agent.name ~status:State_store.Running ~actor:(Some actor))
   with
   | Ok store -> Ok store
   | Error error -> Error (State_file.error_to_string error)
@@ -280,8 +284,8 @@ let launch_start state_path ~config_path ?roster_index ~actor () =
                       launch-created tmux sessions cleaned up after state \
                       update failure"))))
 
-let start_agent state_path { config_path; roster_index } ~workspace ~agent
-    ~actor () =
+let start_agent ~state_path ~launch_config ~workspace ~agent ~actor () =
+  let { config_path; roster_index } = launch_config in
   match launch_plan ~config_path ?roster_index () with
   | Error message -> Socket_protocol.Failure message
   | Ok plan -> (
@@ -422,7 +426,7 @@ let execute state_path launch_config start_actor = function
       | None, _ -> start_agent_requires_config ()
       | _, None -> start_agent_requires_actor ()
       | Some launch_config, Some actor ->
-          start_agent state_path launch_config ~workspace ~agent ~actor ())
+          start_agent ~state_path ~launch_config ~workspace ~agent ~actor ())
 
 let handle_client ~state_path ~launch_config ~start_actor client =
   try
