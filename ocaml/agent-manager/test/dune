@@ -43,6 +43,10 @@
  (libraries ta_core alcotest unix yojson))
 
 (test
+ (name test_dashboard_socket_refresh)
+ (libraries ta_core alcotest unix yojson))
+
+(test
  (name test_tactl_cli)
  (deps
   (source_tree fixtures)

@@ -49,14 +49,17 @@ commit.
 - Actor-scoped socket dashboard snapshots and `render-socket`, allowing the
   dashboard to refresh through the local control plane with redacted state and
   bounded authorized runtime previews.
+- Dashboard refresh intent now executes through a typed socket refresh source,
+  preserving selections on success and rendering stale snapshots with explicit
+  error state when refresh fails.
 
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
 - Add the concrete MIAOU runner when `miaou-tui` is available in the TA opam
   switch; wire it to `Dashboard_interaction`.
-- Add socket-backed refresh ticks to the dashboard interaction loop, including
-  stale-data handling and explicit connection failure states.
+- Add a concrete MIAOU runner once `miaou-tui` is available, using the existing
+  dashboard interaction and socket refresh boundary.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts at common viewport sizes.

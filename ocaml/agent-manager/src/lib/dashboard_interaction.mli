@@ -5,6 +5,7 @@
     available in the local switch. *)
 
 type focus = Workspaces | Agents
+type refresh_status = Fresh | Refreshing | Stale of string
 type t
 
 val init : Dashboard_model.t -> t
@@ -13,11 +14,13 @@ val focus : t -> focus
 val selected_workspace : t -> Id.Workspace.t option
 val selected_agent : t -> Id.Agent.t option
 val refresh_requested : t -> bool
+val refresh_status : t -> refresh_status
 val should_quit : t -> bool
 
 val select :
   ?workspace:Id.Workspace.t -> ?agent:Id.Agent.t -> t -> (t, string) result
 
 val refresh : Dashboard_model.t -> t -> t
+val refresh_failed : string -> t -> t
 val handle_key : t -> string -> t
 val render : ?width:int -> t -> string

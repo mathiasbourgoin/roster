@@ -19,6 +19,33 @@ let parse_optional_id label parse = function
       let* id = parse_id label parse value in
       Ok (Some id)
 
+let state_dashboard_model lines state_path =
+  match Ta_core.State_file.load ~path:state_path with
+  | Error error -> Error (Ta_core.State_file.error_to_string error)
+  | Ok store ->
+      let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
+      Ok (Ta_core.Dashboard_model.of_state_runtime store runtime)
+
+let refresh_interaction refresh interaction =
+  if Ta_core.Dashboard_interaction.refresh_requested interaction then
+    match refresh () with
+    | Ok dashboard ->
+        Ta_core.Dashboard_interaction.refresh dashboard interaction
+    | Error message ->
+        Ta_core.Dashboard_interaction.refresh_failed message interaction
+  else interaction
+
+let replay_dashboard_keys refresh interaction keys =
+  let rec loop interaction = function
+    | [] -> interaction
+    | key :: rest ->
+        let interaction =
+          Ta_core.Dashboard_interaction.handle_key interaction key
+        in
+        loop (refresh_interaction refresh interaction) rest
+  in
+  loop interaction keys
+
 let render_state_dashboard lines width workspace agent keys state_path =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
@@ -32,15 +59,11 @@ let render_state_dashboard lines width workspace agent keys state_path =
     prerr_endline "--width must be positive";
     `Ok 2)
   else
-    match Ta_core.State_file.load ~path:state_path with
-    | Error error ->
-        prerr_endline (Ta_core.State_file.error_to_string error);
+    match state_dashboard_model lines state_path with
+    | Error message ->
+        prerr_endline message;
         `Ok 1
-    | Ok store -> (
-        let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
-        let dashboard =
-          Ta_core.Dashboard_model.of_state_runtime store runtime
-        in
+    | Ok dashboard -> (
         let interaction = Ta_core.Dashboard_interaction.init dashboard in
         match
           let* workspace =
@@ -57,7 +80,8 @@ let render_state_dashboard lines width workspace agent keys state_path =
             `Ok 2
         | Ok interaction ->
             let interaction =
-              List.fold_left Ta_core.Dashboard_interaction.handle_key
+              replay_dashboard_keys
+                (fun () -> state_dashboard_model lines state_path)
                 interaction keys
             in
             print_endline
