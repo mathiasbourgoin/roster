@@ -1,6 +1,21 @@
 (** Line-delimited JSON protocol for the local TA control socket. *)
 
-type request = State_summary | State_show of { audit_limit : int }
+type request =
+  | State_summary
+  | State_show of { audit_limit : int }
+  | Set_status of {
+      workspace : Id.Workspace.t;
+      agent : Id.Agent.t;
+      status : State_store.agent_status;
+      actor : Id.Agent.t option;
+    }
+  | Attach_pane of {
+      workspace : Id.Workspace.t;
+      agent : Id.Agent.t;
+      pane : Id.Pane.t;
+      actor : Id.Agent.t option;
+    }
+
 type response = Success of string | Failure of string
 
 val request_to_yojson : request -> Yojson.Safe.t

@@ -298,32 +298,64 @@ let socket_serve once socket_path state_path =
       print_socket_error error;
       `Ok 1
 
-let socket_request socket_path audit_limit command =
-  if audit_limit < 0 then (
-    prerr_endline "--audit-limit must be non-negative";
-    `Ok 2)
+let require_socket_option label = function
+  | Some value -> Ok value
+  | None -> Error (label ^ " is required for this socket command")
+
+let build_socket_request command audit_limit workspace agent status reason pane
+    actor =
+  if audit_limit < 0 then Error "--audit-limit must be non-negative"
   else
-    let request =
-      match command with
-      | "state-summary" -> Ok Ta_core.Socket_protocol.State_summary
-      | "state-show" -> Ok (Ta_core.Socket_protocol.State_show { audit_limit })
-      | value -> Error ("unknown socket command: " ^ value)
-    in
-    match request with
-    | Error message ->
-        prerr_endline message;
-        `Ok 2
-    | Ok request -> (
-        match Ta_core.Socket_api.request ~socket_path request with
-        | Error error ->
-            print_socket_error error;
-            `Ok 1
-        | Ok (Ta_core.Socket_protocol.Success output) ->
-            print_endline output;
-            `Ok 0
-        | Ok (Ta_core.Socket_protocol.Failure error) ->
-            prerr_endline error;
-            `Ok 1)
+    match command with
+    | "state-summary" -> Ok Ta_core.Socket_protocol.State_summary
+    | "state-show" -> Ok (Ta_core.Socket_protocol.State_show { audit_limit })
+    | "set-status" ->
+        let* workspace = require_socket_option "--workspace" workspace in
+        let* agent = require_socket_option "--agent" agent in
+        let* status = require_socket_option "--status" status in
+        let* workspace =
+          parse_id "--workspace" Ta_core.Id.Workspace.of_string workspace
+        in
+        let* agent = parse_id "--agent" Ta_core.Id.Agent.of_string agent in
+        let* status = parse_status status reason in
+        let* actor = parse_actor actor in
+        Ok
+          (Ta_core.Socket_protocol.Set_status
+             { workspace; agent; status; actor })
+    | "attach-pane" ->
+        let* workspace = require_socket_option "--workspace" workspace in
+        let* agent = require_socket_option "--agent" agent in
+        let* pane = require_socket_option "--pane" pane in
+        let* workspace =
+          parse_id "--workspace" Ta_core.Id.Workspace.of_string workspace
+        in
+        let* agent = parse_id "--agent" Ta_core.Id.Agent.of_string agent in
+        let* pane = parse_id "--pane" Ta_core.Id.Pane.of_string pane in
+        let* actor = parse_actor actor in
+        Ok
+          (Ta_core.Socket_protocol.Attach_pane { workspace; agent; pane; actor })
+    | value -> Error ("unknown socket command: " ^ value)
+
+let socket_request socket_path audit_limit workspace agent status reason pane
+    actor command =
+  match
+    build_socket_request command audit_limit workspace agent status reason pane
+      actor
+  with
+  | Error message ->
+      prerr_endline message;
+      `Ok 2
+  | Ok request -> (
+      match Ta_core.Socket_api.request ~socket_path request with
+      | Error error ->
+          print_socket_error error;
+          `Ok 1
+      | Ok (Ta_core.Socket_protocol.Success output) ->
+          print_endline output;
+          `Ok 0
+      | Ok (Ta_core.Socket_protocol.Failure error) ->
+          prerr_endline error;
+          `Ok 1)
 
 let config_arg =
   Arg.(
@@ -405,7 +437,8 @@ let socket_path_opt =
   Arg.(
     required
     & opt (some string) None
-    & info [ "socket" ] ~docv:"SOCKET" ~doc:"TA Unix socket path")
+    & info [ "socket" ] ~docv:"SOCKET"
+        ~doc:"TA Unix socket path inside a private owner-only directory")
 
 let socket_state_arg =
   Arg.(
@@ -421,7 +454,48 @@ let socket_command_arg =
   Arg.(
     required
     & pos 0 (some string) None
-    & info [] ~docv:"COMMAND" ~doc:"Socket command: state-summary or state-show")
+    & info [] ~docv:"COMMAND"
+        ~doc:
+          "Socket command: state-summary, state-show, set-status, or \
+           attach-pane")
+
+let socket_workspace_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "workspace"; "w" ] ~docv:"WORKSPACE" ~doc:"Workspace id")
+
+let socket_agent_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "agent"; "a" ] ~docv:"AGENT" ~doc:"Agent id")
+
+let socket_status_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "status" ] ~docv:"STATUS" ~doc:"Agent status for socket set-status")
+
+let socket_reason_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "reason" ] ~docv:"TEXT"
+        ~doc:"Reason required for blocked or failed socket status updates")
+
+let socket_pane_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "pane" ] ~docv:"PANE" ~doc:"tmux pane id for socket attach-pane")
+
+let socket_actor_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "actor" ] ~docv:"AGENT"
+        ~doc:"Optional actor agent id for socket audit events")
 
 let smoke_session_arg =
   Arg.(
@@ -537,6 +611,8 @@ let socket_request_cmd =
     Term.(
       ret
         (const socket_request $ socket_path_opt $ audit_limit_arg
+       $ socket_workspace_arg $ socket_agent_arg $ socket_status_arg
+       $ socket_reason_arg $ socket_pane_arg $ socket_actor_arg
        $ socket_command_arg))
 
 let socket_cmd =

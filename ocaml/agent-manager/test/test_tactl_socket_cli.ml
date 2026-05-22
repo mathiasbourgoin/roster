@@ -102,6 +102,25 @@ let with_temp_dir f =
       rmdir_noerr dir)
     (fun () -> f dir)
 
+let with_temp_dir_mode mode f =
+  let base =
+    Filename.concat
+      (Filename.get_temp_dir_name ())
+      ("ta-socket-mode-" ^ string_of_int (Unix.getpid ()))
+  in
+  let rec fresh idx =
+    let path = base ^ "-" ^ string_of_int idx in
+    if Sys.file_exists path then fresh (idx + 1) else path
+  in
+  let dir = fresh 0 in
+  Unix.mkdir dir mode;
+  Fun.protect
+    ~finally:(fun () ->
+      Sys.readdir dir
+      |> Array.iter (fun name -> remove_noerr (Filename.concat dir name));
+      rmdir_noerr dir)
+    (fun () -> f dir)
+
 let wait_short () = ignore (Unix.select [] [] [] 0.05 : _ * _ * _)
 
 let wait_for_socket socket_path =
@@ -113,6 +132,10 @@ let wait_for_socket socket_path =
       loop (remaining - 1))
   in
   loop 100
+
+let socket_mode socket_path =
+  let stats = Unix.stat socket_path in
+  stats.Unix.st_perm land 0o777
 
 let start_server ~socket_path ~state_path =
   let stdout_path, stdout_channel =
@@ -226,6 +249,156 @@ let expect_socket_state_show () =
             (contains_substring
                ~needle:"#1 fixture actor=system workspace-loaded" result.stdout)))
 
+let expect_socket_set_status () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--workspace";
+                "fixture";
+                "--agent";
+                "lead";
+                "--status";
+                "running";
+                "--actor";
+                "lead";
+                "set-status";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "summary advanced" true
+            (contains_substring ~needle:"2 audit event(s)" result.stdout));
+      let show =
+        run_tactl [ "state"; "show"; "--audit-limit"; "2"; state_path ]
+      in
+      check_exit "show exit" 0 show.status;
+      Alcotest.(check bool)
+        "status changed" true
+        (contains_substring ~needle:"- lead [running]" show.stdout);
+      Alcotest.(check bool)
+        "audit status" true
+        (contains_substring ~needle:"status lead: not-started -> running"
+           show.stdout))
+
+let expect_socket_attach_pane () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--workspace";
+                "fixture";
+                "--agent";
+                "qa";
+                "--pane";
+                "%88";
+                "--actor";
+                "qa";
+                "attach-pane";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "summary advanced" true
+            (contains_substring ~needle:"2 audit event(s)" result.stdout));
+      let show =
+        run_tactl [ "state"; "show"; "--audit-limit"; "2"; state_path ]
+      in
+      check_exit "show exit" 0 show.status;
+      Alcotest.(check bool)
+        "pane attached" true
+        (contains_substring ~needle:"- qa [not-started] roster=qa pane=%88"
+           show.stdout);
+      Alcotest.(check bool)
+        "audit pane" true
+        (contains_substring ~needle:"pane qa: %88" show.stdout))
+
+let expect_socket_rejects_unauthorized_actor () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--workspace";
+                "fixture";
+                "--agent";
+                "qa";
+                "--status";
+                "running";
+                "--actor";
+                "lead";
+                "set-status";
+              ]
+          in
+          check_exit "request exit" 1 result.status;
+          Alcotest.(check bool)
+            "write denied" true
+            (contains_substring ~needle:"actor lead cannot write agent qa"
+               result.stderr));
+      let show =
+        run_tactl [ "state"; "show"; "--audit-limit"; "2"; state_path ]
+      in
+      check_exit "show exit" 0 show.status;
+      Alcotest.(check bool)
+        "qa unchanged" true
+        (contains_substring ~needle:"- qa [not-started]" show.stdout);
+      Alcotest.(check bool)
+        "no status audit" false
+        (contains_substring ~needle:"status qa:" show.stdout))
+
+let expect_socket_rejects_missing_actor () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--workspace";
+                "fixture";
+                "--agent";
+                "lead";
+                "--status";
+                "running";
+                "set-status";
+              ]
+          in
+          check_exit "request exit" 1 result.status;
+          Alcotest.(check bool)
+            "actor required" true
+            (contains_substring ~needle:"actor is required for socket mutations"
+               result.stderr)))
+
 let expect_socket_unknown_command () =
   with_temp_dir (fun dir ->
       let socket_path = Filename.concat dir "ta.sock" in
@@ -285,6 +458,43 @@ let expect_socket_refuses_regular_file_path () =
       Alcotest.(check string)
         "file preserved" "do-not-delete" (read_file socket_path))
 
+let expect_socket_refuses_shared_directory () =
+  with_temp_dir_mode 0o755 (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      let result =
+        run_tactl
+          [
+            "socket";
+            "serve";
+            "--once";
+            "--socket";
+            socket_path;
+            "--state";
+            state_path;
+          ]
+      in
+      check_exit "serve exit" 1 result.status;
+      Alcotest.(check bool)
+        "directory rejected" true
+        (contains_substring
+           ~needle:"socket directory must not be accessible by group or others"
+           result.stderr))
+
+let expect_socket_file_mode_is_owner_only () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          Alcotest.(check int) "socket mode" 0o600 (socket_mode socket_path);
+          let result =
+            run_tactl
+              [ "socket"; "request"; "--socket"; socket_path; "state-summary" ]
+          in
+          check_exit "request exit" 0 result.status))
+
 let () =
   Alcotest.run "tactl-socket-cli"
     [
@@ -292,11 +502,21 @@ let () =
         [
           Alcotest.test_case "state summary" `Quick expect_socket_state_summary;
           Alcotest.test_case "state show" `Quick expect_socket_state_show;
+          Alcotest.test_case "set status" `Quick expect_socket_set_status;
+          Alcotest.test_case "attach pane" `Quick expect_socket_attach_pane;
+          Alcotest.test_case "rejects unauthorized actor" `Quick
+            expect_socket_rejects_unauthorized_actor;
+          Alcotest.test_case "rejects missing actor" `Quick
+            expect_socket_rejects_missing_actor;
           Alcotest.test_case "unknown command" `Quick
             expect_socket_unknown_command;
           Alcotest.test_case "negative audit limit" `Quick
             expect_socket_negative_audit_limit;
           Alcotest.test_case "refuses regular file path" `Quick
             expect_socket_refuses_regular_file_path;
+          Alcotest.test_case "refuses shared directory" `Quick
+            expect_socket_refuses_shared_directory;
+          Alcotest.test_case "socket mode is owner only" `Quick
+            expect_socket_file_mode_is_owner_only;
         ] );
     ]
