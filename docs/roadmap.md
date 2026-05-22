@@ -123,6 +123,11 @@ commit.
   `s`; manual `tactl state save` and `launch start` flows are documented as
   advanced CLI fallbacks. The MIAOU dashboard mirrors this with a compact
   selected-agent action bar in both full and collapsed layouts.
+- `ta` is now workspace-enabled from the canonical agent-roster harness. When
+  no TA config exists but `.harness/harness.json` does, startup derives
+  `.harness/ta.json`, bootstraps `.ta-state.json`, opens the real roster
+  workspace, and selects `tech-lead` first so the primary TUI action can start
+  the lead without showing example fixture data.
 - The repo now dogfoods a canonical `.harness/` for TA development with a
   12-agent roster: `tech-lead`, `recruiter`, `harness-builder`, `planner`,
   `ocaml-implementer`, `implementer`, `ocaml-dune-specialist`, `reviewer`,
@@ -139,9 +144,9 @@ commit.
   hand-written JSON.
   Acceptance bar: from `dune exec ta`, starting a Codex `tech-lead` must take
   no more than two primary selections in the TUI.
-- Make the full TUI use the installed `.harness` team as its primary runtime
-  source, showing roster roles and privileged creation/connect capabilities
-  without requiring users to know JSON file paths.
+- Show harness-derived provenance in the TUI: generated config path, harness
+  path, default command profile, and which roster agents are allowed to create
+  or connect other agents.
 - Add a TUI connection editor: choose source agent, choose target agent, select
   read/write permissions, and persist the ACL edge with an audit event.
 - Add capability-gated agent creation: only roster agents with an explicit

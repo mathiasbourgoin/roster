@@ -92,6 +92,9 @@ let expect_quickstart () =
     (contains_substring ~needle:"TA creates .ta-state.json automatically"
        result.stdout);
   Alcotest.(check bool)
+    "harness projection" true
+    (contains_substring ~needle:"derives .harness/ta.json" result.stdout);
+  Alcotest.(check bool)
     "advanced fallback" true
     (contains_substring
        ~needle:"tactl state save --output .ta-state.json .harness/ta.json"
@@ -122,7 +125,10 @@ let expect_root_help_mentions_quickstart () =
     (contains_substring ~needle:"dune exec ta" result.stdout);
   Alcotest.(check bool)
     "start key" true
-    (contains_substring ~needle:"select an agent, press s" result.stdout)
+    (contains_substring ~needle:"select an agent, press s" result.stdout);
+  Alcotest.(check bool)
+    "harness root" true
+    (contains_substring ~needle:".harness/harness.json" result.stdout)
 
 let expect_plain_validate_success () =
   let result = run_tactl [ "validate"; fixture "ta-valid.json" ] in

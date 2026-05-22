@@ -1189,13 +1189,13 @@ let root_cmd =
          the simple TUI-first flow and advanced CLI fallbacks.";
       `Pre
         "cd ocaml/agent-manager\n\
-         cp examples/ta.example.json ta.json\n\
          dune exec ta\n\
+         # uses .harness/ta.json, ta.json, or derives from .harness/harness.json\n\
          # select an agent, press s";
       `P
-        "Use .harness/ta.json for a real workspace config. Use ta.json when \
-         copying the bundled example unchanged, because that example has root \
-         \".\".";
+        "Use .harness/ta.json for a hand-written TA config. In agent-roster \
+         workspaces, .harness/harness.json is enough for TA to create the \
+         initial .harness/ta.json projection.";
     ]
   in
   Cmd.group

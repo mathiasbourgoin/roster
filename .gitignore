@@ -17,3 +17,8 @@ kb/
 node_modules/
 dist/
 .cache/
+
+# TA generated runtime state
+.ta-state.json
+.ta-state.json.lock
+.harness/ta.json

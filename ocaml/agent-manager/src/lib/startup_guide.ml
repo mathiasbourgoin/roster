@@ -9,18 +9,23 @@ let text =
       "  ta";
       "";
       "Normal TUI flow:";
-      "  1. Keep a TA config at .harness/ta.json or ta.json.";
+      "  1. Keep a TA config at .harness/ta.json or ta.json, or keep the \
+       agent-roster harness at .harness/harness.json.";
       "  2. Run ta.";
       "  3. Select an agent and press s to start it.";
       "";
       "TA creates .ta-state.json automatically when a config exists and no \
        state file is present.";
+      "If no TA config exists, TA derives .harness/ta.json from \
+       .harness/harness.json before opening the dashboard.";
       "";
       "Default lookup order:";
       "  state: "
       ^ Startup_paths.describe_candidates Startup_paths.state_candidates;
       "  config: "
       ^ Startup_paths.describe_candidates Startup_paths.config_candidates;
+      "  harness: "
+      ^ Startup_paths.describe_candidates Startup_paths.harness_candidates;
       "";
       "Real workspace setup:";
       "  mkdir -p .harness";

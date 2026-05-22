@@ -209,6 +209,19 @@ let bootstrap_state_dashboard lines width height workspace agent keys tui_mode
       render_state_dashboard lines width height workspace agent keys tui_mode
         socket_path (Some config_path) state_path
 
+let bootstrap_harness_dashboard lines width height workspace agent keys tui_mode
+    socket_path harness_path output_path =
+  match
+    Ta_core.Harness_ta_config.generate_file ~harness_path
+      ~output_path
+  with
+  | Error message ->
+      prerr_endline message;
+      `Ok 1
+  | Ok config_path ->
+      bootstrap_state_dashboard lines width height workspace agent keys tui_mode
+        socket_path config_path
+
 let dashboard lines width height workspace agent keys tui_mode state_path
     socket_path config_path =
   match
@@ -221,6 +234,9 @@ let dashboard lines width height workspace agent keys tui_mode state_path
   | Ta_core.Startup_paths.Config { path; explicit = _ } ->
       bootstrap_state_dashboard lines width height workspace agent keys tui_mode
         socket_path path
+  | Ta_core.Startup_paths.Harness { path; output_path } ->
+      bootstrap_harness_dashboard lines width height workspace agent keys
+        tui_mode socket_path path output_path
   | Ta_core.Startup_paths.Missing ->
       print_endline Ta_core.Startup_guide.text;
       `Ok 0
@@ -323,9 +339,15 @@ let root_cmd =
             Ta_core.Startup_paths.config_candidates
         ^ ".");
       `P
+        ("Harness lookup order: "
+        ^ Ta_core.Startup_paths.describe_candidates
+            Ta_core.Startup_paths.harness_candidates
+        ^ ".");
+      `P
         "If a state snapshot exists, TA renders the dashboard from that state. \
          If only a config exists, TA creates .ta-state.json from that config \
-         and opens the state-backed dashboard.";
+         and opens the state-backed dashboard. If no TA config exists but an \
+         agent-roster harness exists, TA derives .harness/ta.json first.";
       `S "NORMAL TUI FLOW";
       `Pre
         "cp examples/ta.example.json ta.json\n\

@@ -42,6 +42,32 @@ let valid_config =
 }
 |}
 
+let valid_harness =
+  {|
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "agent-roster"
+  },
+  "layers": {
+    "agents": [
+      {
+        "name": "qa",
+        "role": "Runs deterministic checks."
+      },
+      {
+        "name": "tech-lead",
+        "role": "Owns roadmap, review, QA, commits, and pushes."
+      },
+      {
+        "name": "recruiter",
+        "role": "Updates the agent team."
+      }
+    ]
+  }
+}
+|}
+
 let contains_substring ~needle value =
   let needle_len = String.length needle in
   let value_len = String.length value in
@@ -184,6 +210,74 @@ let expect_unknown_permission () =
   | Ok _ -> Alcotest.fail "unknown permission should fail parse"
   | Error errors ->
       Alcotest.(check int) "one parse error" 1 (List.length errors)
+
+let expect_workspace_config_roundtrip_json () =
+  match Ta_core.Workspace_config.parse_string valid_config with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+  | Ok config -> (
+      let text = Ta_core.Workspace_config.to_string config in
+      match Ta_core.Workspace_config.parse_string text with
+      | Error errors ->
+          Alcotest.fail
+            (String.concat "\n"
+               (List.map Ta_core.Workspace_config.error_to_string errors))
+      | Ok roundtrip ->
+          let workspace =
+            match roundtrip.workspaces with
+            | [ workspace ] -> workspace
+            | _ -> Alcotest.fail "expected one workspace"
+          in
+          Alcotest.(check int)
+            "workspace count" 1
+            (List.length roundtrip.workspaces);
+          Alcotest.(check int)
+            "agent count" 2
+            (List.length workspace.agents))
+
+let expect_harness_ta_config_projection () =
+  match
+    Ta_core.Harness_ta_config.parse_string
+      ~harness_path:".harness/harness.json" ~output_path:".harness/ta.json"
+      valid_harness
+  with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Harness_ta_config.error_to_string errors))
+  | Ok config ->
+      let workspace =
+        match config.workspaces with
+        | [ workspace ] -> workspace
+        | _ -> Alcotest.fail "expected one workspace"
+      in
+      Alcotest.(check string)
+        "workspace" "agent-roster"
+        (Ta_core.Id.Workspace.to_string workspace.id);
+      Alcotest.(check string) "root" ".." workspace.root;
+      Alcotest.(check string)
+        "session" "ta-agent-roster"
+        (Ta_core.Tmux.session_to_string workspace.tmux_session);
+      let names =
+        workspace.agents
+        |> List.map (fun (agent : Ta_core.Workspace_config.agent) ->
+               Ta_core.Id.Agent.to_string agent.name)
+      in
+      Alcotest.(check (list string))
+        "tech lead first" [ "tech-lead"; "recruiter"; "qa" ] names;
+      Alcotest.(check bool)
+        "coordinator link" true
+        (List.exists
+           (fun (link : Ta_core.Workspace_config.link) ->
+             String.equal "tech-lead"
+               (Ta_core.Id.Agent.to_string link.from_agent)
+             && String.equal "qa" (Ta_core.Id.Agent.to_string link.to_agent))
+           workspace.links);
+      Alcotest.(check int)
+        "validation errors" 0
+        (List.length (Ta_core.Workspace_config.validate config))
 
 let expect_roster_index_parse () =
   let text =
@@ -699,6 +793,12 @@ let expect_startup_paths_resolve_defaults () =
   | Ta_core.Startup_paths.Config { path; explicit = false } ->
       Alcotest.(check string) "config path" ".harness/ta.json" path
   | _ -> Alcotest.fail "default config should be selected");
+  let exists path = String.equal path ".harness/harness.json" in
+  (match Ta_core.Startup_paths.resolve ~exists () with
+  | Ta_core.Startup_paths.Harness { path; output_path } ->
+      Alcotest.(check string) "harness path" ".harness/harness.json" path;
+      Alcotest.(check string) "ta output" ".harness/ta.json" output_path
+  | _ -> Alcotest.fail "harness should be selected before examples");
   (match
      Ta_core.Startup_paths.resolve
        ~exists:(fun _ -> false)
@@ -727,6 +827,10 @@ let expect_startup_guide_names_entrypoint () =
     "mentions default config" true
     (contains_substring ~needle:".harness/ta.json" Ta_core.Startup_guide.text);
   Alcotest.(check bool)
+    "mentions harness projection" true
+    (contains_substring ~needle:"derives .harness/ta.json"
+       Ta_core.Startup_guide.text);
+  Alcotest.(check bool)
     "mentions bundled example" true
     (contains_substring ~needle:"cp examples/ta.example.json ta.json"
        Ta_core.Startup_guide.text)
@@ -745,6 +849,13 @@ let () =
             expect_missing_file_is_result;
           Alcotest.test_case "unknown permission" `Quick
             expect_unknown_permission;
+          Alcotest.test_case "json roundtrip" `Quick
+            expect_workspace_config_roundtrip_json;
+        ] );
+      ( "harness_ta_config",
+        [
+          Alcotest.test_case "projection" `Quick
+            expect_harness_ta_config_projection;
         ] );
       ("id", [ Alcotest.test_case "bad id" `Quick expect_bad_id ]);
       ( "roster_index",

@@ -39,6 +39,8 @@ type t = { version : string; workspaces : workspace list }
 
 val parse_string : string -> (t, error list) result
 val load : string -> (t, error list) result
+val to_yojson : t -> Yojson.Safe.t
+val to_string : t -> string
 val validate : t -> error list
 val validate_with_roster : roster:Roster_index.t -> t -> error list
 val summarize : t -> string

@@ -201,6 +201,75 @@ let load path =
           | text -> parse_string text
           | exception Sys_error message -> fail path message)
 
+let binding_to_yojson (name, value) =
+  `Assoc [ ("name", `String name); ("value", `String value) ]
+
+let view_to_yojson (view : view) =
+  `Assoc
+    [
+      ("id", `String (Id.View.to_string view.id));
+      ("label", `String view.label);
+    ]
+
+let agent_to_yojson (agent : agent) =
+  let optional name value =
+    match value with None -> [] | Some value -> [ (name, `String value) ]
+  in
+  `Assoc
+    ([
+       ("name", `String (Id.Agent.to_string agent.name));
+       ("roster_agent", `String agent.roster_agent);
+       ("command", `List (List.map (fun value -> `String value) agent.command));
+     ]
+    @ optional "cwd" agent.cwd
+    @ (match agent.env with
+      | [] -> []
+      | env -> [ ("env", `List (List.map binding_to_yojson env)) ])
+    @ optional "startup_prompt" agent.startup_prompt)
+
+let link_to_yojson (link : link) =
+  `Assoc
+    [
+      ("from", `String (Id.Agent.to_string link.from_agent));
+      ("to", `String (Id.Agent.to_string link.to_agent));
+      ( "permissions",
+        `List
+          (List.map
+             (fun permission -> `String (Permission.to_string permission))
+             link.permissions) );
+      ("reason", `String link.reason);
+    ]
+
+let workspace_to_yojson (workspace : workspace) =
+  let harness_path =
+    match workspace.harness_path with
+    | None -> []
+    | Some path -> [ ("harness_path", `String path) ]
+  in
+  `Assoc
+    ([
+       ("id", `String (Id.Workspace.to_string workspace.id));
+       ("label", `String workspace.label);
+       ("root", `String workspace.root);
+     ]
+    @ harness_path
+    @ [
+        ("tmux_session", `String (Tmux.session_to_string workspace.tmux_session));
+        ("default_view", `String (Id.View.to_string workspace.default_view));
+        ("views", `List (List.map view_to_yojson workspace.views));
+        ("agents", `List (List.map agent_to_yojson workspace.agents));
+        ("links", `List (List.map link_to_yojson workspace.links));
+      ])
+
+let to_yojson config =
+  `Assoc
+    [
+      ("version", `String config.version);
+      ("workspaces", `List (List.map workspace_to_yojson config.workspaces));
+    ]
+
+let to_string config = Yojson.Safe.pretty_to_string (to_yojson config)
+
 let duplicate_strings values =
   let sorted = List.sort String.compare values in
   let rec loop duplicates previous = function

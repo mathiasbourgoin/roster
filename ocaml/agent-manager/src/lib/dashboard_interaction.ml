@@ -31,9 +31,21 @@ let refresh_requested state = state.refresh_requested
 let refresh_status state = state.refresh_status
 let should_quit state = state.should_quit
 
-let first_agent = function
-  | [] -> None
-  | agent :: _ -> Some agent.Dashboard_model.name
+let preferred_agent =
+  match Id.Agent.of_string "tech-lead" with
+  | Ok agent -> agent
+  | Error message -> invalid_arg message
+
+let first_agent agents =
+  match
+    List.find_opt
+      (fun (agent : Dashboard_model.agent) ->
+        Id.Agent.equal agent.name preferred_agent)
+      agents
+  with
+  | Some agent -> Some agent.name
+  | None -> (
+      match agents with [] -> None | agent :: _ -> Some agent.name)
 
 let find_workspace model workspace =
   model.Dashboard_model.workspaces

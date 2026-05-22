@@ -211,6 +211,7 @@ let with_temp_workspace f =
       remove_noerr
         (Filename.concat path "ocaml/agent-manager/examples/ta.example.json");
       remove_noerr (Filename.concat path "examples/ta.example.json");
+      remove_noerr (Filename.concat path ".harness/harness.json");
       remove_noerr (Filename.concat path ".harness/ta.json");
       (try Unix.rmdir (Filename.concat path "examples")
        with Unix.Unix_error _ -> ());
@@ -242,6 +243,37 @@ let write_default_config dir =
   write_file
     (Filename.concat harness "ta.json")
     (read_file (fixture "ta-valid.json"))
+
+let write_harness_config dir =
+  let harness = Filename.concat dir ".harness" in
+  mkdir_noerr harness 0o700;
+  write_file
+    (Filename.concat harness "harness.json")
+    {|
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "agent-roster"
+  },
+  "layers": {
+    "agents": [
+      {
+        "name": "qa",
+        "role": "Runs deterministic checks."
+      },
+      {
+        "name": "tech-lead",
+        "role": "Owns roadmap, review, QA, commits, and pushes."
+      }
+    ]
+  }
+}
+|}
+
+let write_invalid_harness_config dir =
+  let harness = Filename.concat dir ".harness" in
+  mkdir_noerr harness 0o700;
+  write_file (Filename.concat harness "harness.json") "{ invalid harness"
 
 let write_source_tree_example_config dir =
   let examples = Filename.concat dir "examples" in
@@ -583,6 +615,72 @@ let expect_default_config_renders_dashboard () =
             "state bootstrapped" true
             (Sys.file_exists ".ta-state.json")))
 
+let expect_harness_config_generates_workspace_dashboard () =
+  with_temp_workspace (fun dir ->
+      write_harness_config dir;
+      with_chdir dir (fun () ->
+          let result =
+            run_ta_with_input
+              ~env:[ ("MIAOU_DRIVER", "headless") ]
+              ~stdin:"{\"cmd\":\"render\"}\n{\"cmd\":\"quit\"}\n"
+              [ "--tui"; "always" ]
+          in
+          check_exit "exit" 0 result.status;
+          Alcotest.(check string) "stderr" "" result.stderr;
+          let frame = last_frame result.stdout in
+          Alcotest.(check bool)
+            "dashboard header" true
+            (contains_substring ~needle:"TA Dashboard" frame.frame_text);
+          Alcotest.(check bool)
+            "workspace" true
+            (contains_substring ~needle:"agent-roster" frame.frame_text);
+          Alcotest.(check bool)
+            "tech lead selected" true
+            (contains_substring ~needle:"Agent         agent-roster/tech-lead"
+               frame.frame_text);
+          Alcotest.(check bool)
+            "start action" true
+            (contains_substring ~needle:"s Start tech-lead" frame.frame_text);
+          Alcotest.(check bool)
+            "config generated" true
+            (Sys.file_exists ".harness/ta.json");
+          Alcotest.(check bool)
+            "state bootstrapped" true
+            (Sys.file_exists ".ta-state.json")))
+
+let expect_ta_config_wins_over_harness_config () =
+  with_temp_workspace (fun dir ->
+      write_default_config dir;
+      write_harness_config dir;
+      with_chdir dir (fun () ->
+          let result = run_ta [ "--width"; "92" ] in
+          check_exit "exit" 0 result.status;
+          Alcotest.(check string) "stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "ta config workspace wins" true
+            (contains_substring ~needle:"fixture" result.stdout);
+          Alcotest.(check bool)
+            "harness workspace not selected" false
+            (contains_substring ~needle:"agent-roster" result.stdout)))
+
+let expect_invalid_harness_config_does_not_fall_back_to_examples () =
+  with_temp_workspace (fun dir ->
+      write_invalid_harness_config dir;
+      write_source_tree_example_config dir;
+      with_chdir dir (fun () ->
+          let result = run_ta [] in
+          check_exit "exit" 1 result.status;
+          Alcotest.(check bool)
+            "invalid harness error" true
+            (contains_substring ~needle:"invalid JSON" result.stderr);
+          Alcotest.(check string) "stdout" "" result.stdout;
+          Alcotest.(check bool)
+            "no generated config" false
+            (Sys.file_exists ".harness/ta.json");
+          Alcotest.(check bool)
+            "no generated state" false
+            (Sys.file_exists ".ta-state.json")))
+
 let expect_source_tree_example_renders_dashboard () =
   with_temp_workspace (fun dir ->
       write_source_tree_example_config dir;
@@ -614,6 +712,9 @@ let expect_help_documents_startup () =
     "press start" true
     (contains_substring ~needle:"press s" result.stdout);
   Alcotest.(check bool)
+    "harness projection" true
+    (contains_substring ~needle:"derives .harness/ta.json" result.stdout);
+  Alcotest.(check bool)
     "tui status" true
     (contains_substring ~needle:"MIAOU terminal runner" result.stdout);
   Alcotest.(check bool)
@@ -632,6 +733,13 @@ let () =
             expect_no_defaults_prints_quickstart;
           Alcotest.test_case "default config renders dashboard" `Quick
             expect_default_config_renders_dashboard;
+          Alcotest.test_case "harness config generates workspace dashboard"
+            `Quick expect_harness_config_generates_workspace_dashboard;
+          Alcotest.test_case "ta config wins over harness config" `Quick
+            expect_ta_config_wins_over_harness_config;
+          Alcotest.test_case
+            "invalid harness config does not fall back to examples" `Quick
+            expect_invalid_harness_config_does_not_fall_back_to_examples;
           Alcotest.test_case "source tree example renders dashboard" `Quick
             expect_source_tree_example_renders_dashboard;
           Alcotest.test_case "help documents startup" `Quick
