@@ -302,13 +302,45 @@ let require_socket_option label = function
   | Some value -> Ok value
   | None -> Error (label ^ " is required for this socket command")
 
-let build_socket_request command audit_limit workspace agent status reason pane
-    actor =
+let absolute_path path =
+  if Filename.is_relative path then Filename.concat (Sys.getcwd ()) path
+  else path
+
+let absolute_path_option = function
+  | None -> None
+  | Some path -> Some (absolute_path path)
+
+let require_socket_actor command actor =
+  let* actor = parse_actor actor in
+  match actor with
+  | Some actor -> Ok actor
+  | None -> Error ("--actor is required for " ^ command)
+
+let build_socket_request command audit_limit config_path roster_path workspace
+    agent status reason pane actor =
   if audit_limit < 0 then Error "--audit-limit must be non-negative"
   else
     match command with
     | "state-summary" -> Ok Ta_core.Socket_protocol.State_summary
     | "state-show" -> Ok (Ta_core.Socket_protocol.State_show { audit_limit })
+    | "launch-dry-run" ->
+        let* config_path = require_socket_option "--config" config_path in
+        Ok
+          (Ta_core.Socket_protocol.Launch_dry_run
+             {
+               config_path = absolute_path config_path;
+               roster_index = absolute_path_option roster_path;
+             })
+    | "launch-start" ->
+        let* config_path = require_socket_option "--config" config_path in
+        let* actor = require_socket_actor "launch-start" actor in
+        Ok
+          (Ta_core.Socket_protocol.Launch_start
+             {
+               config_path = absolute_path config_path;
+               roster_index = absolute_path_option roster_path;
+               actor;
+             })
     | "set-status" ->
         let* workspace = require_socket_option "--workspace" workspace in
         let* agent = require_socket_option "--agent" agent in
@@ -336,11 +368,11 @@ let build_socket_request command audit_limit workspace agent status reason pane
           (Ta_core.Socket_protocol.Attach_pane { workspace; agent; pane; actor })
     | value -> Error ("unknown socket command: " ^ value)
 
-let socket_request socket_path audit_limit workspace agent status reason pane
-    actor command =
+let socket_request socket_path audit_limit config_path roster_path workspace
+    agent status reason pane actor command =
   match
-    build_socket_request command audit_limit workspace agent status reason pane
-      actor
+    build_socket_request command audit_limit config_path roster_path workspace
+      agent status reason pane actor
   with
   | Error message ->
       prerr_endline message;
@@ -456,8 +488,15 @@ let socket_command_arg =
     & pos 0 (some string) None
     & info [] ~docv:"COMMAND"
         ~doc:
-          "Socket command: state-summary, state-show, set-status, or \
-           attach-pane")
+          "Socket command: state-summary, state-show, set-status, attach-pane, \
+           launch-dry-run, or launch-start")
+
+let socket_config_arg =
+  Arg.(
+    value
+    & opt (some file) None
+    & info [ "config" ] ~docv:"CONFIG"
+        ~doc:"Workspace config for socket launch commands")
 
 let socket_workspace_arg =
   Arg.(
@@ -495,7 +534,7 @@ let socket_actor_arg =
     value
     & opt (some string) None
     & info [ "actor" ] ~docv:"AGENT"
-        ~doc:"Optional actor agent id for socket audit events")
+        ~doc:"Actor agent id for socket mutations and launch-start")
 
 let smoke_session_arg =
   Arg.(
@@ -611,9 +650,9 @@ let socket_request_cmd =
     Term.(
       ret
         (const socket_request $ socket_path_opt $ audit_limit_arg
-       $ socket_workspace_arg $ socket_agent_arg $ socket_status_arg
-       $ socket_reason_arg $ socket_pane_arg $ socket_actor_arg
-       $ socket_command_arg))
+       $ socket_config_arg $ roster_arg $ socket_workspace_arg
+       $ socket_agent_arg $ socket_status_arg $ socket_reason_arg
+       $ socket_pane_arg $ socket_actor_arg $ socket_command_arg))
 
 let socket_cmd =
   let doc = "Local Unix socket API for TA state." in

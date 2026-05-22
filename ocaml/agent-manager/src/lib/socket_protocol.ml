@@ -13,6 +13,12 @@ type request =
       pane : Id.Pane.t;
       actor : Id.Agent.t option;
     }
+  | Launch_dry_run of { config_path : string; roster_index : string option }
+  | Launch_start of {
+      config_path : string;
+      roster_index : string option;
+      actor : Id.Agent.t;
+    }
 
 type response = Success of string | Failure of string
 
@@ -70,6 +76,10 @@ let actor_to_yojson = function
   | None -> `Null
   | Some actor -> `String (Id.Agent.to_string actor)
 
+let string_option_to_yojson = function
+  | None -> `Null
+  | Some value -> `String value
+
 let request_to_yojson = function
   | State_summary -> `Assoc [ ("command", `String "state-summary") ]
   | State_show { audit_limit } ->
@@ -95,6 +105,33 @@ let request_to_yojson = function
           ("pane", `String (Id.Pane.to_string pane));
           ("actor", actor_to_yojson actor);
         ]
+  | Launch_dry_run { config_path; roster_index } ->
+      `Assoc
+        [
+          ("command", `String "launch-dry-run");
+          ("config", `String config_path);
+          ("roster_index", string_option_to_yojson roster_index);
+        ]
+  | Launch_start { config_path; roster_index; actor } ->
+      `Assoc
+        [
+          ("command", `String "launch-start");
+          ("config", `String config_path);
+          ("roster_index", string_option_to_yojson roster_index);
+          ("actor", `String (Id.Agent.to_string actor));
+        ]
+
+let launch_fields fields =
+  let ( let* ) = Result.bind in
+  let* config_path = string_field "config" fields in
+  let* roster_index = optional_string_field "roster_index" fields in
+  Ok (config_path, roster_index)
+
+let required_actor_field fields =
+  match actor_field fields with
+  | Ok (Some actor) -> Ok actor
+  | Ok None -> Error "actor is required for launch-start"
+  | Error _ as error -> error
 
 let set_status_of_fields fields =
   let ( let* ) = Result.bind in
@@ -125,6 +162,19 @@ let request_of_yojson = function
           | Error _ as error -> error)
       | Ok "set-status" -> set_status_of_fields fields
       | Ok "attach-pane" -> attach_pane_of_fields fields
+      | Ok "launch-dry-run" -> (
+          match launch_fields fields with
+          | Ok (config_path, roster_index) ->
+              Ok (Launch_dry_run { config_path; roster_index })
+          | Error _ as error -> error)
+      | Ok "launch-start" -> (
+          match launch_fields fields with
+          | Ok (config_path, roster_index) -> (
+              match required_actor_field fields with
+              | Ok actor ->
+                  Ok (Launch_start { config_path; roster_index; actor })
+              | Error _ as error -> error)
+          | Error _ as error -> error)
       | Ok command -> Error ("unknown command: " ^ command))
   | _ -> Error "request must be a JSON object"
 

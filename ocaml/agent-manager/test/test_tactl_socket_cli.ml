@@ -11,6 +11,10 @@ let tactl_exe () =
   | Some value -> value
   | None -> Alcotest.fail "TACTL_EXE is not set"
 
+let absolute_path path =
+  if Filename.is_relative path then Filename.concat (Sys.getcwd ()) path
+  else path
+
 let fixture name = Filename.concat "fixtures" name
 let remove_noerr path = try Sys.remove path with Sys_error _ -> ()
 let rmdir_noerr path = try Unix.rmdir path with Unix.Unix_error _ -> ()
@@ -137,27 +141,43 @@ let socket_mode socket_path =
   let stats = Unix.stat socket_path in
   stats.Unix.st_perm land 0o777
 
-let start_server ~socket_path ~state_path =
+let start_server ?server_cwd ~socket_path ~state_path () =
   let stdout_path, stdout_channel =
     Filename.open_temp_file "ta-server" ".out"
   in
   let stderr_path, stderr_channel =
     Filename.open_temp_file "ta-server" ".err"
   in
-  let argv =
-    [|
-      tactl_exe ();
-      "socket";
-      "serve";
-      "--once";
-      "--socket";
-      socket_path;
-      "--state";
-      state_path;
-    |]
+  let program, argv =
+    match server_cwd with
+    | None ->
+        ( tactl_exe (),
+          [|
+            tactl_exe ();
+            "socket";
+            "serve";
+            "--once";
+            "--socket";
+            socket_path;
+            "--state";
+            state_path;
+          |] )
+    | Some cwd ->
+        ( "/bin/sh",
+          [|
+            "sh";
+            "-lc";
+            "cd \"$1\" && exec \"$2\" socket serve --once --socket \"$3\" \
+             --state \"$4\"";
+            "sh";
+            cwd;
+            absolute_path (tactl_exe ());
+            socket_path;
+            state_path;
+          |] )
   in
   let pid =
-    Unix.create_process (tactl_exe ()) argv Unix.stdin
+    Unix.create_process program argv Unix.stdin
       (Unix.descr_of_out_channel stdout_channel)
       (Unix.descr_of_out_channel stderr_channel)
   in
@@ -173,8 +193,8 @@ let wait_server server =
   remove_noerr server.stderr_path;
   { status; stdout; stderr }
 
-let with_socket_server ~state_path ~socket_path f =
-  let server = start_server ~socket_path ~state_path in
+let with_socket_server ?server_cwd ~state_path ~socket_path f =
+  let server = start_server ?server_cwd ~socket_path ~state_path () in
   let waited = ref false in
   Fun.protect
     ~finally:(fun () ->
@@ -330,6 +350,146 @@ let expect_socket_attach_pane () =
       Alcotest.(check bool)
         "audit pane" true
         (contains_substring ~needle:"pane qa: %88" show.stdout))
+
+let expect_socket_launch_dry_run () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--config";
+                fixture "ta-valid.json";
+                "launch-dry-run";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "new session command" true
+            (contains_substring ~needle:"tmux new-session -d -P -F '#{pane_id}'"
+               result.stdout);
+          Alcotest.(check bool)
+            "split command" true
+            (contains_substring
+               ~needle:"tmux split-window -d -P -F '#{pane_id}' -t ta-fixture"
+               result.stdout)))
+
+let expect_socket_launch_dry_run_absolutizes_config () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~server_cwd:"/" ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--config";
+                fixture "ta-valid.json";
+                "launch-dry-run";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "server loaded client-relative config" true
+            (contains_substring ~needle:"tmux new-session -d -P -F '#{pane_id}'"
+               result.stdout)))
+
+let expect_socket_launch_requires_config () =
+  with_temp_dir (fun dir ->
+      let socket_path = Filename.concat dir "ta.sock" in
+      let result =
+        run_tactl
+          [ "socket"; "request"; "--socket"; socket_path; "launch-dry-run" ]
+      in
+      check_exit "request exit" 2 result.status;
+      Alcotest.(check bool)
+        "config required" true
+        (contains_substring
+           ~needle:"--config is required for this socket command" result.stderr))
+
+let expect_socket_launch_start_requires_actor () =
+  with_temp_dir (fun dir ->
+      let socket_path = Filename.concat dir "ta.sock" in
+      let result =
+        run_tactl
+          [
+            "socket";
+            "request";
+            "--socket";
+            socket_path;
+            "--config";
+            fixture "ta-valid.json";
+            "launch-start";
+          ]
+      in
+      check_exit "request exit" 2 result.status;
+      Alcotest.(check bool)
+        "actor required" true
+        (contains_substring ~needle:"--actor is required for launch-start"
+           result.stderr))
+
+let expect_socket_launch_start_rejects_unauthorized_actor () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--config";
+                fixture "ta-valid.json";
+                "--actor";
+                "lead";
+                "launch-start";
+              ]
+          in
+          check_exit "request exit" 1 result.status;
+          Alcotest.(check bool)
+            "write denied before launch" true
+            (contains_substring ~needle:"actor lead cannot write agent qa"
+               result.stderr)))
+
+let expect_socket_launch_rejects_non_regular_config () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      let fifo_path = Filename.concat dir "config.fifo" in
+      save_state state_path;
+      Unix.mkfifo fifo_path 0o600;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--config";
+                fifo_path;
+                "launch-dry-run";
+              ]
+          in
+          check_exit "request exit" 1 result.status;
+          Alcotest.(check bool)
+            "fifo rejected" true
+            (contains_substring ~needle:"expected a regular file" result.stderr)))
 
 let expect_socket_rejects_unauthorized_actor () =
   with_temp_dir (fun dir ->
@@ -504,6 +664,18 @@ let () =
           Alcotest.test_case "state show" `Quick expect_socket_state_show;
           Alcotest.test_case "set status" `Quick expect_socket_set_status;
           Alcotest.test_case "attach pane" `Quick expect_socket_attach_pane;
+          Alcotest.test_case "launch dry run" `Quick
+            expect_socket_launch_dry_run;
+          Alcotest.test_case "launch dry run absolutizes config" `Quick
+            expect_socket_launch_dry_run_absolutizes_config;
+          Alcotest.test_case "launch requires config" `Quick
+            expect_socket_launch_requires_config;
+          Alcotest.test_case "launch start requires actor" `Quick
+            expect_socket_launch_start_requires_actor;
+          Alcotest.test_case "launch start rejects unauthorized actor" `Quick
+            expect_socket_launch_start_rejects_unauthorized_actor;
+          Alcotest.test_case "launch rejects non-regular config" `Quick
+            expect_socket_launch_rejects_non_regular_config;
           Alcotest.test_case "rejects unauthorized actor" `Quick
             expect_socket_rejects_unauthorized_actor;
           Alcotest.test_case "rejects missing actor" `Quick

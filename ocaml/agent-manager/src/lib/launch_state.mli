@@ -3,6 +3,7 @@
 val preflight : State_store.t -> Launch_plan.t -> (unit, string) result
 
 val apply_attachments :
+  ?actor:Id.Agent.t ->
   State_store.t ->
   Launch_runtime.attachment list ->
   (State_store.t, string) result
