@@ -2,6 +2,9 @@
   {
     "name": "tech-lead",
     "display_name": "Tech Lead",
+    "description": "Coordinates implementation and review.",
+    "domain": ["management"],
+    "tags": ["planning", "review"],
     "component_type": "agent",
     "path": "agents/management/tech-lead.md",
     "source": "local"
@@ -9,6 +12,9 @@
   {
     "name": "qa",
     "display_name": "QA",
+    "description": "Verifies behavior with tests and runtime smokes.",
+    "domain": ["testing"],
+    "tags": ["qa", "tmux"],
     "component_type": "agent",
     "path": "agents/testing/qa.md",
     "source": "local"

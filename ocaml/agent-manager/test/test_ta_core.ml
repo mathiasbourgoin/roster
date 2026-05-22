@@ -179,7 +179,7 @@ let expect_roster_index_parse () =
   let text =
     {|
 [
-  {"name": "tech-lead", "display_name": "Tech Lead", "path": "agents/management/tech-lead.md", "source": "local", "component_type": "agent"},
+  {"name": "tech-lead", "display_name": "Tech Lead", "description": "Lead work", "domain": ["management"], "tags": ["planning"], "path": "agents/management/tech-lead.md", "source": "local", "component_type": "agent"},
   {"name": "not-an-agent", "component_type": "skill"}
 ]
 |}
@@ -193,6 +193,16 @@ let expect_roster_index_parse () =
       Alcotest.(check bool)
         "has tech-lead" true
         (Ta_core.Roster_index.mem_agent roster "tech-lead");
+      let entry =
+        match Ta_core.Roster_index.find_agent roster "tech-lead" with
+        | Some entry -> entry
+        | None -> Alcotest.fail "missing tech-lead"
+      in
+      Alcotest.(check string)
+        "display" "Tech Lead"
+        (Option.value entry.display_name ~default:"");
+      Alcotest.(check (list string)) "domain" [ "management" ] entry.domain;
+      Alcotest.(check (list string)) "tags" [ "planning" ] entry.tags;
       Alcotest.(check bool)
         "filters skill" false
         (Ta_core.Roster_index.mem_agent roster "not-an-agent")

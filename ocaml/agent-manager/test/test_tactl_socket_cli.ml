@@ -649,6 +649,38 @@ let expect_dashboard_render_socket () =
             "selected qa" true
             (contains_substring ~needle:"Preview: fixture/qa" result.stdout)))
 
+let expect_dashboard_render_socket_uses_roster_index () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "dashboard";
+                "render-socket";
+                "--socket";
+                socket_path;
+                "--actor";
+                "lead";
+                "--roster-index";
+                fixture "roster-index.json";
+                "--width";
+                "96";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "row metadata" true
+            (contains_substring ~needle:"Tech Lead/management" result.stdout);
+          Alcotest.(check bool)
+            "preview metadata" true
+            (contains_substring
+               ~needle:"Roster: Tech Lead | domain management | source local"
+               result.stdout)))
+
 let expect_dashboard_render_socket_refresh_failure_is_stale () =
   with_temp_dir (fun dir ->
       let state_path = Filename.concat dir "state.json" in
@@ -1010,6 +1042,8 @@ let () =
             expect_socket_dashboard_snapshot_rejects_unknown_actor;
           Alcotest.test_case "dashboard render socket" `Quick
             expect_dashboard_render_socket;
+          Alcotest.test_case "dashboard render socket uses roster index" `Quick
+            expect_dashboard_render_socket_uses_roster_index;
           Alcotest.test_case "dashboard render socket stale refresh" `Quick
             expect_dashboard_render_socket_refresh_failure_is_stale;
           Alcotest.test_case "launch dry run" `Quick

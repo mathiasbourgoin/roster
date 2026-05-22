@@ -176,6 +176,19 @@ let replay_dashboard_keys ?refresh interaction keys =
   in
   loop interaction keys
 
+let load_roster_dashboard roster_path dashboard =
+  match roster_path with
+  | None -> Ok dashboard
+  | Some path -> (
+      match Ta_core.Roster_index.load path with
+      | Ok roster ->
+          Ok (Ta_core.Dashboard_model.enrich_with_roster roster dashboard)
+      | Error errors ->
+          Error
+            (errors
+            |> List.map Ta_core.Roster_index.error_to_string
+            |> String.concat "\n"))
+
 let render_dashboard_model ?refresh width workspace agent keys dashboard =
   let interaction = Ta_core.Dashboard_interaction.init dashboard in
   match
@@ -193,14 +206,15 @@ let render_dashboard_model ?refresh width workspace agent keys dashboard =
       print_endline (Ta_core.Dashboard_interaction.render ~width interaction);
       `Ok 0
 
-let state_dashboard_model lines state_path =
+let state_dashboard_model roster_path lines state_path =
   match Ta_core.State_file.load ~path:state_path with
   | Error error -> Error (Ta_core.State_file.error_to_string error)
   | Ok store ->
       let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
-      Ok (Ta_core.Dashboard_model.of_state_runtime store runtime)
+      Ta_core.Dashboard_model.of_state_runtime store runtime
+      |> load_roster_dashboard roster_path
 
-let render_dashboard lines width workspace agent keys state_path =
+let render_dashboard lines width roster_path workspace agent keys state_path =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
     `Ok 2)
@@ -213,24 +227,26 @@ let render_dashboard lines width workspace agent keys state_path =
     prerr_endline "--width must be positive";
     `Ok 2)
   else
-    match state_dashboard_model lines state_path with
+    match state_dashboard_model roster_path lines state_path with
     | Error message ->
         prerr_endline message;
         `Ok 1
     | Ok dashboard ->
         render_dashboard_model
-          ~refresh:(fun () -> state_dashboard_model lines state_path)
+          ~refresh:(fun () ->
+            state_dashboard_model roster_path lines state_path)
           width workspace agent keys dashboard
 
-let socket_dashboard_model socket_path lines actor =
+let socket_dashboard_model roster_path socket_path lines actor =
   match
     Ta_core.Dashboard_socket_refresh.fetch_model ~socket_path ~actor ~lines ()
   with
-  | Ok dashboard -> Ok dashboard
+  | Ok dashboard -> load_roster_dashboard roster_path dashboard
   | Error error ->
       Error (Ta_core.Dashboard_socket_refresh.error_to_string error)
 
-let render_dashboard_socket socket_path lines width actor workspace agent keys =
+let render_dashboard_socket socket_path lines width roster_path actor workspace
+    agent keys =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
     `Ok 2)
@@ -256,14 +272,14 @@ let render_dashboard_socket socket_path lines width actor workspace agent keys =
     match actor with
     | Error () -> `Ok 2
     | Ok actor -> (
-        match socket_dashboard_model socket_path lines actor with
+        match socket_dashboard_model roster_path socket_path lines actor with
         | Error message ->
             prerr_endline message;
             `Ok 1
         | Ok dashboard ->
             render_dashboard_model
               ~refresh:(fun () ->
-                socket_dashboard_model socket_path lines actor)
+                socket_dashboard_model roster_path socket_path lines actor)
               width workspace agent keys dashboard)
 
 let parse_actor = function
@@ -859,8 +875,8 @@ let dashboard_render_cmd =
     Term.(
       ret
         (const render_dashboard $ runtime_lines_arg $ dashboard_width_arg
-       $ socket_workspace_arg $ socket_agent_arg $ dashboard_key_arg
-       $ state_path_arg))
+       $ roster_arg $ socket_workspace_arg $ socket_agent_arg
+       $ dashboard_key_arg $ state_path_arg))
 
 let dashboard_render_socket_cmd =
   let doc =
@@ -871,7 +887,7 @@ let dashboard_render_socket_cmd =
     Term.(
       ret
         (const render_dashboard_socket
-        $ socket_path_opt $ runtime_lines_arg $ dashboard_width_arg
+        $ socket_path_opt $ runtime_lines_arg $ dashboard_width_arg $ roster_arg
         $ socket_actor_arg $ socket_workspace_arg $ socket_agent_arg
         $ dashboard_key_arg))
 

@@ -1,6 +1,9 @@
 type entry = {
   name : string;
   display_name : string option;
+  description : string option;
+  domain : string list;
+  tags : string list;
   path : string option;
   source : string option;
 }
@@ -30,6 +33,21 @@ let optional_string_field path name fields =
   | Some (`String value) -> Ok (Some value)
   | Some _ -> fail (path ^ "." ^ name) "expected string"
 
+let optional_string_list_field path name fields =
+  match List.assoc_opt name fields with
+  | None -> Ok []
+  | Some (`List values) ->
+      let rec loop idx acc = function
+        | [] -> Ok (List.rev acc)
+        | `String value :: rest -> loop (idx + 1) (value :: acc) rest
+        | _ :: _ ->
+            fail
+              (path ^ "." ^ name ^ "[" ^ string_of_int idx ^ "]")
+              "expected string"
+      in
+      loop 0 [] values
+  | Some _ -> fail (path ^ "." ^ name) "expected string list"
+
 let component_type fields =
   match List.assoc_opt "component_type" fields with
   | Some (`String value) -> Some value
@@ -41,9 +59,22 @@ let parse_entry path json =
   | Some "agent" ->
       let* name = string_field path "name" fields in
       let* display_name = optional_string_field path "display_name" fields in
+      let* description = optional_string_field path "description" fields in
+      let* domain = optional_string_list_field path "domain" fields in
+      let* tags = optional_string_list_field path "tags" fields in
       let* path_value = optional_string_field path "path" fields in
       let* source = optional_string_field path "source" fields in
-      Ok (Some { name; display_name; path = path_value; source })
+      Ok
+        (Some
+           {
+             name;
+             display_name;
+             description;
+             domain;
+             tags;
+             path = path_value;
+             source;
+           })
   | _ -> Ok None
 
 let parse_array json =
@@ -92,5 +123,8 @@ let load path =
 
 let mem_agent index name =
   List.exists (fun entry -> String.equal entry.name name) index.agents
+
+let find_agent index name =
+  List.find_opt (fun entry -> String.equal entry.name name) index.agents
 
 let agents index = index.agents
