@@ -105,6 +105,43 @@ let as_string label = function
   | `String value -> value
   | _ -> Alcotest.fail ("expected JSON string: " ^ label)
 
+let as_int label = function
+  | `Int value -> value
+  | _ -> Alcotest.fail ("expected JSON int: " ^ label)
+
+let json_fields label = function
+  | `Assoc fields -> fields
+  | _ -> Alcotest.fail ("expected JSON object: " ^ label)
+
+let action_intent action = field "intent" action
+
+let action_kind action =
+  action |> action_intent |> field "kind" |> as_string "intent.kind"
+
+let has_action ?agent ?to_agent kind actions =
+  List.exists
+    (fun action ->
+      let intent = action_intent action in
+      let matches_agent =
+        match agent with
+        | None -> true
+        | Some expected -> (
+            match List.assoc_opt "agent" (json_fields "intent" intent) with
+            | Some value -> String.equal expected (as_string "agent" value)
+            | None -> false)
+      in
+      let matches_to_agent =
+        match to_agent with
+        | None -> true
+        | Some expected -> (
+            match List.assoc_opt "to_agent" (json_fields "intent" intent) with
+            | Some value -> String.equal expected (as_string "to_agent" value)
+            | None -> false)
+      in
+      String.equal kind (action_kind action)
+      && matches_agent && matches_to_agent)
+    actions
+
 let with_temp_dir f =
   let base =
     Filename.concat
@@ -234,6 +271,13 @@ let save_state state_path =
   let result =
     run_tactl
       [ "state"; "save"; "--output"; state_path; fixture "ta-valid.json" ]
+  in
+  check_exit "save exit" 0 result.status;
+  Alcotest.(check string) "save stderr" "" result.stderr
+
+let save_state_from_config state_path config_path =
+  let result =
+    run_tactl [ "state"; "save"; "--output"; state_path; config_path ]
   in
   check_exit "save exit" 0 result.status;
   Alcotest.(check string) "save stderr" "" result.stderr
@@ -663,6 +707,143 @@ let expect_dashboard_render_socket () =
           Alcotest.(check bool)
             "selected qa" true
             (contains_substring ~needle:"Preview: fixture/qa" result.stdout)))
+
+let expect_dashboard_actions_socket () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "dashboard";
+                "actions-socket";
+                "--socket";
+                socket_path;
+                "--actor";
+                "lead";
+                "--lines";
+                "3";
+                "--key";
+                "p";
+                "--key";
+                "Right";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          let json = Yojson.Safe.from_string result.stdout in
+          Alcotest.(check string)
+            "focus" "pipeline"
+            (json |> field "focus" |> as_string "focus");
+          Alcotest.(check string)
+            "selected target" "qa"
+            (json |> field "selected_target" |> field "agent"
+            |> as_string "selected_target.agent");
+          let actions =
+            json |> field "affordance" |> field "actions" |> as_list "actions"
+          in
+          let target_read =
+            match
+              List.find_opt
+                (fun action ->
+                  has_action ~agent:"qa" "runtime-snapshot" [ action ])
+                actions
+            with
+            | Some action -> action
+            | None -> Alcotest.fail "missing qa runtime snapshot action"
+          in
+          Alcotest.(check int)
+            "lines" 3
+            (target_read |> action_intent |> field "lines" |> as_int "lines");
+          Alcotest.(check bool)
+            "focus action" true
+            (has_action ~agent:"qa" "focus-pane" actions)))
+
+let expect_dashboard_actions_socket_exports_write_only_target () =
+  let config =
+    {|
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture",
+      "root": ".",
+      "tmux_session": "ta-fixture",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},
+        {"name": "qa", "roster_agent": "qa", "command": ["codex"]},
+        {"name": "writer", "roster_agent": "documenter", "command": ["codex"]}
+      ],
+      "links": [
+        {"from": "lead", "to": "qa", "permissions": ["read"], "reason": "qa"},
+        {"from": "lead", "to": "writer", "permissions": ["write"], "reason": "writer"}
+      ]
+    }
+  ]
+}
+|}
+  in
+  with_temp_dir (fun dir ->
+      let config_path = Filename.concat dir "ta.json" in
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      write_file config_path config;
+      save_state_from_config state_path config_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "dashboard";
+                "actions-socket";
+                "--socket";
+                socket_path;
+                "--actor";
+                "lead";
+                "--key";
+                "p";
+                "--key";
+                "Right";
+                "--key";
+                "]";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          let json = Yojson.Safe.from_string result.stdout in
+          Alcotest.(check string)
+            "selected target" "writer"
+            (json |> field "selected_target" |> field "agent"
+            |> as_string "selected_target.agent");
+          let actions =
+            json |> field "affordance" |> field "actions" |> as_list "actions"
+          in
+          Alcotest.(check bool)
+            "writer read hidden" false
+            (has_action ~agent:"writer" "runtime-snapshot" actions);
+          Alcotest.(check bool)
+            "writer focus hidden" false
+            (has_action ~agent:"writer" "focus-pane" actions);
+          Alcotest.(check bool)
+            "writer write visible" true
+            (has_action ~to_agent:"writer" "future-agent-message" actions)))
+
+let expect_dashboard_actions_socket_requires_actor () =
+  with_temp_dir (fun dir ->
+      let socket_path = Filename.concat dir "ta.sock" in
+      let result =
+        run_tactl [ "dashboard"; "actions-socket"; "--socket"; socket_path ]
+      in
+      check_exit "request exit" 2 result.status;
+      Alcotest.(check bool)
+        "actor required" true
+        (contains_substring
+           ~needle:"--actor is required for dashboard actions-socket"
+           result.stderr))
 
 let expect_dashboard_render_socket_uses_roster_index () =
   with_temp_dir (fun dir ->
@@ -1152,6 +1333,12 @@ let () =
             expect_socket_dashboard_snapshot_rejects_unknown_actor;
           Alcotest.test_case "dashboard render socket" `Quick
             expect_dashboard_render_socket;
+          Alcotest.test_case "dashboard actions socket" `Quick
+            expect_dashboard_actions_socket;
+          Alcotest.test_case "dashboard actions socket write-only target" `Quick
+            expect_dashboard_actions_socket_exports_write_only_target;
+          Alcotest.test_case "dashboard actions socket requires actor" `Quick
+            expect_dashboard_actions_socket_requires_actor;
           Alcotest.test_case "dashboard render socket uses roster index" `Quick
             expect_dashboard_render_socket_uses_roster_index;
           Alcotest.test_case "dashboard render socket redacts pipeline overview"

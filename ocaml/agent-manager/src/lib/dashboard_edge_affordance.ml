@@ -87,6 +87,112 @@ let socket_intent_to_string : type cap. cap socket_intent -> string = function
 let action_to_string (Action (intent, label)) =
   Printf.sprintf "%s | %s" label (socket_intent_to_string intent)
 
+let runtime_state_to_yojson = function
+  | Unknown -> `Assoc [ ("kind", `String "unknown") ]
+  | Unattached -> `Assoc [ ("kind", `String "unattached") ]
+  | Live -> `Assoc [ ("kind", `String "live") ]
+  | Missing message ->
+      `Assoc [ ("kind", `String "missing"); ("message", `String message) ]
+
+let pane_to_yojson = function
+  | None -> `Null
+  | Some pane -> `String (Id.Pane.to_string pane)
+
+let session_to_yojson = function
+  | None -> `Null
+  | Some session -> `String (Tmux.session_to_string session)
+
+let endpoint_to_yojson endpoint =
+  `Assoc
+    [
+      ("workspace", `String (Id.Workspace.to_string endpoint.workspace));
+      ("agent", `String (Id.Agent.to_string endpoint.agent));
+      ("tmux_session", session_to_yojson endpoint.tmux_session);
+      ("pane", pane_to_yojson endpoint.pane);
+      ("runtime_state", runtime_state_to_yojson endpoint.state);
+      ("preview_lines", `Int endpoint.preview_lines);
+    ]
+
+let target_to_yojson ?(selected = false) target =
+  `Assoc
+    [
+      ("endpoint", endpoint_to_yojson target.endpoint);
+      ("readable", `Bool target.readable);
+      ("writable", `Bool target.writable);
+      ("selected", `Bool selected);
+    ]
+
+let is_selected_target selected target =
+  match selected with
+  | None -> false
+  | Some selected -> Id.Agent.equal selected target.endpoint.agent
+
+let socket_intent_to_yojson : type cap. cap socket_intent -> Yojson.Safe.t =
+  function
+  | Runtime_snapshot { workspace; agent; lines } ->
+      `Assoc
+        [
+          ("kind", `String "runtime-snapshot");
+          ("workspace", `String (Id.Workspace.to_string workspace));
+          ("agent", `String (Id.Agent.to_string agent));
+          ("lines", `Int lines);
+        ]
+  | Future_agent_message { workspace; from_agent; to_agent } ->
+      `Assoc
+        [
+          ("kind", `String "future-agent-message");
+          ("workspace", `String (Id.Workspace.to_string workspace));
+          ("from_agent", `String (Id.Agent.to_string from_agent));
+          ("to_agent", `String (Id.Agent.to_string to_agent));
+        ]
+  | Focus_pane { workspace; agent; pane } ->
+      `Assoc
+        [
+          ("kind", `String "focus-pane");
+          ("workspace", `String (Id.Workspace.to_string workspace));
+          ("agent", `String (Id.Agent.to_string agent));
+          ("pane", pane_to_yojson pane);
+        ]
+
+let socket_intent_capability : type cap. cap socket_intent -> string = function
+  | Runtime_snapshot _ | Focus_pane _ -> "read"
+  | Future_agent_message _ -> "write"
+
+let action_to_yojson (Action (intent, label)) =
+  `Assoc
+    [
+      ("label", `String label);
+      ("capability", `String (socket_intent_capability intent));
+      ("intent", socket_intent_to_yojson intent);
+    ]
+
+let edge_id_to_yojson edge =
+  `Assoc
+    [
+      ( "workspace",
+        `String
+          (Id.Workspace.to_string (Dashboard_topology.edge_workspace edge)) );
+      ( "from_agent",
+        `String (Id.Agent.to_string (Dashboard_topology.edge_from_agent edge))
+      );
+    ]
+
+let to_yojson ?selected_target affordance =
+  `Assoc
+    [
+      ("edge", edge_id_to_yojson affordance.edge);
+      ("source", endpoint_to_yojson affordance.source);
+      ( "targets",
+        `List
+          (List.map
+             (fun target ->
+               target_to_yojson
+                 ~selected:(is_selected_target selected_target target)
+                 target)
+             affordance.targets) );
+      ("actions", `List (List.map action_to_yojson affordance.actions));
+    ]
+
 let target_permissions target =
   match (target.readable, target.writable) with
   | false, false -> "-"
@@ -103,11 +209,6 @@ let endpoint_line label endpoint =
     (session_to_string endpoint.tmux_session)
     (runtime_state_to_string endpoint.state)
     endpoint.preview_lines
-
-let is_selected_target selected target =
-  match selected with
-  | None -> false
-  | Some selected -> Id.Agent.equal selected target.endpoint.agent
 
 let target_line selected target =
   Printf.sprintf "%s Edge target: %s permissions %s"

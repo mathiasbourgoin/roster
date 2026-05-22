@@ -191,6 +191,47 @@ let as_string label = function
   | `String value -> value
   | _ -> Alcotest.fail ("expected JSON string: " ^ label)
 
+let as_bool label = function
+  | `Bool value -> value
+  | _ -> Alcotest.fail ("expected JSON bool: " ^ label)
+
+let as_int label = function
+  | `Int value -> value
+  | _ -> Alcotest.fail ("expected JSON int: " ^ label)
+
+let json_fields label = function
+  | `Assoc fields -> fields
+  | _ -> Alcotest.fail ("expected JSON object: " ^ label)
+
+let action_intent action = field "intent" action
+
+let action_kind action =
+  action |> action_intent |> field "kind" |> as_string "intent.kind"
+
+let has_action ?agent ?to_agent kind actions =
+  List.exists
+    (fun action ->
+      let intent = action_intent action in
+      let matches_agent =
+        match agent with
+        | None -> true
+        | Some expected -> (
+            match List.assoc_opt "agent" (json_fields "intent" intent) with
+            | Some value -> String.equal expected (as_string "agent" value)
+            | None -> false)
+      in
+      let matches_to_agent =
+        match to_agent with
+        | None -> true
+        | Some expected -> (
+            match List.assoc_opt "to_agent" (json_fields "intent" intent) with
+            | Some value -> String.equal expected (as_string "to_agent" value)
+            | None -> false)
+      in
+      String.equal kind (action_kind action)
+      && matches_agent && matches_to_agent)
+    actions
+
 let workspace_json snapshot =
   match snapshot |> field "workspaces" |> as_list "workspaces" with
   | workspace :: _ -> workspace
@@ -643,9 +684,8 @@ let expect_dashboard_render_replays_pipeline_edge_key () =
         "edge action" true
         (contains_substring ~needle:"Action: read target preview" result.stdout))
 
-let expect_dashboard_render_replays_pipeline_edge_target_key () =
-  let config =
-    {|
+let dashboard_multi_target_config =
+  {|
 {
   "version": "0.1.0",
   "workspaces": [
@@ -669,8 +709,9 @@ let expect_dashboard_render_replays_pipeline_edge_target_key () =
   ]
 }
 |}
-  in
-  with_temp_config config (fun config_path ->
+
+let expect_dashboard_render_replays_pipeline_edge_target_key () =
+  with_temp_config dashboard_multi_target_config (fun config_path ->
       with_temp_state (fun path ->
           let save =
             run_tactl [ "state"; "save"; "--output"; path; config_path ]
@@ -712,6 +753,110 @@ let expect_dashboard_render_replays_pipeline_edge_target_key () =
                ~needle:
                  "Action: read target preview | runtime-snapshot fixture/qa"
                result.stdout)))
+
+let expect_dashboard_actions_exports_json () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let result =
+        run_tactl
+          [
+            "dashboard";
+            "actions";
+            "--lines";
+            "3";
+            "--key";
+            "p";
+            "--key";
+            "Right";
+            path;
+          ]
+      in
+      check_exit "actions exit" 0 result.status;
+      Alcotest.(check string) "actions stderr" "" result.stderr;
+      let json = Yojson.Safe.from_string result.stdout in
+      Alcotest.(check string)
+        "focus" "pipeline"
+        (json |> field "focus" |> as_string "focus");
+      Alcotest.(check string)
+        "edge source" "lead"
+        (json |> field "selected_edge" |> field "from_agent"
+       |> as_string "from_agent");
+      Alcotest.(check string)
+        "selected target" "qa"
+        (json |> field "selected_target" |> field "agent"
+        |> as_string "selected_target.agent");
+      let actions =
+        json |> field "affordance" |> field "actions" |> as_list "actions"
+      in
+      let target_read =
+        match
+          List.find_opt
+            (fun action -> has_action ~agent:"qa" "runtime-snapshot" [ action ])
+            actions
+        with
+        | Some action -> action
+        | None -> Alcotest.fail "missing qa runtime snapshot action"
+      in
+      Alcotest.(check int)
+        "lines" 3
+        (target_read |> action_intent |> field "lines" |> as_int "lines");
+      Alcotest.(check bool)
+        "focus action" true
+        (has_action ~agent:"qa" "focus-pane" actions))
+
+let expect_dashboard_actions_cycles_target_json () =
+  with_temp_config dashboard_multi_target_config (fun config_path ->
+      with_temp_state (fun path ->
+          let save =
+            run_tactl [ "state"; "save"; "--output"; path; config_path ]
+          in
+          check_exit "save exit" 0 save.status;
+          let result =
+            run_tactl
+              [
+                "dashboard";
+                "actions";
+                "--actor";
+                "lead";
+                "--key";
+                "p";
+                "--key";
+                "Right";
+                "--key";
+                "]";
+                path;
+              ]
+          in
+          check_exit "actions exit" 0 result.status;
+          Alcotest.(check string) "actions stderr" "" result.stderr;
+          let json = Yojson.Safe.from_string result.stdout in
+          Alcotest.(check string)
+            "selected target" "qa"
+            (json |> field "selected_target" |> field "agent"
+            |> as_string "selected_target.agent");
+          let actions =
+            json |> field "affordance" |> field "actions" |> as_list "actions"
+          in
+          Alcotest.(check bool)
+            "actor write action" true
+            (has_action ~to_agent:"qa" "future-agent-message" actions);
+          let targets =
+            json |> field "affordance" |> field "targets" |> as_list "targets"
+          in
+          match
+            targets
+            |> List.find_opt (fun target ->
+                target |> field "selected" |> as_bool "selected")
+          with
+          | Some target ->
+              Alcotest.(check string)
+                "selected marker" "qa"
+                (target |> field "endpoint" |> field "agent"
+                |> as_string "target.endpoint.agent")
+          | None -> Alcotest.fail "expected selected target marker"))
 
 let expect_dashboard_render_uses_roster_index () =
   with_temp_state (fun path ->
@@ -858,6 +1003,10 @@ let () =
             expect_dashboard_render_replays_pipeline_edge_key;
           Alcotest.test_case "render replays pipeline edge target key" `Quick
             expect_dashboard_render_replays_pipeline_edge_target_key;
+          Alcotest.test_case "actions json" `Quick
+            expect_dashboard_actions_exports_json;
+          Alcotest.test_case "actions cycles target json" `Quick
+            expect_dashboard_actions_cycles_target_json;
           Alcotest.test_case "render uses roster index" `Quick
             expect_dashboard_render_uses_roster_index;
           Alcotest.test_case "render rejects bad width" `Quick
