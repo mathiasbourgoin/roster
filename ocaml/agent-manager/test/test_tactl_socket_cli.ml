@@ -87,6 +87,21 @@ let contains_substring ~needle value =
   in
   String.equal needle "" || loop 0
 
+let field name = function
+  | `Assoc fields -> (
+      match List.assoc_opt name fields with
+      | Some value -> value
+      | None -> Alcotest.fail ("missing JSON field: " ^ name))
+  | _ -> Alcotest.fail ("expected JSON object for field: " ^ name)
+
+let as_list label = function
+  | `List values -> values
+  | _ -> Alcotest.fail ("expected JSON list: " ^ label)
+
+let as_string label = function
+  | `String value -> value
+  | _ -> Alcotest.fail ("expected JSON string: " ^ label)
+
 let with_temp_dir f =
   let base =
     Filename.concat
@@ -350,6 +365,159 @@ let expect_socket_attach_pane () =
       Alcotest.(check bool)
         "audit pane" true
         (contains_substring ~needle:"pane qa: %88" show.stdout))
+
+let expect_socket_runtime_snapshot () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--lines";
+                "5";
+                "--workspace";
+                "fixture";
+                "--agent";
+                "lead";
+                "--actor";
+                "lead";
+                "runtime-snapshot";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          let json = Yojson.Safe.from_string result.stdout in
+          Alcotest.(check string)
+            "version" "0.1.0"
+            (json |> field "version" |> as_string "version");
+          let workspaces = json |> field "workspaces" |> as_list "workspaces" in
+          Alcotest.(check int) "workspace count" 1 (List.length workspaces);
+          match workspaces with
+          | [ workspace ] ->
+              let agents = workspace |> field "agents" |> as_list "agents" in
+              Alcotest.(check int) "agent count" 1 (List.length agents);
+              let lead =
+                agents
+                |> List.find_opt (fun agent ->
+                    String.equal "lead"
+                      (agent |> field "name" |> as_string "name"))
+                |> function
+                | Some agent -> agent
+                | None -> Alcotest.fail "missing lead"
+              in
+              Alcotest.(check string)
+                "lead unattached" "unattached"
+                (lead |> field "pane_state" |> field "kind" |> as_string "kind")
+          | _ -> Alcotest.fail "expected one workspace"))
+
+let expect_socket_runtime_snapshot_requires_actor () =
+  with_temp_dir (fun dir ->
+      let socket_path = Filename.concat dir "ta.sock" in
+      let result =
+        run_tactl
+          [
+            "socket";
+            "request";
+            "--socket";
+            socket_path;
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "runtime-snapshot";
+          ]
+      in
+      check_exit "request exit" 2 result.status;
+      Alcotest.(check bool)
+        "actor required" true
+        (contains_substring ~needle:"--actor is required for runtime-snapshot"
+           result.stderr))
+
+let expect_socket_runtime_snapshot_rejects_unauthorized_actor () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--workspace";
+                "fixture";
+                "--agent";
+                "lead";
+                "--actor";
+                "qa";
+                "runtime-snapshot";
+              ]
+          in
+          check_exit "request exit" 1 result.status;
+          Alcotest.(check bool)
+            "read denied" true
+            (contains_substring ~needle:"actor qa cannot read agent lead"
+               result.stderr)))
+
+let expect_socket_runtime_snapshot_rejects_bad_lines () =
+  with_temp_dir (fun dir ->
+      let socket_path = Filename.concat dir "ta.sock" in
+      let result =
+        run_tactl
+          [
+            "socket";
+            "request";
+            "--socket";
+            socket_path;
+            "--lines";
+            "0";
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "--actor";
+            "lead";
+            "runtime-snapshot";
+          ]
+      in
+      check_exit "request exit" 2 result.status;
+      Alcotest.(check bool)
+        "line error" true
+        (contains_substring ~needle:"--lines must be positive" result.stderr))
+
+let expect_socket_runtime_snapshot_rejects_large_lines () =
+  with_temp_dir (fun dir ->
+      let socket_path = Filename.concat dir "ta.sock" in
+      let result =
+        run_tactl
+          [
+            "socket";
+            "request";
+            "--socket";
+            socket_path;
+            "--lines";
+            "201";
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "--actor";
+            "lead";
+            "runtime-snapshot";
+          ]
+      in
+      check_exit "request exit" 2 result.status;
+      Alcotest.(check bool)
+        "line cap" true
+        (contains_substring ~needle:"--lines must be at most" result.stderr))
 
 let expect_socket_launch_dry_run () =
   with_temp_dir (fun dir ->
@@ -664,6 +832,16 @@ let () =
           Alcotest.test_case "state show" `Quick expect_socket_state_show;
           Alcotest.test_case "set status" `Quick expect_socket_set_status;
           Alcotest.test_case "attach pane" `Quick expect_socket_attach_pane;
+          Alcotest.test_case "runtime snapshot" `Quick
+            expect_socket_runtime_snapshot;
+          Alcotest.test_case "runtime snapshot requires actor" `Quick
+            expect_socket_runtime_snapshot_requires_actor;
+          Alcotest.test_case "runtime snapshot rejects unauthorized actor"
+            `Quick expect_socket_runtime_snapshot_rejects_unauthorized_actor;
+          Alcotest.test_case "runtime snapshot rejects bad lines" `Quick
+            expect_socket_runtime_snapshot_rejects_bad_lines;
+          Alcotest.test_case "runtime snapshot rejects large lines" `Quick
+            expect_socket_runtime_snapshot_rejects_large_lines;
           Alcotest.test_case "launch dry run" `Quick
             expect_socket_launch_dry_run;
           Alcotest.test_case "launch dry run absolutizes config" `Quick

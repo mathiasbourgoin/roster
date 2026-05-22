@@ -61,6 +61,9 @@ let store_with_panes () =
   attach_pane store lead lead_pane lead_identity |> fun store ->
   attach_pane store qa qa_pane qa_identity
 
+let store_with_lead_pane () =
+  store () |> fun store -> attach_pane store lead lead_pane lead_identity
+
 let tmux_error output =
   {
     Ta_core.Tmux.argv = [ "tmux"; "capture-pane" ];
@@ -102,6 +105,14 @@ let agent_names snapshot =
       workspace.agents)
   |> List.map (fun (agent : Ta_core.Runtime_snapshot.agent) ->
       Ta_core.Id.Agent.to_string agent.name)
+
+let lead_preview snapshot =
+  match snapshot.Ta_core.Runtime_snapshot.workspaces with
+  | [ { agents = lead_agent :: _; _ } ] -> lead_agent.preview
+  | _ -> Alcotest.fail "unexpected lead preview shape"
+
+let preview_size preview =
+  List.fold_left (fun size line -> size + String.length line) 0 preview
 
 let expect_collects_pane_previews () =
   let snapshot =
@@ -242,6 +253,43 @@ let expect_rejects_identity_mismatch () =
       | _ -> Alcotest.fail "expected missing pane after identity mismatch")
   | _ -> Alcotest.fail "unexpected snapshot"
 
+let preview_runner output = function
+  | Ta_core.Tmux.Display_pane_identity _ -> Ok "$1\t@1\n"
+  | Ta_core.Tmux.Capture_pane _ -> Ok output
+  | command ->
+      Alcotest.fail
+        ("unexpected tmux command: " ^ Ta_core.Tmux.command_line command)
+
+let expect_truncates_long_preview_line () =
+  let long_line =
+    String.make (Ta_core.Runtime_snapshot.max_preview_line_bytes + 100) 'x'
+  in
+  let snapshot =
+    Ta_core.Runtime_snapshot.collect ~now:42.0 ~lines:5
+      ~runner:(preview_runner long_line) (store_with_lead_pane ())
+  in
+  match lead_preview snapshot with
+  | [ line ] ->
+      Alcotest.(check int)
+        "line byte cap" Ta_core.Runtime_snapshot.max_preview_line_bytes
+        (String.length line);
+      Alcotest.(check bool) "line marker" true (String.contains line '[')
+  | _ -> Alcotest.fail "expected one truncated preview line"
+
+let expect_caps_total_preview_bytes () =
+  let line = String.make 1_000 'x' in
+  let output = List.init 300 (fun _ -> line) |> String.concat "\n" in
+  let snapshot =
+    Ta_core.Runtime_snapshot.collect ~now:42.0
+      ~lines:Ta_core.Runtime_snapshot.max_preview_lines
+      ~runner:(preview_runner output) (store_with_lead_pane ())
+  in
+  let preview = lead_preview snapshot in
+  Alcotest.(check bool)
+    "total preview byte cap" true
+    (preview_size preview <= Ta_core.Runtime_snapshot.max_preview_bytes);
+  Alcotest.(check bool) "keeps bounded preview" true (preview_size preview > 0)
+
 let () =
   Alcotest.run "runtime-snapshot"
     [
@@ -252,5 +300,9 @@ let () =
           Alcotest.test_case "json shape" `Quick expect_json_shape;
           Alcotest.test_case "rejects identity mismatch" `Quick
             expect_rejects_identity_mismatch;
+          Alcotest.test_case "truncates long preview line" `Quick
+            expect_truncates_long_preview_line;
+          Alcotest.test_case "caps total preview bytes" `Quick
+            expect_caps_total_preview_bytes;
         ] );
     ]
