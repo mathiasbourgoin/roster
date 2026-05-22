@@ -165,6 +165,25 @@ let last_audit_kind snapshot =
   | event :: _ -> event |> field "kind" |> field "kind" |> as_string "kind.kind"
   | [] -> Alcotest.fail "expected audit event"
 
+let expected_show
+    ?(audit_lines = [ "#1 fixture actor=system workspace-loaded" ]) () =
+  String.concat "\n"
+    ([
+       "TA state snapshot: 1 workspace(s), 2 agent(s), 3 audit event(s)";
+       "- fixture: 2 agents, 1 links";
+       "Workspace fixture (Fixture)";
+       "  root: .";
+       "  active_view: agents";
+       "  Agents:";
+       "  - lead [running] roster=tech-lead pane=%77";
+       "  - qa [not-started] roster=qa pane=-";
+       "  Links:";
+       "  - lead -> qa [read] fixture";
+       "Recent audit:";
+     ]
+    @ List.map (fun line -> "  " ^ line) audit_lines)
+  ^ "\n"
+
 let expect_state_mutations () =
   with_temp_state (fun path ->
       let save =
@@ -228,6 +247,95 @@ let expect_state_mutations () =
         (agent |> field "pane" |> as_string "pane");
       Alcotest.(check string)
         "last audit kind" "pane-attached" (last_audit_kind snapshot))
+
+let expect_state_show_detail () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let status =
+        run_tactl
+          [
+            "state";
+            "set-status";
+            path;
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "--status";
+            "running";
+            "--actor";
+            "lead";
+          ]
+      in
+      check_exit "status exit" 0 status.status;
+      let pane =
+        run_tactl
+          [
+            "state";
+            "attach-pane";
+            path;
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "--pane";
+            "%77";
+            "--actor";
+            "lead";
+          ]
+      in
+      check_exit "pane exit" 0 pane.status;
+      let show_default = run_tactl [ "state"; "show"; path ] in
+      check_exit "show default exit" 0 show_default.status;
+      Alcotest.(check string) "show default stderr" "" show_default.stderr;
+      Alcotest.(check string)
+        "show default stdout"
+        (expected_show
+           ~audit_lines:
+             [
+               "#1 fixture actor=system workspace-loaded";
+               "#2 fixture actor=lead status lead: not-started -> running";
+               "#3 fixture actor=lead pane lead: %77";
+             ]
+           ())
+        show_default.stdout;
+      let show = run_tactl [ "state"; "show"; "--audit-limit"; "2"; path ] in
+      check_exit "show exit" 0 show.status;
+      Alcotest.(check string) "show stderr" "" show.stderr;
+      Alcotest.(check string)
+        "show stdout"
+        (expected_show
+           ~audit_lines:
+             [
+               "#2 fixture actor=lead status lead: not-started -> running";
+               "#3 fixture actor=lead pane lead: %77";
+             ]
+           ())
+        show.stdout;
+      let show_zero =
+        run_tactl [ "state"; "show"; "--audit-limit"; "0"; path ]
+      in
+      check_exit "show zero exit" 0 show_zero.status;
+      Alcotest.(check string)
+        "show zero stdout"
+        (expected_show ~audit_lines:[ "- none" ] ())
+        show_zero.stdout)
+
+let expect_state_show_rejects_negative_limit () =
+  with_temp_state (fun path ->
+      let save =
+        run_tactl [ "state"; "save"; "--output"; path; fixture "ta-valid.json" ]
+      in
+      check_exit "save exit" 0 save.status;
+      let show = run_tactl [ "state"; "show"; "--audit-limit=-1"; path ] in
+      check_exit "exit" 2 show.status;
+      Alcotest.(check bool)
+        "reports audit limit" true
+        (contains_substring ~needle:"--audit-limit must be non-negative"
+           show.stderr))
 
 let expect_state_unknown_actor_keeps_snapshot () =
   with_temp_state (fun path ->
@@ -307,6 +415,9 @@ let () =
         [
           Alcotest.test_case "save and load" `Quick expect_state_save_and_load;
           Alcotest.test_case "mutations" `Quick expect_state_mutations;
+          Alcotest.test_case "show detail" `Quick expect_state_show_detail;
+          Alcotest.test_case "show rejects negative limit" `Quick
+            expect_state_show_rejects_negative_limit;
           Alcotest.test_case "unknown actor keeps snapshot" `Quick
             expect_state_unknown_actor_keeps_snapshot;
           Alcotest.test_case "bad status" `Quick expect_state_bad_status;
