@@ -20,7 +20,8 @@ let valid_config =
           "roster_agent": "tech-lead",
           "command": ["codex"],
           "cwd": ".",
-          "env": [{"name": "TA_MODE", "value": "lead"}]
+          "env": [{"name": "TA_MODE", "value": "lead"}],
+          "capabilities": ["create-agent", "connect-agents"]
         },
         {
           "name": "qa",
@@ -86,7 +87,18 @@ let expect_loads_config () =
   | Ok workspace ->
       Alcotest.(check (option string))
         "harness path" (Some ".harness/harness.json")
-        workspace.harness_path);
+        workspace.harness_path;
+      let lead = Ta_core.Id.Agent.unsafe_of_string "tech-lead" in
+      let lead_agent =
+        match Ta_core.State_store.find_agent workspace lead with
+        | Ok agent -> agent
+        | Error message -> Alcotest.fail message
+      in
+      Alcotest.(check (list string))
+        "capabilities"
+        [ "create-agent"; "connect-agents" ]
+        (List.map Ta_core.Agent_capability.to_string
+           lead_agent.capabilities));
   match Ta_core.State_store.audit_events store with
   | [ event ] -> (
       check_audit_seq "load seq" 1 event;
@@ -276,6 +288,11 @@ let expect_snapshot_roundtrip () =
           match Ta_core.State_store.find_agent workspace lead with
           | Error message -> Alcotest.fail message
           | Ok agent -> (
+              Alcotest.(check (list string))
+                "restored capabilities"
+                [ "create-agent"; "connect-agents" ]
+                (List.map Ta_core.Agent_capability.to_string
+                   agent.capabilities);
               Alcotest.(check string)
                 "status" "running"
                 (Ta_core.State_store.status_to_string agent.status);
@@ -300,6 +317,67 @@ let expect_snapshot_roundtrip () =
                   Ta_core.State_store.audit_events advanced
                   |> last_event
                   |> check_audit_seq "continued seq" 4)))
+
+let expect_legacy_snapshot_defaults_capabilities () =
+  let json =
+    Yojson.Safe.from_string
+      {|
+{
+  "version": "0.1.0",
+  "next_seq": 2,
+  "workspaces": [
+    {
+      "id": "agent-roster",
+      "label": "Agent Roster",
+      "root": ".",
+      "harness_path": ".harness/harness.json",
+      "tmux_session": "ta-agent-roster",
+      "active_view": "agents",
+      "agents": [
+        {
+          "name": "tech-lead",
+          "roster_agent": "tech-lead",
+          "status": {"kind": "not-started"},
+          "pane": null,
+          "pane_identity": null
+        }
+      ],
+      "links": []
+    }
+  ],
+  "audit_events": [
+    {
+      "seq": 1,
+      "workspace": "agent-roster",
+      "actor": null,
+      "kind": {"kind": "workspace-loaded"}
+    }
+  ]
+}
+|}
+  in
+  match Ta_core.State_store.of_yojson json with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.State_store.snapshot_error_to_string errors))
+  | Ok store -> (
+      match
+        Ta_core.State_store.find_workspace store
+          (Ta_core.Id.Workspace.unsafe_of_string "agent-roster")
+      with
+      | Error message -> Alcotest.fail message
+      | Ok workspace -> (
+          match
+            Ta_core.State_store.find_agent workspace
+              (Ta_core.Id.Agent.unsafe_of_string "tech-lead")
+          with
+          | Error message -> Alcotest.fail message
+          | Ok agent ->
+              Alcotest.(check (list string))
+                "legacy capabilities" []
+                (List.map Ta_core.Agent_capability.to_string
+                   agent.capabilities)))
 
 let expect_snapshot_rejects_version () =
   let store, _, _, _, _ = store_with_runtime_changes () in
@@ -476,6 +554,8 @@ let () =
             expect_rejects_unknown_actor;
           Alcotest.test_case "snapshot roundtrip" `Quick
             expect_snapshot_roundtrip;
+          Alcotest.test_case "legacy snapshot defaults capabilities" `Quick
+            expect_legacy_snapshot_defaults_capabilities;
           Alcotest.test_case "snapshot rejects version" `Quick
             expect_snapshot_rejects_version;
           Alcotest.test_case "snapshot rejects stale next seq" `Quick

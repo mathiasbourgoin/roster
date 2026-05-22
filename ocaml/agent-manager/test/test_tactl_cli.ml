@@ -321,8 +321,8 @@ let expected_show
        "  tmux_session: ta-fixture";
        "  active_view: agents";
        "  Agents:";
-       "  - lead [running] roster=tech-lead pane=%77";
-       "  - qa [not-started] roster=qa pane=-";
+       "  - lead [running] roster=tech-lead pane=%77 capabilities=-";
+       "  - qa [not-started] roster=qa pane=- capabilities=-";
        "  Links:";
        "  - lead -> qa [read] fixture";
        "Recent audit:";

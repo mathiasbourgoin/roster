@@ -70,6 +70,7 @@ Views are Herdr-like tabs within one workspace.
   "command": ["codex"],
   "cwd": ".",
   "env": [{"name": "TA_ROLE", "value": "tech-lead"}],
+  "capabilities": ["create-agent", "connect-agents"],
   "startup_prompt": "Lead the TA roadmap loop from agent-roster."
 }
 ```
@@ -81,7 +82,15 @@ Views are Herdr-like tabs within one workspace.
 - `command`: non-empty argv-style launch command.
 - `cwd`: optional working directory.
 - `env`: optional environment bindings.
+- `capabilities`: optional product capabilities for future TUI flows. Valid
+  values are `create-agent` and `connect-agents`. Missing means no special
+  authority.
 - `startup_prompt`: optional text sent after launch in a later milestone.
+
+Capabilities are separate from link permissions. Link permissions decide which
+existing sessions can be read or written; capabilities decide who may create
+new agents or connect agents once those TUI flows exist. They do not by
+themselves start sessions, edit ACLs, or bypass socket permissions.
 
 ## Link
 

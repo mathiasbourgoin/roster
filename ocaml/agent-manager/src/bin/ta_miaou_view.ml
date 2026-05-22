@@ -65,6 +65,14 @@ let privilege_label (agent : Ta_core.Dashboard_model.agent) =
   if readable = 0 && writable = 0 then "self only"
   else Printf.sprintf "reads %d | writes %d" readable writable
 
+let capability_label (agent : Ta_core.Dashboard_model.agent) =
+  match agent.capabilities with
+  | [] -> "none"
+  | capabilities ->
+      capabilities
+      |> List.map Ta_core.Agent_capability.to_string
+      |> String.concat ","
+
 let action_bar_for_agent (agent : Ta_core.Dashboard_model.agent) =
   let name = Ta_core.Id.Agent.to_string agent.name in
   match agent.pane with
@@ -187,6 +195,7 @@ let agent_detail width workspace agent =
       ("Roster", roster_label agent ^ " | id " ^ agent.roster_agent);
       ("Source", workspace_source_label workspace);
       ("Privileges", privilege_label agent);
+      ("Capabilities", capability_label agent);
       ( "Connections",
         "read "
         ^ join_agents agent.outgoing.readable

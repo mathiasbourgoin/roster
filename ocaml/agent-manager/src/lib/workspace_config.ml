@@ -7,6 +7,7 @@ type agent = {
   command : string list;
   cwd : string option;
   env : (string * string) list;
+  capabilities : Agent_capability.t list;
   startup_prompt : string option;
 }
 
@@ -121,8 +122,15 @@ let parse_agent path json =
   in
   let* cwd = optional_string_field path "cwd" fields in
   let* env = optional_list_field path "env" fields parse_env_binding in
+  let* capabilities =
+    optional_list_field path "capabilities" fields (fun item_path value ->
+        let* text = string_at item_path value in
+        match Agent_capability.of_string text with
+        | Ok capability -> Ok capability
+        | Error message -> fail item_path message)
+  in
   let* startup_prompt = optional_string_field path "startup_prompt" fields in
-  Ok { name; roster_agent; command; cwd; env; startup_prompt }
+  Ok { name; roster_agent; command; cwd; env; capabilities; startup_prompt }
 
 let parse_permission path json =
   let* text = string_at path json in
@@ -225,6 +233,17 @@ let agent_to_yojson (agent : agent) =
     @ (match agent.env with
       | [] -> []
       | env -> [ ("env", `List (List.map binding_to_yojson env)) ])
+    @ (match agent.capabilities with
+      | [] -> []
+      | capabilities ->
+          [
+            ( "capabilities",
+              `List
+                (List.map
+                   (fun capability ->
+                     `String (Agent_capability.to_string capability))
+                   capabilities) );
+          ])
     @ optional "startup_prompt" agent.startup_prompt)
 
 let link_to_yojson (link : link) =

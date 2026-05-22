@@ -115,6 +115,16 @@ let startup_prompt (agent : harness_agent) =
       Some ("Run as " ^ Id.Agent.to_string agent.name ^ " for this TA workspace.")
   | Some role -> Some ("Run as " ^ Id.Agent.to_string agent.name ^ ": " ^ role)
 
+let capability_authorities = [ "tech-lead"; "recruiter" ]
+
+let capabilities_for_agent (agent : harness_agent) =
+  if
+    List.exists
+      (String.equal (Id.Agent.to_string agent.name))
+      capability_authorities
+  then [ Agent_capability.Create_agent; Agent_capability.Connect_agents ]
+  else []
+
 let config_agent (agent : harness_agent) =
   let name = Id.Agent.to_string agent.name in
   {
@@ -123,6 +133,7 @@ let config_agent (agent : harness_agent) =
     command = [ "codex" ];
     cwd = Some ".";
     env = [ ("TA_ROLE", name) ];
+    capabilities = capabilities_for_agent agent;
     startup_prompt = startup_prompt agent;
   }
 

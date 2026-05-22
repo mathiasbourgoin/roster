@@ -651,11 +651,33 @@ let expect_harness_config_generates_workspace_dashboard () =
             (contains_substring ~needle:"Privileges    reads 1 | writes 1"
                frame.frame_text);
           Alcotest.(check bool)
+            "visible capabilities" true
+            (contains_substring
+               ~needle:"Capabilities  create-agent,connect-agents"
+               frame.frame_text);
+          Alcotest.(check bool)
             "config generated" true
             (Sys.file_exists ".harness/ta.json");
           Alcotest.(check bool)
             "state bootstrapped" true
-            (Sys.file_exists ".ta-state.json")))
+            (Sys.file_exists ".ta-state.json");
+          let qa_result =
+            run_ta_with_input
+              ~env:[ ("MIAOU_DRIVER", "headless") ]
+              ~stdin:"{\"cmd\":\"render\"}\n{\"cmd\":\"quit\"}\n"
+              [ "--agent"; "qa"; "--tui"; "always" ]
+          in
+          check_exit "qa exit" 0 qa_result.status;
+          Alcotest.(check string) "qa stderr" "" qa_result.stderr;
+          let qa_frame = last_frame qa_result.stdout in
+          Alcotest.(check bool)
+            "qa selected" true
+            (contains_substring ~needle:"Agent         agent-roster/qa"
+               qa_frame.frame_text);
+          Alcotest.(check bool)
+            "qa capabilities none" true
+            (contains_substring ~needle:"Capabilities  none"
+               qa_frame.frame_text)))
 
 let expect_ta_config_wins_over_harness_config () =
   with_temp_workspace (fun dir ->

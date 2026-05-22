@@ -13,6 +13,7 @@ let agent_of_config (agent : Workspace_config.agent) =
     status = Not_started;
     pane = None;
     pane_identity = None;
+    capabilities = agent.capabilities;
   }
 
 let link_of_config (link : Workspace_config.link) =
@@ -96,6 +97,11 @@ let permissions_to_string permissions =
 
 let option_to_list = function None -> [] | Some value -> [ value ]
 
+let capabilities_to_string = function
+  | [] -> "-"
+  | capabilities ->
+      capabilities |> List.map Agent_capability.to_string |> String.concat ","
+
 let audit_kind_to_string = function
   | Workspace_loaded -> "workspace-loaded"
   | Agent_status_changed { agent; before; after } ->
@@ -125,7 +131,9 @@ let describe_workspace workspace =
           (Id.Agent.to_string agent.name)
           (status_to_string agent.status)
           agent.roster_agent
-          (pane_to_string agent.pane))
+          (pane_to_string agent.pane)
+        ^ " capabilities="
+        ^ capabilities_to_string agent.capabilities)
   in
   let link_lines =
     match workspace.links with

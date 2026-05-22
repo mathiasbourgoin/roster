@@ -39,6 +39,7 @@ let agent_model ?(metadata = None) ?(readable = []) ?(writable = []) name
     name = agent name;
     roster_agent;
     roster_metadata = metadata;
+    capabilities = [];
     status = Ta_core.State_store.Not_started;
     pane = None;
     runtime_state = Ta_core.Dashboard_model.Unattached;

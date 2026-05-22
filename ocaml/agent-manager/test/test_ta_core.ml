@@ -20,7 +20,8 @@ let valid_config =
           "roster_agent": "tech-lead",
           "command": ["codex"],
           "cwd": ".",
-          "env": [{"name": "TA_MODE", "value": "lead"}]
+          "env": [{"name": "TA_MODE", "value": "lead"}],
+          "capabilities": ["create-agent", "connect-agents"]
         },
         {
           "name": "qa",
@@ -78,6 +79,50 @@ let contains_substring ~needle value =
   in
   String.equal needle "" || loop 0
 
+let expect_agent_capability () =
+  (match Ta_core.Agent_capability.of_string "create-agent" with
+  | Ok capability ->
+      Alcotest.(check string)
+        "create to_string" "create-agent"
+        (Ta_core.Agent_capability.to_string capability)
+  | Error message -> Alcotest.fail message);
+  (match Ta_core.Agent_capability.of_string "connect-agents" with
+  | Ok capability ->
+      Alcotest.(check string)
+        "connect to_string" "connect-agents"
+        (Ta_core.Agent_capability.to_string capability)
+  | Error message -> Alcotest.fail message);
+  (match Ta_core.Agent_capability.of_string "delete-agents" with
+  | Ok _ -> Alcotest.fail "unknown capability should be rejected"
+  | Error _ -> ());
+  let capabilities =
+    [
+      Ta_core.Agent_capability.Create_agent;
+      Ta_core.Agent_capability.Connect_agents;
+    ]
+  in
+  Alcotest.(check bool)
+    "equal" true
+    (Ta_core.Agent_capability.equal Ta_core.Agent_capability.Create_agent
+       Ta_core.Agent_capability.Create_agent);
+  Alcotest.(check bool)
+    "not equal" false
+    (Ta_core.Agent_capability.equal Ta_core.Agent_capability.Create_agent
+       Ta_core.Agent_capability.Connect_agents);
+  Alcotest.(check int)
+    "compare order" (-1)
+    (Ta_core.Agent_capability.compare Ta_core.Agent_capability.Create_agent
+       Ta_core.Agent_capability.Connect_agents);
+  Alcotest.(check bool)
+    "grants create" true
+    (Ta_core.Agent_capability.grants_create_agent capabilities);
+  Alcotest.(check bool)
+    "grants connect" true
+    (Ta_core.Agent_capability.grants_connect_agents capabilities);
+  Alcotest.(check bool)
+    "does not grant create" false
+    (Ta_core.Agent_capability.grants_create_agent [])
+
 let expect_valid () =
   match Ta_core.Workspace_config.parse_string valid_config with
   | Error errors ->
@@ -86,6 +131,28 @@ let expect_valid () =
            (List.map Ta_core.Workspace_config.error_to_string errors))
   | Ok config ->
       Alcotest.(check int) "workspace count" 1 (List.length config.workspaces);
+      let workspace =
+        match config.workspaces with
+        | [ workspace ] -> workspace
+        | _ -> Alcotest.fail "expected one workspace"
+      in
+      let lead =
+        match workspace.agents with
+        | lead :: _ -> lead
+        | [] -> Alcotest.fail "expected agents"
+      in
+      Alcotest.(check (list string))
+        "capabilities"
+        [ "create-agent"; "connect-agents" ]
+        (List.map Ta_core.Agent_capability.to_string lead.capabilities);
+      let qa =
+        match workspace.agents with
+        | _ :: qa :: _ -> qa
+        | _ -> Alcotest.fail "expected qa agent"
+      in
+      Alcotest.(check (list string))
+        "missing capabilities default to none" []
+        (List.map Ta_core.Agent_capability.to_string qa.capabilities);
       Alcotest.(check int)
         "validation errors" 0
         (List.length (Ta_core.Workspace_config.validate config))
@@ -211,6 +278,33 @@ let expect_unknown_permission () =
   | Error errors ->
       Alcotest.(check int) "one parse error" 1 (List.length errors)
 
+let expect_unknown_agent_capability () =
+  let text =
+    String.concat "\n"
+      [
+        "{";
+        {|  "version": "0.1.0",|};
+        {|  "workspaces": [|};
+        {|    {|};
+        {|      "id": "w",|};
+        {|      "label": "W",|};
+        {|      "root": ".",|};
+        {|      "tmux_session": "ta-w",|};
+        {|      "default_view": "agents",|};
+        {|      "views": [{"id": "agents", "label": "Agents"}],|};
+        {|      "agents": [|};
+        {|        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"], "capabilities": ["superuser"]}|};
+        {|      ]|};
+        {|    }|};
+        {|  ]|};
+        "}";
+      ]
+  in
+  match Ta_core.Workspace_config.parse_string text with
+  | Ok _ -> Alcotest.fail "unknown capability should fail parse"
+  | Error errors ->
+      Alcotest.(check int) "one parse error" 1 (List.length errors)
+
 let expect_workspace_config_roundtrip_json () =
   match Ta_core.Workspace_config.parse_string valid_config with
   | Error errors ->
@@ -235,7 +329,16 @@ let expect_workspace_config_roundtrip_json () =
             (List.length roundtrip.workspaces);
           Alcotest.(check int)
             "agent count" 2
-            (List.length workspace.agents))
+            (List.length workspace.agents);
+          let lead =
+            match workspace.agents with
+            | lead :: _ -> lead
+            | [] -> Alcotest.fail "expected agents"
+          in
+          Alcotest.(check (list string))
+            "roundtrip capabilities"
+            [ "create-agent"; "connect-agents" ]
+            (List.map Ta_core.Agent_capability.to_string lead.capabilities))
 
 let expect_harness_ta_config_projection () =
   match
@@ -267,6 +370,23 @@ let expect_harness_ta_config_projection () =
       in
       Alcotest.(check (list string))
         "tech lead first" [ "tech-lead"; "recruiter"; "qa" ] names;
+      let capabilities agent_name =
+        workspace.agents
+        |> List.find_opt (fun (agent : Ta_core.Workspace_config.agent) ->
+               String.equal agent_name (Ta_core.Id.Agent.to_string agent.name))
+        |> Option.map (fun (agent : Ta_core.Workspace_config.agent) ->
+               List.map Ta_core.Agent_capability.to_string agent.capabilities)
+        |> Option.value ~default:[]
+      in
+      Alcotest.(check (list string))
+        "tech lead capabilities"
+        [ "create-agent"; "connect-agents" ]
+        (capabilities "tech-lead");
+      Alcotest.(check (list string))
+        "recruiter capabilities"
+        [ "create-agent"; "connect-agents" ]
+        (capabilities "recruiter");
+      Alcotest.(check (list string)) "qa capabilities" [] (capabilities "qa");
       Alcotest.(check bool)
         "coordinator link" true
         (List.exists
@@ -841,6 +961,7 @@ let () =
       ( "workspace_config",
         [
           Alcotest.test_case "valid config" `Quick expect_valid;
+          Alcotest.test_case "agent capability" `Quick expect_agent_capability;
           Alcotest.test_case "invalid link" `Quick expect_invalid_link;
           Alcotest.test_case "duplicate agent" `Quick expect_duplicate_agent;
           Alcotest.test_case "invalid tmux session" `Quick
@@ -849,6 +970,8 @@ let () =
             expect_missing_file_is_result;
           Alcotest.test_case "unknown permission" `Quick
             expect_unknown_permission;
+          Alcotest.test_case "unknown agent capability" `Quick
+            expect_unknown_agent_capability;
           Alcotest.test_case "json roundtrip" `Quick
             expect_workspace_config_roundtrip_json;
         ] );

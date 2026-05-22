@@ -5,6 +5,11 @@ agent-roster project: the `tech-lead` selects the next loop action, the team
 implements or improves the roadmap, then review and QA verify the result before
 commit.
 
+Primary product constraint: TA should stay as simple to start and operate as
+Herdr. Roster-native authority, workspace state, and agent connections are
+advantages only when they reduce manual setup; the default path must remain
+pick workspace, pick agent, start or connect.
+
 ## Loop Policy
 
 - The loop is intentionally open-ended and stops only when Mathias stops it.
@@ -139,6 +144,10 @@ commit.
   Claude, and Codex surfaces are generated from that harness.
 - `terminal-ux-reviewer` now exists as a roster source agent with a Herdr-style
   tmux evidence contract and the two-selection Codex `tech-lead` start bar.
+- TA now has typed product capabilities for future creation and connection
+  flows. Harness-derived workspaces grant `create-agent` and `connect-agents`
+  only to `tech-lead` and `recruiter`; all other agents default to no special
+  authority, and the MIAOU selected-agent detail shows the result.
 
 ## Near-Term Milestones
 
@@ -148,6 +157,9 @@ commit.
   hand-written JSON.
   Acceptance bar: from `dune exec ta`, starting a Codex `tech-lead` must take
   no more than two primary selections in the TUI.
+- Keep capability-driven create/connect flows equally simple: privileged agents
+  should get one visible action, while non-privileged agents see request or
+  disabled states instead of configuration-heavy forms.
 - Add a TUI-visible regeneration/update path for generated `.harness/ta.json`
   and `.ta-state.json` when `.harness/harness.json` changes.
 - Add a command/profile selector for generated harness agents so TA can start

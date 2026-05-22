@@ -13,6 +13,7 @@ type agent = {
   command : string list;
   cwd : string option;
   env : (string * string) list;
+  capabilities : Agent_capability.t list;
   startup_prompt : string option;
 }
 

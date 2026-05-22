@@ -28,6 +28,8 @@ let status_to_yojson status =
   `Assoc (List.rev fields)
 
 let permission_to_yojson permission = `String (Permission.to_string permission)
+let capability_to_yojson capability =
+  `String (Agent_capability.to_string capability)
 
 let agent_to_yojson agent =
   let pane_identity =
@@ -50,6 +52,7 @@ let agent_to_yojson agent =
         | None -> `Null
         | Some pane -> `String (Id.Pane.to_string pane) );
       ("pane_identity", pane_identity);
+      ("capabilities", `List (List.map capability_to_yojson agent.capabilities));
     ]
 
 let link_to_yojson link =
@@ -218,7 +221,19 @@ let parse_agent path json =
         | Ok identity -> Ok (Some identity)
         | Error message -> fail (path ^ ".pane_identity") message)
   in
-  Ok { name; roster_agent; status; pane; pane_identity }
+  let* capabilities =
+    match optional_field "capabilities" fields with
+    | None -> Ok []
+    | Some values ->
+        list_at (path ^ ".capabilities")
+          (fun item_path value ->
+            let* text = string_at item_path value in
+            match Agent_capability.of_string text with
+            | Ok capability -> Ok capability
+            | Error message -> fail item_path message)
+          values
+  in
+  Ok { name; roster_agent; status; pane; pane_identity; capabilities }
 
 let parse_permission path json =
   let* text = string_at path json in

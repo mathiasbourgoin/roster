@@ -13,6 +13,7 @@ type agent = {
   status : agent_status;
   pane : Id.Pane.t option;
   pane_identity : Tmux.pane_identity option;
+  capabilities : Agent_capability.t list;
 }
 
 type link = {

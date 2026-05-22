@@ -116,6 +116,12 @@ let privilege_label (agent : Dashboard_model.agent) =
   if readable = 0 && writable = 0 then "self only"
   else Printf.sprintf "reads %d | writes %d" readable writable
 
+let capability_label (agent : Dashboard_model.agent) =
+  match agent.capabilities with
+  | [] -> "none"
+  | capabilities ->
+      capabilities |> List.map Agent_capability.to_string |> String.concat ","
+
 let header ?(now = Unix.gettimeofday ()) width state =
   let model = Dashboard_interaction.model state in
   let totals = model.totals in
@@ -211,6 +217,7 @@ let selected_agent_main width lines workspace agent =
     "Roster: " ^ roster_label agent ^ " | id " ^ agent.roster_agent;
     "Source: " ^ workspace_source_label workspace;
     "Privileges: " ^ privilege_label agent;
+    "Capabilities: " ^ capability_label agent;
     connections;
   ]
   @ agent_profile agent @ agent_description agent

@@ -3,6 +3,7 @@
  (public_name agent-roster-agent-manager.core)
  (modules
   id
+  agent_capability
   dashboard_action_export
   dashboard_edge_affordance
   dashboard_interaction

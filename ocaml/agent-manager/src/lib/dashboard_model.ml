@@ -21,6 +21,7 @@ type agent = {
   name : Id.Agent.t;
   roster_agent : string;
   roster_metadata : roster_metadata option;
+  capabilities : Agent_capability.t list;
   status : State_store.agent_status;
   pane : Id.Pane.t option;
   runtime_state : runtime_state;
@@ -109,6 +110,7 @@ let agent_of_state runtime workspace_id links (agent : State_store.agent) =
         name = agent.name;
         roster_agent = agent.roster_agent;
         roster_metadata = None;
+        capabilities = agent.capabilities;
         status = agent.status;
         pane = agent.pane;
         runtime_state = Unknown;
@@ -121,6 +123,7 @@ let agent_of_state runtime workspace_id links (agent : State_store.agent) =
         name = agent.name;
         roster_agent = agent.roster_agent;
         roster_metadata = None;
+        capabilities = agent.capabilities;
         status = agent.status;
         pane = runtime_agent.pane;
         runtime_state = runtime_state_of_snapshot runtime_agent.pane_state;

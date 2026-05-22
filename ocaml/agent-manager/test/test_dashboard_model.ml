@@ -11,7 +11,12 @@ let config =
       "default_view": "agents",
       "views": [{"id": "agents", "label": "Agents"}],
       "agents": [
-        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},
+        {
+          "name": "lead",
+          "roster_agent": "tech-lead",
+          "command": ["codex"],
+          "capabilities": ["create-agent", "connect-agents"]
+        },
         {"name": "qa", "roster_agent": "qa", "command": ["codex"]},
         {"name": "docs", "roster_agent": "documenter", "command": ["codex"]}
       ],
@@ -128,7 +133,21 @@ let expect_dashboard_model_counts () =
   match model.workspaces with
   | [ workspace ] ->
       Alcotest.(check int) "workspace live" 1 workspace.live_count;
-      Alcotest.(check int) "workspace links" 1 workspace.link_count
+      Alcotest.(check int) "workspace links" 1 workspace.link_count;
+      let lead_agent =
+        match
+          List.find_opt
+            (fun (agent : Ta_core.Dashboard_model.agent) ->
+              Ta_core.Id.Agent.equal agent.name lead)
+            workspace.agents
+        with
+        | Some agent -> agent
+        | None -> Alcotest.fail "missing lead agent"
+      in
+      Alcotest.(check (list string))
+        "dashboard capabilities"
+        [ "create-agent"; "connect-agents" ]
+        (List.map Ta_core.Agent_capability.to_string lead_agent.capabilities)
   | _ -> Alcotest.fail "expected one workspace"
 
 let expect_dashboard_render_frame () =

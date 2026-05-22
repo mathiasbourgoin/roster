@@ -27,6 +27,7 @@ type agent = {
   name : Id.Agent.t;
   roster_agent : string;
   roster_metadata : roster_metadata option;
+  capabilities : Agent_capability.t list;
   status : State_store.agent_status;
   pane : Id.Pane.t option;
   runtime_state : runtime_state;
