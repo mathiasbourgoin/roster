@@ -34,6 +34,9 @@ let config_candidates =
 let first_existing exists candidates =
   List.find_opt (fun candidate -> exists candidate.path) candidates
 
+let first_config_path ~exists =
+  first_existing exists config_candidates |> Option.map (fun candidate -> candidate.path)
+
 let resolve ~exists ?state_path ?config_path () =
   match (state_path, config_path) with
   | Some path, _ -> State { path; explicit = true }

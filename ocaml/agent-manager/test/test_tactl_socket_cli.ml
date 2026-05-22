@@ -202,40 +202,55 @@ let socket_mode socket_path =
   let stats = Unix.stat socket_path in
   stats.Unix.st_perm land 0o777
 
-let start_server ?server_cwd ~socket_path ~state_path () =
+let start_server ?server_cwd ?server_config ?server_actor ~socket_path
+    ~state_path () =
   let stdout_path, stdout_channel =
     Filename.open_temp_file "ta-server" ".out"
   in
   let stderr_path, stderr_channel =
     Filename.open_temp_file "ta-server" ".err"
   in
+  let config_args =
+    match server_config with
+    | None -> []
+    | Some config -> [ "--config"; config ]
+  in
+  let actor_args =
+    match server_actor with None -> [] | Some actor -> [ "--actor"; actor ]
+  in
+  let server_args = config_args @ actor_args in
   let program, argv =
     match server_cwd with
     | None ->
         ( tactl_exe (),
-          [|
-            tactl_exe ();
-            "socket";
-            "serve";
-            "--once";
-            "--socket";
-            socket_path;
-            "--state";
-            state_path;
-          |] )
+          Array.of_list
+            ([
+               tactl_exe ();
+               "socket";
+               "serve";
+               "--once";
+               "--socket";
+               socket_path;
+               "--state";
+               state_path;
+             ]
+            @ server_args) )
     | Some cwd ->
         ( "/bin/sh",
-          [|
-            "sh";
-            "-lc";
-            "cd \"$1\" && exec \"$2\" socket serve --once --socket \"$3\" \
-             --state \"$4\"";
-            "sh";
-            cwd;
-            absolute_path (tactl_exe ());
-            socket_path;
-            state_path;
-          |] )
+          Array.of_list
+            ([
+               "sh";
+               "-lc";
+               "cd \"$1\" && exe=\"$2\" && socket=\"$3\" && state=\"$4\" && \
+                shift 4 && exec \"$exe\" socket serve --once --socket \
+                \"$socket\" --state \"$state\" \"$@\"";
+               "sh";
+               cwd;
+               absolute_path (tactl_exe ());
+               socket_path;
+               state_path;
+             ]
+            @ server_args) )
   in
   let pid =
     Unix.create_process program argv Unix.stdin
@@ -254,8 +269,12 @@ let wait_server server =
   remove_noerr server.stderr_path;
   { status; stdout; stderr }
 
-let with_socket_server ?server_cwd ~state_path ~socket_path f =
-  let server = start_server ?server_cwd ~socket_path ~state_path () in
+let with_socket_server ?server_cwd ?server_config ?server_actor ~state_path
+    ~socket_path f =
+  let server =
+    start_server ?server_cwd ?server_config ?server_actor ~socket_path
+      ~state_path ()
+  in
   let waited = ref false in
   Fun.protect
     ~finally:(fun () ->
@@ -1149,6 +1168,140 @@ let expect_socket_launch_start_requires_actor () =
         (contains_substring ~needle:"--actor is required for launch-start"
            result.stderr))
 
+let expect_socket_start_agent_requires_server_config () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--workspace";
+                "fixture";
+                "--agent";
+                "lead";
+                "start-agent";
+              ]
+          in
+          check_exit "request exit" 1 result.status;
+          Alcotest.(check bool)
+            "server config required" true
+            (contains_substring
+               ~needle:"start-agent requires socket server --config"
+               result.stderr)))
+
+let expect_socket_start_agent_requires_server_actor () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~server_config:(fixture "ta-valid.json") ~state_path
+        ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--workspace";
+                "fixture";
+                "--agent";
+                "lead";
+                "start-agent";
+              ]
+          in
+          check_exit "request exit" 1 result.status;
+          Alcotest.(check bool)
+            "server actor required" true
+            (contains_substring
+               ~needle:"start-agent requires socket server --actor"
+               result.stderr)))
+
+let expect_socket_start_agent_rejects_client_config () =
+  with_temp_dir (fun dir ->
+      let socket_path = Filename.concat dir "ta.sock" in
+      let result =
+        run_tactl
+          [
+            "socket";
+            "request";
+            "--socket";
+            socket_path;
+            "--config";
+            fixture "ta-valid.json";
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "start-agent";
+          ]
+      in
+      check_exit "request exit" 2 result.status;
+      Alcotest.(check bool)
+        "client config rejected" true
+        (contains_substring
+           ~needle:"--config is not accepted for this socket command"
+           result.stderr))
+
+let expect_socket_start_agent_rejects_client_actor () =
+  with_temp_dir (fun dir ->
+      let socket_path = Filename.concat dir "ta.sock" in
+      let result =
+        run_tactl
+          [
+            "socket";
+            "request";
+            "--socket";
+            socket_path;
+            "--workspace";
+            "fixture";
+            "--agent";
+            "lead";
+            "--actor";
+            "lead";
+            "start-agent";
+          ]
+      in
+      check_exit "request exit" 2 result.status;
+      Alcotest.(check bool)
+        "client actor rejected" true
+        (contains_substring
+           ~needle:"--actor is not accepted for this socket command"
+           result.stderr))
+
+let expect_socket_start_agent_rejects_unauthorized_actor () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~server_config:(fixture "ta-valid.json")
+        ~server_actor:"lead" ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--workspace";
+                "fixture";
+                "--agent";
+                "qa";
+                "start-agent";
+              ]
+          in
+          check_exit "request exit" 1 result.status;
+          Alcotest.(check bool)
+            "write denied before launch" true
+            (contains_substring ~needle:"actor lead cannot write agent qa"
+               result.stderr)))
+
 let expect_socket_launch_start_rejects_unauthorized_actor () =
   with_temp_dir (fun dir ->
       let state_path = Filename.concat dir "state.json" in
@@ -1415,6 +1568,16 @@ let () =
             expect_socket_launch_requires_config;
           Alcotest.test_case "launch start requires actor" `Quick
             expect_socket_launch_start_requires_actor;
+          Alcotest.test_case "start agent requires server config" `Quick
+            expect_socket_start_agent_requires_server_config;
+          Alcotest.test_case "start agent requires server actor" `Quick
+            expect_socket_start_agent_requires_server_actor;
+          Alcotest.test_case "start agent rejects client config" `Quick
+            expect_socket_start_agent_rejects_client_config;
+          Alcotest.test_case "start agent rejects client actor" `Quick
+            expect_socket_start_agent_rejects_client_actor;
+          Alcotest.test_case "start agent rejects unauthorized actor" `Quick
+            expect_socket_start_agent_rejects_unauthorized_actor;
           Alcotest.test_case "launch start rejects unauthorized actor" `Quick
             expect_socket_launch_start_rejects_unauthorized_actor;
           Alcotest.test_case "launch rejects non-regular config" `Quick

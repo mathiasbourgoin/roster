@@ -18,6 +18,11 @@ type attachment = {
   target : Tmux.target;
 }
 
+type started_agent = {
+  attachment : attachment;
+  cleanup_command : Tmux.command;
+}
+
 type runner = Tmux.command -> (string, Tmux.error) result
 
 let ( let* ) = Result.bind
@@ -150,6 +155,8 @@ let cleanup runner sessions =
     (fun session -> ignore (runner (Tmux.Kill_session session)))
     sessions
 
+let run_cleanup_command runner command = ignore (runner command)
+
 let parse_pane_id ~target output =
   let output = String.trim output in
   match Id.Pane.of_string output with
@@ -209,6 +216,69 @@ let run_prompts runner agents attachments =
     | [], _ :: _ | _ :: _, [] -> invalid_arg "launch attachment mismatch"
   in
   loop (agents, attachments)
+
+let session_exists runner session =
+  match runner (Tmux.Has_session session) with Ok _ -> true | Error _ -> false
+
+let pane_cleanup_command pane = Tmux.Kill_pane (pane_target pane)
+
+let run_agent_in_existing_session runner workspace (agent : Launch_plan.agent) =
+  let target = workspace_target workspace in
+  let command =
+    Tmux.Split_window_with_pane_id
+      { target; cwd = Some agent.cwd; command = command_with_env agent }
+  in
+  let* pane = run_pane_command runner ~target command in
+  let cleanup_command = pane_cleanup_command pane in
+  let pane_target = pane_target pane in
+  let result =
+    let* identity = run_pane_identity runner ~target:pane_target in
+    let attachment = attachment pane_target agent pane identity in
+    let* () =
+      run_command runner (Tmux.Select_layout { target; layout = "tiled" })
+    in
+    let* () = run_prompt runner agent attachment in
+    Ok { attachment; cleanup_command }
+  in
+  match result with
+  | Ok _ as ok -> ok
+  | Error _ as error ->
+      run_cleanup_command runner cleanup_command;
+      error
+
+let run_agent_in_new_session runner workspace (agent : Launch_plan.agent) =
+  let target = workspace_target workspace in
+  let command =
+    Tmux.New_detached_session_with_pane_id
+      {
+        session = workspace.Launch_plan.session;
+        cwd = Some agent.cwd;
+        command = command_with_env agent;
+      }
+  in
+  let* pane =
+    match runner command with
+    | Error error -> Error (Tmux error)
+    | Ok output -> parse_pane_id ~target output
+  in
+  let cleanup_command = Tmux.Kill_session workspace.session in
+  let pane_target = pane_target pane in
+  let result =
+    let* identity = run_pane_identity runner ~target:pane_target in
+    let attachment = attachment pane_target agent pane identity in
+    let* () = run_prompt runner agent attachment in
+    Ok { attachment; cleanup_command }
+  in
+  match result with
+  | Ok _ as ok -> ok
+  | Error _ as error ->
+      run_cleanup_command runner cleanup_command;
+      error
+
+let run_agent_with runner workspace agent =
+  if session_exists runner workspace.Launch_plan.session then
+    run_agent_in_existing_session runner workspace agent
+  else run_agent_in_new_session runner workspace agent
 
 let run_workspace runner created (workspace : Launch_plan.workspace) =
   match workspace.agents with
@@ -289,6 +359,10 @@ let run_with runner (plan : Launch_plan.t) =
       | Error _ as error -> error)
 
 let run plan = run_with Tmux.run plan
+let cleanup_started_agent_with runner started =
+  run_cleanup_command runner started.cleanup_command
+
+let cleanup_started_agent started = cleanup_started_agent_with Tmux.run started
 let cleanup_plan plan = cleanup Tmux.run (sessions plan)
 
 let error_to_string = function

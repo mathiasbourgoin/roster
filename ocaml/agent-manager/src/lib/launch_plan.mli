@@ -21,10 +21,18 @@ type workspace = {
 
 type t = { workspaces : workspace list }
 
+type selected_agent = { workspace : workspace; agent : agent }
+
 val of_config :
   ?config_dir:string ->
   Workspace_config.t ->
   (t, Workspace_config.error list) result
+
+val find_agent :
+  t ->
+  workspace:Id.Workspace.t ->
+  agent:Id.Agent.t ->
+  (selected_agent, string) result
 
 val agent_count : t -> int
 val describe : t -> string

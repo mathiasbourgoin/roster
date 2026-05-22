@@ -1,9 +1,16 @@
 let ( let* ) = Result.bind
 
-let validate_agent store (agent : Launch_plan.agent) =
+let preflight_agent store (agent : Launch_plan.agent) =
   let* workspace = State_store.find_workspace store agent.workspace in
-  let* _agent = State_store.find_agent workspace agent.name in
-  Ok ()
+  let* current = State_store.find_agent workspace agent.name in
+  match current.pane with
+  | None -> Ok ()
+  | Some pane ->
+      Error
+        (Printf.sprintf "agent %s in workspace %s already has pane %s"
+           (Id.Agent.to_string agent.name)
+           (Id.Workspace.to_string agent.workspace)
+           (Id.Pane.to_string pane))
 
 let preflight store (plan : Launch_plan.t) =
   let rec loop = function
@@ -12,7 +19,7 @@ let preflight store (plan : Launch_plan.t) =
         let rec agents = function
           | [] -> loop rest
           | agent :: rest -> (
-              match validate_agent store agent with
+              match preflight_agent store agent with
               | Ok () -> agents rest
               | Error _ as error -> error)
         in

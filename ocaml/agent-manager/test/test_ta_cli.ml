@@ -440,6 +440,33 @@ let expect_miaou_headless_tui_uses_full_collapsed_width () =
         "collapsed view uses full width" true
         (contains_substring ~needle:"tech-lead | id tech-lead" frame.frame_text))
 
+let expect_miaou_headless_tui_start_without_socket_marks_stale () =
+  with_temp_state (fun path ->
+      save_state path;
+      let result =
+        run_ta_with_input
+          ~env:[ ("MIAOU_DRIVER", "headless") ]
+          ~stdin:
+            "{\"cmd\":\"key\",\"key\":\"s\"}\n\
+             {\"cmd\":\"render\"}\n\
+             {\"cmd\":\"quit\"}\n"
+          [
+            "--state";
+            path;
+            "--config";
+            fixture "ta-valid.json";
+            "--tui";
+            "always";
+          ]
+      in
+      check_exit "exit" 0 result.status;
+      Alcotest.(check string) "stderr" "" result.stderr;
+      let frame = last_frame result.stdout in
+      Alcotest.(check bool)
+        "stale start failure" true
+        (contains_substring ~needle:"stale: start-agent requires --socket"
+           frame.frame_text))
+
 let expect_no_defaults_prints_quickstart () =
   with_temp_workspace (fun dir ->
       with_chdir dir (fun () ->
@@ -544,5 +571,7 @@ let () =
             expect_miaou_headless_tui_respects_short_height;
           Alcotest.test_case "miaou headless tui uses collapsed width" `Quick
             expect_miaou_headless_tui_uses_full_collapsed_width;
+          Alcotest.test_case "miaou headless start without socket marks stale"
+            `Quick expect_miaou_headless_tui_start_without_socket_marks_stale;
         ] );
     ]

@@ -34,7 +34,12 @@ val tick_event : Dashboard_refresh_cadence.timestamp -> event
 val init : ?policy:Dashboard_refresh_cadence.policy -> Dashboard_model.t -> t
 
 val of_interaction :
-  ?policy:Dashboard_refresh_cadence.policy -> Dashboard_interaction.t -> t
+  ?policy:Dashboard_refresh_cadence.policy ->
+  ?refreshed_at:Dashboard_refresh_cadence.timestamp ->
+  Dashboard_interaction.t ->
+  t
+
+val with_interaction : Dashboard_interaction.t -> t -> t
 
 val interaction : t -> Dashboard_interaction.t
 val cadence : t -> Dashboard_refresh_cadence.state

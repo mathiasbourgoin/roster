@@ -26,6 +26,10 @@ type request =
       roster_index : string option;
       actor : Id.Agent.t;
     }
+  | Start_agent of {
+      workspace : Id.Workspace.t;
+      agent : Id.Agent.t;
+    }
 
 type response = Success of string | Failure of string
 
@@ -143,6 +147,13 @@ let request_to_yojson = function
           ("roster_index", string_option_to_yojson roster_index);
           ("actor", `String (Id.Agent.to_string actor));
         ]
+  | Start_agent { workspace; agent } ->
+      `Assoc
+        [
+          ("command", `String "start-agent");
+          ("workspace", `String (Id.Workspace.to_string workspace));
+          ("agent", `String (Id.Agent.to_string agent));
+        ]
 
 let launch_fields fields =
   let ( let* ) = Result.bind in
@@ -188,6 +199,12 @@ let dashboard_snapshot_of_fields fields =
   let* actor = required_actor_field "dashboard-snapshot" fields in
   Ok (Dashboard_snapshot { actor; lines })
 
+let start_agent_of_fields fields =
+  let ( let* ) = Result.bind in
+  let* workspace = id_field "workspace" Id.Workspace.of_string fields in
+  let* agent = id_field "agent" Id.Agent.of_string fields in
+  Ok (Start_agent { workspace; agent })
+
 let request_of_yojson = function
   | `Assoc fields -> (
       match string_field "command" fields with
@@ -214,6 +231,7 @@ let request_of_yojson = function
                   Ok (Launch_start { config_path; roster_index; actor })
               | Error _ as error -> error)
           | Error _ as error -> error)
+      | Ok "start-agent" -> start_agent_of_fields fields
       | Ok command -> Error ("unknown command: " ^ command))
   | _ -> Error "request must be a JSON object"
 

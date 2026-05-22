@@ -146,6 +146,12 @@ let roster_label (agent : Ta_core.Dashboard_model.agent) =
       Option.value metadata.display_name ~default:agent.roster_agent
 
 let agent_detail width workspace agent =
+  let start_label =
+    match (agent.Ta_core.Dashboard_model.pane, agent.runtime_state) with
+    | None, _ -> "s start selected agent"
+    | Some _, Live -> "attached | r refresh"
+    | Some _, _ -> "attached | r refresh"
+  in
   let items =
     [
       ( "Agent",
@@ -161,6 +167,7 @@ let agent_detail width workspace agent =
         ^ join_agents agent.outgoing.readable
         ^ " | write "
         ^ join_agents agent.outgoing.writable );
+      ("Actions", start_label);
     ]
   in
   Desc.create ~title:"Agent detail" ~key_width:12 ~items () |> fun desc ->

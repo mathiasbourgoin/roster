@@ -63,6 +63,16 @@ let attachment_of_agent (agent : Ta_core.Launch_plan.agent) =
     target = Ta_core.Tmux.unsafe_target_of_string agent.tmux_target;
   }
 
+let contains_substring ~needle value =
+  let needle_len = String.length needle in
+  let value_len = String.length value in
+  let rec loop idx =
+    if idx + needle_len > value_len then false
+    else if String.sub value idx needle_len = needle then true
+    else loop (idx + 1)
+  in
+  String.equal needle "" || loop 0
+
 let find_agent store workspace agent =
   match Ta_core.State_store.find_workspace store workspace with
   | Error message -> Alcotest.fail message
@@ -95,6 +105,25 @@ let expect_preflight_and_apply () =
                (Some attachment.pane)))
         attachments
 
+let expect_preflight_agent_rejects_attached_agent () =
+  let plan = plan () in
+  let store = store () in
+  let agent =
+    match planned_agents plan with
+    | agent :: _ -> agent
+    | [] -> Alcotest.fail "expected planned agent"
+  in
+  let attachment = attachment_of_agent agent in
+  match Ta_core.Launch_state.apply_attachments store [ attachment ] with
+  | Error message -> Alcotest.fail message
+  | Ok updated -> (
+      match Ta_core.Launch_state.preflight_agent updated agent with
+      | Ok () -> Alcotest.fail "attached agent should fail preflight"
+      | Error message ->
+          Alcotest.(check bool)
+            "attached error" true
+            (contains_substring ~needle:"already has pane" message))
+
 let () =
   Alcotest.run "launch-state"
     [
@@ -102,5 +131,7 @@ let () =
         [
           Alcotest.test_case "preflight and apply attachments" `Quick
             expect_preflight_and_apply;
+          Alcotest.test_case "preflight rejects attached agent" `Quick
+            expect_preflight_agent_rejects_attached_agent;
         ] );
     ]

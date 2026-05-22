@@ -38,6 +38,7 @@ type command =
   | Display_pane_id of target
   | Display_session_name of target
   | Display_pane_identity of target
+  | Kill_pane of target
   | Kill_session of session
 
 let valid_session_char = function
@@ -198,6 +199,7 @@ let argv = function
       [ "display-message"; "-p"; "-t"; target; "#{session_name}" ]
   | Display_pane_identity target ->
       [ "display-message"; "-p"; "-t"; target; "#{session_id}\t#{window_id}" ]
+  | Kill_pane target -> [ "kill-pane"; "-t"; target ]
   | Kill_session session -> [ "kill-session"; "-t"; session ]
 
 let command_line = function
@@ -336,6 +338,7 @@ let command_line = function
           shell_display_word target;
           shell_display_word "#{session_id}\t#{window_id}";
         ]
+  | Kill_pane target -> "tmux kill-pane -t " ^ shell_display_word target
   | Kill_session session -> "tmux kill-session -t " ^ shell_display_word session
 
 let read_all channel =

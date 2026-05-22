@@ -28,6 +28,10 @@ type request =
       roster_index : string option;
       actor : Id.Agent.t;
     }
+  | Start_agent of {
+      workspace : Id.Workspace.t;
+      agent : Id.Agent.t;
+    }
 
 type response = Success of string | Failure of string
 

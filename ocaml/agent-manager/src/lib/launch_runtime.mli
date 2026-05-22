@@ -20,12 +20,24 @@ type attachment = {
   target : Tmux.target;
 }
 
+type started_agent = {
+  attachment : attachment;
+  cleanup_command : Tmux.command;
+}
+
 type runner = Tmux.command -> (string, Tmux.error) result
 
 val commands : Launch_plan.t -> (Tmux.command list, error) result
 val command_lines : Launch_plan.t -> (string list, error) result
 val dry_run_lines : Launch_plan.t -> (string list, error) result
+val run_agent_with :
+  runner ->
+  Launch_plan.workspace ->
+  Launch_plan.agent ->
+  (started_agent, error) result
 val run_with : runner -> Launch_plan.t -> (attachment list, error) result
 val run : Launch_plan.t -> (attachment list, error) result
+val cleanup_started_agent_with : runner -> started_agent -> unit
+val cleanup_started_agent : started_agent -> unit
 val cleanup_plan : Launch_plan.t -> unit
 val error_to_string : error -> string

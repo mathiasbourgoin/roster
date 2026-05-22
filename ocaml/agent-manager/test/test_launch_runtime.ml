@@ -44,6 +44,13 @@ let parsed_plan () =
             (String.concat "\n"
                (List.map Ta_core.Workspace_config.error_to_string errors)))
 
+let selected_agent name =
+  let workspace = Ta_core.Id.Workspace.unsafe_of_string "fixture" in
+  let agent = Ta_core.Id.Agent.unsafe_of_string name in
+  match Ta_core.Launch_plan.find_agent (parsed_plan ()) ~workspace ~agent with
+  | Ok selected -> selected
+  | Error message -> Alcotest.fail message
+
 let expect_command_lines () =
   match Ta_core.Launch_runtime.dry_run_lines (parsed_plan ()) with
   | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
@@ -258,6 +265,99 @@ let expect_prompt_failure_cleans_created_session () =
   | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
   | Ok _ -> Alcotest.fail "prompt send should fail"
 
+let expect_run_agent_creates_missing_session () =
+  let commands = ref [] in
+  let runner command =
+    commands := command :: !commands;
+    match command with
+    | Ta_core.Tmux.Has_session _ -> Error (tmux_error command "missing")
+    | Ta_core.Tmux.New_detached_session_with_pane_id _ -> Ok "%10\n"
+    | Ta_core.Tmux.Display_pane_identity target -> identity_for_target target
+    | _ -> Ok ""
+  in
+  let selected = selected_agent "lead" in
+  match
+    Ta_core.Launch_runtime.run_agent_with runner selected.workspace
+      selected.agent
+  with
+  | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
+  | Ok started ->
+      Alcotest.(check string)
+        "pane" "%10"
+        (Ta_core.Id.Pane.to_string started.attachment.pane);
+      Alcotest.(check string)
+        "cleanup session" "tmux kill-session -t ta-fixture"
+        (Ta_core.Tmux.command_line started.cleanup_command);
+      let prompt_targets =
+        !commands
+        |> List.filter_map (function
+          | Ta_core.Tmux.Send_keys_literal { target; _ } ->
+              Some (Ta_core.Tmux.target_to_string target)
+          | _ -> None)
+        |> List.rev
+      in
+      Alcotest.(check (list string))
+        "prompt target uses captured pane" [ "%10" ] prompt_targets
+
+let expect_run_agent_splits_existing_session () =
+  let commands = ref [] in
+  let runner command =
+    commands := command :: !commands;
+    match command with
+    | Ta_core.Tmux.Has_session _ -> Ok ""
+    | Ta_core.Tmux.Split_window_with_pane_id _ -> Ok "%11\n"
+    | Ta_core.Tmux.Display_pane_identity target -> identity_for_target target
+    | _ -> Ok ""
+  in
+  let selected = selected_agent "qa" in
+  match
+    Ta_core.Launch_runtime.run_agent_with runner selected.workspace
+      selected.agent
+  with
+  | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
+  | Ok started ->
+      Alcotest.(check string)
+        "pane" "%11"
+        (Ta_core.Id.Pane.to_string started.attachment.pane);
+      Alcotest.(check string)
+        "cleanup pane" "tmux kill-pane -t %11"
+        (Ta_core.Tmux.command_line started.cleanup_command);
+      let saw_layout =
+        List.exists
+          (function Ta_core.Tmux.Select_layout _ -> true | _ -> false)
+          !commands
+      in
+      Alcotest.(check bool) "layout refreshed" true saw_layout
+
+let expect_run_agent_prompt_failure_cleans_split_pane () =
+  let commands = ref [] in
+  let runner command =
+    commands := command :: !commands;
+    match command with
+    | Ta_core.Tmux.Has_session _ -> Ok ""
+    | Ta_core.Tmux.Split_window_with_pane_id _ -> Ok "%10\n"
+    | Ta_core.Tmux.Display_pane_identity target -> identity_for_target target
+    | Ta_core.Tmux.Send_keys_literal _ -> Error (tmux_error command "prompt")
+    | _ -> Ok ""
+  in
+  let selected = selected_agent "lead" in
+  match
+    Ta_core.Launch_runtime.run_agent_with runner selected.workspace
+      selected.agent
+  with
+  | Error (Ta_core.Launch_runtime.Tmux _) ->
+      let saw_cleanup =
+        List.exists
+          (function
+            | Ta_core.Tmux.Kill_pane target ->
+                String.equal "%10" (Ta_core.Tmux.target_to_string target)
+            | _ -> false)
+          !commands
+      in
+      Alcotest.(check bool) "pane cleanup" true saw_cleanup
+  | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
+  | Ok _ -> Alcotest.fail "prompt send should fail"
+
 let () =
   Alcotest.run "launch-runtime"
     [
@@ -276,5 +376,11 @@ let () =
             expect_split_failure_cleans_created_session;
           Alcotest.test_case "prompt failure cleans created session" `Quick
             expect_prompt_failure_cleans_created_session;
+          Alcotest.test_case "run agent creates missing session" `Quick
+            expect_run_agent_creates_missing_session;
+          Alcotest.test_case "run agent splits existing session" `Quick
+            expect_run_agent_splits_existing_session;
+          Alcotest.test_case "run agent prompt failure cleans split pane" `Quick
+            expect_run_agent_prompt_failure_cleans_split_pane;
         ] );
     ]

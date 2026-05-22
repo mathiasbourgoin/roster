@@ -19,6 +19,8 @@ type workspace = {
 
 type t = { workspaces : workspace list }
 
+type selected_agent = { workspace : workspace; agent : agent }
+
 let resolve_path ~base path =
   if Filename.is_relative path then
     match (base, path) with
@@ -70,6 +72,26 @@ let of_config ?(config_dir = ".") config =
       Ok
         { workspaces = List.map (plan_workspace ~config_dir) config.workspaces }
   | errors -> Error errors
+
+let find_agent plan ~workspace ~agent =
+  match
+    List.find_opt
+      (fun candidate -> Id.Workspace.equal candidate.id workspace)
+      plan.workspaces
+  with
+  | None -> Error ("unknown workspace: " ^ Id.Workspace.to_string workspace)
+  | Some workspace_plan -> (
+      match
+        List.find_opt
+          (fun candidate -> Id.Agent.equal candidate.name agent)
+          workspace_plan.agents
+      with
+      | None ->
+          Error
+            (Printf.sprintf "unknown agent: %s in workspace %s"
+               (Id.Agent.to_string agent)
+               (Id.Workspace.to_string workspace))
+      | Some agent -> Ok { workspace = workspace_plan; agent })
 
 let agent_count plan =
   List.fold_left

@@ -86,8 +86,22 @@ let render_static_dashboard lines width height interaction =
     (Ta_core.Dashboard_interaction.render ~width ?height ~lines interaction);
   `Ok 0
 
-let render_dashboard_model ~refresh lines width height workspace agent keys
-    tui_mode dashboard =
+let start_agent_model lines state_path socket_path ~workspace ~agent =
+  match socket_path with
+  | Some socket_path -> (
+      let request = Ta_core.Socket_protocol.Start_agent { workspace; agent } in
+      match Ta_core.Socket_api.request ~socket_path request with
+      | Error error -> Error (Ta_core.Socket_api.error_to_string error)
+      | Ok (Ta_core.Socket_protocol.Failure message) -> Error message
+      | Ok (Ta_core.Socket_protocol.Success _) ->
+          state_dashboard_model lines state_path)
+  | None -> Error "start-agent requires --socket"
+
+let disabled_start_agent ~workspace:_ ~agent:_ =
+  Error "start-agent requires a state dashboard"
+
+let render_dashboard_model ~refresh ~start lines width height workspace agent
+    keys tui_mode dashboard =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
     `Ok 2)
@@ -134,20 +148,22 @@ let render_dashboard_model ~refresh lines width height workspace agent keys
                 | Error message ->
                     prerr_endline message;
                     `Ok 2
-                | Ok true -> `Ok (Ta_tui.run ~lines ~refresh interaction)
+                | Ok true ->
+                    `Ok (Ta_tui.run ~lines ~refresh ~start interaction)
                 | Ok false ->
                     render_static_dashboard lines width height interaction)))
 
 let render_state_dashboard lines width height workspace agent keys tui_mode
-    state_path =
+    socket_path _config_path state_path =
   match state_dashboard_model lines state_path with
   | Error message ->
       prerr_endline message;
       `Ok 1
   | Ok dashboard ->
+      let start = start_agent_model lines state_path socket_path in
       render_dashboard_model
         ~refresh:(fun () -> state_dashboard_model lines state_path)
-        lines width height workspace agent keys tui_mode dashboard
+        ~start lines width height workspace agent keys tui_mode dashboard
 
 let render_config_dashboard lines width height workspace agent keys tui_mode
     config_path =
@@ -158,17 +174,18 @@ let render_config_dashboard lines width height workspace agent keys tui_mode
   | Ok dashboard ->
       render_dashboard_model
         ~refresh:(fun () -> config_dashboard_model lines config_path)
-        lines width height workspace agent keys tui_mode dashboard
+        ~start:disabled_start_agent lines width height workspace agent keys
+        tui_mode dashboard
 
 let dashboard lines width height workspace agent keys tui_mode state_path
-    config_path =
+    socket_path config_path =
   match
     Ta_core.Startup_paths.resolve ~exists:Sys.file_exists ?state_path
       ?config_path ()
   with
   | Ta_core.Startup_paths.State { path; explicit = _ } ->
       render_state_dashboard lines width height workspace agent keys tui_mode
-        path
+        socket_path config_path path
   | Ta_core.Startup_paths.Config { path; explicit = _ } ->
       render_config_dashboard lines width height workspace agent keys tui_mode
         path
@@ -244,6 +261,13 @@ let tui_arg =
             MIAOU_DRIVER=headless is set, never renders one static frame. \
             Values: auto, always, never. Default: " ^ tui_mode_to_string Auto))
 
+let socket_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "socket" ] ~docv:"SOCKET"
+        ~doc:"TA Unix socket used by TUI actions such as start-agent")
+
 let root_cmd =
   let doc = "Launch the TA roster-agent workspace manager." in
   let man =
@@ -296,6 +320,6 @@ let root_cmd =
     Term.(
       ret
         (const dashboard $ lines_arg $ width_arg $ height_arg $ workspace_arg
-       $ agent_arg $ key_arg $ tui_arg $ state_arg $ config_arg))
+       $ agent_arg $ key_arg $ tui_arg $ state_arg $ socket_arg $ config_arg))
 
 let () = exit (Cmd.eval' root_cmd)

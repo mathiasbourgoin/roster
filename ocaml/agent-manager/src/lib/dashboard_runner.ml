@@ -41,13 +41,22 @@ let init ?(policy = Dashboard_refresh_cadence.default_policy) model =
   }
 
 let of_interaction ?(policy = Dashboard_refresh_cadence.default_policy)
-    interaction =
+    ?refreshed_at interaction =
+  let cadence =
+    match refreshed_at with
+    | None -> Dashboard_refresh_cadence.init
+    | Some at ->
+        Dashboard_refresh_cadence.record_success ~at
+          Dashboard_refresh_cadence.init
+  in
   {
     interaction;
     policy;
-    cadence = Dashboard_refresh_cadence.init;
+    cadence;
     last_refresh_reason = None;
   }
+
+let with_interaction interaction state = { state with interaction }
 
 let interaction state = state.interaction
 let cadence state = state.cadence

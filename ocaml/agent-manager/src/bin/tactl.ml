@@ -598,16 +598,13 @@ let tmux_smoke session_name =
 let print_socket_error error =
   prerr_endline (Ta_core.Socket_api.error_to_string error)
 
-let socket_serve once socket_path state_path =
-  match Ta_core.Socket_api.serve ~socket_path ~state_path ~once () with
-  | Ok () -> `Ok 0
-  | Error error ->
-      print_socket_error error;
-      `Ok 1
-
 let require_socket_option label = function
   | Some value -> Ok value
   | None -> Error (label ^ " is required for this socket command")
+
+let reject_socket_option label = function
+  | None -> Ok ()
+  | Some _ -> Error (label ^ " is not accepted for this socket command")
 
 let absolute_path path =
   if Filename.is_relative path then Filename.concat (Sys.getcwd ()) path
@@ -616,6 +613,37 @@ let absolute_path path =
 let absolute_path_option = function
   | None -> None
   | Some path -> Some (absolute_path path)
+
+let trusted_launch_config config_path roster_path =
+  match config_path with
+  | None -> None
+  | Some config_path ->
+      Some
+        (Ta_core.Socket_api.launch_config
+           ~config_path:(absolute_path config_path)
+           ?roster_index:(absolute_path_option roster_path)
+           ())
+
+let trusted_start_actor actor =
+  match parse_actor actor with
+  | Ok actor -> Ok actor
+  | Error _ as error -> error
+
+let socket_serve once socket_path state_path config_path roster_path actor =
+  let launch_config = trusted_launch_config config_path roster_path in
+  match trusted_start_actor actor with
+  | Error message ->
+      prerr_endline message;
+      `Ok 2
+  | Ok start_actor -> (
+      match
+        Ta_core.Socket_api.serve ?launch_config ?start_actor ~socket_path
+          ~state_path ~once ()
+      with
+      | Ok () -> `Ok 0
+      | Error error ->
+          print_socket_error error;
+          `Ok 1)
 
 let require_socket_actor command actor =
   let* actor = parse_actor actor in
@@ -674,6 +702,17 @@ let build_socket_request command audit_limit runtime_lines config_path
                roster_index = absolute_path_option roster_path;
                actor;
              })
+    | "start-agent" ->
+      let* () = reject_socket_option "--config" config_path in
+      let* () = reject_socket_option "--roster-index" roster_path in
+      let* () = reject_socket_option "--actor" actor in
+      let* workspace = require_socket_option "--workspace" workspace in
+      let* agent = require_socket_option "--agent" agent in
+      let* workspace =
+        parse_id "--workspace" Ta_core.Id.Workspace.of_string workspace
+      in
+      let* agent = parse_id "--agent" Ta_core.Id.Agent.of_string agent in
+      Ok (Ta_core.Socket_protocol.Start_agent { workspace; agent })
     | "set-status" ->
         let* workspace = require_socket_option "--workspace" workspace in
         let* agent = require_socket_option "--agent" agent in
@@ -863,15 +902,31 @@ let socket_command_arg =
     & info [] ~docv:"COMMAND"
         ~doc:
           "Socket command: state-summary, state-show, set-status, attach-pane, \
-           runtime-snapshot, dashboard-snapshot, launch-dry-run, or \
-           launch-start")
+           runtime-snapshot, dashboard-snapshot, launch-dry-run, launch-start, \
+           or start-agent")
 
-let socket_config_arg =
+let socket_request_config_arg =
   Arg.(
     value
     & opt (some file) None
     & info [ "config" ] ~docv:"CONFIG"
-        ~doc:"Workspace config for socket launch commands")
+        ~doc:
+          "Workspace config for launch-dry-run and launch-start socket \
+           requests")
+
+let socket_serve_config_arg =
+  Arg.(
+    value
+    & opt (some file) None
+    & info [ "config" ] ~docv:"CONFIG"
+        ~doc:"Trusted workspace config used by server-side start-agent")
+
+let socket_serve_actor_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "actor" ] ~docv:"AGENT"
+        ~doc:"Trusted actor identity bound to server-side start-agent")
 
 let socket_workspace_arg =
   Arg.(
@@ -1101,7 +1156,9 @@ let socket_serve_cmd =
   let doc = "Serve the local TA Unix socket API." in
   Cmd.v (Cmd.info "serve" ~doc)
     Term.(
-      ret (const socket_serve $ once_arg $ socket_path_opt $ socket_state_arg))
+      ret
+        (const socket_serve $ once_arg $ socket_path_opt $ socket_state_arg
+       $ socket_serve_config_arg $ roster_arg $ socket_serve_actor_arg))
 
 let socket_request_cmd =
   let doc = "Send one request to the local TA Unix socket API." in
@@ -1109,7 +1166,7 @@ let socket_request_cmd =
     Term.(
       ret
         (const socket_request $ socket_path_opt $ audit_limit_arg
-       $ runtime_lines_arg $ socket_config_arg $ roster_arg
+       $ runtime_lines_arg $ socket_request_config_arg $ roster_arg
        $ socket_workspace_arg $ socket_agent_arg $ socket_status_arg
        $ socket_reason_arg $ socket_pane_arg $ socket_actor_arg
        $ socket_command_arg))

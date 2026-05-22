@@ -109,6 +109,11 @@ commit.
   sidebar, agent status table, and selected-agent description panel while
   preserving short-terminal and narrow-terminal behavior under headless and
   tmux Matrix QA.
+- The MIAOU dashboard now has a selected-agent start action. Pressing `s`
+  sends a socket `start-agent` request for the current workspace/agent, uses
+  write ACLs, reuses server-trusted typed launch planning, persists the
+  captured tmux pane id, and cleans up a created pane/session if state
+  persistence fails.
 - The repo now dogfoods a canonical `.harness/` for TA development with a
   12-agent roster: `tech-lead`, `recruiter`, `harness-builder`, `planner`,
   `ocaml-implementer`, `implementer`, `ocaml-dune-specialist`, `reviewer`,
@@ -119,9 +124,10 @@ commit.
 
 ## Near-Term Milestones
 
-- Add a TUI-first start workflow: pick workspace, pick roster agent or template,
-  confirm command/profile, and TA creates the tmux pane plus state snapshot
-  without requiring hand-written JSON.
+- Upgrade the selected-agent start action into the full TUI-first start
+  workflow: pick workspace, pick roster agent or template, confirm
+  command/profile, and TA creates the tmux pane plus state snapshot without
+  requiring hand-written JSON.
   Acceptance bar: from `dune exec ta`, starting a Codex `tech-lead` must take
   no more than two primary selections in the TUI.
 - Make the full TUI use the installed `.harness` team as its primary runtime

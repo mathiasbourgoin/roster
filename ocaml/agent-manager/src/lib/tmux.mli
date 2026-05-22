@@ -44,6 +44,7 @@ type command =
   | Display_pane_id of target
   | Display_session_name of target
   | Display_pane_identity of target
+  | Kill_pane of target
   | Kill_session of session
 
 val session_of_string : string -> (session, string) result

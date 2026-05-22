@@ -1,6 +1,11 @@
 module Direct_page = Miaou_core.Direct_page
 module Tui_page = Miaou_core.Tui_page
 
+type start_agent =
+  workspace:Ta_core.Id.Workspace.t ->
+  agent:Ta_core.Id.Agent.t ->
+  (Ta_core.Dashboard_model.t, string) result
+
 let dashboard_timestamp () =
   match Ta_core.Dashboard_refresh_cadence.timestamp (Unix.gettimeofday ()) with
   | Ok timestamp -> timestamp
@@ -20,10 +25,39 @@ let key_step ~refresh runner key =
 
 let dashboard_key = function "Shift-Tab" | "S-Tab" -> "BackTab" | key -> key
 
-let run ~lines ~refresh interaction =
+let selected_start_target runner =
+  let interaction = Ta_core.Dashboard_runner.interaction runner in
+  match
+    ( Ta_core.Dashboard_interaction.selected_workspace interaction,
+      Ta_core.Dashboard_interaction.selected_agent interaction )
+  with
+  | Some workspace, Some agent -> Ok (interaction, workspace, agent)
+  | _ -> Error (interaction, "no selected workspace/agent to start")
+
+let update_interaction runner interaction =
+  Ta_core.Dashboard_runner.with_interaction interaction runner
+
+let start_step ~start runner =
+  match selected_start_target runner with
+  | Error (interaction, message) ->
+      Ta_core.Dashboard_interaction.refresh_failed message interaction
+      |> update_interaction runner
+  | Ok (interaction, workspace, agent) -> (
+      match start ~workspace ~agent with
+      | Ok model ->
+          Ta_core.Dashboard_interaction.refresh model interaction
+          |> update_interaction runner
+      | Error message ->
+          Ta_core.Dashboard_interaction.refresh_failed message interaction
+          |> update_interaction runner)
+
+let run ~lines ~refresh ~start interaction =
   let profile = Ta_miaou_view.{ lines } in
   let refresh_source = refresh in
-  let initial = Ta_core.Dashboard_runner.of_interaction interaction in
+  let initial =
+    Ta_core.Dashboard_runner.of_interaction
+      ~refreshed_at:(dashboard_timestamp ()) interaction
+  in
   let module Page = Direct_page.Make (struct
     include Direct_page.With_defaults (struct
       type state = Ta_core.Dashboard_runner.t
@@ -36,6 +70,7 @@ let run ~lines ~refresh interaction =
         | "q" | "Q" | "Esc" | "Escape" | "C-c" | "C-C" ->
             Direct_page.quit ();
             runner
+        | "s" | "S" -> start_step ~start runner
         | key -> key_step ~refresh:refresh_source runner (dashboard_key key)
     end)
 
@@ -47,6 +82,7 @@ let run ~lines ~refresh interaction =
         ("arrows/jk", "move");
         ("Tab", "focus");
         ("p", "pipeline");
+        ("s", "start");
         ("[ ]", "targets");
         ("r", "refresh");
       ]

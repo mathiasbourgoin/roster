@@ -25,4 +25,5 @@ val resolve :
   unit ->
   source
 
+val first_config_path : exists:(string -> bool) -> string option
 val describe_candidates : 'kind candidate list -> string

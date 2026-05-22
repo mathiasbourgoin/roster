@@ -1,6 +1,11 @@
 type error = Io of string | Protocol of string
 
 let error_to_string = function Io message | Protocol message -> message
+
+type launch_config = { config_path : string; roster_index : string option }
+
+let launch_config ~config_path ?roster_index () = { config_path; roster_index }
+
 let request_timeout_seconds = 2.0
 let response_timeout_seconds = 30.0
 let max_line_bytes = 1_048_576
@@ -185,7 +190,7 @@ let authorize_launch store ~actor plan =
     | workspace :: rest ->
         let rec agents = function
           | [] -> workspaces rest
-          | agent :: rest -> (
+          | (agent : Launch_plan.agent) :: rest -> (
               match
                 authorize_write store ~workspace:agent.Launch_plan.workspace
                   ~actor ~agent:agent.name
@@ -205,10 +210,37 @@ let preflight_launch_state state_path ~actor plan =
       let* () = Launch_state.preflight store plan in
       authorize_launch store ~actor plan
 
+let preflight_start_agent state_path ~actor
+    (selected : Launch_plan.selected_agent) =
+  match State_file.load ~path:state_path with
+  | Error error -> Error (State_file.error_to_string error)
+  | Ok store ->
+      let ( let* ) = Result.bind in
+      let* () = Launch_state.preflight_agent store selected.agent in
+      let agent = selected.agent in
+      authorize_write store ~workspace:agent.workspace ~actor ~agent:agent.name
+
 let update_launch_state state_path ~actor attachments =
   match
     State_file.update ~path:state_path (fun store ->
         Launch_state.apply_attachments ~actor store attachments)
+  with
+  | Ok store -> Ok store
+  | Error error -> Error (State_file.error_to_string error)
+
+let update_started_agent_state state_path ~actor
+    (selected : Launch_plan.selected_agent) started =
+  match
+    State_file.update ~path:state_path (fun store ->
+        let ( let* ) = Result.bind in
+        let* () = Launch_state.preflight_agent store selected.agent in
+        let agent = selected.agent in
+        let* () =
+          authorize_write store ~workspace:agent.workspace ~actor
+            ~agent:agent.name
+        in
+        Launch_state.apply_attachments ~actor store
+          [ started.Launch_runtime.attachment ])
   with
   | Ok store -> Ok store
   | Error error -> Error (State_file.error_to_string error)
@@ -247,6 +279,43 @@ let launch_start state_path ~config_path ?roster_index ~actor () =
                    ^ "\n\
                       launch-created tmux sessions cleaned up after state \
                       update failure"))))
+
+let start_agent state_path { config_path; roster_index } ~workspace ~agent
+    ~actor () =
+  match launch_plan ~config_path ?roster_index () with
+  | Error message -> Socket_protocol.Failure message
+  | Ok plan -> (
+      match Launch_plan.find_agent plan ~workspace ~agent with
+      | Error message -> Socket_protocol.Failure message
+      | Ok selected -> (
+          match preflight_start_agent state_path ~actor selected with
+          | Error message -> Socket_protocol.Failure message
+          | Ok () -> (
+              match
+                Launch_runtime.run_agent_with Tmux.run selected.workspace
+                  selected.agent
+              with
+              | Error error ->
+                  Socket_protocol.Failure
+                    (Launch_runtime.error_to_string error)
+              | Ok started -> (
+                  match
+                    update_started_agent_state state_path ~actor selected
+                      started
+                  with
+                  | Ok store ->
+                      Socket_protocol.Success
+                        (Printf.sprintf "started: %s/%s\n%s"
+                           (Id.Workspace.to_string workspace)
+                           (Id.Agent.to_string agent)
+                           (State_store.summarize store))
+                  | Error message ->
+                      Launch_runtime.cleanup_started_agent started;
+                      Socket_protocol.Failure
+                        (message
+                       ^ "\n\
+                          started tmux pane cleaned up after state update \
+                          failure")))))
 
 let runtime_snapshot state_path ~workspace ~agent ~actor ~lines =
   if lines < 1 then Socket_protocol.Failure "lines must be positive"
@@ -291,7 +360,17 @@ let dashboard_snapshot state_path ~actor ~lines =
             | Ok output -> Socket_protocol.Success output
             | Error message -> Socket_protocol.Failure message))
 
-let execute state_path = function
+let start_agent_requires_config () =
+  Socket_protocol.Failure
+    "start-agent requires socket server --config; clients may not supply launch \
+     commands"
+
+let start_agent_requires_actor () =
+  Socket_protocol.Failure
+    "start-agent requires socket server --actor; clients may not claim actor \
+     identity"
+
+let execute state_path launch_config start_actor = function
   | Socket_protocol.State_summary -> (
       match State_file.load ~path:state_path with
       | Ok store -> Socket_protocol.Success (State_store.summarize store)
@@ -338,8 +417,14 @@ let execute state_path = function
       launch_dry_run ~config_path ?roster_index ()
   | Launch_start { config_path; roster_index; actor } ->
       launch_start state_path ~config_path ?roster_index ~actor ()
+  | Start_agent { workspace; agent } -> (
+      match (launch_config, start_actor) with
+      | None, _ -> start_agent_requires_config ()
+      | _, None -> start_agent_requires_actor ()
+      | Some launch_config, Some actor ->
+          start_agent state_path launch_config ~workspace ~agent ~actor ())
 
-let handle_client ~state_path client =
+let handle_client ~state_path ~launch_config ~start_actor client =
   try
     Fun.protect
       ~finally:(fun () -> Unix.close client)
@@ -349,13 +434,13 @@ let handle_client ~state_path client =
           | Error message -> Socket_protocol.Failure message
           | Ok line -> (
               match Socket_protocol.decode_request line with
-              | Ok request -> execute state_path request
+              | Ok request -> execute state_path launch_config start_actor request
               | Error message -> Socket_protocol.Failure message)
         in
         ignore (write_line client (Socket_protocol.encode_response response)))
   with Sys_error _ | Unix.Unix_error _ -> ()
 
-let serve ~socket_path ~state_path ~once () =
+let serve ?launch_config ?start_actor ~socket_path ~state_path ~once () =
   let server = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   let bound = ref false in
   Fun.protect
@@ -376,7 +461,7 @@ let serve ~socket_path ~state_path ~once () =
                 Unix.listen server 16;
                 let rec loop () =
                   let client, _ = Unix.accept server in
-                  handle_client ~state_path client;
+                  handle_client ~state_path ~launch_config ~start_actor client;
                   if not once then loop ()
                 in
                 loop ();
