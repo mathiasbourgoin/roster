@@ -519,6 +519,136 @@ let expect_socket_runtime_snapshot_rejects_large_lines () =
         "line cap" true
         (contains_substring ~needle:"--lines must be at most" result.stderr))
 
+let expect_socket_dashboard_snapshot_actor_scoped () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--lines";
+                "5";
+                "--actor";
+                "qa";
+                "dashboard-snapshot";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          let json = Yojson.Safe.from_string result.stdout in
+          let state_workspaces =
+            json |> field "state" |> field "workspaces" |> as_list "workspaces"
+          in
+          Alcotest.(check int)
+            "state workspace count" 1
+            (List.length state_workspaces);
+          let state_agents =
+            match state_workspaces with
+            | [ workspace ] -> workspace |> field "agents" |> as_list "agents"
+            | _ -> Alcotest.fail "expected one state workspace"
+          in
+          Alcotest.(check int) "state agent count" 1 (List.length state_agents);
+          let state_agent =
+            match state_agents with
+            | [ agent ] -> agent
+            | _ -> Alcotest.fail "expected one state agent"
+          in
+          Alcotest.(check string)
+            "state agent" "qa"
+            (state_agent |> field "name" |> as_string "name");
+          let runtime_workspaces =
+            json |> field "runtime" |> field "workspaces"
+            |> as_list "runtime workspaces"
+          in
+          let runtime_agents =
+            match runtime_workspaces with
+            | [ workspace ] -> workspace |> field "agents" |> as_list "agents"
+            | _ -> Alcotest.fail "expected one runtime workspace"
+          in
+          Alcotest.(check int)
+            "runtime agent count" 1
+            (List.length runtime_agents);
+          let runtime_agent =
+            match runtime_agents with
+            | [ agent ] -> agent
+            | _ -> Alcotest.fail "expected one runtime agent"
+          in
+          Alcotest.(check string)
+            "runtime agent" "qa"
+            (runtime_agent |> field "name" |> as_string "name")))
+
+let expect_socket_dashboard_snapshot_requires_actor () =
+  with_temp_dir (fun dir ->
+      let socket_path = Filename.concat dir "ta.sock" in
+      let result =
+        run_tactl
+          [ "socket"; "request"; "--socket"; socket_path; "dashboard-snapshot" ]
+      in
+      check_exit "request exit" 2 result.status;
+      Alcotest.(check bool)
+        "actor required" true
+        (contains_substring ~needle:"--actor is required for dashboard-snapshot"
+           result.stderr))
+
+let expect_socket_dashboard_snapshot_rejects_unknown_actor () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "socket";
+                "request";
+                "--socket";
+                socket_path;
+                "--actor";
+                "missing";
+                "dashboard-snapshot";
+              ]
+          in
+          check_exit "request exit" 1 result.status;
+          Alcotest.(check bool)
+            "unknown actor" true
+            (contains_substring ~needle:"unknown actor: missing" result.stderr)))
+
+let expect_dashboard_render_socket () =
+  with_temp_dir (fun dir ->
+      let state_path = Filename.concat dir "state.json" in
+      let socket_path = Filename.concat dir "ta.sock" in
+      save_state state_path;
+      with_socket_server ~state_path ~socket_path (fun () ->
+          let result =
+            run_tactl
+              [
+                "dashboard";
+                "render-socket";
+                "--socket";
+                socket_path;
+                "--actor";
+                "lead";
+                "--key";
+                "Down";
+                "--width";
+                "92";
+              ]
+          in
+          check_exit "request exit" 0 result.status;
+          Alcotest.(check string) "request stderr" "" result.stderr;
+          Alcotest.(check bool)
+            "dashboard header" true
+            (contains_substring ~needle:"TA Dashboard" result.stdout);
+          Alcotest.(check bool)
+            "selected qa" true
+            (contains_substring ~needle:"Preview: fixture/qa" result.stdout)))
+
 let expect_socket_launch_dry_run () =
   with_temp_dir (fun dir ->
       let state_path = Filename.concat dir "state.json" in
@@ -842,6 +972,14 @@ let () =
             expect_socket_runtime_snapshot_rejects_bad_lines;
           Alcotest.test_case "runtime snapshot rejects large lines" `Quick
             expect_socket_runtime_snapshot_rejects_large_lines;
+          Alcotest.test_case "dashboard snapshot actor scoped" `Quick
+            expect_socket_dashboard_snapshot_actor_scoped;
+          Alcotest.test_case "dashboard snapshot requires actor" `Quick
+            expect_socket_dashboard_snapshot_requires_actor;
+          Alcotest.test_case "dashboard snapshot rejects unknown actor" `Quick
+            expect_socket_dashboard_snapshot_rejects_unknown_actor;
+          Alcotest.test_case "dashboard render socket" `Quick
+            expect_dashboard_render_socket;
           Alcotest.test_case "launch dry run" `Quick
             expect_socket_launch_dry_run;
           Alcotest.test_case "launch dry run absolutizes config" `Quick

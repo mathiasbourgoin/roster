@@ -223,6 +223,45 @@ let can_access store ~workspace ~from_agent ~to_agent permission =
           && Id.Agent.equal link.to_agent to_agent
           && List.exists (Permission.equal permission) link.permissions)
 
+let actor_exists workspace actor =
+  match find_agent workspace actor with Ok _ -> true | Error _ -> false
+
+let actor_can_read store workspace actor (agent : agent) =
+  Id.Agent.equal actor agent.name
+  || can_access store ~workspace ~from_agent:actor ~to_agent:agent.name
+       Permission.Read
+
+let visible_agent_names store workspace actor =
+  workspace.agents
+  |> List.filter (actor_can_read store workspace.id actor)
+  |> List.map (fun (agent : agent) -> agent.name)
+
+let agent_name_visible names agent = List.exists (Id.Agent.equal agent) names
+
+let link_visible names (link : link) =
+  agent_name_visible names link.from_agent
+  && agent_name_visible names link.to_agent
+
+let visible_workspace store actor workspace =
+  if not (actor_exists workspace actor) then None
+  else
+    let visible_names = visible_agent_names store workspace actor in
+    let agents =
+      workspace.agents
+      |> List.filter (fun (agent : agent) ->
+          agent_name_visible visible_names agent.name)
+    in
+    let links = workspace.links |> List.filter (link_visible visible_names) in
+    Some { workspace with agents; links }
+
+let visible_to_actor store ~actor =
+  let workspaces =
+    store.workspaces |> List.filter_map (visible_workspace store actor)
+  in
+  match workspaces with
+  | [] -> Error ("unknown actor: " ^ Id.Agent.to_string actor)
+  | workspaces -> Ok { workspaces; audit_events = []; next_seq = 1 }
+
 let ( let* ) = Result.bind
 
 let validate_actor workspace = function

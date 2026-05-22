@@ -196,6 +196,76 @@ let render_dashboard lines width workspace agent keys state_path =
               (Ta_core.Dashboard_interaction.render ~width interaction);
             `Ok 0)
 
+let render_dashboard_snapshot width workspace agent keys snapshot =
+  let dashboard = Ta_core.Dashboard_snapshot.to_dashboard_model snapshot in
+  let interaction = Ta_core.Dashboard_interaction.init dashboard in
+  match
+    let* workspace =
+      parse_optional_id "--workspace" Ta_core.Id.Workspace.of_string workspace
+    in
+    let* agent = parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent in
+    Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
+  with
+  | Error message ->
+      prerr_endline message;
+      `Ok 2
+  | Ok interaction ->
+      let interaction =
+        List.fold_left Ta_core.Dashboard_interaction.handle_key interaction keys
+      in
+      print_endline (Ta_core.Dashboard_interaction.render ~width interaction);
+      `Ok 0
+
+let render_dashboard_socket socket_path lines width actor workspace agent keys =
+  if lines < 1 then (
+    prerr_endline "--lines must be positive";
+    `Ok 2)
+  else if lines > Ta_core.Runtime_snapshot.max_preview_lines then (
+    prerr_endline
+      ("--lines must be at most "
+      ^ string_of_int Ta_core.Runtime_snapshot.max_preview_lines);
+    `Ok 2)
+  else if width < 1 then (
+    prerr_endline "--width must be positive";
+    `Ok 2)
+  else
+    let actor =
+      match parse_optional_id "--actor" Ta_core.Id.Agent.of_string actor with
+      | Error message ->
+          prerr_endline message;
+          Error ()
+      | Ok None ->
+          prerr_endline "--actor is required for dashboard render-socket";
+          Error ()
+      | Ok (Some actor) -> Ok actor
+    in
+    match actor with
+    | Error () -> `Ok 2
+    | Ok actor -> (
+        let request =
+          Ta_core.Socket_protocol.Dashboard_snapshot { actor; lines }
+        in
+        match Ta_core.Socket_api.request ~socket_path request with
+        | Error error ->
+            prerr_endline (Ta_core.Socket_api.error_to_string error);
+            `Ok 1
+        | Ok (Ta_core.Socket_protocol.Failure message) ->
+            prerr_endline message;
+            `Ok 1
+        | Ok (Ta_core.Socket_protocol.Success output) -> (
+            match
+              output |> Yojson.Safe.from_string
+              |> Ta_core.Dashboard_snapshot.of_yojson
+            with
+            | Ok snapshot ->
+                render_dashboard_snapshot width workspace agent keys snapshot
+            | Error message ->
+                prerr_endline message;
+                `Ok 1
+            | exception Yojson.Json_error message ->
+                prerr_endline ("invalid dashboard snapshot JSON: " ^ message);
+                `Ok 1))
+
 let parse_actor = function
   | None -> Ok None
   | Some value ->
@@ -450,6 +520,12 @@ let build_socket_request command audit_limit runtime_lines config_path
         Ok
           (Ta_core.Socket_protocol.Runtime_snapshot
              { workspace; agent; actor; lines = runtime_lines })
+    | "dashboard-snapshot" ->
+        let* actor = require_socket_actor "dashboard-snapshot" actor in
+        let* () = validate_runtime_lines runtime_lines in
+        Ok
+          (Ta_core.Socket_protocol.Dashboard_snapshot
+             { actor; lines = runtime_lines })
     | "launch-dry-run" ->
         let* config_path = require_socket_option "--config" config_path in
         Ok
@@ -643,7 +719,8 @@ let socket_command_arg =
     & info [] ~docv:"COMMAND"
         ~doc:
           "Socket command: state-summary, state-show, set-status, attach-pane, \
-           runtime-snapshot, launch-dry-run, or launch-start")
+           runtime-snapshot, dashboard-snapshot, launch-dry-run, or \
+           launch-start")
 
 let socket_config_arg =
   Arg.(
@@ -785,9 +862,24 @@ let dashboard_render_cmd =
        $ socket_workspace_arg $ socket_agent_arg $ dashboard_key_arg
        $ state_path_arg))
 
+let dashboard_render_socket_cmd =
+  let doc =
+    "Render a TA dashboard frame from the local socket control plane."
+  in
+  Cmd.v
+    (Cmd.info "render-socket" ~doc)
+    Term.(
+      ret
+        (const render_dashboard_socket
+        $ socket_path_opt $ runtime_lines_arg $ dashboard_width_arg
+        $ socket_actor_arg $ socket_workspace_arg $ socket_agent_arg
+        $ dashboard_key_arg))
+
 let dashboard_cmd =
   let doc = "Render dashboard views for the future MIAOU TUI." in
-  Cmd.group (Cmd.info "dashboard" ~doc) [ dashboard_render_cmd ]
+  Cmd.group
+    (Cmd.info "dashboard" ~doc)
+    [ dashboard_render_cmd; dashboard_render_socket_cmd ]
 
 let launch_plan_cmd =
   let doc = "Print a deterministic supervised tmux launch plan." in
