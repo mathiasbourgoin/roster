@@ -106,6 +106,18 @@ let expect_state_dashboard () =
         "preview" true
         (contains_substring ~needle:"Preview: fixture/lead" result.stdout))
 
+let expect_state_dashboard_replays_key () =
+  with_temp_state (fun path ->
+      save_state path;
+      let result =
+        run_ta [ "--state"; path; "--width"; "92"; "--key"; "Down" ]
+      in
+      check_exit "exit" 0 result.status;
+      Alcotest.(check string) "stderr" "" result.stderr;
+      Alcotest.(check bool)
+        "selected qa preview" true
+        (contains_substring ~needle:"Preview: fixture/qa" result.stdout))
+
 let expect_rejects_bad_width () =
   with_temp_state (fun path ->
       save_state path;
@@ -121,6 +133,8 @@ let () =
       ( "dashboard",
         [
           Alcotest.test_case "state dashboard" `Quick expect_state_dashboard;
+          Alcotest.test_case "state dashboard replays key" `Quick
+            expect_state_dashboard_replays_key;
           Alcotest.test_case "rejects bad width" `Quick expect_rejects_bad_width;
         ] );
     ]

@@ -44,12 +44,14 @@ commit.
   fetch authorized, cacheable pane previews through the local control plane.
 - Dashboard view model and static TUI frame renderer for workspace navigation,
   agent runtime health, ACL summaries, and pane preview panels.
+- Dashboard interaction state with keyboard-style selection, refresh requests,
+  and selected preview rendering for the future MIAOU page.
 
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
-- Replace the static dashboard frame with an interactive MIAOU runner using the
-  dashboard model as its state/view boundary.
+- Add the concrete MIAOU runner when `miaou-tui` is available in the TA opam
+  switch; wire it to `Dashboard_interaction`.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts at common viewport sizes.

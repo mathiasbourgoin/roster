@@ -140,7 +140,18 @@ let runtime_snapshot lines output_path state_path =
                 prerr_endline (path ^ ": " ^ message);
                 `Ok 1))
 
-let render_dashboard lines width state_path =
+let parse_id label parse value =
+  match parse value with
+  | Ok id -> Ok id
+  | Error message -> Error (label ^ ": " ^ message)
+
+let parse_optional_id label parse = function
+  | None -> Ok None
+  | Some value ->
+      let* id = parse_id label parse value in
+      Ok (Some id)
+
+let render_dashboard lines width workspace agent keys state_path =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
     `Ok 2)
@@ -157,18 +168,33 @@ let render_dashboard lines width state_path =
     | Error error ->
         print_state_file_error error;
         `Ok 1
-    | Ok store ->
+    | Ok store -> (
         let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
         let dashboard =
           Ta_core.Dashboard_model.of_state_runtime store runtime
         in
-        print_endline (Ta_core.Dashboard_model.render ~width dashboard);
-        `Ok 0
-
-let parse_id label parse value =
-  match parse value with
-  | Ok id -> Ok id
-  | Error message -> Error (label ^ ": " ^ message)
+        let interaction = Ta_core.Dashboard_interaction.init dashboard in
+        match
+          let* workspace =
+            parse_optional_id "--workspace" Ta_core.Id.Workspace.of_string
+              workspace
+          in
+          let* agent =
+            parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent
+          in
+          Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
+        with
+        | Error message ->
+            prerr_endline message;
+            `Ok 2
+        | Ok interaction ->
+            let interaction =
+              List.fold_left Ta_core.Dashboard_interaction.handle_key
+                interaction keys
+            in
+            print_endline
+              (Ta_core.Dashboard_interaction.render ~width interaction);
+            `Ok 0)
 
 let parse_actor = function
   | None -> Ok None
@@ -587,6 +613,12 @@ let dashboard_width_arg =
     & info [ "width" ] ~docv:"COLS"
         ~doc:"Dashboard frame width used by the static renderer")
 
+let dashboard_key_arg =
+  Arg.(
+    value & opt_all string []
+    & info [ "key" ] ~docv:"KEY"
+        ~doc:"Replay one dashboard key before rendering; may be repeated")
+
 let socket_path_opt =
   Arg.(
     required
@@ -750,6 +782,7 @@ let dashboard_render_cmd =
     Term.(
       ret
         (const render_dashboard $ runtime_lines_arg $ dashboard_width_arg
+       $ socket_workspace_arg $ socket_agent_arg $ dashboard_key_arg
        $ state_path_arg))
 
 let dashboard_cmd =

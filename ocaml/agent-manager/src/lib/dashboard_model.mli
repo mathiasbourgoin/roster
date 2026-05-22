@@ -45,5 +45,10 @@ type t = {
   totals : totals;
 }
 
+type selection = {
+  workspace : Id.Workspace.t option;
+  agent : Id.Agent.t option;
+}
+
 val of_state_runtime : State_store.t -> Runtime_snapshot.t -> t
-val render : ?width:int -> t -> string
+val render : ?width:int -> ?selection:selection -> t -> string
