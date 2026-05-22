@@ -151,30 +151,29 @@ let parse_optional_id label parse = function
       let* id = parse_id label parse value in
       Ok (Some id)
 
-let refresh_interaction refresh interaction =
-  if Ta_core.Dashboard_interaction.refresh_requested interaction then
-    match refresh () with
-    | Ok dashboard ->
-        Ta_core.Dashboard_interaction.refresh dashboard interaction
-    | Error message ->
-        Ta_core.Dashboard_interaction.refresh_failed message interaction
-  else interaction
+let dashboard_timestamp () =
+  match Ta_core.Dashboard_refresh_cadence.timestamp (Unix.gettimeofday ()) with
+  | Ok timestamp -> timestamp
+  | Error message -> invalid_arg message
 
 let replay_dashboard_keys ?refresh interaction keys =
-  let rec loop interaction = function
-    | [] -> interaction
-    | key :: rest ->
-        let interaction =
-          Ta_core.Dashboard_interaction.handle_key interaction key
-        in
-        let interaction =
-          match refresh with
-          | None -> interaction
-          | Some refresh -> refresh_interaction refresh interaction
-        in
-        loop interaction rest
-  in
-  loop interaction keys
+  match refresh with
+  | None ->
+      Ok
+        (List.fold_left Ta_core.Dashboard_interaction.handle_key interaction
+           keys)
+  | Some refresh ->
+      let rec loop runner = function
+        | [] -> Ok (Ta_core.Dashboard_runner.interaction runner)
+        | key :: rest ->
+            let event =
+              Ta_core.Dashboard_runner.key_event ~at:(dashboard_timestamp ())
+                key
+            in
+            let step = Ta_core.Dashboard_runner.step ~refresh runner event in
+            loop step.state rest
+      in
+      loop (Ta_core.Dashboard_runner.of_interaction interaction) keys
 
 let load_roster_dashboard roster_path dashboard =
   match roster_path with
@@ -205,10 +204,15 @@ let render_dashboard_model ?refresh width workspace agent keys dashboard =
   | Error message ->
       prerr_endline message;
       `Ok 2
-  | Ok interaction ->
-      let interaction = replay_dashboard_keys ?refresh interaction keys in
-      print_endline (Ta_core.Dashboard_interaction.render ~width interaction);
-      `Ok 0
+  | Ok interaction -> (
+      match replay_dashboard_keys ?refresh interaction keys with
+      | Error message ->
+          prerr_endline message;
+          `Ok 2
+      | Ok interaction ->
+          print_endline
+            (Ta_core.Dashboard_interaction.render ~width interaction);
+          `Ok 0)
 
 let state_dashboard_model roster_path lines state_path =
   match Ta_core.State_file.load ~path:state_path with

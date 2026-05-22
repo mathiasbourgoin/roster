@@ -66,13 +66,17 @@ commit.
 - Dashboard now includes a first pipeline overview section that lists visible
   agents, whether each has a typed contract, and declared ACL edges while
   labelling them as non-inferred workflow order.
+- Dashboard key/tick handling now has a pure typed runner boundary for future
+  MIAOU pages, with cadence-aware refresh outcomes and existing CLI key replay
+  routed through that boundary where refresh sources are available.
 
 ## Near-Term Milestones
 
-- Add a richer pipeline topology view with explicit inferred/declared edge
-  categories and keyboard focus once the MIAOU runner is introduced.
-- Add a concrete MIAOU runner once `miaou-tui` is available, using the existing
-  dashboard interaction, cadence policy, and socket refresh boundary.
+- Add a concrete MIAOU page adapter once `miaou-tui` is installed in the
+  current switch, using the dashboard runner, interaction state, cadence
+  policy, and socket refresh boundary.
+- Add a richer pipeline topology view with explicit declared/future-structured
+  edge categories and keyboard focus on top of the runner boundary.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
   confidence, and polished terminal layouts at common viewport sizes.
