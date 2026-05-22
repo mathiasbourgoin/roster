@@ -22,11 +22,12 @@ commit.
 - `tactl` CLI for config validation and tmux smoke diagnostics.
 - Initial `ta` launcher placeholder that loads and summarizes config.
 - QA report with tmux execution evidence.
+- Pure workspace state store with audit log, ACL checks, and JSON snapshots.
 
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
-- Add JSON snapshot persistence/reload for workspace state and audit log.
+- Add filesystem persistence commands for state snapshots.
 - Add supervised agent launch from workspace config.
 - Add Unix socket API mirroring `tactl` commands.
 - Add MIAOU dashboard with cached runtime state, not direct render-time polling.

@@ -1,5 +1,14 @@
 (library
  (name ta_core)
  (public_name agent-roster-agent-manager.core)
- (modules id permission roster_index state_store workspace_config tmux)
+ (modules
+  id
+  permission
+  roster_index
+  state_model
+  state_snapshot
+  state_store
+  workspace_config
+  tmux)
+ (private_modules state_model state_snapshot)
  (libraries yojson unix))
