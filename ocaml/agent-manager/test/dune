@@ -49,3 +49,15 @@
    %{exe:../src/bin/tactl.exe}
    (run %{test})))
  (libraries alcotest unix))
+
+(test
+ (name test_tactl_socket_cli)
+ (deps
+  (source_tree fixtures)
+  ../src/bin/tactl.exe)
+ (action
+  (setenv
+   TACTL_EXE
+   %{exe:../src/bin/tactl.exe}
+   (run %{test})))
+ (libraries alcotest unix))

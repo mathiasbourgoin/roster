@@ -32,12 +32,15 @@ commit.
 - Launch-created native tmux pane ids persisted back into state snapshots.
 - Launch runtime captures native pane ids from `tmux -P -F "#{pane_id}"`,
   allowing launches under non-default `base-index` and `pane-base-index`.
+- Initial Unix socket control plane for read-only state summary and detailed
+  state inspection.
 
 ## Near-Term Milestones
 
 - Add roster metadata loading from `index.json` and agent markdown frontmatter.
 - Add supervised agent launch from workspace config.
-- Add Unix socket API mirroring `tactl` commands.
+- Extend the Unix socket API with ACL-checked state mutations and supervised
+  launch requests.
 - Add MIAOU dashboard with cached runtime state, not direct render-time polling.
 - Establish a Herdr-quality UI baseline: fast keyboard workflows, persistent
   workspace navigation, clear agent state, readable pane previews, detach/resume
