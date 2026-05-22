@@ -288,6 +288,43 @@ let tmux_smoke session_name =
           prerr_endline (Ta_core.Tmux.error_to_string error);
           `Ok 1)
 
+let print_socket_error error =
+  prerr_endline (Ta_core.Socket_api.error_to_string error)
+
+let socket_serve once socket_path state_path =
+  match Ta_core.Socket_api.serve ~socket_path ~state_path ~once () with
+  | Ok () -> `Ok 0
+  | Error error ->
+      print_socket_error error;
+      `Ok 1
+
+let socket_request socket_path audit_limit command =
+  if audit_limit < 0 then (
+    prerr_endline "--audit-limit must be non-negative";
+    `Ok 2)
+  else
+    let request =
+      match command with
+      | "state-summary" -> Ok Ta_core.Socket_protocol.State_summary
+      | "state-show" -> Ok (Ta_core.Socket_protocol.State_show { audit_limit })
+      | value -> Error ("unknown socket command: " ^ value)
+    in
+    match request with
+    | Error message ->
+        prerr_endline message;
+        `Ok 2
+    | Ok request -> (
+        match Ta_core.Socket_api.request ~socket_path request with
+        | Error error ->
+            print_socket_error error;
+            `Ok 1
+        | Ok (Ta_core.Socket_protocol.Success output) ->
+            print_endline output;
+            `Ok 0
+        | Ok (Ta_core.Socket_protocol.Failure error) ->
+            prerr_endline error;
+            `Ok 1)
+
 let config_arg =
   Arg.(
     required
@@ -363,6 +400,28 @@ let audit_limit_arg =
     value & opt int 10
     & info [ "audit-limit" ] ~docv:"N"
         ~doc:"Maximum number of recent audit events to print")
+
+let socket_path_opt =
+  Arg.(
+    required
+    & opt (some string) None
+    & info [ "socket" ] ~docv:"SOCKET" ~doc:"TA Unix socket path")
+
+let socket_state_arg =
+  Arg.(
+    required
+    & opt (some string) None
+    & info [ "state" ] ~docv:"STATE" ~doc:"State snapshot served by the socket")
+
+let once_arg =
+  Arg.(
+    value & flag & info [ "once" ] ~doc:"Serve one socket request and then exit")
+
+let socket_command_arg =
+  Arg.(
+    required
+    & pos 0 (some string) None
+    & info [] ~docv:"COMMAND" ~doc:"Socket command: state-summary or state-show")
 
 let smoke_session_arg =
   Arg.(
@@ -466,10 +525,28 @@ let tmux_cmd =
   let doc = "tmux runtime diagnostics." in
   Cmd.group (Cmd.info "tmux" ~doc) [ tmux_status_cmd; tmux_smoke_cmd ]
 
+let socket_serve_cmd =
+  let doc = "Serve the local TA Unix socket API." in
+  Cmd.v (Cmd.info "serve" ~doc)
+    Term.(
+      ret (const socket_serve $ once_arg $ socket_path_opt $ socket_state_arg))
+
+let socket_request_cmd =
+  let doc = "Send one request to the local TA Unix socket API." in
+  Cmd.v (Cmd.info "request" ~doc)
+    Term.(
+      ret
+        (const socket_request $ socket_path_opt $ audit_limit_arg
+       $ socket_command_arg))
+
+let socket_cmd =
+  let doc = "Local Unix socket API for TA state." in
+  Cmd.group (Cmd.info "socket" ~doc) [ socket_serve_cmd; socket_request_cmd ]
+
 let root_cmd =
   let doc = "Control TA roster-agent workspaces." in
   Cmd.group
     (Cmd.info "tactl" ~version:"0.1.0" ~doc)
-    [ validate_cmd; summary_cmd; state_cmd; launch_cmd; tmux_cmd ]
+    [ validate_cmd; summary_cmd; state_cmd; launch_cmd; tmux_cmd; socket_cmd ]
 
 let () = exit (Cmd.eval' root_cmd)
