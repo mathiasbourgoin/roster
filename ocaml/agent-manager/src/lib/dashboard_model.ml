@@ -39,6 +39,11 @@ type t = {
   totals : totals;
 }
 
+type selection = {
+  workspace : Id.Workspace.t option;
+  agent : Id.Agent.t option;
+}
+
 let runtime_state_of_snapshot = function
   | Runtime_snapshot.Unattached -> Unattached
   | Runtime_snapshot.Live -> Live
@@ -200,13 +205,14 @@ let workspace_line selected workspace =
     (List.length workspace.agents)
     workspace.blocked_count workspace.failed_count workspace.link_count
 
-let agent_line workspace agent =
+let agent_line selected workspace agent =
   let acl =
     Printf.sprintf "R:%s W:%s"
       (join_agent_ids agent.outgoing.readable)
       (join_agent_ids agent.outgoing.writable)
   in
-  Printf.sprintf "%-12s %-14s %-16s %-9s %-8s %s"
+  Printf.sprintf "%s %-11s %-14s %-16s %-9s %-8s %s"
+    (if selected then ">" else " ")
     (fit 12 (Id.Workspace.to_string workspace.id))
     (fit 14 (Id.Agent.to_string agent.name))
     (fit 16 (status_to_string agent.status))
@@ -214,25 +220,67 @@ let agent_line workspace agent =
     (fit 8 (runtime_state_to_string agent.runtime_state))
     (fit 24 acl)
 
-let preview_candidate workspaces =
-  let agents =
-    workspaces
-    |> List.concat_map (fun workspace ->
-        List.map (fun agent -> (workspace, agent)) workspace.agents)
-  in
-  match
-    List.find_opt
-      (fun (_, agent) ->
-        match agent.runtime_state with
-        | Live -> agent.preview <> []
-        | _ -> false)
-      agents
-  with
-  | Some value -> Some value
-  | None -> List.find_opt (fun _ -> true) agents
+let selection_workspace selection =
+  match selection with None -> None | Some selection -> selection.workspace
 
-let preview_lines width workspaces =
-  match preview_candidate workspaces with
+let selection_agent selection =
+  match selection with None -> None | Some selection -> selection.agent
+
+let selected_workspace_id workspaces selection =
+  match selection_workspace selection with
+  | Some workspace -> Some workspace
+  | None -> (
+      match workspaces with [] -> None | workspace :: _ -> Some workspace.id)
+
+let is_selected_workspace selected workspace =
+  match selected with
+  | Some selected -> Id.Workspace.equal selected workspace.id
+  | None -> false
+
+let is_selected_agent selected_workspace selected_agent workspace agent =
+  match (selected_workspace, selected_agent) with
+  | Some selected_workspace, Some selected_agent ->
+      Id.Workspace.equal selected_workspace workspace.id
+      && Id.Agent.equal selected_agent agent.name
+  | _ -> false
+
+let find_selected_agent workspaces selected_workspace selected_agent =
+  match (selected_workspace, selected_agent) with
+  | Some selected_workspace, Some selected_agent ->
+      workspaces
+      |> List.find_map (fun workspace ->
+          if Id.Workspace.equal selected_workspace workspace.id then
+            workspace.agents
+            |> List.find_opt (fun agent ->
+                Id.Agent.equal selected_agent agent.name)
+            |> Option.map (fun agent -> (workspace, agent))
+          else None)
+  | _ -> None
+
+let preview_candidate workspaces selection =
+  let selected_workspace = selected_workspace_id workspaces selection in
+  let selected_agent = selection_agent selection in
+  match find_selected_agent workspaces selected_workspace selected_agent with
+  | Some value -> Some value
+  | None -> (
+      let agents =
+        workspaces
+        |> List.concat_map (fun workspace ->
+            List.map (fun agent -> (workspace, agent)) workspace.agents)
+      in
+      match
+        List.find_opt
+          (fun (_, agent) ->
+            match agent.runtime_state with
+            | Live -> agent.preview <> []
+            | _ -> false)
+          agents
+      with
+      | Some value -> Some value
+      | None -> List.find_opt (fun _ -> true) agents)
+
+let preview_lines width workspaces selection =
+  match preview_candidate workspaces selection with
   | None -> [ "Preview: none"; "No agents available." ]
   | Some (workspace, agent) ->
       let header =
@@ -247,9 +295,11 @@ let preview_lines width workspaces =
       in
       fit width header :: body
 
-let render ?(width = 100) model =
+let render ?(width = 100) ?selection model =
   let width = clamp_width width in
   let totals = model.totals in
+  let selected_workspace = selected_workspace_id model.workspaces selection in
+  let selected_agent = selection_agent selection in
   let header =
     Printf.sprintf
       "TA Dashboard | workspaces %d | agents %d | live %d | blocked %d | \
@@ -261,12 +311,12 @@ let render ?(width = 100) model =
   let workspace_lines =
     match model.workspaces with
     | [] -> [ "Workspaces"; "  none" ]
-    | first :: _ ->
+    | _ ->
         "Workspaces"
         :: List.map
              (fun workspace ->
                workspace_line
-                 (Id.Workspace.equal workspace.id first.id)
+                 (is_selected_workspace selected_workspace workspace)
                  workspace
                |> fit width)
              model.workspaces
@@ -275,18 +325,24 @@ let render ?(width = 100) model =
     let rows =
       model.workspaces
       |> List.concat_map (fun workspace ->
-          List.map (agent_line workspace) workspace.agents)
+          List.map
+            (fun agent ->
+              agent_line
+                (is_selected_agent selected_workspace selected_agent workspace
+                   agent)
+                workspace agent)
+            workspace.agents)
     in
     "Agents"
     :: fit width
-         "WORKSPACE    AGENT          STATUS           PANE      RUNTIME  \
+         "  WORKSPACE  AGENT          STATUS           PANE      RUNTIME  \
           CONNECTIONS"
     ::
     (match rows with
     | [] -> [ "  none" ]
     | rows -> List.map (fit width) rows)
   in
-  let preview = preview_lines width model.workspaces in
+  let preview = preview_lines width model.workspaces selection in
   String.concat "\n"
     ([ header; rule width ]
     @ workspace_lines

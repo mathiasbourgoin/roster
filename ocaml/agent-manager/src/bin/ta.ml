@@ -6,7 +6,20 @@ let print_errors errors =
       prerr_endline (Ta_core.Workspace_config.error_to_string error))
     errors
 
-let render_state_dashboard lines width state_path =
+let ( let* ) = Result.bind
+
+let parse_id label parse value =
+  match parse value with
+  | Ok id -> Ok id
+  | Error message -> Error (label ^ ": " ^ message)
+
+let parse_optional_id label parse = function
+  | None -> Ok None
+  | Some value ->
+      let* id = parse_id label parse value in
+      Ok (Some id)
+
+let render_state_dashboard lines width workspace agent keys state_path =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
     `Ok 2)
@@ -23,13 +36,33 @@ let render_state_dashboard lines width state_path =
     | Error error ->
         prerr_endline (Ta_core.State_file.error_to_string error);
         `Ok 1
-    | Ok store ->
+    | Ok store -> (
         let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
         let dashboard =
           Ta_core.Dashboard_model.of_state_runtime store runtime
         in
-        print_endline (Ta_core.Dashboard_model.render ~width dashboard);
-        `Ok 0
+        let interaction = Ta_core.Dashboard_interaction.init dashboard in
+        match
+          let* workspace =
+            parse_optional_id "--workspace" Ta_core.Id.Workspace.of_string
+              workspace
+          in
+          let* agent =
+            parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent
+          in
+          Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
+        with
+        | Error message ->
+            prerr_endline message;
+            `Ok 2
+        | Ok interaction ->
+            let interaction =
+              List.fold_left Ta_core.Dashboard_interaction.handle_key
+                interaction keys
+            in
+            print_endline
+              (Ta_core.Dashboard_interaction.render ~width interaction);
+            `Ok 0)
 
 let render_config_summary path =
   match Ta_core.Workspace_config.load path with
@@ -48,9 +81,9 @@ let render_config_summary path =
         print_errors errors;
         `Ok 1)
 
-let dashboard lines width state_path config_path =
+let dashboard lines width workspace agent keys state_path config_path =
   match state_path with
-  | Some path -> render_state_dashboard lines width path
+  | Some path -> render_state_dashboard lines width workspace agent keys path
   | None -> (
       match config_path with
       | None ->
@@ -86,11 +119,32 @@ let width_arg =
     value & opt int 100
     & info [ "width" ] ~docv:"COLS" ~doc:"Dashboard frame width")
 
+let workspace_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "workspace"; "w" ] ~docv:"WORKSPACE"
+        ~doc:"Initially selected workspace id")
+
+let agent_arg =
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "agent"; "a" ] ~docv:"AGENT" ~doc:"Initially selected agent id")
+
+let key_arg =
+  Arg.(
+    value & opt_all string []
+    & info [ "key" ] ~docv:"KEY"
+        ~doc:"Replay one dashboard key before rendering; may be repeated")
+
 let root_cmd =
   let doc = "Launch the TA roster-agent workspace manager." in
   Cmd.v
     (Cmd.info "ta" ~version:"0.1.0" ~doc)
     Term.(
-      ret (const dashboard $ lines_arg $ width_arg $ state_arg $ config_arg))
+      ret
+        (const dashboard $ lines_arg $ width_arg $ workspace_arg $ agent_arg
+       $ key_arg $ state_arg $ config_arg))
 
 let () = exit (Cmd.eval' root_cmd)

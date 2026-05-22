@@ -35,6 +35,10 @@
  (libraries ta_core alcotest unix))
 
 (test
+ (name test_dashboard_interaction)
+ (libraries ta_core alcotest unix))
+
+(test
  (name test_tactl_cli)
  (deps
   (source_tree fixtures)
