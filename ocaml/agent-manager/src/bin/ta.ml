@@ -352,13 +352,16 @@ let root_cmd =
       `Pre
         "cp examples/ta.example.json ta.json\n\
          dune exec ta\n\
-         # select an agent, press s";
+         # select an agent, press Enter";
       `S "STARTING AGENTS FROM THE TUI";
       `P
-        "In a state-backed dashboard, press s on the selected agent to start \
-         it. When TA has a config path, the TUI starts the agent directly and \
-         persists the captured tmux pane id. If --socket is supplied, the TUI \
-         sends the start request to that local control socket instead.";
+        "In a state-backed dashboard, press Enter on a detached selected agent \
+         to start it; pressing Enter on an attached agent refreshes the \
+         dashboard. When TA has a config path, the TUI starts the agent \
+         directly and persists the captured tmux pane id. If --socket is \
+         supplied, the TUI sends the start request to that local control socket \
+         instead. The s key remains a direct start shortcut for detached \
+         agents.";
       `S "STARTING FROM SOURCE";
       `Pre
         "cd ocaml/agent-manager\n\

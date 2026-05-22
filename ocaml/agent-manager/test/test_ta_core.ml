@@ -937,7 +937,7 @@ let expect_startup_guide_names_entrypoint () =
     (contains_substring ~needle:"dune exec ta" Ta_core.Startup_guide.text);
   Alcotest.(check bool)
     "mentions simple start" true
-    (contains_substring ~needle:"Select an agent and press s"
+    (contains_substring ~needle:"Select an agent and press Enter"
        Ta_core.Startup_guide.text);
   Alcotest.(check bool)
     "mentions automatic state" true

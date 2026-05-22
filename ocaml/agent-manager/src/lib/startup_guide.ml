@@ -12,7 +12,7 @@ let text =
       "  1. Keep a TA config at .harness/ta.json or ta.json, or keep the \
        agent-roster harness at .harness/harness.json.";
       "  2. Run ta.";
-      "  3. Select an agent and press s to start it.";
+      "  3. Select an agent and press Enter to start it.";
       "";
       "TA creates .ta-state.json automatically when a config exists and no \
        state file is present.";
@@ -60,7 +60,8 @@ let text =
        automation.";
       "";
       "Dashboard keys:";
-      "  s: start selected agent";
+      "  Enter: start selected detached agent, or refresh an attached agent";
+      "  s: start selected detached agent";
       "  p: pipeline focus";
       "  Right/Left: cycle ACL edges";
       "  [ and ]: cycle focused edge targets";

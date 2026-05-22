@@ -432,7 +432,7 @@ let expect_miaou_headless_tui_renders_dashboard () =
         (contains_substring ~needle:"tech-lead | id tech-lead" result.stdout);
       Alcotest.(check bool)
         "start action" true
-        (contains_substring ~needle:"s Start lead" result.stdout);
+        (contains_substring ~needle:"Enter Start lead" result.stdout);
       Alcotest.(check bool)
         "pipeline edge" true
         (contains_substring ~needle:"Pipeline edge" result.stdout))
@@ -482,12 +482,118 @@ let expect_miaou_headless_tui_uses_full_collapsed_width () =
         (contains_substring ~needle:"tech-lead | id tech-lead" frame.frame_text);
       Alcotest.(check bool)
         "collapsed action remains visible" true
-        (contains_substring ~needle:"s Start lead" frame.frame_text))
+        (contains_substring ~needle:"Enter Start lead" frame.frame_text))
 
-let expect_miaou_headless_tui_start_without_socket_marks_stale () =
+let expect_miaou_headless_tui_enter_without_socket_marks_stale () =
   with_temp_workspace (fun dir ->
       let state_path = Filename.concat dir ".ta-state.json" in
       save_state state_path;
+      with_chdir dir (fun () ->
+          let result =
+            run_ta_with_input
+              ~env:[ ("MIAOU_DRIVER", "headless") ]
+              ~stdin:
+                "{\"cmd\":\"key\",\"key\":\"Enter\"}\n\
+                 {\"cmd\":\"render\"}\n\
+                 {\"cmd\":\"quit\"}\n"
+              [ "--state"; state_path; "--tui"; "always" ]
+          in
+          check_exit "exit" 0 result.status;
+          Alcotest.(check string) "stderr" "" result.stderr;
+          let frame = last_frame result.stdout in
+          Alcotest.(check bool)
+            "stale start failure" true
+            (contains_substring
+               ~needle:"stale: start-agent requires --socket or a config"
+               frame.frame_text)))
+
+let expect_miaou_headless_tui_enter_aliases_start () =
+  List.iter
+    (fun key ->
+      with_temp_workspace (fun dir ->
+          let state_path = Filename.concat dir ".ta-state.json" in
+          save_state state_path;
+          with_chdir dir (fun () ->
+              let result =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    (Printf.sprintf
+                       "{\"cmd\":\"key\",\"key\":%S}\n\
+                        {\"cmd\":\"render\"}\n\
+                        {\"cmd\":\"quit\"}\n"
+                       key)
+                  [ "--state"; state_path; "--tui"; "always" ]
+              in
+              check_exit (key ^ " exit") 0 result.status;
+              Alcotest.(check string) (key ^ " stderr") "" result.stderr;
+              let frame = last_frame result.stdout in
+              Alcotest.(check bool)
+                (key ^ " start failure")
+                true
+                (contains_substring
+                   ~needle:"stale: start-agent requires --socket or a config"
+                   frame.frame_text))))
+    [ "Return"; "C-m" ]
+
+let save_attached_state path =
+  match Ta_core.Workspace_config.load (fixture "ta-valid.json") with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+  | Ok config -> (
+      match Ta_core.State_store.of_config config with
+      | Error errors ->
+          Alcotest.fail
+            (String.concat "\n"
+               (List.map Ta_core.Workspace_config.error_to_string errors))
+      | Ok store -> (
+          let workspace = Ta_core.Id.Workspace.unsafe_of_string "fixture" in
+          let agent = Ta_core.Id.Agent.unsafe_of_string "lead" in
+          let pane = Ta_core.Id.Pane.unsafe_of_string "%77" in
+          match
+            Ta_core.State_store.attach_pane store ~workspace ~agent ~pane
+              ~actor:None
+          with
+          | Error message -> Alcotest.fail message
+          | Ok store -> (
+              match Ta_core.State_file.save ~path store with
+              | Ok () -> ()
+              | Error error ->
+                  Alcotest.fail
+                    (Ta_core.State_file.error_to_string error))))
+
+let expect_miaou_headless_tui_enter_refreshes_attached_agent () =
+  with_temp_workspace (fun dir ->
+      let state_path = Filename.concat dir ".ta-state.json" in
+      save_attached_state state_path;
+      with_chdir dir (fun () ->
+          let result =
+            run_ta_with_input
+              ~env:[ ("MIAOU_DRIVER", "headless") ]
+              ~stdin:
+                "{\"cmd\":\"key\",\"key\":\"Enter\"}\n\
+                 {\"cmd\":\"render\"}\n\
+                 {\"cmd\":\"quit\"}\n"
+              [ "--state"; state_path; "--tui"; "always" ]
+          in
+          check_exit "exit" 0 result.status;
+          Alcotest.(check string) "stderr" "" result.stderr;
+          let frame = last_frame result.stdout in
+          Alcotest.(check bool)
+            "attached primary action" true
+            (contains_substring ~needle:"Enter Refresh | attached"
+               frame.frame_text);
+          Alcotest.(check bool)
+            "enter did not try start without config" false
+            (contains_substring ~needle:"start-agent requires --socket"
+               frame.frame_text)))
+
+let expect_miaou_headless_tui_s_rejects_attached_start () =
+  with_temp_workspace (fun dir ->
+      let state_path = Filename.concat dir ".ta-state.json" in
+      save_attached_state state_path;
       with_chdir dir (fun () ->
           let result =
             run_ta_with_input
@@ -502,9 +608,13 @@ let expect_miaou_headless_tui_start_without_socket_marks_stale () =
           Alcotest.(check string) "stderr" "" result.stderr;
           let frame = last_frame result.stdout in
           Alcotest.(check bool)
-            "stale start failure" true
+            "attached start guard" true
             (contains_substring
-               ~needle:"stale: start-agent requires --socket or a config"
+               ~needle:"selected agent is already attached"
+               frame.frame_text);
+          Alcotest.(check bool)
+            "s did not try start without config" false
+            (contains_substring ~needle:"start-agent requires --socket"
                frame.frame_text)))
 
 let expect_miaou_headless_tui_direct_start_with_config () =
@@ -546,7 +656,7 @@ let expect_miaou_headless_tui_direct_start_with_config () =
                 run_ta_with_input
                   ~env:[ ("MIAOU_DRIVER", "headless") ]
                   ~stdin:
-                    "{\"cmd\":\"key\",\"key\":\"s\"}\n\
+                    "{\"cmd\":\"key\",\"key\":\"Enter\"}\n\
                      {\"cmd\":\"render\"}\n\
                      {\"cmd\":\"quit\"}\n"
                   [
@@ -576,7 +686,7 @@ let expect_miaou_headless_tui_direct_start_with_config () =
                    frame.frame_text);
               Alcotest.(check bool)
                 "attached action" true
-                (contains_substring ~needle:"r Refresh | attached"
+                (contains_substring ~needle:"Enter Refresh | attached"
                    frame.frame_text))))
 
 let expect_no_defaults_prints_quickstart () =
@@ -640,7 +750,8 @@ let expect_harness_config_generates_workspace_dashboard () =
                frame.frame_text);
           Alcotest.(check bool)
             "start action" true
-            (contains_substring ~needle:"s Start tech-lead" frame.frame_text);
+            (contains_substring ~needle:"Enter Start tech-lead"
+               frame.frame_text);
           Alcotest.(check bool)
             "harness provenance" true
             (contains_substring
@@ -741,7 +852,7 @@ let expect_help_documents_startup () =
     (contains_substring ~needle:"NORMAL TUI FLOW" result.stdout);
   Alcotest.(check bool)
     "press start" true
-    (contains_substring ~needle:"press s" result.stdout);
+    (contains_substring ~needle:"press Enter" result.stdout);
   Alcotest.(check bool)
     "harness projection" true
     (contains_substring ~needle:"derives .harness/ta.json" result.stdout);
@@ -796,8 +907,14 @@ let () =
             expect_miaou_headless_tui_respects_short_height;
           Alcotest.test_case "miaou headless tui uses collapsed width" `Quick
             expect_miaou_headless_tui_uses_full_collapsed_width;
-          Alcotest.test_case "miaou headless start without socket marks stale"
-            `Quick expect_miaou_headless_tui_start_without_socket_marks_stale;
+          Alcotest.test_case "miaou headless enter without socket marks stale"
+            `Quick expect_miaou_headless_tui_enter_without_socket_marks_stale;
+          Alcotest.test_case "miaou headless enter aliases start" `Quick
+            expect_miaou_headless_tui_enter_aliases_start;
+          Alcotest.test_case "miaou headless enter refreshes attached agent"
+            `Quick expect_miaou_headless_tui_enter_refreshes_attached_agent;
+          Alcotest.test_case "miaou headless s rejects attached start" `Quick
+            expect_miaou_headless_tui_s_rejects_attached_start;
           Alcotest.test_case "miaou headless direct start with config" `Quick
             expect_miaou_headless_tui_direct_start_with_config;
         ] );

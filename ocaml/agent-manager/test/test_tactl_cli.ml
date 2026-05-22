@@ -86,7 +86,8 @@ let expect_quickstart () =
     (contains_substring ~needle:"TA quickstart" result.stdout);
   Alcotest.(check bool)
     "simple flow" true
-    (contains_substring ~needle:"Select an agent and press s" result.stdout);
+    (contains_substring ~needle:"Select an agent and press Enter"
+       result.stdout);
   Alcotest.(check bool)
     "auto state" true
     (contains_substring ~needle:"TA creates .ta-state.json automatically"
@@ -125,7 +126,7 @@ let expect_root_help_mentions_quickstart () =
     (contains_substring ~needle:"dune exec ta" result.stdout);
   Alcotest.(check bool)
     "start key" true
-    (contains_substring ~needle:"select an agent, press s" result.stdout);
+    (contains_substring ~needle:"select an agent, press Enter" result.stdout);
   Alcotest.(check bool)
     "harness root" true
     (contains_substring ~needle:".harness/harness.json" result.stdout)

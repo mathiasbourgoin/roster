@@ -1191,7 +1191,7 @@ let root_cmd =
         "cd ocaml/agent-manager\n\
          dune exec ta\n\
          # uses .harness/ta.json, ta.json, or derives from .harness/harness.json\n\
-         # select an agent, press s";
+         # select an agent, press Enter";
       `P
         "Use .harness/ta.json for a hand-written TA config. In agent-roster \
          workspaces, .harness/harness.json is enough for TA to create the \

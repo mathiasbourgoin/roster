@@ -114,19 +114,20 @@ pick workspace, pick agent, start or connect.
   sidebar, agent status table, and selected-agent description panel while
   preserving short-terminal and narrow-terminal behavior under headless and
   tmux Matrix QA.
-- The MIAOU dashboard now has a selected-agent start action. Pressing `s`
-  sends a socket `start-agent` request for the current workspace/agent, uses
-  write ACLs, reuses server-trusted typed launch planning, persists the
-  captured tmux pane id, and cleans up a created pane/session if state
-  persistence fails.
+- The MIAOU dashboard now has a selected-agent start action. Pressing `Enter`
+  on a detached selected agent sends a socket `start-agent` request for the
+  current workspace/agent, uses write ACLs, reuses server-trusted typed launch
+  planning, persists the captured tmux pane id, and cleans up a created
+  pane/session if state persistence fails. The `s` key remains a guarded
+  direct start alias.
 - The local `ta` TUI can now start the selected agent directly when it has a
   trusted config path, without requiring a manually launched socket server.
   Config-only startup also bootstraps `.ta-state.json`, and successful starts
   mark the selected agent `running`.
 - `ta` now presents the TUI as the normal startup path. Help, quickstart, and
   startup guide text lead with `dune exec ta`, selecting an agent, and pressing
-  `s`; manual `tactl state save` and `launch start` flows are documented as
-  advanced CLI fallbacks. The MIAOU dashboard mirrors this with a compact
+  `Enter`; manual `tactl state save` and `launch start` flows are documented
+  as advanced CLI fallbacks. The MIAOU dashboard mirrors this with a compact
   selected-agent action bar in both full and collapsed layouts.
 - `ta` is now workspace-enabled from the canonical agent-roster harness. When
   no TA config exists but `.harness/harness.json` does, startup derives
@@ -148,6 +149,9 @@ pick workspace, pick agent, start or connect.
   flows. Harness-derived workspaces grant `create-agent` and `connect-agents`
   only to `tech-lead` and `recruiter`; all other agents default to no special
   authority, and the MIAOU selected-agent detail shows the result.
+- TA's MIAOU dashboard now has a Herdr-simpler primary action: `Enter` starts a
+  detached selected agent and refreshes an attached selected agent, so the
+  normal flow is select workspace, select agent, press Enter.
 
 ## Near-Term Milestones
 

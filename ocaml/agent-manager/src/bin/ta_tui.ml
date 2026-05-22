@@ -27,12 +27,29 @@ let dashboard_key = function "Shift-Tab" | "S-Tab" -> "BackTab" | key -> key
 
 let selected_start_target runner =
   let interaction = Ta_core.Dashboard_runner.interaction runner in
-  match
-    ( Ta_core.Dashboard_interaction.selected_workspace interaction,
-      Ta_core.Dashboard_interaction.selected_agent interaction )
-  with
-  | Some workspace, Some agent -> Ok (interaction, workspace, agent)
-  | _ -> Error (interaction, "no selected workspace/agent to start")
+  let selected_workspace =
+    Ta_core.Dashboard_interaction.selected_workspace interaction
+  in
+  let selected_agent = Ta_core.Dashboard_interaction.selected_agent interaction in
+  let model = Ta_core.Dashboard_interaction.model interaction in
+  match (selected_workspace, selected_agent) with
+  | Some workspace, Some agent -> (
+      match
+        model.workspaces
+        |> List.find_opt
+             (fun (candidate : Ta_core.Dashboard_model.workspace) ->
+               Ta_core.Id.Workspace.equal candidate.id workspace)
+      with
+      | None -> Error (interaction, "selected workspace is no longer visible")
+      | Some workspace_row -> (
+          match
+            workspace_row.agents
+            |> List.find_opt (fun (candidate : Ta_core.Dashboard_model.agent) ->
+                   Ta_core.Id.Agent.equal candidate.name agent)
+          with
+          | None -> Error (interaction, "selected agent is no longer visible")
+          | Some agent_row -> Ok (interaction, workspace, agent, agent_row)))
+  | _ -> Error (interaction, "no selected workspace/agent")
 
 let update_interaction runner interaction =
   Ta_core.Dashboard_runner.with_interaction interaction runner
@@ -42,14 +59,34 @@ let start_step ~start runner =
   | Error (interaction, message) ->
       Ta_core.Dashboard_interaction.refresh_failed message interaction
       |> update_interaction runner
-  | Ok (interaction, workspace, agent) -> (
-      match start ~workspace ~agent with
-      | Ok model ->
-          Ta_core.Dashboard_interaction.refresh model interaction
+  | Ok (interaction, workspace, agent, agent_row) -> (
+      match agent_row.pane with
+      | Some _ ->
+          Ta_core.Dashboard_interaction.refresh_failed
+            "selected agent is already attached; press Enter or r to refresh"
+            interaction
           |> update_interaction runner
-      | Error message ->
-          Ta_core.Dashboard_interaction.refresh_failed message interaction
-          |> update_interaction runner)
+      | None -> (
+          match start ~workspace ~agent with
+          | Ok model ->
+              Ta_core.Dashboard_interaction.refresh model interaction
+              |> update_interaction runner
+          | Error message ->
+              Ta_core.Dashboard_interaction.refresh_failed message interaction
+              |> update_interaction runner))
+
+let refresh_step ~refresh runner =
+  key_step ~refresh runner "r"
+
+let primary_step ~refresh ~start runner =
+  match selected_start_target runner with
+  | Error (interaction, message) ->
+      Ta_core.Dashboard_interaction.refresh_failed message interaction
+      |> update_interaction runner
+  | Ok (_, _, _, agent_row) -> (
+      match agent_row.pane with
+      | None -> start_step ~start runner
+      | Some _ -> refresh_step ~refresh runner)
 
 let run ~lines ~refresh ~start interaction =
   let profile = Ta_miaou_view.{ lines } in
@@ -70,6 +107,8 @@ let run ~lines ~refresh ~start interaction =
         | "q" | "Q" | "Esc" | "Escape" | "C-c" | "C-C" ->
             Direct_page.quit ();
             runner
+        | "Enter" | "Return" | "C-m" ->
+            primary_step ~refresh:refresh_source ~start runner
         | "s" | "S" -> start_step ~start runner
         | key -> key_step ~refresh:refresh_source runner (dashboard_key key)
     end)
@@ -78,6 +117,7 @@ let run ~lines ~refresh ~start interaction =
 
     let key_hints _ =
       [
+        ("Enter", "start/refresh");
         ("q", "quit");
         ("arrows/jk", "move");
         ("Tab", "focus");

@@ -76,8 +76,8 @@ let capability_label (agent : Ta_core.Dashboard_model.agent) =
 let action_bar_for_agent (agent : Ta_core.Dashboard_model.agent) =
   let name = Ta_core.Id.Agent.to_string agent.name in
   match agent.pane with
-  | None -> "s Start " ^ name
-  | Some pane -> "r Refresh | attached " ^ Ta_core.Id.Pane.to_string pane
+  | None -> "Enter Start " ^ name
+  | Some pane -> "Enter Refresh | attached " ^ Ta_core.Id.Pane.to_string pane
 
 let join_agents values =
   match values with
