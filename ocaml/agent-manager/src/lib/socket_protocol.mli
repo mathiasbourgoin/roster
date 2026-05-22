@@ -9,6 +9,7 @@ type request =
       actor : Id.Agent.t;
       lines : int;
     }
+  | Dashboard_snapshot of { actor : Id.Agent.t; lines : int }
   | Set_status of {
       workspace : Id.Workspace.t;
       agent : Id.Agent.t;

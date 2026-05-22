@@ -58,6 +58,10 @@ let write_all fd value =
 
 let write_line fd value = write_all fd (value ^ "\n")
 
+let encoded_response_length output =
+  Socket_protocol.Success output |> Socket_protocol.encode_response
+  |> String.length
+
 let read_line ?(timeout_seconds = request_timeout_seconds) fd =
   let buffer = Buffer.create 256 in
   let byte = Bytes.create 1 in
@@ -266,6 +270,27 @@ let runtime_snapshot state_path ~workspace ~agent ~actor ~lines =
                   (Yojson.Safe.to_string (Runtime_snapshot.to_yojson snapshot)))
         )
 
+let dashboard_snapshot state_path ~actor ~lines =
+  if lines < 1 then Socket_protocol.Failure "lines must be positive"
+  else if lines > Runtime_snapshot.max_preview_lines then
+    Socket_protocol.Failure
+      ("lines must be at most "
+      ^ string_of_int Runtime_snapshot.max_preview_lines)
+  else
+    match State_file.load ~path:state_path with
+    | Error error -> Socket_protocol.Failure (State_file.error_to_string error)
+    | Ok store -> (
+        match Dashboard_snapshot.of_state_for_actor ~lines store ~actor with
+        | Error message -> Socket_protocol.Failure message
+        | Ok snapshot -> (
+            match
+              Dashboard_snapshot.to_bounded_yojson_string
+                ~max_bytes:max_line_bytes
+                ~encoded_length:encoded_response_length snapshot
+            with
+            | Ok output -> Socket_protocol.Success output
+            | Error message -> Socket_protocol.Failure message))
+
 let execute state_path = function
   | Socket_protocol.State_summary -> (
       match State_file.load ~path:state_path with
@@ -283,6 +308,8 @@ let execute state_path = function
             Socket_protocol.Failure (State_file.error_to_string error))
   | Runtime_snapshot { workspace; agent; actor; lines } ->
       runtime_snapshot state_path ~workspace ~agent ~actor ~lines
+  | Dashboard_snapshot { actor; lines } ->
+      dashboard_snapshot state_path ~actor ~lines
   | Set_status { workspace; agent; status; actor } -> (
       match
         State_file.update ~path:state_path (fun store ->

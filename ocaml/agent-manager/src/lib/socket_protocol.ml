@@ -7,6 +7,7 @@ type request =
       actor : Id.Agent.t;
       lines : int;
     }
+  | Dashboard_snapshot of { actor : Id.Agent.t; lines : int }
   | Set_status of {
       workspace : Id.Workspace.t;
       agent : Id.Agent.t;
@@ -100,6 +101,13 @@ let request_to_yojson = function
           ("actor", `String (Id.Agent.to_string actor));
           ("lines", `Int lines);
         ]
+  | Dashboard_snapshot { actor; lines } ->
+      `Assoc
+        [
+          ("command", `String "dashboard-snapshot");
+          ("actor", `String (Id.Agent.to_string actor));
+          ("lines", `Int lines);
+        ]
   | Set_status { workspace; agent; status; actor } ->
       let status, reason = status_fields status in
       `Assoc
@@ -174,6 +182,12 @@ let runtime_snapshot_of_fields fields =
   let* actor = required_actor_field "runtime-snapshot" fields in
   Ok (Runtime_snapshot { workspace; agent; actor; lines })
 
+let dashboard_snapshot_of_fields fields =
+  let ( let* ) = Result.bind in
+  let* lines = int_field "lines" fields in
+  let* actor = required_actor_field "dashboard-snapshot" fields in
+  Ok (Dashboard_snapshot { actor; lines })
+
 let request_of_yojson = function
   | `Assoc fields -> (
       match string_field "command" fields with
@@ -184,6 +198,7 @@ let request_of_yojson = function
           | Ok audit_limit -> Ok (State_show { audit_limit })
           | Error _ as error -> error)
       | Ok "runtime-snapshot" -> runtime_snapshot_of_fields fields
+      | Ok "dashboard-snapshot" -> dashboard_snapshot_of_fields fields
       | Ok "set-status" -> set_status_of_fields fields
       | Ok "attach-pane" -> attach_pane_of_fields fields
       | Ok "launch-dry-run" -> (

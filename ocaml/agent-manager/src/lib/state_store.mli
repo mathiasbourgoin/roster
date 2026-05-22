@@ -65,6 +65,7 @@ val describe : ?audit_limit:int -> t -> string
 val to_yojson : t -> Yojson.Safe.t
 val of_yojson : Yojson.Safe.t -> (t, snapshot_error list) result
 val snapshot_error_to_string : snapshot_error -> string
+val visible_to_actor : t -> actor:Id.Agent.t -> (t, string) result
 val find_workspace : t -> Id.Workspace.t -> (workspace, string) result
 val find_agent : workspace -> Id.Agent.t -> (agent, string) result
 
