@@ -77,7 +77,12 @@ let expect_initial_selection () =
     (as_string (Ta_core.Dashboard_interaction.selected_agent state));
   Alcotest.(check bool)
     "refresh" false
-    (Ta_core.Dashboard_interaction.refresh_requested state)
+    (Ta_core.Dashboard_interaction.refresh_requested state);
+  Alcotest.(check bool)
+    "fresh" true
+    (match Ta_core.Dashboard_interaction.refresh_status state with
+    | Ta_core.Dashboard_interaction.Fresh -> true
+    | Refreshing | Stale _ -> false)
 
 let expect_agent_navigation () =
   let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
@@ -112,9 +117,41 @@ let expect_refresh_preserves_selection () =
   Alcotest.(check bool)
     "refresh cleared" false
     (Ta_core.Dashboard_interaction.refresh_requested refreshed);
+  Alcotest.(check bool)
+    "fresh" true
+    (match Ta_core.Dashboard_interaction.refresh_status refreshed with
+    | Ta_core.Dashboard_interaction.Fresh -> true
+    | Refreshing | Stale _ -> false);
   Alcotest.(check string)
     "agent preserved" "qa"
     (as_string (Ta_core.Dashboard_interaction.selected_agent refreshed))
+
+let expect_refresh_failure_renders_stale () =
+  let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
+  let state = Ta_core.Dashboard_interaction.handle_key state "r" in
+  Alcotest.(check bool)
+    "refresh requested" true
+    (Ta_core.Dashboard_interaction.refresh_requested state);
+  Alcotest.(check bool)
+    "refreshing" true
+    (match Ta_core.Dashboard_interaction.refresh_status state with
+    | Ta_core.Dashboard_interaction.Refreshing -> true
+    | Fresh | Stale _ -> false);
+  let state =
+    Ta_core.Dashboard_interaction.refresh_failed "socket unavailable" state
+  in
+  Alcotest.(check bool)
+    "request cleared" false
+    (Ta_core.Dashboard_interaction.refresh_requested state);
+  Alcotest.(check bool)
+    "stale" true
+    (match Ta_core.Dashboard_interaction.refresh_status state with
+    | Ta_core.Dashboard_interaction.Stale "socket unavailable" -> true
+    | Fresh | Refreshing | Stale _ -> false);
+  let rendered = Ta_core.Dashboard_interaction.render ~width:90 state in
+  Alcotest.(check bool)
+    "stale banner" true
+    (contains_substring ~needle:"Refresh: STALE - socket unavailable" rendered)
 
 let expect_render_uses_selection () =
   let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
@@ -135,6 +172,8 @@ let () =
             expect_workspace_navigation;
           Alcotest.test_case "refresh preserves selection" `Quick
             expect_refresh_preserves_selection;
+          Alcotest.test_case "refresh failure renders stale" `Quick
+            expect_refresh_failure_renders_stale;
           Alcotest.test_case "render uses selection" `Quick
             expect_render_uses_selection;
         ] );

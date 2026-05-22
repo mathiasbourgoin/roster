@@ -151,6 +151,55 @@ let parse_optional_id label parse = function
       let* id = parse_id label parse value in
       Ok (Some id)
 
+let refresh_interaction refresh interaction =
+  if Ta_core.Dashboard_interaction.refresh_requested interaction then
+    match refresh () with
+    | Ok dashboard ->
+        Ta_core.Dashboard_interaction.refresh dashboard interaction
+    | Error message ->
+        Ta_core.Dashboard_interaction.refresh_failed message interaction
+  else interaction
+
+let replay_dashboard_keys ?refresh interaction keys =
+  let rec loop interaction = function
+    | [] -> interaction
+    | key :: rest ->
+        let interaction =
+          Ta_core.Dashboard_interaction.handle_key interaction key
+        in
+        let interaction =
+          match refresh with
+          | None -> interaction
+          | Some refresh -> refresh_interaction refresh interaction
+        in
+        loop interaction rest
+  in
+  loop interaction keys
+
+let render_dashboard_model ?refresh width workspace agent keys dashboard =
+  let interaction = Ta_core.Dashboard_interaction.init dashboard in
+  match
+    let* workspace =
+      parse_optional_id "--workspace" Ta_core.Id.Workspace.of_string workspace
+    in
+    let* agent = parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent in
+    Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
+  with
+  | Error message ->
+      prerr_endline message;
+      `Ok 2
+  | Ok interaction ->
+      let interaction = replay_dashboard_keys ?refresh interaction keys in
+      print_endline (Ta_core.Dashboard_interaction.render ~width interaction);
+      `Ok 0
+
+let state_dashboard_model lines state_path =
+  match Ta_core.State_file.load ~path:state_path with
+  | Error error -> Error (Ta_core.State_file.error_to_string error)
+  | Ok store ->
+      let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
+      Ok (Ta_core.Dashboard_model.of_state_runtime store runtime)
+
 let render_dashboard lines width workspace agent keys state_path =
   if lines < 1 then (
     prerr_endline "--lines must be positive";
@@ -164,57 +213,22 @@ let render_dashboard lines width workspace agent keys state_path =
     prerr_endline "--width must be positive";
     `Ok 2)
   else
-    match Ta_core.State_file.load ~path:state_path with
-    | Error error ->
-        print_state_file_error error;
+    match state_dashboard_model lines state_path with
+    | Error message ->
+        prerr_endline message;
         `Ok 1
-    | Ok store -> (
-        let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
-        let dashboard =
-          Ta_core.Dashboard_model.of_state_runtime store runtime
-        in
-        let interaction = Ta_core.Dashboard_interaction.init dashboard in
-        match
-          let* workspace =
-            parse_optional_id "--workspace" Ta_core.Id.Workspace.of_string
-              workspace
-          in
-          let* agent =
-            parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent
-          in
-          Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
-        with
-        | Error message ->
-            prerr_endline message;
-            `Ok 2
-        | Ok interaction ->
-            let interaction =
-              List.fold_left Ta_core.Dashboard_interaction.handle_key
-                interaction keys
-            in
-            print_endline
-              (Ta_core.Dashboard_interaction.render ~width interaction);
-            `Ok 0)
+    | Ok dashboard ->
+        render_dashboard_model
+          ~refresh:(fun () -> state_dashboard_model lines state_path)
+          width workspace agent keys dashboard
 
-let render_dashboard_snapshot width workspace agent keys snapshot =
-  let dashboard = Ta_core.Dashboard_snapshot.to_dashboard_model snapshot in
-  let interaction = Ta_core.Dashboard_interaction.init dashboard in
+let socket_dashboard_model socket_path lines actor =
   match
-    let* workspace =
-      parse_optional_id "--workspace" Ta_core.Id.Workspace.of_string workspace
-    in
-    let* agent = parse_optional_id "--agent" Ta_core.Id.Agent.of_string agent in
-    Ta_core.Dashboard_interaction.select ?workspace ?agent interaction
+    Ta_core.Dashboard_socket_refresh.fetch_model ~socket_path ~actor ~lines ()
   with
-  | Error message ->
-      prerr_endline message;
-      `Ok 2
-  | Ok interaction ->
-      let interaction =
-        List.fold_left Ta_core.Dashboard_interaction.handle_key interaction keys
-      in
-      print_endline (Ta_core.Dashboard_interaction.render ~width interaction);
-      `Ok 0
+  | Ok dashboard -> Ok dashboard
+  | Error error ->
+      Error (Ta_core.Dashboard_socket_refresh.error_to_string error)
 
 let render_dashboard_socket socket_path lines width actor workspace agent keys =
   if lines < 1 then (
@@ -242,29 +256,15 @@ let render_dashboard_socket socket_path lines width actor workspace agent keys =
     match actor with
     | Error () -> `Ok 2
     | Ok actor -> (
-        let request =
-          Ta_core.Socket_protocol.Dashboard_snapshot { actor; lines }
-        in
-        match Ta_core.Socket_api.request ~socket_path request with
-        | Error error ->
-            prerr_endline (Ta_core.Socket_api.error_to_string error);
-            `Ok 1
-        | Ok (Ta_core.Socket_protocol.Failure message) ->
+        match socket_dashboard_model socket_path lines actor with
+        | Error message ->
             prerr_endline message;
             `Ok 1
-        | Ok (Ta_core.Socket_protocol.Success output) -> (
-            match
-              output |> Yojson.Safe.from_string
-              |> Ta_core.Dashboard_snapshot.of_yojson
-            with
-            | Ok snapshot ->
-                render_dashboard_snapshot width workspace agent keys snapshot
-            | Error message ->
-                prerr_endline message;
-                `Ok 1
-            | exception Yojson.Json_error message ->
-                prerr_endline ("invalid dashboard snapshot JSON: " ^ message);
-                `Ok 1))
+        | Ok dashboard ->
+            render_dashboard_model
+              ~refresh:(fun () ->
+                socket_dashboard_model socket_path lines actor)
+              width workspace agent keys dashboard)
 
 let parse_actor = function
   | None -> Ok None

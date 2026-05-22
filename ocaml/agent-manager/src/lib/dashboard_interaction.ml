@@ -1,4 +1,5 @@
 type focus = Workspaces | Agents
+type refresh_status = Fresh | Refreshing | Stale of string
 
 type t = {
   model : Dashboard_model.t;
@@ -6,6 +7,7 @@ type t = {
   selected_workspace : Id.Workspace.t option;
   selected_agent : Id.Agent.t option;
   refresh_requested : bool;
+  refresh_status : refresh_status;
   should_quit : bool;
 }
 
@@ -14,6 +16,7 @@ let focus state = state.focus
 let selected_workspace state = state.selected_workspace
 let selected_agent state = state.selected_agent
 let refresh_requested state = state.refresh_requested
+let refresh_status state = state.refresh_status
 let should_quit state = state.should_quit
 
 let first_agent = function
@@ -45,6 +48,7 @@ let init model =
     selected_workspace;
     selected_agent;
     refresh_requested = false;
+    refresh_status = Fresh;
     should_quit = false;
   }
 
@@ -108,7 +112,15 @@ let refresh model state =
     | Ok selected -> selected
     | Error _ -> refreshed
   in
-  { refreshed with refresh_requested = false; should_quit = state.should_quit }
+  {
+    refreshed with
+    refresh_requested = false;
+    refresh_status = Fresh;
+    should_quit = state.should_quit;
+  }
+
+let refresh_failed message state =
+  { state with refresh_requested = false; refresh_status = Stale message }
 
 let move_in_list equal get_id direction selected values =
   match values with
@@ -167,7 +179,8 @@ let move direction state =
 
 let handle_key state = function
   | "q" | "Q" -> { state with should_quit = true }
-  | "r" | "R" -> { state with refresh_requested = true }
+  | "r" | "R" ->
+      { state with refresh_requested = true; refresh_status = Refreshing }
   | "Tab" ->
       {
         state with
@@ -183,4 +196,10 @@ let handle_key state = function
   | _ -> state
 
 let render ?width state =
-  Dashboard_model.render ?width ~selection:(selection state) state.model
+  let dashboard =
+    Dashboard_model.render ?width ~selection:(selection state) state.model
+  in
+  match state.refresh_status with
+  | Fresh -> dashboard
+  | Refreshing -> "Refresh: REQUESTED\n" ^ dashboard
+  | Stale message -> "Refresh: STALE - " ^ message ^ "\n" ^ dashboard
