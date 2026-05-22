@@ -72,8 +72,17 @@ val of_state_runtime : State_store.t -> Runtime_snapshot.t -> t
 val enrich_with_roster : Roster_index.t -> t -> t
 val topology : t -> Dashboard_topology.t
 
+val edge_affordance :
+  ?actor:Id.Agent.t ->
+  ?lines:int ->
+  Dashboard_topology.edge_id ->
+  t ->
+  Dashboard_edge_affordance.t option
+
 val render :
   ?width:int ->
+  ?lines:int ->
+  ?actor:Id.Agent.t ->
   ?selection:selection ->
   ?focus:focus ->
   ?topology_focus:Dashboard_topology.focus ->

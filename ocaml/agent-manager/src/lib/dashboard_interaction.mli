@@ -14,6 +14,10 @@ val focus : t -> focus
 val selected_workspace : t -> Id.Workspace.t option
 val selected_agent : t -> Id.Agent.t option
 val selected_edge : t -> Dashboard_topology.edge_id option
+
+val focused_edge_affordance :
+  ?actor:Id.Agent.t -> ?lines:int -> t -> Dashboard_edge_affordance.t option
+
 val refresh_requested : t -> bool
 val refresh_status : t -> refresh_status
 val should_quit : t -> bool
@@ -24,4 +28,6 @@ val select :
 val refresh : Dashboard_model.t -> t -> t
 val refresh_failed : string -> t -> t
 val handle_key : t -> string -> t
-val render : ?now:float -> ?width:int -> t -> string
+
+val render :
+  ?now:float -> ?width:int -> ?lines:int -> ?actor:Id.Agent.t -> t -> string

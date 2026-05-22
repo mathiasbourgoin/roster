@@ -350,6 +350,110 @@ let expect_pipeline_focused_render_marks_selection () =
     "preview follows selected pipeline node" true
     (contains_substring ~needle:"Preview: fixture/qa" rendered)
 
+let expect_focused_edge_affordance_render () =
+  let store = store () in
+  let runtime =
+    Ta_core.Runtime_snapshot.collect ~now:42.0 ~lines:8 ~runner store
+  in
+  let model = Ta_core.Dashboard_model.of_state_runtime store runtime in
+  let hidden = Ta_core.Id.Agent.unsafe_of_string "hidden" in
+  let model =
+    {
+      model with
+      workspaces =
+        List.map
+          (fun (workspace_row : Ta_core.Dashboard_model.workspace) ->
+            if Ta_core.Id.Workspace.equal workspace_row.id workspace then
+              {
+                workspace_row with
+                agents =
+                  List.map
+                    (fun (agent_row : Ta_core.Dashboard_model.agent) ->
+                      if Ta_core.Id.Agent.equal agent_row.name lead then
+                        {
+                          agent_row with
+                          outgoing =
+                            {
+                              readable = hidden :: agent_row.outgoing.readable;
+                              writable = hidden :: agent_row.outgoing.writable;
+                            };
+                        }
+                      else agent_row)
+                    workspace_row.agents;
+              }
+            else workspace_row)
+          model.workspaces;
+    }
+  in
+  let edge = Ta_core.Dashboard_topology.edge_id ~workspace ~from_agent:lead in
+  let affordance =
+    match Ta_core.Dashboard_model.edge_affordance ~actor:lead edge model with
+    | Some affordance -> affordance
+    | None -> Alcotest.fail "expected focused edge affordance"
+  in
+  Alcotest.(check string)
+    "source" "fixture/lead"
+    (Ta_core.Dashboard_edge_affordance.endpoint_ref affordance.source);
+  (match affordance.targets with
+  | [ target ] ->
+      Alcotest.(check string)
+        "target" "fixture/qa"
+        (Ta_core.Dashboard_edge_affordance.endpoint_ref target.endpoint);
+      Alcotest.(check bool) "readable" true target.readable;
+      Alcotest.(check bool) "writable" true target.writable
+  | _ -> Alcotest.fail "expected one edge target");
+  Alcotest.(check int) "actions" 3 (List.length affordance.actions);
+  let suppressed =
+    match Ta_core.Dashboard_model.edge_affordance ~actor:qa edge model with
+    | Some affordance -> affordance
+    | None -> Alcotest.fail "expected focused edge affordance"
+  in
+  Alcotest.(check int)
+    "non-source actor suppresses write action" 2
+    (List.length suppressed.actions);
+  let affordance_rendered =
+    Ta_core.Dashboard_edge_affordance.render_preview ~width:140 affordance
+    |> String.concat "\n"
+  in
+  Alcotest.(check bool)
+    "hidden target redacted" false
+    (contains_substring ~needle:"hidden" affordance_rendered);
+  let rendered =
+    Ta_core.Dashboard_model.render ~width:140 ~lines:3
+      ~selection:{ workspace = Some workspace; agent = Some qa }
+      ~focus:Ta_core.Dashboard_model.Pipeline ~actor:lead
+      ~topology_focus:(Ta_core.Dashboard_topology.Edge edge) model
+  in
+  Alcotest.(check bool)
+    "focused edge" true
+    (contains_substring ~needle:"Focused edge: fixture/lead -> fixture/qa"
+       rendered);
+  Alcotest.(check bool)
+    "source metadata" true
+    (contains_substring
+       ~needle:
+         "Edge source: fixture/lead pane %11 session ta-fixture runtime LIVE"
+       rendered);
+  Alcotest.(check bool)
+    "target metadata" true
+    (contains_substring
+       ~needle:
+         "Edge target: fixture/qa pane - session ta-fixture runtime DETACHED"
+       rendered);
+  Alcotest.(check bool)
+    "target action" true
+    (contains_substring
+       ~needle:
+         "Action: read target preview | runtime-snapshot fixture/qa lines 3"
+       rendered);
+  Alcotest.(check bool)
+    "write action" true
+    (contains_substring
+       ~needle:
+         "Action: draft message handoff | future-agent-message fixture/lead -> \
+          qa"
+       rendered)
+
 let expect_dashboard_render_respects_width () =
   let long_workspace =
     Ta_core.Id.Workspace.unsafe_of_string
@@ -427,6 +531,8 @@ let () =
             expect_pipeline_overview_does_not_infer_edges;
           Alcotest.test_case "pipeline focused render marks selection" `Quick
             expect_pipeline_focused_render_marks_selection;
+          Alcotest.test_case "focused edge affordance render" `Quick
+            expect_focused_edge_affordance_render;
           Alcotest.test_case "render respects width" `Quick
             expect_dashboard_render_respects_width;
         ] );

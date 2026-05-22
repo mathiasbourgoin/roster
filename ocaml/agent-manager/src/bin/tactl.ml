@@ -192,7 +192,8 @@ let load_roster_dashboard roster_path dashboard =
             |> List.map Ta_core.Roster_index.error_to_string
             |> String.concat "\n"))
 
-let render_dashboard_model ?refresh width workspace agent keys dashboard =
+let render_dashboard_model ?refresh ?actor lines width workspace agent keys
+    dashboard =
   let interaction = Ta_core.Dashboard_interaction.init dashboard in
   match
     let* workspace =
@@ -211,7 +212,8 @@ let render_dashboard_model ?refresh width workspace agent keys dashboard =
           `Ok 2
       | Ok interaction ->
           print_endline
-            (Ta_core.Dashboard_interaction.render ~width interaction);
+            (Ta_core.Dashboard_interaction.render ~width ~lines ?actor
+               interaction);
           `Ok 0)
 
 let state_dashboard_model roster_path lines state_path =
@@ -243,7 +245,7 @@ let render_dashboard lines width roster_path workspace agent keys state_path =
         render_dashboard_model
           ~refresh:(fun () ->
             state_dashboard_model roster_path lines state_path)
-          width workspace agent keys dashboard
+          lines width workspace agent keys dashboard
 
 let socket_dashboard_model roster_path socket_path lines actor =
   match
@@ -285,10 +287,10 @@ let render_dashboard_socket socket_path lines width roster_path actor workspace
             prerr_endline message;
             `Ok 1
         | Ok dashboard ->
-            render_dashboard_model
+            render_dashboard_model ~actor
               ~refresh:(fun () ->
                 socket_dashboard_model roster_path socket_path lines actor)
-              width workspace agent keys dashboard)
+              lines width workspace agent keys dashboard)
 
 let parse_actor = function
   | None -> Ok None

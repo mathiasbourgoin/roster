@@ -3,6 +3,7 @@
  (public_name agent-roster-agent-manager.core)
  (modules
   id
+  dashboard_edge_affordance
   dashboard_interaction
   dashboard_model
   dashboard_refresh_cadence

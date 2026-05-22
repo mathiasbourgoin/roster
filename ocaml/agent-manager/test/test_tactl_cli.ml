@@ -566,6 +566,8 @@ let expect_dashboard_render_replays_pipeline_key () =
             "render";
             "--width";
             "100";
+            "--lines";
+            "3";
             "--key";
             "p";
             "--key";
@@ -610,7 +612,24 @@ let expect_dashboard_render_replays_pipeline_edge_key () =
            result.stdout);
       Alcotest.(check bool)
         "selected edge target preview" true
-        (contains_substring ~needle:"Preview: fixture/qa" result.stdout))
+        (contains_substring ~needle:"Preview: fixture/qa" result.stdout);
+      Alcotest.(check bool)
+        "edge source metadata" true
+        (contains_substring
+           ~needle:
+             "Edge source: fixture/lead pane - session ta-fixture runtime \
+              DETACHED"
+           result.stdout);
+      Alcotest.(check bool)
+        "edge target metadata" true
+        (contains_substring
+           ~needle:
+             "Edge target: fixture/qa pane - session ta-fixture runtime \
+              DETACHED"
+           result.stdout);
+      Alcotest.(check bool)
+        "edge action" true
+        (contains_substring ~needle:"Action: read target preview" result.stdout))
 
 let expect_dashboard_render_uses_roster_index () =
   with_temp_state (fun path ->

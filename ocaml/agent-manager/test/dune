@@ -35,6 +35,10 @@
  (libraries ta_core alcotest unix))
 
 (test
+ (name test_dashboard_edge_affordance)
+ (libraries ta_core alcotest))
+
+(test
  (name test_dashboard_topology)
  (libraries ta_core alcotest))
 
