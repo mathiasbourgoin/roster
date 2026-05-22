@@ -20,7 +20,17 @@ type command =
       cwd : string option;
       command : string list;
     }
+  | New_detached_session_with_pane_id of {
+      session : session;
+      cwd : string option;
+      command : string list;
+    }
   | Split_window of {
+      target : target;
+      cwd : string option;
+      command : string list;
+    }
+  | Split_window_with_pane_id of {
       target : target;
       cwd : string option;
       command : string list;

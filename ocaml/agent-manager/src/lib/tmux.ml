@@ -14,7 +14,17 @@ type command =
       cwd : string option;
       command : string list;
     }
+  | New_detached_session_with_pane_id of {
+      session : session;
+      cwd : string option;
+      command : string list;
+    }
   | Split_window of {
+      target : target;
+      cwd : string option;
+      command : string list;
+    }
+  | Split_window_with_pane_id of {
       target : target;
       cwd : string option;
       command : string list;
@@ -110,12 +120,28 @@ let argv = function
       | None -> [ "new-session"; "-d"; "-s"; session; shell_command ]
       | Some cwd ->
           [ "new-session"; "-d"; "-s"; session; "-c"; cwd; shell_command ])
+  | New_detached_session_with_pane_id { session; cwd; command } -> (
+      let shell_command = shell_command command in
+      let prefix =
+        [ "new-session"; "-d"; "-P"; "-F"; "#{pane_id}"; "-s"; session ]
+      in
+      match cwd with
+      | None -> prefix @ [ shell_command ]
+      | Some cwd -> prefix @ [ "-c"; cwd; shell_command ])
   | Split_window { target; cwd; command } -> (
       let shell_command = shell_command command in
       match cwd with
       | None -> [ "split-window"; "-d"; "-t"; target; shell_command ]
       | Some cwd ->
           [ "split-window"; "-d"; "-t"; target; "-c"; cwd; shell_command ])
+  | Split_window_with_pane_id { target; cwd; command } -> (
+      let shell_command = shell_command command in
+      let prefix =
+        [ "split-window"; "-d"; "-P"; "-F"; "#{pane_id}"; "-t"; target ]
+      in
+      match cwd with
+      | None -> prefix @ [ shell_command ]
+      | Some cwd -> prefix @ [ "-c"; cwd; shell_command ])
   | Select_layout { target; layout } ->
       [ "select-layout"; "-t"; target; layout ]
   | Send_keys { target; text } -> [ "send-keys"; "-t"; target; text; "Enter" ]
@@ -140,9 +166,45 @@ let command_line = function
         | Some cwd -> [ "-c"; shell_display_word cwd; shell_command command ]
       in
       String.concat " " args
+  | New_detached_session_with_pane_id { session; cwd; command } ->
+      let args =
+        [
+          "tmux";
+          "new-session";
+          "-d";
+          "-P";
+          "-F";
+          shell_display_word "#{pane_id}";
+          "-s";
+          shell_display_word session;
+        ]
+        @
+        match cwd with
+        | None -> [ shell_command command ]
+        | Some cwd -> [ "-c"; shell_display_word cwd; shell_command command ]
+      in
+      String.concat " " args
   | Split_window { target; cwd; command } ->
       let args =
         [ "tmux"; "split-window"; "-d"; "-t"; shell_display_word target ]
+        @
+        match cwd with
+        | None -> [ shell_command command ]
+        | Some cwd -> [ "-c"; shell_display_word cwd; shell_command command ]
+      in
+      String.concat " " args
+  | Split_window_with_pane_id { target; cwd; command } ->
+      let args =
+        [
+          "tmux";
+          "split-window";
+          "-d";
+          "-P";
+          "-F";
+          shell_display_word "#{pane_id}";
+          "-t";
+          shell_display_word target;
+        ]
         @
         match cwd with
         | None -> [ shell_command command ]

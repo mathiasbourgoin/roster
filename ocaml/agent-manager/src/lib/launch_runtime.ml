@@ -19,12 +19,13 @@ type attachment = {
 
 type runner = Tmux.command -> (string, Tmux.error) result
 
-let workspace_window_target workspace =
-  Tmux.unsafe_target_of_string
-    (Tmux.session_to_string workspace.Launch_plan.session ^ ":0")
+let ( let* ) = Result.bind
 
-let agent_target agent =
-  Tmux.unsafe_target_of_string agent.Launch_plan.tmux_target
+let workspace_target workspace =
+  Tmux.unsafe_target_of_string
+    (Tmux.session_to_string workspace.Launch_plan.session)
+
+let pane_target pane = Tmux.unsafe_target_of_string (Id.Pane.to_string pane)
 
 let command_with_env (agent : Launch_plan.agent) =
   match agent.env with
@@ -33,21 +34,12 @@ let command_with_env (agent : Launch_plan.agent) =
       "env"
       :: (List.map (fun (name, value) -> name ^ "=" ^ value) env @ agent.command)
 
-let prompt_command agent =
-  match agent.Launch_plan.startup_prompt with
-  | None -> []
-  | Some text ->
-      [
-        Tmux.Send_keys_literal { target = agent_target agent; text };
-        Tmux.Send_keys_to { target = agent_target agent; text = "" };
-      ]
-
 let workspace_commands workspace =
   match workspace.Launch_plan.agents with
   | [] -> Error (Empty_workspace workspace.id)
   | first :: rest ->
       let first_command =
-        Tmux.New_detached_session
+        Tmux.New_detached_session_with_pane_id
           {
             session = workspace.session;
             cwd = Some first.cwd;
@@ -57,9 +49,9 @@ let workspace_commands workspace =
       let split_commands =
         rest
         |> List.map (fun (agent : Launch_plan.agent) ->
-            Tmux.Split_window
+            Tmux.Split_window_with_pane_id
               {
-                target = workspace_window_target workspace;
+                target = workspace_target workspace;
                 cwd = Some agent.cwd;
                 command = command_with_env agent;
               })
@@ -70,12 +62,10 @@ let workspace_commands workspace =
         | _ ->
             [
               Tmux.Select_layout
-                { target = workspace_window_target workspace; layout = "tiled" };
+                { target = workspace_target workspace; layout = "tiled" };
             ]
       in
-      Ok
-        ([ first_command ] @ split_commands @ layout_commands
-        @ List.concat_map prompt_command workspace.agents)
+      Ok ([ first_command ] @ split_commands @ layout_commands)
 
 let duplicate_session = function
   | [] -> None
@@ -92,11 +82,6 @@ let duplicate_session = function
 
 let sessions (plan : Launch_plan.t) =
   List.map (fun workspace -> workspace.Launch_plan.session) plan.workspaces
-
-let agents (plan : Launch_plan.t) =
-  List.concat_map
-    (fun workspace -> workspace.Launch_plan.agents)
-    plan.workspaces
 
 let validate_sessions plan =
   match duplicate_session (sessions plan) with
@@ -121,6 +106,36 @@ let command_lines (plan : Launch_plan.t) =
       | Error error -> Error error
       | Ok commands -> Ok (List.map Tmux.command_line commands))
 
+let prompt_preview (agent : Launch_plan.agent) =
+  match agent.startup_prompt with
+  | None -> []
+  | Some _ ->
+      [
+        Printf.sprintf
+          "# startup prompt for %s/%s will be sent to the captured native pane \
+           id"
+          (Id.Workspace.to_string agent.workspace)
+          (Id.Agent.to_string agent.name);
+      ]
+
+let workspace_dry_run_lines workspace =
+  let* commands = workspace_commands workspace in
+  Ok
+    (List.map Tmux.command_line commands
+    @ List.concat_map prompt_preview workspace.Launch_plan.agents)
+
+let dry_run_lines plan =
+  match validate_sessions plan with
+  | Error error -> Error error
+  | Ok () ->
+      let rec loop acc = function
+        | [] -> Ok (List.rev acc |> List.concat)
+        | workspace :: rest ->
+            let* lines = workspace_dry_run_lines workspace in
+            loop (lines :: acc) rest
+      in
+      loop [] plan.workspaces
+
 let run_command runner command =
   match runner command with Ok _ -> Ok () | Error error -> Error (Tmux error)
 
@@ -134,76 +149,127 @@ let cleanup runner sessions =
     (fun session -> ignore (runner (Tmux.Kill_session session)))
     sessions
 
-let query_attachment runner (agent : Launch_plan.agent) =
-  let target = agent_target agent in
-  match runner (Tmux.Display_pane_id target) with
-  | Error error -> Error (Tmux error)
-  | Ok output -> (
-      let output = String.trim output in
-      match Id.Pane.of_string output with
-      | Ok pane ->
-          Ok
-            {
-              workspace = agent.workspace;
-              agent = agent.name;
-              planned_pane = agent.planned_pane;
-              pane;
-              target;
-            }
-      | Error message -> Error (Invalid_pane_id { target; output; message }))
+let parse_pane_id ~target output =
+  let output = String.trim output in
+  match Id.Pane.of_string output with
+  | Ok pane -> Ok pane
+  | Error message -> Error (Invalid_pane_id { target; output; message })
 
-let query_attachments runner plan =
-  let rec loop acc = function
-    | [] -> Ok (List.rev acc)
-    | agent :: rest -> (
-        match query_attachment runner agent with
-        | Ok attachment -> loop (attachment :: acc) rest
+let attachment target (agent : Launch_plan.agent) pane =
+  {
+    workspace = agent.workspace;
+    agent = agent.name;
+    planned_pane = agent.planned_pane;
+    pane;
+    target;
+  }
+
+let run_pane_command runner ~target command =
+  match runner command with
+  | Error error -> Error (Tmux error)
+  | Ok output -> parse_pane_id ~target output
+
+let prompt_commands target = function
+  | None -> []
+  | Some text ->
+      [
+        Tmux.Send_keys_literal { target; text };
+        Tmux.Send_keys_to { target; text = "" };
+      ]
+
+let run_prompt runner (agent : Launch_plan.agent) attachment =
+  let rec loop = function
+    | [] -> Ok ()
+    | command :: rest -> (
+        match run_command runner command with
+        | Ok () -> loop rest
         | Error _ as error -> error)
   in
-  loop [] (agents plan)
+  loop (prompt_commands attachment.target agent.startup_prompt)
+
+let run_prompts runner agents attachments =
+  let rec loop = function
+    | [], [] -> Ok ()
+    | agent :: agents, attachment :: attachments -> (
+        match run_prompt runner agent attachment with
+        | Ok () -> loop (agents, attachments)
+        | Error _ as error -> error)
+    | [], _ :: _ | _ :: _, [] -> invalid_arg "launch attachment mismatch"
+  in
+  loop (agents, attachments)
+
+let run_workspace runner created (workspace : Launch_plan.workspace) =
+  match workspace.agents with
+  | [] -> Error (Empty_workspace workspace.id)
+  | first :: rest ->
+      let target = workspace_target workspace in
+      let first_command =
+        Tmux.New_detached_session_with_pane_id
+          {
+            session = workspace.session;
+            cwd = Some first.cwd;
+            command = command_with_env first;
+          }
+      in
+      let* first_pane =
+        match runner first_command with
+        | Error error -> Error (Tmux error)
+        | Ok output ->
+            created := workspace.session :: !created;
+            parse_pane_id ~target output
+      in
+      let first_attachment =
+        attachment (pane_target first_pane) first first_pane
+      in
+      let rec split acc = function
+        | [] -> Ok (List.rev acc)
+        | (agent : Launch_plan.agent) :: rest ->
+            let command =
+              Tmux.Split_window_with_pane_id
+                {
+                  target;
+                  cwd = Some agent.cwd;
+                  command = command_with_env agent;
+                }
+            in
+            let* pane = run_pane_command runner ~target command in
+            split (attachment (pane_target pane) agent pane :: acc) rest
+      in
+      let* attachments = split [ first_attachment ] rest in
+      let* () =
+        match rest with
+        | [] -> Ok ()
+        | _ ->
+            run_command runner (Tmux.Select_layout { target; layout = "tiled" })
+      in
+      let* () = run_prompts runner workspace.agents attachments in
+      Ok attachments
 
 let run_with runner (plan : Launch_plan.t) =
-  match commands plan with
+  let sessions = sessions plan in
+  match validate_sessions plan with
   | Error error -> Error error
-  | Ok commands -> (
-      let sessions = sessions plan in
-      match validate_sessions plan with
-      | Error error -> Error error
-      | Ok () -> (
-          let rec ensure = function
-            | [] -> Ok ()
-            | session :: rest -> (
-                match ensure_session_absent runner session with
-                | Ok () -> ensure rest
-                | Error _ as error -> error)
-          in
-          let rec execute created = function
-            | [] -> Ok created
-            | command :: rest -> (
-                match run_command runner command with
-                | Ok () ->
-                    let created =
-                      match command with
-                      | Tmux.New_detached_session { session; _ } ->
-                          session :: created
-                      | _ -> created
-                    in
-                    execute created rest
-                | Error _ as error ->
-                    cleanup runner created;
-                    error)
-          in
-          match ensure sessions with
-          | Ok () -> (
-              match execute [] commands with
-              | Error _ as error -> error
-              | Ok created -> (
-                  match query_attachments runner plan with
-                  | Ok attachments -> Ok attachments
-                  | Error _ as error ->
-                      cleanup runner created;
-                      error))
-          | Error _ as error -> error))
+  | Ok () -> (
+      let rec ensure = function
+        | [] -> Ok ()
+        | session :: rest -> (
+            match ensure_session_absent runner session with
+            | Ok () -> ensure rest
+            | Error _ as error -> error)
+      in
+      let created = ref [] in
+      let rec execute acc = function
+        | [] -> Ok (List.rev acc |> List.concat)
+        | workspace :: rest -> (
+            match run_workspace runner created workspace with
+            | Ok attachments -> execute (attachments :: acc) rest
+            | Error _ as error ->
+                cleanup runner !created;
+                error)
+      in
+      match ensure sessions with
+      | Ok () -> execute [] plan.workspaces
+      | Error _ as error -> error)
 
 let run plan = run_with Tmux.run plan
 let cleanup_plan plan = cleanup Tmux.run (sessions plan)

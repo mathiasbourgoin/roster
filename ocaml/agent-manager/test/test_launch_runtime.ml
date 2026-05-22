@@ -45,20 +45,32 @@ let parsed_plan () =
                (List.map Ta_core.Workspace_config.error_to_string errors)))
 
 let expect_command_lines () =
-  match Ta_core.Launch_runtime.command_lines (parsed_plan ()) with
+  match Ta_core.Launch_runtime.dry_run_lines (parsed_plan ()) with
   | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
   | Ok lines ->
       Alcotest.(check (list string))
-        "commands"
+        "dry run"
         [
-          "tmux new-session -d -s ta-fixture -c /tmp/project 'env' 'ROLE=lead' \
-           'codex'";
-          "tmux split-window -d -t ta-fixture:0 -c /tmp/project/qa 'codex'";
-          "tmux select-layout -t ta-fixture:0 tiled";
-          "tmux send-keys -l -t ta-fixture:0.0 'Start lead'";
-          "tmux send-keys -t ta-fixture:0.0 '' Enter";
+          "tmux new-session -d -P -F '#{pane_id}' -s ta-fixture -c \
+           /tmp/project 'env' 'ROLE=lead' 'codex'";
+          "tmux split-window -d -P -F '#{pane_id}' -t ta-fixture -c \
+           /tmp/project/qa 'codex'";
+          "tmux select-layout -t ta-fixture tiled";
+          "# startup prompt for fixture/lead will be sent to the captured \
+           native pane id";
         ]
         lines
+
+let expect_command_lines_are_executable_commands () =
+  match Ta_core.Launch_runtime.command_lines (parsed_plan ()) with
+  | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
+  | Ok lines ->
+      Alcotest.(check bool)
+        "no comments" true
+        (List.for_all
+           (fun line ->
+             not (String.length line > 0 && Char.equal (String.get line 0) '#'))
+           lines)
 
 let duplicate_session_config =
   {|
@@ -120,14 +132,13 @@ let tmux_error command output =
   }
 
 let expect_run_returns_attachments () =
+  let commands = ref [] in
   let runner command =
+    commands := command :: !commands;
     match command with
     | Ta_core.Tmux.Has_session _ -> Error (tmux_error command "missing")
-    | Ta_core.Tmux.Display_pane_id target -> (
-        match Ta_core.Tmux.target_to_string target with
-        | "ta-fixture:0.0" -> Ok "%10\n"
-        | "ta-fixture:0.1" -> Ok "%11\n"
-        | value -> Alcotest.failf "unexpected target: %s" value)
+    | Ta_core.Tmux.New_detached_session_with_pane_id _ -> Ok "%10\n"
+    | Ta_core.Tmux.Split_window_with_pane_id _ -> Ok "%11\n"
     | _ -> Ok ""
   in
   match Ta_core.Launch_runtime.run_with runner (parsed_plan ()) with
@@ -144,7 +155,17 @@ let expect_run_returns_attachments () =
         (List.map
            (fun (attachment : Ta_core.Launch_runtime.attachment) ->
              Ta_core.Id.Agent.to_string attachment.agent)
-           attachments)
+           attachments);
+      let prompt_targets =
+        !commands
+        |> List.filter_map (function
+          | Ta_core.Tmux.Send_keys_literal { target; _ } ->
+              Some (Ta_core.Tmux.target_to_string target)
+          | _ -> None)
+        |> List.rev
+      in
+      Alcotest.(check (list string))
+        "prompt target uses captured pane" [ "%10" ] prompt_targets
 
 let expect_query_failure_cleans_created_session () =
   let commands = ref [] in
@@ -152,7 +173,7 @@ let expect_query_failure_cleans_created_session () =
     commands := command :: !commands;
     match command with
     | Ta_core.Tmux.Has_session _ -> Error (tmux_error command "missing")
-    | Ta_core.Tmux.Display_pane_id _ -> Ok "not a pane id\n"
+    | Ta_core.Tmux.New_detached_session_with_pane_id _ -> Ok "not a pane id\n"
     | _ -> Ok ""
   in
   match Ta_core.Launch_runtime.run_with runner (parsed_plan ()) with
@@ -170,17 +191,74 @@ let expect_query_failure_cleans_created_session () =
   | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
   | Ok _ -> Alcotest.fail "invalid pane id should fail"
 
+let expect_split_failure_cleans_created_session () =
+  let commands = ref [] in
+  let runner command =
+    commands := command :: !commands;
+    match command with
+    | Ta_core.Tmux.Has_session _ -> Error (tmux_error command "missing")
+    | Ta_core.Tmux.New_detached_session_with_pane_id _ -> Ok "%10\n"
+    | Ta_core.Tmux.Split_window_with_pane_id _ -> Ok "not a pane id\n"
+    | _ -> Ok ""
+  in
+  match Ta_core.Launch_runtime.run_with runner (parsed_plan ()) with
+  | Error (Ta_core.Launch_runtime.Invalid_pane_id _) ->
+      let saw_cleanup =
+        List.exists
+          (function
+            | Ta_core.Tmux.Kill_session session ->
+                String.equal "ta-fixture"
+                  (Ta_core.Tmux.session_to_string session)
+            | _ -> false)
+          !commands
+      in
+      Alcotest.(check bool) "cleanup" true saw_cleanup
+  | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
+  | Ok _ -> Alcotest.fail "invalid split pane id should fail"
+
+let expect_prompt_failure_cleans_created_session () =
+  let commands = ref [] in
+  let runner command =
+    commands := command :: !commands;
+    match command with
+    | Ta_core.Tmux.Has_session _ -> Error (tmux_error command "missing")
+    | Ta_core.Tmux.New_detached_session_with_pane_id _ -> Ok "%10\n"
+    | Ta_core.Tmux.Split_window_with_pane_id _ -> Ok "%11\n"
+    | Ta_core.Tmux.Send_keys_literal _ -> Error (tmux_error command "prompt")
+    | _ -> Ok ""
+  in
+  match Ta_core.Launch_runtime.run_with runner (parsed_plan ()) with
+  | Error (Ta_core.Launch_runtime.Tmux _) ->
+      let saw_cleanup =
+        List.exists
+          (function
+            | Ta_core.Tmux.Kill_session session ->
+                String.equal "ta-fixture"
+                  (Ta_core.Tmux.session_to_string session)
+            | _ -> false)
+          !commands
+      in
+      Alcotest.(check bool) "cleanup" true saw_cleanup
+  | Error error -> Alcotest.fail (Ta_core.Launch_runtime.error_to_string error)
+  | Ok _ -> Alcotest.fail "prompt send should fail"
+
 let () =
   Alcotest.run "launch-runtime"
     [
       ( "launch_runtime",
         [
           Alcotest.test_case "command lines" `Quick expect_command_lines;
+          Alcotest.test_case "executable command lines" `Quick
+            expect_command_lines_are_executable_commands;
           Alcotest.test_case "duplicate session" `Quick
             expect_duplicate_session_error;
           Alcotest.test_case "run returns attachments" `Quick
             expect_run_returns_attachments;
           Alcotest.test_case "query failure cleans created session" `Quick
             expect_query_failure_cleans_created_session;
+          Alcotest.test_case "split failure cleans created session" `Quick
+            expect_split_failure_cleans_created_session;
+          Alcotest.test_case "prompt failure cleans created session" `Quick
+            expect_prompt_failure_cleans_created_session;
         ] );
     ]
