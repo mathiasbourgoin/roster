@@ -343,6 +343,14 @@ let move direction state =
   | Agents -> move_agent direction state
   | Pipeline -> move_pipeline direction state
 
+let move_launcher_workspace direction state =
+  move_workspace direction
+    { state with selected_edge = None; selected_edge_target = None }
+
+let move_launcher_agent direction state =
+  move_agent direction
+    { state with selected_edge = None; selected_edge_target = None }
+
 let next_focus = function
   | Agents -> Pipeline
   | Pipeline -> Workspaces
@@ -364,17 +372,22 @@ let handle_key state = function
       match state.focus with
       | Pipeline -> move_edge_target `Previous state
       | Workspaces | Agents -> state)
-  | "j" | "J" | "Down" -> move `Next state
-  | "k" | "K" | "Up" -> move `Previous state
+  | "j" | "J" | "Down" -> (
+      match state.focus with
+      | Pipeline -> move `Next state
+      | Workspaces | Agents -> move_launcher_agent `Next state)
+  | "k" | "K" | "Up" -> (
+      match state.focus with
+      | Pipeline -> move `Previous state
+      | Workspaces | Agents -> move_launcher_agent `Previous state)
   | "Right" | "l" | "L" -> (
       match state.focus with
       | Pipeline -> move_pipeline_edge `Next state
-      | Workspaces | Agents -> move_agent `Next { state with focus = Agents })
+      | Workspaces | Agents -> move_launcher_workspace `Next state)
   | "Left" | "h" | "H" -> (
       match state.focus with
       | Pipeline -> move_pipeline_edge `Previous state
-      | Workspaces | Agents ->
-          move_agent `Previous { state with focus = Agents })
+      | Workspaces | Agents -> move_launcher_workspace `Previous state)
   | _ -> state
 
 let refresh_age_label ~now captured_at =

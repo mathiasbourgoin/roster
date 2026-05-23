@@ -189,13 +189,24 @@ let expect_agent_navigation () =
 
 let expect_workspace_navigation () =
   let state = Ta_core.Dashboard_interaction.init (dashboard ()) in
-  let state = Ta_core.Dashboard_interaction.handle_key state "w" in
-  let state = Ta_core.Dashboard_interaction.handle_key state "Down" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Right" in
   Alcotest.(check string)
     "next workspace" "docs"
     (as_workspace (Ta_core.Dashboard_interaction.selected_workspace state));
   Alcotest.(check string)
     "workspace first agent" "writer"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent state));
+  let state = Ta_core.Dashboard_interaction.handle_key state "Left" in
+  Alcotest.(check string)
+    "previous workspace" "fixture"
+    (as_workspace (Ta_core.Dashboard_interaction.selected_workspace state));
+  Alcotest.(check string)
+    "previous workspace preferred agent" "lead"
+    (as_string (Ta_core.Dashboard_interaction.selected_agent state));
+  let state = Ta_core.Dashboard_interaction.handle_key state "w" in
+  let state = Ta_core.Dashboard_interaction.handle_key state "Down" in
+  Alcotest.(check string)
+    "down still moves agent" "qa"
     (as_string (Ta_core.Dashboard_interaction.selected_agent state))
 
 let expect_tab_cycles_focus () =

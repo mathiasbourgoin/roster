@@ -169,6 +169,13 @@ let line_count value =
   | "" :: rest -> List.length rest
   | _ -> List.length lines
 
+let last_text_line value =
+  value |> String.split_on_char '\n'
+  |> List.filter (fun line -> not (String.equal line ""))
+  |> List.rev |> function
+  | line :: _ -> line
+  | [] -> ""
+
 type frame = { frame_text : string; frame_rows : int; frame_cols : int }
 
 let frame_field_string name fields =
@@ -308,6 +315,24 @@ let write_source_tree_example_config dir =
 
 let save_state path =
   match Ta_core.Workspace_config.load (fixture "ta-valid.json") with
+  | Error errors ->
+      Alcotest.fail
+        (String.concat "\n"
+           (List.map Ta_core.Workspace_config.error_to_string errors))
+  | Ok config -> (
+      match Ta_core.State_store.of_config config with
+      | Error errors ->
+          Alcotest.fail
+            (String.concat "\n"
+               (List.map Ta_core.Workspace_config.error_to_string errors))
+      | Ok store -> (
+          match Ta_core.State_file.save ~path store with
+          | Ok () -> ()
+          | Error error ->
+              Alcotest.fail (Ta_core.State_file.error_to_string error)))
+
+let save_state_from_string path text =
+  match Ta_core.Workspace_config.parse_string text with
   | Error errors ->
       Alcotest.fail
         (String.concat "\n"
@@ -471,6 +496,121 @@ let expect_miaou_headless_tui_renders_dashboard () =
         "pipeline edge" true
         (contains_substring ~needle:"Pipeline edge" result.stdout))
 
+let expect_miaou_headless_launcher_axes_and_footer () =
+  with_temp_state (fun path ->
+      save_state_from_string path
+        {|
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture",
+      "root": ".",
+      "tmux_session": "ta-fixture",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]}
+      ]
+    },
+    {
+      "id": "docs",
+      "label": "Docs",
+      "root": ".",
+      "tmux_session": "ta-docs",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "writer", "roster_agent": "documenter", "command": ["codex"]}
+      ]
+    }
+  ]
+}
+|};
+      let result =
+        run_ta_with_input
+          ~env:[ ("MIAOU_DRIVER", "headless") ]
+          ~stdin:
+            "{\"cmd\":\"resize\",\"rows\":18,\"cols\":92}\n\
+             {\"cmd\":\"key\",\"key\":\"Right\"}\n\
+             {\"cmd\":\"render\"}\n\
+             {\"cmd\":\"quit\"}\n"
+          [ "--state"; path; "--tui"; "always" ]
+      in
+      check_exit "exit" 0 result.status;
+      Alcotest.(check string) "stderr" "" result.stderr;
+      let frame = last_frame result.stdout in
+      Alcotest.(check bool)
+        "right selects workspace" true
+        (contains_substring ~needle:"docs/writer" frame.frame_text);
+      Alcotest.(check bool)
+        "launcher footer" true
+        (contains_substring
+           ~needle:"Launch docs/writer | Codex | Enter Start | 'codex'"
+           frame.frame_text);
+      Alcotest.(check int) "frame rows" 18 frame.frame_rows;
+      Alcotest.(check bool)
+        "frame fits terminal height" true
+        (line_count frame.frame_text <= frame.frame_rows))
+
+let expect_miaou_headless_launcher_footer_pinned_when_tiny () =
+  with_temp_state (fun path ->
+      save_state_from_string path
+        {|
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture",
+      "root": ".",
+      "tmux_session": "ta-fixture",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]}
+      ]
+    },
+    {
+      "id": "docs",
+      "label": "Docs",
+      "root": ".",
+      "tmux_session": "ta-docs",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "writer", "roster_agent": "documenter", "command": ["codex"]}
+      ]
+    }
+  ]
+}
+|};
+      let result =
+        run_ta_with_input
+          ~env:[ ("MIAOU_DRIVER", "headless") ]
+          ~stdin:
+            "{\"cmd\":\"resize\",\"rows\":5,\"cols\":80}\n\
+             {\"cmd\":\"key\",\"key\":\"Right\"}\n\
+             {\"cmd\":\"render\"}\n\
+             {\"cmd\":\"quit\"}\n"
+          [ "--state"; path; "--tui"; "always" ]
+      in
+      check_exit "exit" 0 result.status;
+      Alcotest.(check string) "stderr" "" result.stderr;
+      let frame = last_frame result.stdout in
+      Alcotest.(check int) "frame rows" 5 frame.frame_rows;
+      Alcotest.(check int)
+        "frame fills tiny height" frame.frame_rows (line_count frame.frame_text);
+      Alcotest.(check bool)
+        "tiny launcher footer" true
+        (contains_substring ~needle:"Launch docs/writer | Codex"
+           frame.frame_text);
+      Alcotest.(check bool)
+        "last line is footer" true
+        (contains_substring ~needle:"Launch docs/writer | Codex"
+           (last_text_line frame.frame_text)))
+
 let expect_miaou_headless_tui_respects_short_height () =
   with_temp_state (fun path ->
       save_state path;
@@ -516,7 +656,7 @@ let expect_miaou_headless_tui_uses_full_collapsed_width () =
         (contains_substring ~needle:"tech-lead | id tech-lead" frame.frame_text);
       Alcotest.(check bool)
         "collapsed action remains visible" true
-        (contains_substring ~needle:"Enter Start lead | Codex | 'codex'"
+        (contains_substring ~needle:"Launch fixture/lead | Codex"
            frame.frame_text))
 
 let expect_miaou_headless_tui_enter_without_socket_marks_stale () =
@@ -875,14 +1015,14 @@ let expect_miaou_headless_live_preview_is_visible_when_short () =
                    frame.frame_text);
               Alcotest.(check bool)
                 "attached action visible" true
-                (contains_substring ~needle:"Enter Refresh | attached"
+                (contains_substring ~needle:"Enter Refresh attached"
                    frame.frame_text);
               check_ordered_substrings "live layout order"
                 [
-                  "Enter Refresh | attached";
                   "Preview";
                   "direct-start-ready";
                   "Agent detail";
+                  "Enter Refresh attached";
                 ]
                 frame.frame_text;
               let focused =
@@ -1484,6 +1624,10 @@ let () =
             expect_tui_always_requires_terminal;
           Alcotest.test_case "miaou headless tui renders dashboard" `Quick
             expect_miaou_headless_tui_renders_dashboard;
+          Alcotest.test_case "miaou headless launcher axes and footer" `Quick
+            expect_miaou_headless_launcher_axes_and_footer;
+          Alcotest.test_case "miaou headless launcher footer pinned when tiny"
+            `Quick expect_miaou_headless_launcher_footer_pinned_when_tiny;
           Alcotest.test_case "miaou headless tui respects short height" `Quick
             expect_miaou_headless_tui_respects_short_height;
           Alcotest.test_case "miaou headless tui uses collapsed width" `Quick

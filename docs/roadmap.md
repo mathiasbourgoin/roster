@@ -163,13 +163,16 @@ pick workspace, pick agent, start or connect.
   Enter-first workflow unchanged. The focus is anchored to the selected live
   workspace/agent/view, survives refresh for that same selection, and clears
   when the operator moves elsewhere.
+- The MIAOU dashboard now behaves like a two-axis launcher in the normal path:
+  Left/Right changes workspace, Up/Down changes agent, and a pinned footer keeps
+  the selected launch target, profile, command, and Enter action visible.
 
 ## Near-Term Milestones
 
 - Upgrade selected-agent start into the full two-selection TUI workflow: pick
-  workspace, pick roster agent or template, confirm command/profile only when
-  needed, and TA creates the tmux pane plus state snapshot without requiring
-  hand-written JSON.
+  workspace, pick roster agent or template/profile, confirm command/profile
+  only when needed, and TA creates the tmux pane plus state snapshot without
+  requiring hand-written JSON.
   Acceptance bar: from `dune exec ta`, starting a Codex `tech-lead` must take
   no more than two primary selections in the TUI.
 - Keep capability-driven create/connect flows equally simple: privileged agents

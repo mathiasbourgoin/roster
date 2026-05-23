@@ -200,9 +200,10 @@ let run ~lines ~refresh ~start interaction =
     let key_hints _ =
       [
         ("Enter", "start/refresh");
+        ("Left/Right", "workspace");
+        ("Up/Down", "agent");
         ("v", "preview");
         ("q", "quit");
-        ("arrows/jk", "move");
         ("Tab", "focus");
         ("p", "pipeline");
         ("s", "start");

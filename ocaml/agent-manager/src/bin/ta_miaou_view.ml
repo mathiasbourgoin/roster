@@ -23,6 +23,14 @@ let clip_lines height lines =
 let clip_text height value =
   value |> split_lines |> clip_lines height |> join_lines
 
+let fit width value =
+  let length = String.length value in
+  if width <= 0 then ""
+  else if length = width then value
+  else if length < width then value ^ String.make (width - length) ' '
+  else if width <= 3 then String.sub value 0 width
+  else String.sub value 0 (width - 3) ^ "..."
+
 let sidebar_collapses cols = cols < 40
 
 let sidebar_left_width cols sidebar_width =
@@ -114,6 +122,30 @@ let selected_agent interaction =
           Ta_core.Id.Agent.equal agent.name selected)
       |> Option.map (fun agent -> (workspace, agent))
   | _ -> None
+
+let launch_footer width interaction =
+  match selected_agent interaction with
+  | None -> fit width "Launch - | choose workspace and agent | Enter Start"
+  | Some (workspace, agent) ->
+      let profile = launch_profile agent in
+      let target =
+        Ta_core.Id.Workspace.to_string workspace.Ta_core.Dashboard_model.id
+        ^ "/"
+        ^ Ta_core.Id.Agent.to_string agent.name
+      in
+      let action =
+        match agent.pane with
+        | None -> "Enter Start"
+        | Some pane -> "Enter Refresh attached " ^ Ta_core.Id.Pane.to_string pane
+      in
+      String.concat " | "
+        [
+          "Launch " ^ target;
+          Ta_core.Launch_profile.profile_label profile;
+          action;
+          Ta_core.Launch_profile.compact_command_label profile;
+        ]
+      |> fit width
 
 let selected_action_line interaction =
   match selected_agent interaction with
@@ -256,12 +288,11 @@ let main_text ~preview_focus profile width layout interaction =
           match selected_agent interaction with
           | None -> layout.main |> join_lines
           | Some (workspace, agent) ->
-              let action = action_bar_for_agent agent in
               let detail = agent_detail width workspace agent in
               let preview = preview_text profile.lines agent in
               if agent_is_live agent then
-                String.concat "\n\n" [ action; preview; detail ]
-              else String.concat "\n\n" [ action; detail; preview ]))
+                String.concat "\n\n" [ preview; detail ]
+              else String.concat "\n\n" [ detail; preview ]))
 
 let preview_focus_active preview_focus interaction =
   preview_focus
@@ -276,13 +307,15 @@ let render ?(preview_focus = false) profile runner ~size =
   let interaction = Ta_core.Dashboard_runner.interaction runner in
   let preview_focus = preview_focus_active preview_focus interaction in
   let header_rows = 2 in
+  let footer_rows = 1 in
   let split_open = not (sidebar_collapses cols) in
   let border_rows = if split_open && not preview_focus then 2 else 0 in
-  let body_rows = max 0 (rows - header_rows - border_rows) in
+  let body_render_rows = max 0 (rows - header_rows - footer_rows) in
+  let content_rows = max 0 (body_render_rows - border_rows) in
   let layout =
     Ta_core.Dashboard_tui_layout.render ~now:(Unix.gettimeofday ())
       ~lines:profile.lines ~show_footer:false ~width:cols
-      ~height:(body_rows + header_rows) interaction
+      ~height:(content_rows + header_rows) interaction
   in
   let header =
     layout.header |> List.map Widgets.themed_emphasis |> clip_lines header_rows
@@ -293,10 +326,12 @@ let render ?(preview_focus = false) profile runner ~size =
   let main_width =
     if split_open then split_main_width cols layout.sidebar_width else cols
   in
-  let sidebar = sidebar_text sidebar_width interaction |> clip_text body_rows in
+  let sidebar =
+    sidebar_text sidebar_width interaction |> clip_text content_rows
+  in
   let main =
     main_text ~preview_focus profile main_width layout interaction
-    |> clip_text body_rows
+    |> clip_text content_rows
   in
   let body =
     if preview_focus then main
@@ -304,5 +339,9 @@ let render ?(preview_focus = false) profile runner ~size =
       Sidebar.create ~sidebar_width:layout.sidebar_width ~sidebar ~main
         ~sidebar_open:true ()
       |> Sidebar.render ~cols
+      |> split_lines
+      |> clip_lines body_render_rows
+      |> join_lines
   in
-  header @ split_lines body |> clip_lines rows |> join_lines
+  let footer = launch_footer cols interaction in
+  header @ split_lines body @ [ footer ] |> clip_lines rows |> join_lines
