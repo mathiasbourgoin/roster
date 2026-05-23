@@ -191,6 +191,9 @@ pick workspace, pick agent, start or connect.
 - Detached MIAOU agents no longer spend first-screen space on an empty preview
   placeholder; preview surfaces are reserved for attached sessions with actual
   pane output.
+- Privileged detached agents now get a compact MIAOU `Manage` hint for future
+  create/connect flows, while ordinary agents keep the same start-focused
+  launch panel.
 - Root `npm test` no longer rewrites `index.json` by importing the build-index
   module; the index builder now runs only as an explicit CLI entrypoint.
 

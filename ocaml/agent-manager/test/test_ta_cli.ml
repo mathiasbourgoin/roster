@@ -873,7 +873,8 @@ let expect_miaou_headless_tui_direct_start_with_config () =
         {
           "name": "lead",
           "roster_agent": "tech-lead",
-          "command": ["sh", "-lc", "printf direct-start-ready; sleep 60"]
+          "command": ["sh", "-lc", "printf direct-start-ready; sleep 60"],
+          "capabilities": ["create-agent", "connect-agents"]
         }
       ],
       "links": []
@@ -916,6 +917,11 @@ let expect_miaou_headless_tui_direct_start_with_config () =
               Alcotest.(check bool)
                 "running status" true
                 (contains_substring ~needle:"Status        running"
+                   frame.frame_text);
+              Alcotest.(check bool)
+                "attached privileged diagnostics" true
+                (contains_substring
+                   ~needle:"Capabilities  create-agent,connect-agents"
                    frame.frame_text);
               Alcotest.(check bool)
                 "attached action" true
@@ -1549,6 +1555,12 @@ let expect_harness_config_generates_workspace_dashboard () =
             && contains_substring ~needle:"create+connect"
                  frame.frame_text);
           Alcotest.(check bool)
+            "privileged manage hint" true
+            (contains_substring ~needle:"Manage" frame.frame_text
+            && contains_substring
+                 ~needle:"create agents | connect sessions"
+                 frame.frame_text);
+          Alcotest.(check bool)
             "detached launch omits raw capabilities" false
             (contains_substring ~needle:"Capabilities" frame.frame_text);
           Alcotest.(check bool)
@@ -1589,6 +1601,9 @@ let expect_harness_config_generates_workspace_dashboard () =
             "qa self-only access" true
             (contains_substring ~needle:"Access" qa_frame.frame_text
             && contains_substring ~needle:"self only" qa_frame.frame_text);
+          Alcotest.(check bool)
+            "qa has no manage hint" false
+            (contains_substring ~needle:"Manage" qa_frame.frame_text);
           Alcotest.(check bool)
             "qa footer has no powers" false
             (contains_substring ~needle:"Authority create+connect"

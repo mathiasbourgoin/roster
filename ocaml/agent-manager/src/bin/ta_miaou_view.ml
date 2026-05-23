@@ -309,6 +309,19 @@ let launch_access_label (agent : Ta_core.Dashboard_model.agent) =
       ^ " | write "
       ^ join_agents writable
 
+let launch_manage_label (agent : Ta_core.Dashboard_model.agent) =
+  let create =
+    Ta_core.Agent_capability.grants_create_agent agent.capabilities
+  in
+  let connect =
+    Ta_core.Agent_capability.grants_connect_agents agent.capabilities
+  in
+  match (create, connect) with
+  | false, false -> None
+  | true, true -> Some "create agents | connect sessions"
+  | true, false -> Some "create agents"
+  | false, true -> Some "connect sessions"
+
 let agent_launch_summary width workspace agent =
   let profile = launch_profile agent in
   let profile_summary =
@@ -323,8 +336,11 @@ let agent_launch_summary width workspace agent =
       ("Roster", roster_launch_label agent);
       ("Profile", profile_summary);
       ("Authority", launch_authority_label agent);
-      ("Access", launch_access_label agent);
     ]
+    @ (match launch_manage_label agent with
+      | None -> []
+      | Some label -> [ ("Manage", label) ])
+    @ [ ("Access", launch_access_label agent) ]
   in
   Desc.create ~title:"Launch" ~key_width:12 ~items () |> fun desc ->
   Desc.render ~cols:width ~wrap:false desc ~focus:true
