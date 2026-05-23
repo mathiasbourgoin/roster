@@ -484,8 +484,8 @@ let expect_miaou_headless_tui_renders_dashboard () =
         "selected launch agent" true
         (contains_substring ~needle:"Agent         lead" result.stdout);
       Alcotest.(check bool)
-        "agent table" true
-        (contains_substring ~needle:"tech-lead | id tech-lead" result.stdout);
+        "launch roster" true
+        (contains_substring ~needle:"Roster        tech-lead" result.stdout);
       Alcotest.(check bool)
         "agent table shows launch profile" true
         (contains_substring ~needle:"│ lead   │ Codex"
@@ -502,6 +502,9 @@ let expect_miaou_headless_tui_renders_dashboard () =
       Alcotest.(check bool)
         "launch detail" true
         (contains_substring ~needle:"★ Launch" result.stdout);
+      check_ordered_substrings "compact launch detail"
+        [ "Workspace"; "Agent"; "Roster"; "Profile"; "Authority"; "Access" ]
+        result.stdout;
       Alcotest.(check bool)
         "launch command detail" true
         (contains_substring ~needle:"'codex'" result.stdout);
@@ -690,7 +693,8 @@ let expect_miaou_headless_tui_uses_full_collapsed_width () =
       Alcotest.(check int) "frame cols" 39 frame.frame_cols;
       Alcotest.(check bool)
         "collapsed view uses full width" true
-        (contains_substring ~needle:"tech-lead | id tech-lead" frame.frame_text);
+        (contains_substring ~needle:"Roster        tech-lead"
+           frame.frame_text);
       Alcotest.(check bool)
         "collapsed action remains visible" true
         (contains_substring ~needle:"Launch lead | Codex | Enter Start"
@@ -1532,14 +1536,18 @@ let expect_harness_config_generates_workspace_dashboard () =
                ~needle:"Workspace     agent-roster | agent-roster | harn"
                frame.frame_text);
           Alcotest.(check bool)
-            "visible privileges" true
-            (contains_substring ~needle:"Privileges    reads 1 | writes 1"
-               frame.frame_text);
+            "visible access" true
+            (contains_substring ~needle:"Access" frame.frame_text
+            && contains_substring ~needle:"read qa | write qa"
+                 frame.frame_text);
           Alcotest.(check bool)
-            "visible capabilities" true
-            (contains_substring
-               ~needle:"Capabilities  create-agent,connect-agents"
-               frame.frame_text);
+            "visible authority" true
+            (contains_substring ~needle:"Authority" frame.frame_text
+            && contains_substring ~needle:"create+connect"
+                 frame.frame_text);
+          Alcotest.(check bool)
+            "detached launch omits raw capabilities" false
+            (contains_substring ~needle:"Capabilities" frame.frame_text);
           Alcotest.(check bool)
             "footer powers" true
             (contains_substring
@@ -1571,9 +1579,13 @@ let expect_harness_config_generates_workspace_dashboard () =
             (contains_substring ~needle:"Agent         qa"
                qa_frame.frame_text);
           Alcotest.(check bool)
-            "qa capabilities none" true
-            (contains_substring ~needle:"Capabilities  none"
-               qa_frame.frame_text);
+            "qa standard authority" true
+            (contains_substring ~needle:"Authority" qa_frame.frame_text
+            && contains_substring ~needle:"standard" qa_frame.frame_text);
+          Alcotest.(check bool)
+            "qa self-only access" true
+            (contains_substring ~needle:"Access" qa_frame.frame_text
+            && contains_substring ~needle:"self only" qa_frame.frame_text);
           Alcotest.(check bool)
             "qa footer has no powers" false
             (contains_substring ~needle:"Authority create+connect"

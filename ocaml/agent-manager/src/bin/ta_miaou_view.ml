@@ -295,6 +295,20 @@ let workspace_launch_label (workspace : Ta_core.Dashboard_model.workspace) =
   ^ " | "
   ^ workspace_source_label workspace
 
+let roster_launch_label (agent : Ta_core.Dashboard_model.agent) =
+  let display = roster_label agent in
+  if String.equal display agent.roster_agent then display
+  else display ^ " | id " ^ agent.roster_agent
+
+let launch_access_label (agent : Ta_core.Dashboard_model.agent) =
+  match (agent.outgoing.readable, agent.outgoing.writable) with
+  | [], [] -> "self only"
+  | readable, writable ->
+      "read "
+      ^ join_agents readable
+      ^ " | write "
+      ^ join_agents writable
+
 let agent_launch_summary width workspace agent =
   let profile = launch_profile agent in
   let profile_summary =
@@ -306,20 +320,10 @@ let agent_launch_summary width workspace agent =
     [
       ("Workspace", workspace_launch_label workspace);
       ("Agent", Ta_core.Id.Agent.to_string agent.name);
-      ("Roster agent", roster_label agent ^ " | id " ^ agent.roster_agent);
-      ( "Status",
-        status_to_string agent.status
-        ^ " | "
-        ^ runtime_state_to_string agent.runtime_state );
+      ("Roster", roster_launch_label agent);
       ("Profile", profile_summary);
       ("Authority", launch_authority_label agent);
-      ("Privileges", privilege_label agent);
-      ("Capabilities", capability_label agent);
-      ( "Connections",
-        "read "
-        ^ join_agents agent.outgoing.readable
-        ^ " | write "
-        ^ join_agents agent.outgoing.writable );
+      ("Access", launch_access_label agent);
     ]
   in
   Desc.create ~title:"Launch" ~key_width:12 ~items () |> fun desc ->
