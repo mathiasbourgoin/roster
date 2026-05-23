@@ -211,6 +211,14 @@ let selected_agent_index interaction
   in
   loop 0 workspace.agents
 
+let agent_picker_profile_label agent =
+  let label =
+    Ta_core.Launch_profile.profile_label (launch_profile agent)
+  in
+  let limit = 12 in
+  if String.length label <= limit then label
+  else String.sub label 0 (limit - 3) ^ "..."
+
 let workspace_lines interaction =
   let model = Ta_core.Dashboard_interaction.model interaction in
   let selected = Ta_core.Dashboard_interaction.selected_workspace interaction in
@@ -231,7 +239,7 @@ let agent_table width interaction workspace =
     |> List.map (fun (agent : Ta_core.Dashboard_model.agent) ->
         [
           Ta_core.Id.Agent.to_string agent.name;
-          Ta_core.Launch_profile.profile_label (launch_profile agent);
+          agent_picker_profile_label agent;
         ])
   in
   let opts =

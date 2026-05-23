@@ -536,7 +536,8 @@ let expect_miaou_headless_launcher_axes_and_footer () =
       "views": [{"id": "agents", "label": "Agents"}],
       "agents": [
         {"name": "writer", "roster_agent": "documenter", "command": ["codex"]},
-        {"name": "editor", "roster_agent": "reviewer", "command": ["sh", "-lc", "printf editor-ready"]}
+        {"name": "editor", "roster_agent": "reviewer", "command": ["sh", "-lc", "printf editor-ready"]},
+        {"name": "custom", "roster_agent": "reviewer", "command": ["very-long-custom-runtime-name"]}
       ]
     }
   ]
@@ -568,6 +569,14 @@ let expect_miaou_headless_launcher_axes_and_footer () =
         (contains_substring ~needle:"│ editor"
            frame.frame_text
         && contains_substring ~needle:"│ shell"
+           frame.frame_text);
+      Alcotest.(check bool)
+        "agent table caps long profile labels" true
+        (contains_substring ~needle:"very-long..."
+           frame.frame_text);
+      Alcotest.(check bool)
+        "agent table hides uncapped custom profile" false
+        (contains_substring ~needle:"very-long-custom-runtime-name"
            frame.frame_text);
       Alcotest.(check bool)
         "launcher footer" true

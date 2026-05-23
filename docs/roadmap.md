@@ -181,6 +181,9 @@ pick workspace, pick agent, start or connect.
 - The MIAOU agent picker now shows each agent's configured launch profile
   directly in the table, so selecting an agent also shows whether Enter will run
   Codex, shell, Claude, OpenCode, or another command.
+- Agent picker profile labels are capped in the table, keeping custom command
+  names from widening the sidebar while full launch details remain visible in
+  the selected panel and footer.
 
 ## Near-Term Milestones
 
