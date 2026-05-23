@@ -169,6 +169,9 @@ pick workspace, pick agent, start or connect.
 - The pinned launcher footer now surfaces roster-native product powers for the
   selected agent, showing compact create/connect capability hints for privileged
   agents while ordinary agents stay uncluttered.
+- The pinned launcher footer now preserves complete primary Enter actions by
+  adapting lower-priority target, authority, profile, and command segments
+  before truncating, including attached-agent refresh footers.
 
 ## Near-Term Milestones
 

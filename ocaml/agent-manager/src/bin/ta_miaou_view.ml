@@ -94,6 +94,19 @@ let capability_power_label (agent : Ta_core.Dashboard_model.agent) =
   | true, false -> Some "Authority create"
   | false, true -> Some "Authority connect"
 
+let compact_capability_power_label (agent : Ta_core.Dashboard_model.agent) =
+  let create =
+    Ta_core.Agent_capability.grants_create_agent agent.capabilities
+  in
+  let connect =
+    Ta_core.Agent_capability.grants_connect_agents agent.capabilities
+  in
+  match (create, connect) with
+  | false, false -> None
+  | true, true -> Some "Auth create+connect"
+  | true, false -> Some "Auth create"
+  | false, true -> Some "Auth connect"
+
 let launch_profile agent =
   Ta_core.Launch_profile.of_parts
     ~command:agent.Ta_core.Dashboard_model.command ~cwd:agent.cwd
@@ -137,31 +150,52 @@ let selected_agent interaction =
   | _ -> None
 
 let launch_footer width interaction =
+  let join parts = String.concat " | " parts in
+  let with_action action = function
+    | [] -> action
+    | parts -> join (parts @ [ action ])
+  in
+  let fits action parts = String.length (with_action action parts) <= width in
+  let first_fitting action candidates =
+    candidates |> List.find_opt (fits action) |> Option.value ~default:[]
+  in
   match selected_agent interaction with
   | None -> fit width "Launch - | choose workspace and agent | Enter Start"
   | Some (workspace, agent) ->
       let profile = launch_profile agent in
-      let target =
+      let full_target =
         Ta_core.Id.Workspace.to_string workspace.Ta_core.Dashboard_model.id
         ^ "/"
         ^ Ta_core.Id.Agent.to_string agent.name
       in
+      let compact_target = Ta_core.Id.Agent.to_string agent.name in
       let action =
         match agent.pane with
         | None -> "Enter Start"
-        | Some pane -> "Enter Refresh attached " ^ Ta_core.Id.Pane.to_string pane
+        | Some _ -> "Enter Refresh"
       in
-      String.concat " | "
-        ([
-           "Launch " ^ target;
-         ]
-        @ Option.to_list (capability_power_label agent)
-        @ [
-            Ta_core.Launch_profile.profile_label profile;
-            action;
-            Ta_core.Launch_profile.compact_command_label profile;
-          ])
-      |> fit width
+      let profile_label = Ta_core.Launch_profile.profile_label profile in
+      let command_label = Ta_core.Launch_profile.compact_command_label profile in
+      let full_capability = Option.to_list (capability_power_label agent) in
+      let compact_capability =
+        Option.to_list (compact_capability_power_label agent)
+      in
+      let full_launch = "Launch " ^ full_target in
+      let compact_launch = "Launch " ^ compact_target in
+      let parts =
+        first_fitting action
+          [
+            [ full_launch ] @ full_capability @ [ profile_label; command_label ];
+            [ full_launch ] @ full_capability @ [ profile_label ];
+            [ compact_launch ] @ full_capability @ [ profile_label ];
+            [ full_launch ] @ compact_capability @ [ profile_label ];
+            [ compact_launch ] @ compact_capability @ [ profile_label ];
+            [ full_launch; profile_label ];
+            [ compact_launch; profile_label ];
+            [ compact_launch ];
+          ]
+      in
+      with_action action parts |> fit width
 
 let selected_action_line interaction =
   match selected_agent interaction with

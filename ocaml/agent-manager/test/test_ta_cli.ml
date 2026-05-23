@@ -547,8 +547,8 @@ let expect_miaou_headless_launcher_axes_and_footer () =
       Alcotest.(check bool)
         "launcher footer" true
         (contains_substring
-           ~needle:"Launch docs/writer | Codex | Enter Start | 'codex'"
-           frame.frame_text);
+           ~needle:"Launch docs/writer | Codex | 'codex' | Enter Start"
+           (last_text_line frame.frame_text));
       Alcotest.(check int) "frame rows" 18 frame.frame_rows;
       Alcotest.(check bool)
         "frame fits terminal height" true
@@ -604,11 +604,13 @@ let expect_miaou_headless_launcher_footer_pinned_when_tiny () =
         "frame fills tiny height" frame.frame_rows (line_count frame.frame_text);
       Alcotest.(check bool)
         "tiny launcher footer" true
-        (contains_substring ~needle:"Launch docs/writer | Codex"
+        (contains_substring
+           ~needle:"Launch docs/writer | Codex | 'codex' | Enter Start"
            frame.frame_text);
       Alcotest.(check bool)
         "last line is footer" true
-        (contains_substring ~needle:"Launch docs/writer | Codex"
+        (contains_substring
+           ~needle:"Launch docs/writer | Codex | 'codex' | Enter Start"
            (last_text_line frame.frame_text)))
 
 let expect_miaou_headless_tui_respects_short_height () =
@@ -656,7 +658,7 @@ let expect_miaou_headless_tui_uses_full_collapsed_width () =
         (contains_substring ~needle:"tech-lead | id tech-lead" frame.frame_text);
       Alcotest.(check bool)
         "collapsed action remains visible" true
-        (contains_substring ~needle:"Launch fixture/lead | Codex"
+        (contains_substring ~needle:"Launch lead | Codex | Enter Start"
            frame.frame_text))
 
 let expect_miaou_headless_tui_enter_without_socket_marks_stale () =
@@ -760,6 +762,14 @@ let expect_miaou_headless_tui_enter_refreshes_attached_agent () =
             "attached primary action" true
             (contains_substring ~needle:"Enter Refresh | attached"
                frame.frame_text);
+          Alcotest.(check bool)
+            "attached footer action is complete" true
+            (contains_substring ~needle:"Enter Refresh"
+               (last_text_line frame.frame_text));
+          Alcotest.(check bool)
+            "attached footer action is not truncated" false
+            (contains_substring ~needle:"Enter Ref..."
+               (last_text_line frame.frame_text));
           Alcotest.(check bool)
             "enter did not try start without config" false
             (contains_substring ~needle:"start-agent requires --socket"
@@ -1015,14 +1025,14 @@ let expect_miaou_headless_live_preview_is_visible_when_short () =
                    frame.frame_text);
               Alcotest.(check bool)
                 "attached action visible" true
-                (contains_substring ~needle:"Enter Refresh attached"
+                (contains_substring ~needle:"Enter Refresh"
                    frame.frame_text);
               check_ordered_substrings "live layout order"
                 [
                   "Preview";
                   "direct-start-ready";
                   "Agent detail";
-                  "Enter Refresh attached";
+                  "Enter Refresh";
                 ]
                 frame.frame_text;
               let focused =
@@ -1487,7 +1497,14 @@ let expect_harness_config_generates_workspace_dashboard () =
                frame.frame_text);
           Alcotest.(check bool)
             "footer powers" true
-            (contains_substring ~needle:"Authority create+connect"
+            (contains_substring
+               ~needle:
+                 "Launch agent-roster/tech-lead | Authority create+connect | \
+                  Codex | Enter Start"
+               (last_text_line frame.frame_text));
+          Alcotest.(check bool)
+            "footer action is complete" false
+            (contains_substring ~needle:"Enter Star..."
                (last_text_line frame.frame_text));
           Alcotest.(check bool)
             "config generated" true
