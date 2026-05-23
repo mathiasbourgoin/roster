@@ -1486,6 +1486,10 @@ let expect_harness_config_generates_workspace_dashboard () =
                ~needle:"Capabilities  create-agent,connect-agents"
                frame.frame_text);
           Alcotest.(check bool)
+            "footer powers" true
+            (contains_substring ~needle:"Authority create+connect"
+               (last_text_line frame.frame_text));
+          Alcotest.(check bool)
             "config generated" true
             (Sys.file_exists ".harness/ta.json");
           Alcotest.(check bool)
@@ -1507,7 +1511,11 @@ let expect_harness_config_generates_workspace_dashboard () =
           Alcotest.(check bool)
             "qa capabilities none" true
             (contains_substring ~needle:"Capabilities  none"
-               qa_frame.frame_text)))
+               qa_frame.frame_text);
+          Alcotest.(check bool)
+            "qa footer has no powers" false
+            (contains_substring ~needle:"Authority create+connect"
+               (last_text_line qa_frame.frame_text))))
 
 let expect_ta_config_wins_over_harness_config () =
   with_temp_workspace (fun dir ->

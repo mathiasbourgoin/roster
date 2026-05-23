@@ -166,6 +166,9 @@ pick workspace, pick agent, start or connect.
 - The MIAOU dashboard now behaves like a two-axis launcher in the normal path:
   Left/Right changes workspace, Up/Down changes agent, and a pinned footer keeps
   the selected launch target, profile, command, and Enter action visible.
+- The pinned launcher footer now surfaces roster-native product powers for the
+  selected agent, showing compact create/connect capability hints for privileged
+  agents while ordinary agents stay uncluttered.
 
 ## Near-Term Milestones
 

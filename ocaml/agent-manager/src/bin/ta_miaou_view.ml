@@ -81,6 +81,19 @@ let capability_label (agent : Ta_core.Dashboard_model.agent) =
       |> List.map Ta_core.Agent_capability.to_string
       |> String.concat ","
 
+let capability_power_label (agent : Ta_core.Dashboard_model.agent) =
+  let create =
+    Ta_core.Agent_capability.grants_create_agent agent.capabilities
+  in
+  let connect =
+    Ta_core.Agent_capability.grants_connect_agents agent.capabilities
+  in
+  match (create, connect) with
+  | false, false -> None
+  | true, true -> Some "Authority create+connect"
+  | true, false -> Some "Authority create"
+  | false, true -> Some "Authority connect"
+
 let launch_profile agent =
   Ta_core.Launch_profile.of_parts
     ~command:agent.Ta_core.Dashboard_model.command ~cwd:agent.cwd
@@ -139,12 +152,15 @@ let launch_footer width interaction =
         | Some pane -> "Enter Refresh attached " ^ Ta_core.Id.Pane.to_string pane
       in
       String.concat " | "
-        [
-          "Launch " ^ target;
-          Ta_core.Launch_profile.profile_label profile;
-          action;
-          Ta_core.Launch_profile.compact_command_label profile;
-        ]
+        ([
+           "Launch " ^ target;
+         ]
+        @ Option.to_list (capability_power_label agent)
+        @ [
+            Ta_core.Launch_profile.profile_label profile;
+            action;
+            Ta_core.Launch_profile.compact_command_label profile;
+          ])
       |> fit width
 
 let selected_action_line interaction =
