@@ -582,6 +582,9 @@ let expect_miaou_headless_launcher_axes_and_footer () =
         (contains_substring ~needle:"very-long-custom-runtime-name"
            frame.frame_text);
       Alcotest.(check bool)
+        "detached launcher hides empty preview" false
+        (contains_substring ~needle:"no pane output captured" frame.frame_text);
+      Alcotest.(check bool)
         "launcher footer" true
         (contains_substring
            ~needle:"Launch docs/editor | shell | 'sh' '-lc' 'printf editor-ready' | Enter Start"

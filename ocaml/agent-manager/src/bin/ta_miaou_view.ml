@@ -398,8 +398,7 @@ let main_text ~preview_focus profile width layout interaction =
                 let detail = agent_detail width workspace agent in
                 String.concat "\n\n" [ preview; detail ]
               else
-                let launch = agent_launch_summary width workspace agent in
-                String.concat "\n\n" [ launch; preview ]))
+                agent_launch_summary width workspace agent))
 
 let preview_focus_active preview_focus interaction =
   preview_focus

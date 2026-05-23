@@ -188,6 +188,9 @@ pick workspace, pick agent, start or connect.
   diagnostics-oriented: it shows workspace, agent, roster identity, profile,
   authority, and read/write access, while raw runtime and capability detail stay
   in attached-agent diagnostics.
+- Detached MIAOU agents no longer spend first-screen space on an empty preview
+  placeholder; preview surfaces are reserved for attached sessions with actual
+  pane output.
 - Root `npm test` no longer rewrites `index.json` by importing the build-index
   module; the index builder now runs only as an explicit CLI entrypoint.
 
