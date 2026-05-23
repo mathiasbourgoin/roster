@@ -155,6 +155,9 @@ pick workspace, pick agent, start or connect.
 - Attached live agents now render their pane preview before metadata in the
   MIAOU main panel, keeping session output visible on short terminals while
   detached agents keep the detail-first view.
+- The MIAOU dashboard now has a preview focus toggle for live agents. Pressing
+  `v` gives the selected live pane the full body area while keeping the
+  Enter-first workflow unchanged.
 
 ## Near-Term Milestones
 

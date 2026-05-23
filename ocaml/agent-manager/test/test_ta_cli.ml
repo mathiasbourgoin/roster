@@ -720,6 +720,11 @@ let expect_miaou_headless_live_preview_is_visible_when_short () =
       in
       let state_path = Filename.concat dir ".ta-state.json" in
       let tmux_session = Ta_core.Tmux.unsafe_session_of_string session in
+      let preview_command =
+        "printf \
+         'direct-start-ready\\nfocus-line-2\\nfocus-line-3\\nfocus-line-4\\nfocus-line-5\\nfocus-line-6\\nfocus-line-7\\nfocus-line-8\\nfocus-line-9\\nfocus-line-10\\n'; \
+         sleep 60"
+      in
       let config_text =
         Printf.sprintf
           {|{
@@ -757,9 +762,7 @@ let expect_miaou_headless_live_preview_is_visible_when_short () =
                      cwd = Some dir;
                      command =
                        [
-                         "sh";
-                         "-lc";
-                         "printf direct-start-ready; sleep 60";
+                         "sh"; "-lc"; preview_command;
                        ];
                    })
             with
@@ -831,6 +834,8 @@ let expect_miaou_headless_live_preview_is_visible_when_short () =
                      {\"cmd\":\"render\"}\n\
                      {\"cmd\":\"quit\"}\n"
                   [
+                    "--lines";
+                    "1";
                     "--state";
                     state_path;
                     "--workspace";
@@ -863,7 +868,93 @@ let expect_miaou_headless_live_preview_is_visible_when_short () =
                   "direct-start-ready";
                   "Agent detail";
                 ]
-                frame.frame_text)))
+                frame.frame_text;
+              let focused =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"resize\",\"rows\":10,\"cols\":80}\n\
+                     {\"cmd\":\"key\",\"key\":\"v\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--lines";
+                    "1";
+                    "--state";
+                    state_path;
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "focus exit" 0 focused.status;
+              Alcotest.(check string) "focus stderr" "" focused.stderr;
+              let focused_frame = last_frame focused.stdout in
+              Alcotest.(check int) "focus frame rows" 10 focused_frame.frame_rows;
+              Alcotest.(check bool)
+                "focused frame fits terminal height" true
+                (line_count focused_frame.frame_text
+                <= focused_frame.frame_rows);
+              Alcotest.(check bool)
+                "focused preview title" true
+                (contains_substring ~needle:"Preview smoke/lead"
+                   focused_frame.frame_text);
+              Alcotest.(check bool)
+                "focused live preview visible" true
+                (contains_substring ~needle:"direct-start-ready"
+                   focused_frame.frame_text);
+              Alcotest.(check bool)
+                "focused preview hides sidebar" false
+                (contains_substring ~needle:"Workspaces"
+                   focused_frame.frame_text);
+              Alcotest.(check bool)
+                "focused preview hides detail" false
+                (contains_substring ~needle:"Agent detail"
+                   focused_frame.frame_text);
+              let focused_from_pipeline =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"resize\",\"rows\":10,\"cols\":80}\n\
+                     {\"cmd\":\"key\",\"key\":\"p\"}\n\
+                     {\"cmd\":\"key\",\"key\":\"v\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--state";
+                    state_path;
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "pipeline focus exit" 0 focused_from_pipeline.status;
+              Alcotest.(check string)
+                "pipeline focus stderr" "" focused_from_pipeline.stderr;
+              let pipeline_frame = last_frame focused_from_pipeline.stdout in
+              Alcotest.(check int)
+                "pipeline focus frame rows" 10 pipeline_frame.frame_rows;
+              Alcotest.(check int)
+                "pipeline focus line count" 10
+                (line_count pipeline_frame.frame_text);
+              Alcotest.(check bool)
+                "pipeline focus preview title" true
+                (contains_substring ~needle:"Preview smoke/lead"
+                   pipeline_frame.frame_text);
+              Alcotest.(check bool)
+                "pipeline focus live output" true
+                (contains_substring ~needle:"direct-start-ready"
+                   pipeline_frame.frame_text);
+              Alcotest.(check bool)
+                "pipeline focus hides pipeline content" false
+                (contains_substring ~needle:"Pipeline overview"
+                   pipeline_frame.frame_text))))
 
 let expect_no_defaults_prints_quickstart () =
   with_temp_workspace (fun dir ->

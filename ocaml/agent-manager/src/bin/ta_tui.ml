@@ -6,6 +6,11 @@ type start_agent =
   agent:Ta_core.Id.Agent.t ->
   (Ta_core.Dashboard_model.t, string) result
 
+type state = {
+  runner : Ta_core.Dashboard_runner.t;
+  preview_focus : bool;
+}
+
 let dashboard_timestamp () =
   match Ta_core.Dashboard_refresh_cadence.timestamp (Unix.gettimeofday ()) with
   | Ok timestamp -> timestamp
@@ -88,6 +93,9 @@ let primary_step ~refresh ~start runner =
       | None -> start_step ~start runner
       | Some _ -> refresh_step ~refresh runner)
 
+let toggle_preview_focus state =
+  { state with preview_focus = not state.preview_focus }
+
 let run ~lines ~refresh ~start interaction =
   let profile = Ta_miaou_view.{ lines } in
   let refresh_source = refresh in
@@ -97,27 +105,44 @@ let run ~lines ~refresh ~start interaction =
   in
   let module Page = Direct_page.Make (struct
     include Direct_page.With_defaults (struct
-      type state = Ta_core.Dashboard_runner.t
+      type nonrec state = state
 
-      let init () = initial
-      let view runner ~focus:_ ~size = Ta_miaou_view.render profile runner ~size
+      let init () = { runner = initial; preview_focus = false }
 
-      let on_key runner key ~size:_ =
+      let view state ~focus:_ ~size =
+        Ta_miaou_view.render ~preview_focus:state.preview_focus profile
+          state.runner ~size
+
+      let on_key state key ~size:_ =
         match key with
         | "q" | "Q" | "Esc" | "Escape" | "C-c" | "C-C" ->
             Direct_page.quit ();
-            runner
+            state
         | "Enter" | "Return" | "C-m" ->
-            primary_step ~refresh:refresh_source ~start runner
-        | "s" | "S" -> start_step ~start runner
-        | key -> key_step ~refresh:refresh_source runner (dashboard_key key)
+            {
+              state with
+              runner =
+                primary_step ~refresh:refresh_source ~start state.runner;
+            }
+        | "s" | "S" ->
+            { state with runner = start_step ~start state.runner }
+        | "v" | "V" -> toggle_preview_focus state
+        | key ->
+            {
+              state with
+              runner =
+                key_step ~refresh:refresh_source state.runner
+                  (dashboard_key key);
+            }
     end)
 
-    let refresh runner = tick_step ~refresh:refresh_source runner
+    let refresh state =
+      { state with runner = tick_step ~refresh:refresh_source state.runner }
 
     let key_hints _ =
       [
         ("Enter", "start/refresh");
+        ("v", "preview");
         ("q", "quit");
         ("arrows/jk", "move");
         ("Tab", "focus");

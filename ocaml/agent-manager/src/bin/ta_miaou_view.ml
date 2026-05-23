@@ -207,40 +207,65 @@ let agent_detail width workspace agent =
   Desc.create ~title:"Agent detail" ~key_width:12 ~items () |> fun desc ->
   Desc.render ~cols:width ~wrap:false desc ~focus:true
 
-let preview_text lines (agent : Ta_core.Dashboard_model.agent) =
+let preview_text ?(title = "Preview") lines
+    (agent : Ta_core.Dashboard_model.agent) =
   let rec take remaining acc = function
     | [] -> List.rev acc
     | _ when remaining <= 0 -> List.rev acc
     | line :: rest -> take (remaining - 1) (line :: acc) rest
   in
   match agent.preview with
-  | [] -> "Preview\n  no pane output captured"
-  | preview -> "Preview\n" ^ (preview |> take lines [] |> join_lines)
+  | [] -> title ^ "\n  no pane output captured"
+  | preview -> title ^ "\n" ^ (preview |> take lines [] |> join_lines)
 
 let agent_is_live (agent : Ta_core.Dashboard_model.agent) =
   match agent.runtime_state with Live -> true | _ -> false
 
-let main_text profile width layout interaction =
-  match Ta_core.Dashboard_interaction.focus interaction with
-  | Pipeline -> layout.Ta_core.Dashboard_tui_layout.main |> join_lines
-  | Workspaces | Agents -> (
-      match selected_agent interaction with
-      | None -> layout.main |> join_lines
-      | Some (workspace, agent) ->
-          let action = action_bar_for_agent agent in
-          let detail = agent_detail width workspace agent in
-          let preview = preview_text profile.lines agent in
-          if agent_is_live agent then
-            String.concat "\n\n" [ action; preview; detail ]
-          else String.concat "\n\n" [ action; detail; preview ])
+let preview_title workspace agent =
+  "Preview "
+  ^ Ta_core.Id.Workspace.to_string workspace.Ta_core.Dashboard_model.id
+  ^ "/"
+  ^ Ta_core.Id.Agent.to_string agent.Ta_core.Dashboard_model.name
 
-let render profile runner ~size =
+let focused_preview_text profile workspace agent =
+  String.concat "\n\n"
+    [
+      action_bar_for_agent agent;
+      preview_text ~title:(preview_title workspace agent) profile.lines agent;
+    ]
+
+let main_text ~preview_focus profile width layout interaction =
+  match (preview_focus, selected_agent interaction) with
+  | true, Some (workspace, agent) -> focused_preview_text profile workspace agent
+  | _ -> (
+      match Ta_core.Dashboard_interaction.focus interaction with
+      | Pipeline -> layout.Ta_core.Dashboard_tui_layout.main |> join_lines
+      | Workspaces | Agents -> (
+          match selected_agent interaction with
+          | None -> layout.main |> join_lines
+          | Some (workspace, agent) ->
+              let action = action_bar_for_agent agent in
+              let detail = agent_detail width workspace agent in
+              let preview = preview_text profile.lines agent in
+              if agent_is_live agent then
+                String.concat "\n\n" [ action; preview; detail ]
+              else String.concat "\n\n" [ action; detail; preview ]))
+
+let preview_focus_active preview_focus interaction =
+  preview_focus
+  &&
+  match selected_agent interaction with
+  | Some (_, agent) -> agent_is_live agent
+  | None -> false
+
+let render ?(preview_focus = false) profile runner ~size =
   let cols = max 1 size.LTerm_geom.cols in
   let rows = max 1 size.LTerm_geom.rows in
   let interaction = Ta_core.Dashboard_runner.interaction runner in
+  let preview_focus = preview_focus_active preview_focus interaction in
   let header_rows = 2 in
   let split_open = not (sidebar_collapses cols) in
-  let border_rows = if split_open then 2 else 0 in
+  let border_rows = if split_open && not preview_focus then 2 else 0 in
   let body_rows = max 0 (rows - header_rows - border_rows) in
   let layout =
     Ta_core.Dashboard_tui_layout.render ~now:(Unix.gettimeofday ())
@@ -258,11 +283,14 @@ let render profile runner ~size =
   in
   let sidebar = sidebar_text sidebar_width interaction |> clip_text body_rows in
   let main =
-    main_text profile main_width layout interaction |> clip_text body_rows
+    main_text ~preview_focus profile main_width layout interaction
+    |> clip_text body_rows
   in
   let body =
-    Sidebar.create ~sidebar_width:layout.sidebar_width ~sidebar ~main
-      ~sidebar_open:true ()
-    |> Sidebar.render ~cols
+    if preview_focus then main
+    else
+      Sidebar.create ~sidebar_width:layout.sidebar_width ~sidebar ~main
+        ~sidebar_open:true ()
+      |> Sidebar.render ~cols
   in
   header @ split_lines body |> clip_lines rows |> join_lines
