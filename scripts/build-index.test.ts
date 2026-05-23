@@ -1,5 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtemp, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import {
   parseFrontmatter,
@@ -12,6 +16,36 @@ import {
   type IndexEntry,
   type SourceCache,
 } from "./build-index.js";
+
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await stat(filePath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+describe("module import", () => {
+  it("does not build index.json as an import side effect", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "agent-roster-build-index-"));
+    try {
+      const importedModule = path.join(__dirname, "build-index.js");
+      const result = spawnSync(
+        process.execPath,
+        ["-e", `require(${JSON.stringify(importedModule)})`],
+        { cwd: dir, encoding: "utf8" },
+      );
+      assert.equal(result.status, 0);
+      assert.equal(await pathExists(path.join(dir, "index.json")), false);
+    } finally {
+      await rm(dir, { force: true, recursive: true });
+    }
+  });
+});
 
 function makeEntry(overrides: Partial<IndexEntry> = {}): IndexEntry {
   return {

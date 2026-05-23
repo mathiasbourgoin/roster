@@ -184,6 +184,8 @@ pick workspace, pick agent, start or connect.
 - Agent picker profile labels are capped in the table, keeping custom command
   names from widening the sidebar while full launch details remain visible in
   the selected panel and footer.
+- Root `npm test` no longer rewrites `index.json` by importing the build-index
+  module; the index builder now runs only as an explicit CLI entrypoint.
 
 ## Near-Term Milestones
 

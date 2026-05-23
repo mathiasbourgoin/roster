@@ -268,7 +268,9 @@ export async function run(): Promise<void> {
   }
 }
 
-void run().catch((error: Error) => {
-  console.error(`error: ${error.message}`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  void run().catch((error: Error) => {
+    console.error(`error: ${error.message}`);
+    process.exitCode = 1;
+  });
+}
