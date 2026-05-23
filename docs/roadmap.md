@@ -197,6 +197,9 @@ pick workspace, pick agent, start or connect.
 - Pressing `m` on a privileged detached agent opens a local MIAOU `Manage`
   panel with create-agent and connect-agents proposal surfaces. Pressing `m`
   on ordinary agents is a no-op, keeping their launch path unchanged.
+- The privileged launch-panel `Manage` row now names the `m` proposal action
+  directly, so authorized creation/connection work is discoverable without
+  adding visible controls for ordinary agents.
 - Root `npm test` no longer rewrites `index.json` by importing the build-index
   module; the index builder now runs only as an explicit CLI entrypoint.
 

@@ -1557,9 +1557,8 @@ let expect_harness_config_generates_workspace_dashboard () =
           Alcotest.(check bool)
             "privileged manage hint" true
             (contains_substring ~needle:"Manage" frame.frame_text
-            && contains_substring
-                 ~needle:"create agents | connect sessions"
-                 frame.frame_text);
+            && contains_substring ~needle:"m proposals" frame.frame_text
+            && contains_substring ~needle:"create agents" frame.frame_text);
           Alcotest.(check bool)
             "detached launch omits raw capabilities" false
             (contains_substring ~needle:"Capabilities" frame.frame_text);

@@ -318,9 +318,9 @@ let launch_manage_label (agent : Ta_core.Dashboard_model.agent) =
   in
   match (create, connect) with
   | false, false -> None
-  | true, true -> Some "create agents | connect sessions"
-  | true, false -> Some "create agents"
-  | false, true -> Some "connect sessions"
+  | true, true -> Some "m proposals | create agents | connect sessions"
+  | true, false -> Some "m proposals | create agents"
+  | false, true -> Some "m proposals | connect sessions"
 
 let agent_has_manage_power agent = Option.is_some (launch_manage_label agent)
 
