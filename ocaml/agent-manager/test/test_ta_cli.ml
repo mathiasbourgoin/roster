@@ -742,6 +742,11 @@ let expect_miaou_headless_live_preview_is_visible_when_short () =
           "name": "lead",
           "roster_agent": "tech-lead",
           "command": ["sh", "-lc", "printf direct-start-ready; sleep 60"]
+        },
+        {
+          "name": "qa",
+          "roster_agent": "qa",
+          "command": ["sh", "-lc", "printf qa-ready; sleep 60"]
         }
       ],
       "links": []
@@ -914,6 +919,239 @@ let expect_miaou_headless_live_preview_is_visible_when_short () =
                 "focused preview hides detail" false
                 (contains_substring ~needle:"Agent detail"
                    focused_frame.frame_text);
+              let refreshed_focus =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"resize\",\"rows\":10,\"cols\":80}\n\
+                     {\"cmd\":\"key\",\"key\":\"v\"}\n\
+                     {\"cmd\":\"key\",\"key\":\"r\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--lines";
+                    "1";
+                    "--state";
+                    state_path;
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "refreshed focus exit" 0 refreshed_focus.status;
+              Alcotest.(check string)
+                "refreshed focus stderr" "" refreshed_focus.stderr;
+              let refreshed_focus_frame =
+                last_frame refreshed_focus.stdout
+              in
+              Alcotest.(check bool)
+                "refresh keeps focused preview" true
+                (contains_substring ~needle:"Preview smoke/lead"
+                   refreshed_focus_frame.frame_text);
+              Alcotest.(check bool)
+                "refreshed focus hides sidebar" false
+                (contains_substring ~needle:"Workspaces"
+                   refreshed_focus_frame.frame_text);
+              let noop_view_key_focus =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"resize\",\"rows\":10,\"cols\":80}\n\
+                     {\"cmd\":\"key\",\"key\":\"v\"}\n\
+                     {\"cmd\":\"key\",\"key\":\"a\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--lines";
+                    "1";
+                    "--state";
+                    state_path;
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "noop view key focus exit" 0
+                noop_view_key_focus.status;
+              Alcotest.(check string)
+                "noop view key focus stderr" "" noop_view_key_focus.stderr;
+              let noop_view_key_focus_frame =
+                last_frame noop_view_key_focus.stdout
+              in
+              Alcotest.(check bool)
+                "noop view key keeps focus" true
+                (contains_substring ~needle:"Preview smoke/lead"
+                   noop_view_key_focus_frame.frame_text);
+              Alcotest.(check bool)
+                "noop view key still hides sidebar" false
+                (contains_substring ~needle:"Workspaces"
+                   noop_view_key_focus_frame.frame_text);
+              let moved_from_focus =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"resize\",\"rows\":10,\"cols\":80}\n\
+                     {\"cmd\":\"key\",\"key\":\"v\"}\n\
+                     {\"cmd\":\"key\",\"key\":\"Down\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--lines";
+                    "1";
+                    "--state";
+                    state_path;
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "moved focus exit" 0 moved_from_focus.status;
+              Alcotest.(check string)
+                "moved focus stderr" "" moved_from_focus.stderr;
+              let moved_focus_frame = last_frame moved_from_focus.stdout in
+              Alcotest.(check bool)
+                "move clears focused title" false
+                (contains_substring ~needle:"Preview smoke/lead"
+                   moved_focus_frame.frame_text);
+              Alcotest.(check bool)
+                "move restores sidebar" true
+                (contains_substring ~needle:"Workspaces"
+                   moved_focus_frame.frame_text);
+              Alcotest.(check bool)
+                "move restores detail" true
+                (contains_substring ~needle:"Agent detail"
+                   moved_focus_frame.frame_text);
+              Alcotest.(check bool)
+                "move selects qa" true
+                (contains_substring ~needle:"smoke/qa"
+                   moved_focus_frame.frame_text);
+              let returned_after_move =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"resize\",\"rows\":10,\"cols\":80}\n\
+                     {\"cmd\":\"key\",\"key\":\"v\"}\n\
+                     {\"cmd\":\"key\",\"key\":\"Down\"}\n\
+                     {\"cmd\":\"key\",\"key\":\"Up\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--lines";
+                    "1";
+                    "--state";
+                    state_path;
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "returned after move exit" 0
+                returned_after_move.status;
+              Alcotest.(check string)
+                "returned after move stderr" "" returned_after_move.stderr;
+              let returned_after_move_frame =
+                last_frame returned_after_move.stdout
+              in
+              Alcotest.(check bool)
+                "return does not restore stale focus" false
+                (contains_substring ~needle:"Preview smoke/lead"
+                   returned_after_move_frame.frame_text);
+              Alcotest.(check bool)
+                "return restores normal detail" true
+                (contains_substring ~needle:"Agent detail"
+                   returned_after_move_frame.frame_text);
+              let detached_focus_does_not_arm =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"resize\",\"rows\":10,\"cols\":80}\n\
+                     {\"cmd\":\"key\",\"key\":\"Down\"}\n\
+                     {\"cmd\":\"key\",\"key\":\"v\"}\n\
+                     {\"cmd\":\"key\",\"key\":\"Up\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--lines";
+                    "1";
+                    "--state";
+                    state_path;
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "detached focus does not arm exit" 0
+                detached_focus_does_not_arm.status;
+              Alcotest.(check string)
+                "detached focus does not arm stderr" ""
+                detached_focus_does_not_arm.stderr;
+              let detached_focus_frame =
+                last_frame detached_focus_does_not_arm.stdout
+              in
+              Alcotest.(check bool)
+                "detached v does not arm later live focus" false
+                (contains_substring ~needle:"Preview smoke/lead"
+                   detached_focus_frame.frame_text);
+              Alcotest.(check bool)
+                "detached v returns normal sidebar" true
+                (contains_substring ~needle:"Workspaces"
+                   detached_focus_frame.frame_text);
+              Alcotest.(check bool)
+                "detached v returns normal detail" true
+                (contains_substring ~needle:"Agent detail"
+                   detached_focus_frame.frame_text);
+              let pipeline_after_focus =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"resize\",\"rows\":10,\"cols\":80}\n\
+                     {\"cmd\":\"key\",\"key\":\"v\"}\n\
+                     {\"cmd\":\"key\",\"key\":\"p\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--lines";
+                    "1";
+                    "--state";
+                    state_path;
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "pipeline after focus exit" 0
+                pipeline_after_focus.status;
+              Alcotest.(check string)
+                "pipeline after focus stderr" "" pipeline_after_focus.stderr;
+              let pipeline_after_focus_frame =
+                last_frame pipeline_after_focus.stdout
+              in
+              Alcotest.(check bool)
+                "pipeline key clears preview focus" true
+                (contains_substring ~needle:"Select an ACL edge"
+                   pipeline_after_focus_frame.frame_text);
+              Alcotest.(check bool)
+                "pipeline key hides focused title" false
+                (contains_substring ~needle:"Preview smoke/lead"
+                   pipeline_after_focus_frame.frame_text);
               let focused_from_pipeline =
                 run_ta_with_input
                   ~env:[ ("MIAOU_DRIVER", "headless") ]

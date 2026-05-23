@@ -157,7 +157,9 @@ pick workspace, pick agent, start or connect.
   detached agents keep the detail-first view.
 - The MIAOU dashboard now has a preview focus toggle for live agents. Pressing
   `v` gives the selected live pane the full body area while keeping the
-  Enter-first workflow unchanged.
+  Enter-first workflow unchanged. The focus is anchored to the selected live
+  workspace/agent/view, survives refresh for that same selection, and clears
+  when the operator moves elsewhere.
 
 ## Near-Term Milestones
 
