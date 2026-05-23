@@ -1497,12 +1497,16 @@ let expect_harness_config_generates_workspace_dashboard () =
                frame.frame_text);
           Alcotest.(check bool)
             "start action" true
+            (contains_substring ~needle:"Enter Start"
+               (last_text_line frame.frame_text));
+          Alcotest.(check bool)
+            "sidebar omits duplicate start action" false
             (contains_substring ~needle:"Enter Start tech-lead"
                frame.frame_text);
           Alcotest.(check bool)
             "harness provenance" true
             (contains_substring
-               ~needle:"harness .harness/harness"
+               ~needle:"Workspace     agent-roster | agent-roster | harn"
                frame.frame_text);
           Alcotest.(check bool)
             "visible privileges" true

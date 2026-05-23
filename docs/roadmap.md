@@ -175,6 +175,9 @@ pick workspace, pick agent, start or connect.
 - Detached selected agents now render a selection-first `Launch` panel instead
   of a diagnostics-style detail panel, making the first screen read as
   workspace, agent, roster profile, authority, and Enter.
+- The MIAOU sidebar is now navigation-only in the launcher view; duplicated
+  start/source text was removed so the launch panel and pinned footer own the
+  selected action context.
 
 ## Near-Term Milestones
 

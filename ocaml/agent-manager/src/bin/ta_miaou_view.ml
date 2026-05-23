@@ -197,11 +197,6 @@ let launch_footer width interaction =
       in
       with_action action parts |> fit width
 
-let selected_action_line interaction =
-  match selected_agent interaction with
-  | None -> None
-  | Some (_, agent) -> Some (action_bar_for_agent agent)
-
 let selected_agent_index interaction
     (workspace : Ta_core.Dashboard_model.workspace) =
   let selected = Ta_core.Dashboard_interaction.selected_agent interaction in
@@ -259,14 +254,7 @@ let sidebar_text width interaction =
         ^ "\n"
         ^ agent_table (max 20 (width - 2)) interaction workspace
   in
-  match selected_action_line interaction with
-  | None -> String.concat "\n\n" [ workspaces; agents ]
-  | Some action -> (
-      match selected_workspace interaction with
-      | None -> String.concat "\n\n" [ workspaces; agents; action ]
-      | Some workspace ->
-          String.concat "\n\n"
-            [ workspaces; agents; action; workspace_source_label workspace ])
+  String.concat "\n\n" [ workspaces; agents ]
 
 let roster_label (agent : Ta_core.Dashboard_model.agent) =
   match agent.roster_metadata with
