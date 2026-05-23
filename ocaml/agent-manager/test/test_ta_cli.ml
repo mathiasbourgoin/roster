@@ -477,18 +477,23 @@ let expect_miaou_headless_tui_renders_dashboard () =
         "layout sidebar" true
         (contains_substring ~needle:"Workspaces" result.stdout);
       Alcotest.(check bool)
-        "agent detail" true
-        (contains_substring ~needle:"Agent detail" result.stdout);
+        "launch summary" true
+        (contains_substring ~needle:"Workspace     fixture | Fixture"
+           result.stdout);
+      Alcotest.(check bool)
+        "selected launch agent" true
+        (contains_substring ~needle:"Agent         lead" result.stdout);
       Alcotest.(check bool)
         "agent table" true
         (contains_substring ~needle:"tech-lead | id tech-lead" result.stdout);
       Alcotest.(check bool)
         "start action" true
-        (contains_substring ~needle:"Enter Start lead | Codex | 'codex'"
+        (contains_substring
+           ~needle:"Launch fixture/lead | Codex | 'codex' | Enter Start"
            result.stdout);
       Alcotest.(check bool)
         "launch detail" true
-        (contains_substring ~needle:"Launch" result.stdout);
+        (contains_substring ~needle:"★ Launch" result.stdout);
       Alcotest.(check bool)
         "launch command detail" true
         (contains_substring ~needle:"'codex'" result.stdout);
@@ -522,7 +527,8 @@ let expect_miaou_headless_launcher_axes_and_footer () =
       "default_view": "agents",
       "views": [{"id": "agents", "label": "Agents"}],
       "agents": [
-        {"name": "writer", "roster_agent": "documenter", "command": ["codex"]}
+        {"name": "writer", "roster_agent": "documenter", "command": ["codex"]},
+        {"name": "editor", "roster_agent": "reviewer", "command": ["codex"]}
       ]
     }
   ]
@@ -534,6 +540,7 @@ let expect_miaou_headless_launcher_axes_and_footer () =
           ~stdin:
             "{\"cmd\":\"resize\",\"rows\":18,\"cols\":92}\n\
              {\"cmd\":\"key\",\"key\":\"Right\"}\n\
+             {\"cmd\":\"key\",\"key\":\"Down\"}\n\
              {\"cmd\":\"render\"}\n\
              {\"cmd\":\"quit\"}\n"
           [ "--state"; path; "--tui"; "always" ]
@@ -543,11 +550,15 @@ let expect_miaou_headless_launcher_axes_and_footer () =
       let frame = last_frame result.stdout in
       Alcotest.(check bool)
         "right selects workspace" true
-        (contains_substring ~needle:"docs/writer" frame.frame_text);
+        (contains_substring ~needle:"Workspace     docs | Docs"
+           frame.frame_text);
+      Alcotest.(check bool)
+        "down selects agent" true
+        (contains_substring ~needle:"Agent         editor" frame.frame_text);
       Alcotest.(check bool)
         "launcher footer" true
         (contains_substring
-           ~needle:"Launch docs/writer | Codex | 'codex' | Enter Start"
+           ~needle:"Launch docs/editor | Codex | 'codex' | Enter Start"
            (last_text_line frame.frame_text));
       Alcotest.(check int) "frame rows" 18 frame.frame_rows;
       Alcotest.(check bool)
@@ -634,8 +645,9 @@ let expect_miaou_headless_tui_respects_short_height () =
         "frame fits terminal height" true
         (line_count frame.frame_text <= frame.frame_rows);
       Alcotest.(check bool)
-        "agent detail remains visible" true
-        (contains_substring ~needle:"Agent detail" frame.frame_text))
+        "launch summary remains visible" true
+        (contains_substring ~needle:"Workspace     fixture | Fixture"
+           frame.frame_text))
 
 let expect_miaou_headless_tui_uses_full_collapsed_width () =
   with_temp_state (fun path ->
@@ -762,6 +774,12 @@ let expect_miaou_headless_tui_enter_refreshes_attached_agent () =
             "attached primary action" true
             (contains_substring ~needle:"Enter Refresh | attached"
                frame.frame_text);
+          check_ordered_substrings "attached stale layout"
+            [ "Preview"; "Agent detail"; "Pane          %77"; "Enter Refresh" ]
+            frame.frame_text;
+          Alcotest.(check bool)
+            "attached stale does not show detached launch panel" false
+            (contains_substring ~needle:"★ Launch" frame.frame_text);
           Alcotest.(check bool)
             "attached footer action is complete" true
             (contains_substring ~needle:"Enter Refresh"
@@ -1188,8 +1206,8 @@ let expect_miaou_headless_live_preview_is_visible_when_short () =
                 (contains_substring ~needle:"Workspaces"
                    moved_focus_frame.frame_text);
               Alcotest.(check bool)
-                "move restores detail" true
-                (contains_substring ~needle:"Agent detail"
+                "move restores launch summary" true
+                (contains_substring ~needle:"Agent         qa"
                    moved_focus_frame.frame_text);
               Alcotest.(check bool)
                 "move selects qa" true
@@ -1475,7 +1493,7 @@ let expect_harness_config_generates_workspace_dashboard () =
             (contains_substring ~needle:"agent-roster" frame.frame_text);
           Alcotest.(check bool)
             "tech lead selected" true
-            (contains_substring ~needle:"Agent         agent-roster/tech-lead"
+            (contains_substring ~needle:"Agent         tech-lead"
                frame.frame_text);
           Alcotest.(check bool)
             "start action" true
@@ -1484,7 +1502,7 @@ let expect_harness_config_generates_workspace_dashboard () =
           Alcotest.(check bool)
             "harness provenance" true
             (contains_substring
-               ~needle:"Source        harness .harness/harness.json"
+               ~needle:"harness .harness/harness"
                frame.frame_text);
           Alcotest.(check bool)
             "visible privileges" true
@@ -1523,7 +1541,7 @@ let expect_harness_config_generates_workspace_dashboard () =
           let qa_frame = last_frame qa_result.stdout in
           Alcotest.(check bool)
             "qa selected" true
-            (contains_substring ~needle:"Agent         agent-roster/qa"
+            (contains_substring ~needle:"Agent         qa"
                qa_frame.frame_text);
           Alcotest.(check bool)
             "qa capabilities none" true

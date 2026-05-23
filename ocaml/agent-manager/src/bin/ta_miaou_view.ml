@@ -274,13 +274,62 @@ let roster_label (agent : Ta_core.Dashboard_model.agent) =
   | Some metadata ->
       Option.value metadata.display_name ~default:agent.roster_agent
 
+let launch_authority_label agent =
+  match capability_power_label agent with
+  | None -> "standard"
+  | Some label ->
+      let prefix = "Authority " in
+      if String.starts_with ~prefix label then
+        String.sub label (String.length prefix)
+          (String.length label - String.length prefix)
+      else label
+
+let selected_target_label workspace agent =
+  Ta_core.Id.Workspace.to_string workspace.Ta_core.Dashboard_model.id
+  ^ "/"
+  ^ Ta_core.Id.Agent.to_string agent.Ta_core.Dashboard_model.name
+
+let workspace_launch_label (workspace : Ta_core.Dashboard_model.workspace) =
+  Ta_core.Id.Workspace.to_string workspace.id
+  ^ " | "
+  ^ workspace.label
+  ^ " | "
+  ^ workspace_source_label workspace
+
+let agent_launch_summary width workspace agent =
+  let profile = launch_profile agent in
+  let profile_summary =
+    Ta_core.Launch_profile.profile_label profile
+    ^ " | "
+    ^ Ta_core.Launch_profile.compact_command_label profile
+  in
+  let items =
+    [
+      ("Workspace", workspace_launch_label workspace);
+      ("Agent", Ta_core.Id.Agent.to_string agent.name);
+      ("Roster agent", roster_label agent ^ " | id " ^ agent.roster_agent);
+      ( "Status",
+        status_to_string agent.status
+        ^ " | "
+        ^ runtime_state_to_string agent.runtime_state );
+      ("Profile", profile_summary);
+      ("Authority", launch_authority_label agent);
+      ("Privileges", privilege_label agent);
+      ("Capabilities", capability_label agent);
+      ( "Connections",
+        "read "
+        ^ join_agents agent.outgoing.readable
+        ^ " | write "
+        ^ join_agents agent.outgoing.writable );
+    ]
+  in
+  Desc.create ~title:"Launch" ~key_width:12 ~items () |> fun desc ->
+  Desc.render ~cols:width ~wrap:false desc ~focus:true
+
 let agent_detail width workspace agent =
   let items =
     [
-      ( "Agent",
-        Ta_core.Id.Workspace.to_string workspace.Ta_core.Dashboard_model.id
-        ^ "/"
-        ^ Ta_core.Id.Agent.to_string agent.Ta_core.Dashboard_model.name );
+      ("Agent", selected_target_label workspace agent);
       ("Status", status_to_string agent.status);
       ("Runtime", runtime_state_to_string agent.runtime_state);
       ("Pane", pane_to_string agent.pane);
@@ -315,6 +364,9 @@ let preview_text ?(title = "Preview") lines
 let agent_is_live (agent : Ta_core.Dashboard_model.agent) =
   match agent.runtime_state with Live -> true | _ -> false
 
+let agent_is_attached (agent : Ta_core.Dashboard_model.agent) =
+  match agent.pane with Some _ -> true | None -> false
+
 let preview_title workspace agent =
   "Preview "
   ^ Ta_core.Id.Workspace.to_string workspace.Ta_core.Dashboard_model.id
@@ -338,11 +390,13 @@ let main_text ~preview_focus profile width layout interaction =
           match selected_agent interaction with
           | None -> layout.main |> join_lines
           | Some (workspace, agent) ->
-              let detail = agent_detail width workspace agent in
               let preview = preview_text profile.lines agent in
-              if agent_is_live agent then
+              if agent_is_attached agent then
+                let detail = agent_detail width workspace agent in
                 String.concat "\n\n" [ preview; detail ]
-              else String.concat "\n\n" [ detail; preview ]))
+              else
+                let launch = agent_launch_summary width workspace agent in
+                String.concat "\n\n" [ launch; preview ]))
 
 let preview_focus_active preview_focus interaction =
   preview_focus

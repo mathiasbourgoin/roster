@@ -172,6 +172,9 @@ pick workspace, pick agent, start or connect.
 - The pinned launcher footer now preserves complete primary Enter actions by
   adapting lower-priority target, authority, profile, and command segments
   before truncating, including attached-agent refresh footers.
+- Detached selected agents now render a selection-first `Launch` panel instead
+  of a diagnostics-style detail panel, making the first screen read as
+  workspace, agent, roster profile, authority, and Enter.
 
 ## Near-Term Milestones
 
