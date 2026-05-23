@@ -13,10 +13,12 @@ type selected_agent_ref = {
 }
 
 type preview_focus = Preview_unfocused | Preview_focused of selected_agent_ref
+type manage_focus = Manage_unfocused | Manage_focused of selected_agent_ref
 
 type state = {
   runner : Ta_core.Dashboard_runner.t;
   preview_focus : preview_focus;
+  manage_focus : manage_focus;
 }
 
 let dashboard_timestamp () =
@@ -79,6 +81,25 @@ let selected_live_agent_ref runner =
       | Unknown | Unattached | Missing _ -> None)
   | Error _ -> None
 
+let agent_has_manage_power (agent : Ta_core.Dashboard_model.agent) =
+  Ta_core.Agent_capability.grants_create_agent agent.capabilities
+  || Ta_core.Agent_capability.grants_connect_agents agent.capabilities
+
+let selected_manage_agent_ref runner =
+  let interaction = Ta_core.Dashboard_runner.interaction runner in
+  match selected_start_target runner with
+  | Ok (_, workspace, agent, agent_row) -> (
+      match agent_row.pane with
+      | None when agent_has_manage_power agent_row ->
+          Some
+            {
+              workspace;
+              agent;
+              focus = Ta_core.Dashboard_interaction.focus interaction;
+            }
+      | None | Some _ -> None)
+  | Error _ -> None
+
 let equal_focus left right =
   match (left, right) with
   | ( Ta_core.Dashboard_interaction.Workspaces,
@@ -98,7 +119,11 @@ let preview_focus_is_enabled = function
   | Preview_unfocused -> false
   | Preview_focused _ -> true
 
-let with_runner_preserving_preview_focus state runner =
+let manage_focus_is_enabled = function
+  | Manage_unfocused -> false
+  | Manage_focused _ -> true
+
+let with_runner_preserving_focus state runner =
   let preview_focus =
     match (state.preview_focus, selected_live_agent_ref runner) with
     | Preview_focused anchor, Some selected
@@ -106,9 +131,17 @@ let with_runner_preserving_preview_focus state runner =
         state.preview_focus
     | Preview_unfocused, _ | Preview_focused _, _ -> Preview_unfocused
   in
+  let manage_focus =
+    match (state.manage_focus, selected_manage_agent_ref runner) with
+    | Manage_focused anchor, Some selected
+      when equal_selected_agent_ref anchor selected ->
+        state.manage_focus
+    | Manage_unfocused, _ | Manage_focused _, _ -> Manage_unfocused
+  in
   {
     runner;
     preview_focus;
+    manage_focus;
   }
 
 let update_interaction runner interaction =
@@ -155,7 +188,24 @@ let toggle_preview_focus state =
       match selected_live_agent_ref state.runner with
       | None -> state
       | Some selected ->
-          { state with preview_focus = Preview_focused selected })
+          {
+            state with
+            preview_focus = Preview_focused selected;
+            manage_focus = Manage_unfocused;
+          })
+
+let toggle_manage_focus state =
+  match state.manage_focus with
+  | Manage_focused _ -> { state with manage_focus = Manage_unfocused }
+  | Manage_unfocused -> (
+      match selected_manage_agent_ref state.runner with
+      | None -> state
+      | Some selected ->
+          {
+            state with
+            manage_focus = Manage_focused selected;
+            preview_focus = Preview_unfocused;
+          })
 
 let run ~lines ~refresh ~start interaction =
   let profile = Ta_miaou_view.{ lines } in
@@ -168,11 +218,17 @@ let run ~lines ~refresh ~start interaction =
     include Direct_page.With_defaults (struct
       type nonrec state = state
 
-      let init () = { runner = initial; preview_focus = Preview_unfocused }
+      let init () =
+        {
+          runner = initial;
+          preview_focus = Preview_unfocused;
+          manage_focus = Manage_unfocused;
+        }
 
       let view state ~focus:_ ~size =
         Ta_miaou_view.render
           ~preview_focus:(preview_focus_is_enabled state.preview_focus)
+          ~manage_focus:(manage_focus_is_enabled state.manage_focus)
           profile state.runner ~size
 
       let on_key state key ~size:_ =
@@ -182,20 +238,21 @@ let run ~lines ~refresh ~start interaction =
             state
         | "Enter" | "Return" | "C-m" ->
             primary_step ~refresh:refresh_source ~start state.runner
-            |> with_runner_preserving_preview_focus state
+            |> with_runner_preserving_focus state
         | "s" | "S" ->
             start_step ~start state.runner
-            |> with_runner_preserving_preview_focus state
+            |> with_runner_preserving_focus state
         | "v" | "V" -> toggle_preview_focus state
+        | "m" | "M" -> toggle_manage_focus state
         | key ->
             let key = dashboard_key key in
             let runner = key_step ~refresh:refresh_source state.runner key in
-            with_runner_preserving_preview_focus state runner
+            with_runner_preserving_focus state runner
     end)
 
     let refresh state =
       tick_step ~refresh:refresh_source state.runner
-      |> with_runner_preserving_preview_focus state
+      |> with_runner_preserving_focus state
 
     let key_hints _ =
       [
@@ -203,6 +260,7 @@ let run ~lines ~refresh ~start interaction =
         ("Left/Right", "workspace");
         ("Up/Down", "agent");
         ("v", "preview");
+        ("m", "manage");
         ("q", "quit");
         ("Tab", "focus");
         ("p", "pipeline");

@@ -322,6 +322,8 @@ let launch_manage_label (agent : Ta_core.Dashboard_model.agent) =
   | true, false -> Some "create agents"
   | false, true -> Some "connect sessions"
 
+let agent_has_manage_power agent = Option.is_some (launch_manage_label agent)
+
 let agent_launch_summary width workspace agent =
   let profile = launch_profile agent in
   let profile_summary =
@@ -343,6 +345,26 @@ let agent_launch_summary width workspace agent =
     @ [ ("Access", launch_access_label agent) ]
   in
   Desc.create ~title:"Launch" ~key_width:12 ~items () |> fun desc ->
+  Desc.render ~cols:width ~wrap:false desc ~focus:true
+
+let agent_manage_summary width workspace
+    (agent : Ta_core.Dashboard_model.agent) =
+  let create =
+    Ta_core.Agent_capability.grants_create_agent agent.capabilities
+  in
+  let connect =
+    Ta_core.Agent_capability.grants_connect_agents agent.capabilities
+  in
+  let items =
+    [
+      ("Actor", selected_target_label workspace agent);
+      ("Authority", launch_authority_label agent);
+    ]
+    @ (if create then [ ("Create", "create-agent proposal") ] else [])
+    @ (if connect then [ ("Connect", "connect-agents proposal") ] else [])
+    @ [ ("Access", launch_access_label agent) ]
+  in
+  Desc.create ~title:"Manage" ~key_width:12 ~items () |> fun desc ->
   Desc.render ~cols:width ~wrap:false desc ~focus:true
 
 let agent_detail width workspace agent =
@@ -399,9 +421,13 @@ let focused_preview_text profile workspace agent =
       preview_text ~title:(preview_title workspace agent) profile.lines agent;
     ]
 
-let main_text ~preview_focus profile width layout interaction =
-  match (preview_focus, selected_agent interaction) with
-  | true, Some (workspace, agent) -> focused_preview_text profile workspace agent
+let main_text ~preview_focus ~manage_focus profile width layout interaction =
+  match (preview_focus, manage_focus, selected_agent interaction) with
+  | true, _, Some (workspace, agent) ->
+      focused_preview_text profile workspace agent
+  | _, true, Some (workspace, agent)
+    when (not (agent_is_attached agent)) && agent_has_manage_power agent ->
+      agent_manage_summary width workspace agent
   | _ -> (
       match Ta_core.Dashboard_interaction.focus interaction with
       | Pipeline -> layout.Ta_core.Dashboard_tui_layout.main |> join_lines
@@ -423,7 +449,8 @@ let preview_focus_active preview_focus interaction =
   | Some (_, agent) -> agent_is_live agent
   | None -> false
 
-let render ?(preview_focus = false) profile runner ~size =
+let render ?(preview_focus = false) ?(manage_focus = false) profile runner
+    ~size =
   let cols = max 1 size.LTerm_geom.cols in
   let rows = max 1 size.LTerm_geom.rows in
   let interaction = Ta_core.Dashboard_runner.interaction runner in
@@ -452,7 +479,8 @@ let render ?(preview_focus = false) profile runner ~size =
     sidebar_text sidebar_width interaction |> clip_text content_rows
   in
   let main =
-    main_text ~preview_focus profile main_width layout interaction
+    main_text ~preview_focus ~manage_focus profile main_width layout
+      interaction
     |> clip_text content_rows
   in
   let body =

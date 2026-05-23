@@ -1609,6 +1609,83 @@ let expect_harness_config_generates_workspace_dashboard () =
             (contains_substring ~needle:"Authority create+connect"
                (last_text_line qa_frame.frame_text))))
 
+let expect_miaou_headless_manage_panel_is_gated () =
+  with_temp_workspace (fun dir ->
+      write_harness_config dir;
+      with_chdir dir (fun () ->
+          let tech_lead =
+            run_ta_with_input
+              ~env:[ ("MIAOU_DRIVER", "headless") ]
+              ~stdin:
+                "{\"cmd\":\"resize\",\"rows\":18,\"cols\":110}\n\
+                 {\"cmd\":\"key\",\"key\":\"m\"}\n\
+                 {\"cmd\":\"render\"}\n\
+                 {\"cmd\":\"quit\"}\n"
+              [ "--tui"; "always" ]
+          in
+          check_exit "tech lead exit" 0 tech_lead.status;
+          Alcotest.(check string) "tech lead stderr" "" tech_lead.stderr;
+          let tech_lead_frame = last_frame tech_lead.stdout in
+          Alcotest.(check bool)
+            "privileged manage panel" true
+            (contains_substring ~needle:"★ Manage"
+               tech_lead_frame.frame_text);
+          Alcotest.(check bool)
+            "manage actor" true
+            (contains_substring ~needle:"agent-roster/tech-lead"
+               tech_lead_frame.frame_text);
+          Alcotest.(check bool)
+            "create proposal" true
+            (contains_substring ~needle:"create-agent proposal"
+               tech_lead_frame.frame_text);
+          Alcotest.(check bool)
+            "connect proposal" true
+            (contains_substring ~needle:"connect-agents proposal"
+               tech_lead_frame.frame_text);
+          Alcotest.(check bool)
+            "manage footer keeps start" true
+            (contains_substring ~needle:"Enter Start"
+               (last_text_line tech_lead_frame.frame_text));
+          let refreshed =
+            run_ta_with_input
+              ~env:[ ("MIAOU_DRIVER", "headless") ]
+              ~stdin:
+                "{\"cmd\":\"resize\",\"rows\":18,\"cols\":110}\n\
+                 {\"cmd\":\"key\",\"key\":\"m\"}\n\
+                 {\"cmd\":\"key\",\"key\":\"r\"}\n\
+                 {\"cmd\":\"render\"}\n\
+                 {\"cmd\":\"quit\"}\n"
+              [ "--tui"; "always" ]
+          in
+          check_exit "refreshed exit" 0 refreshed.status;
+          Alcotest.(check string) "refreshed stderr" "" refreshed.stderr;
+          let refreshed_frame = last_frame refreshed.stdout in
+          Alcotest.(check bool)
+            "refresh preserves same manage panel" true
+            (contains_substring ~needle:"★ Manage"
+               refreshed_frame.frame_text);
+          let qa =
+            run_ta_with_input
+              ~env:[ ("MIAOU_DRIVER", "headless") ]
+              ~stdin:
+                "{\"cmd\":\"resize\",\"rows\":18,\"cols\":110}\n\
+                 {\"cmd\":\"key\",\"key\":\"m\"}\n\
+                 {\"cmd\":\"render\"}\n\
+                 {\"cmd\":\"quit\"}\n"
+              [ "--agent"; "qa"; "--tui"; "always" ]
+          in
+          check_exit "qa exit" 0 qa.status;
+          Alcotest.(check string) "qa stderr" "" qa.stderr;
+          let qa_frame = last_frame qa.stdout in
+          Alcotest.(check bool)
+            "ordinary agent ignores manage" false
+            (contains_substring ~needle:"★ Manage" qa_frame.frame_text);
+          Alcotest.(check bool)
+            "ordinary agent stays on launch" true
+            (contains_substring ~needle:"★ Launch" qa_frame.frame_text
+            && contains_substring ~needle:"Agent         qa"
+                 qa_frame.frame_text)))
+
 let expect_ta_config_wins_over_harness_config () =
   with_temp_workspace (fun dir ->
       write_default_config dir;
@@ -1698,6 +1775,8 @@ let () =
             expect_default_config_enter_starts_agent;
           Alcotest.test_case "harness config generates workspace dashboard"
             `Quick expect_harness_config_generates_workspace_dashboard;
+          Alcotest.test_case "miaou headless manage panel is gated" `Quick
+            expect_miaou_headless_manage_panel_is_gated;
           Alcotest.test_case "ta config wins over harness config" `Quick
             expect_ta_config_wins_over_harness_config;
           Alcotest.test_case
