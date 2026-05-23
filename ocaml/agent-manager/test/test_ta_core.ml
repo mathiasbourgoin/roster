@@ -867,6 +867,50 @@ let expect_tmux_capture_pane_id_argv () =
        (Ta_core.Tmux.Split_window_with_pane_id
           { target; cwd = Some "/tmp/project"; command = [ "codex" ] }))
 
+let expect_launch_profile_labels () =
+  let codex = Ta_core.Launch_profile.of_command [ "codex" ] in
+  Alcotest.(check string)
+    "codex profile" "Codex"
+    (Ta_core.Launch_profile.profile_label codex);
+  Alcotest.(check string)
+    "codex command" "'codex'"
+    (Ta_core.Launch_profile.full_command_label codex);
+  let shell =
+    Ta_core.Launch_profile.of_command
+      [ "sh"; "-lc"; "printf ready; sleep 60" ]
+  in
+  Alcotest.(check string)
+    "shell profile" "shell"
+    (Ta_core.Launch_profile.profile_label shell);
+  Alcotest.(check string)
+    "shell command" "'sh' '-lc' 'printf ready; sleep 60'"
+    (Ta_core.Launch_profile.full_command_label shell);
+  let unknown = Ta_core.Launch_profile.of_command [] in
+  Alcotest.(check string)
+    "unknown profile" "unknown"
+    (Ta_core.Launch_profile.profile_label unknown);
+  Alcotest.(check string)
+    "unknown command" "unknown command"
+    (Ta_core.Launch_profile.full_command_label unknown);
+  let configured =
+    Ta_core.Launch_profile.of_parts ~command:[ "codex" ] ~cwd:(Some ".")
+      ~env:[ ("MODEL", "opus") ] ~startup_prompt:(Some "hello")
+  in
+  Alcotest.(check string)
+    "configured launch"
+    "cwd . | 'env' 'MODEL=opus' 'codex' | startup prompt"
+    (Ta_core.Launch_profile.full_command_label configured);
+  let long =
+    Ta_core.Launch_profile.of_command
+      [ "sh"; "-lc"; String.make 90 'x' ]
+  in
+  Alcotest.(check bool)
+    "full command is not truncated" true
+    (String.length (Ta_core.Launch_profile.full_command_label long) > 90);
+  Alcotest.(check bool)
+    "compact command is truncated" true
+    (String.length (Ta_core.Launch_profile.compact_command_label long) <= 64)
+
 let expect_tmux_pane_id_argv () =
   let target = Ta_core.Tmux.unsafe_target_of_string "ta-test:0.1" in
   Alcotest.(check (list string))
@@ -930,6 +974,26 @@ let expect_startup_paths_resolve_defaults () =
   match Ta_core.Startup_paths.resolve ~exists:(fun _ -> false) () with
   | Ta_core.Startup_paths.Missing -> ()
   | _ -> Alcotest.fail "missing defaults should be reported"
+
+let expect_path_resolver_normalizes_relative_parents () =
+  Alcotest.(check string)
+    "one parent" ".." (Ta_core.Path_resolver.normalize "..");
+  Alcotest.(check string)
+    "two parents" "../.." (Ta_core.Path_resolver.normalize "../..");
+  Alcotest.(check string)
+    "two parents and child" "../../a"
+    (Ta_core.Path_resolver.normalize "../../a");
+  Alcotest.(check string)
+    "relative pop keeps parent" "../b"
+    (Ta_core.Path_resolver.normalize "../a/../b");
+  Alcotest.(check string)
+    "absolute pop" "/tmp/a" (Ta_core.Path_resolver.normalize "/tmp/x/../a");
+  Alcotest.(check string)
+    "resolve relative parent base" "../.."
+    (Ta_core.Path_resolver.resolve ~base:"../.." ".");
+  Alcotest.(check string)
+    "absolute cwd" "/tmp/ws"
+    (Ta_core.Path_resolver.absolute ~cwd:"/tmp/ws/." ".")
 
 let expect_startup_guide_names_entrypoint () =
   Alcotest.(check bool)
@@ -1010,8 +1074,14 @@ let () =
           Alcotest.test_case "pane identity argv" `Quick
             expect_tmux_pane_identity_argv;
         ] );
+      ( "launch_profile",
+        [
+          Alcotest.test_case "labels" `Quick expect_launch_profile_labels;
+        ] );
       ( "startup",
         [
+          Alcotest.test_case "path resolver" `Quick
+            expect_path_resolver_normalizes_relative_parents;
           Alcotest.test_case "resolve defaults" `Quick
             expect_startup_paths_resolve_defaults;
           Alcotest.test_case "guide entrypoint" `Quick

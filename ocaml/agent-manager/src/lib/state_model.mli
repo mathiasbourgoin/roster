@@ -16,6 +16,10 @@ type agent_status =
 type agent = {
   name : Id.Agent.t;
   roster_agent : string;
+  command : string list;
+  cwd : string option;
+  env : (string * string) list;
+  startup_prompt : string option;
   status : agent_status;
   pane : Id.Pane.t option;
   pane_identity : Tmux.pane_identity option;

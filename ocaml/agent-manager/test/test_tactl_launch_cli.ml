@@ -12,6 +12,10 @@ let tactl_exe () =
 let fixture name = Filename.concat "fixtures" name
 let remove_noerr path = try Sys.remove path with Sys_error _ -> ()
 
+let absolute_path path =
+  if Filename.is_relative path then Filename.concat (Sys.getcwd ()) path
+  else path
+
 let prompt_config =
   {|
 {
@@ -93,6 +97,7 @@ let check_exit label expected = function
   | Unix.WSTOPPED signal -> Alcotest.failf "%s: process stopped %d" label signal
 
 let expect_launch_start_dry_run () =
+  let fixture_root = Filename.dirname (absolute_path (fixture "ta-valid.json")) in
   let result =
     run_tactl [ "launch"; "start"; "--dry-run"; fixture "ta-valid.json" ]
   in
@@ -102,10 +107,10 @@ let expect_launch_start_dry_run () =
     "stdout"
     (String.concat "\n"
        [
-         "tmux new-session -d -P -F '#{pane_id}' -s ta-fixture -c fixtures \
-          'codex'";
-         "tmux split-window -d -P -F '#{pane_id}' -t ta-fixture -c fixtures \
-          'codex'";
+         "tmux new-session -d -P -F '#{pane_id}' -s ta-fixture -c "
+         ^ fixture_root ^ " 'codex'";
+         "tmux split-window -d -P -F '#{pane_id}' -t ta-fixture -c "
+         ^ fixture_root ^ " 'codex'";
          "tmux select-layout -t ta-fixture tiled";
        ]
     ^ "\n")

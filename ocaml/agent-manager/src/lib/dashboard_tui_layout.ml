@@ -122,6 +122,11 @@ let capability_label (agent : Dashboard_model.agent) =
   | capabilities ->
       capabilities |> List.map Agent_capability.to_string |> String.concat ","
 
+let launch_command_label agent =
+  Launch_profile.of_parts ~command:agent.Dashboard_model.command
+    ~cwd:agent.cwd ~env:agent.env ~startup_prompt:agent.startup_prompt
+  |> Launch_profile.full_command_label
+
 let header ?(now = Unix.gettimeofday ()) width state =
   let model = Dashboard_interaction.model state in
   let totals = model.totals in
@@ -214,6 +219,7 @@ let selected_agent_main width lines workspace agent =
     "Runtime: "
     ^ runtime_state_to_string agent.runtime_state
     ^ " | pane " ^ pane_to_string agent.pane;
+    "Launch: " ^ launch_command_label agent;
     "Roster: " ^ roster_label agent ^ " | id " ^ agent.roster_agent;
     "Source: " ^ workspace_source_label workspace;
     "Privileges: " ^ privilege_label agent;

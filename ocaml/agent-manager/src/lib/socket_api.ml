@@ -177,6 +177,7 @@ let load_config ?roster_index config_path =
 
 let launch_plan ~config_path ?roster_index () =
   let ( let* ) = Result.bind in
+  let config_path = Path_resolver.absolute ~cwd:(Sys.getcwd ()) config_path in
   let* config = load_config ?roster_index config_path in
   match
     Launch_plan.of_config ~config_dir:(Filename.dirname config_path) config
@@ -207,8 +208,8 @@ let preflight_launch_state state_path ~actor plan =
   | Error error -> Error (State_file.error_to_string error)
   | Ok store ->
       let ( let* ) = Result.bind in
-      let* () = Launch_state.preflight store plan in
-      authorize_launch store ~actor plan
+      let* () = authorize_launch store ~actor plan in
+      Launch_state.preflight store plan
 
 let preflight_start_agent state_path ~actor
     (selected : Launch_plan.selected_agent) =
@@ -216,9 +217,12 @@ let preflight_start_agent state_path ~actor
   | Error error -> Error (State_file.error_to_string error)
   | Ok store ->
       let ( let* ) = Result.bind in
-      let* () = Launch_state.preflight_agent store selected.agent in
       let agent = selected.agent in
-      authorize_write store ~workspace:agent.workspace ~actor ~agent:agent.name
+      let* () =
+        authorize_write store ~workspace:agent.workspace ~actor
+          ~agent:agent.name
+      in
+      Launch_state.preflight_agent store selected
 
 let update_launch_state state_path ~actor attachments =
   match
@@ -233,12 +237,12 @@ let update_started_agent_state state_path ~actor
   match
     State_file.update ~path:state_path (fun store ->
         let ( let* ) = Result.bind in
-        let* () = Launch_state.preflight_agent store selected.agent in
         let agent = selected.agent in
         let* () =
           authorize_write store ~workspace:agent.workspace ~actor
             ~agent:agent.name
         in
+        let* () = Launch_state.preflight_agent store selected in
         let* store =
           Launch_state.apply_attachments ~actor store
             [ started.Launch_runtime.attachment ]

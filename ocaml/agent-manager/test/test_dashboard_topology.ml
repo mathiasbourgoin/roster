@@ -38,6 +38,10 @@ let agent_model ?(metadata = None) ?(readable = []) ?(writable = []) name
     Ta_core.Dashboard_model.workspace = workspace "fixture";
     name = agent name;
     roster_agent;
+    command = [ "codex" ];
+    cwd = None;
+    env = [];
+    startup_prompt = None;
     roster_metadata = metadata;
     capabilities = [];
     status = Ta_core.State_store.Not_started;

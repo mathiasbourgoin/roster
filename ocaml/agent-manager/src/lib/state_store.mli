@@ -16,6 +16,10 @@ type agent_status =
 type agent = {
   name : Id.Agent.t;
   roster_agent : string;
+  command : string list;
+  cwd : string option;
+  env : (string * string) list;
+  startup_prompt : string option;
   status : agent_status;
   pane : Id.Pane.t option;
   pane_identity : Tmux.pane_identity option;
@@ -59,7 +63,8 @@ type audit_event = {
 type t
 type snapshot_error = { path : string; message : string }
 
-val of_config : Workspace_config.t -> (t, Workspace_config.error list) result
+val of_config :
+  ?config_dir:string -> Workspace_config.t -> (t, Workspace_config.error list) result
 val workspaces : t -> workspace list
 val audit_events : t -> audit_event list
 val summarize : t -> string

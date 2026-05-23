@@ -10,6 +10,10 @@ let agent_of_config (agent : Workspace_config.agent) =
   {
     name = agent.name;
     roster_agent = agent.roster_agent;
+    command = agent.command;
+    cwd = agent.cwd;
+    env = agent.env;
+    startup_prompt = agent.startup_prompt;
     status = Not_started;
     pane = None;
     pane_identity = None;
@@ -24,11 +28,14 @@ let link_of_config (link : Workspace_config.link) =
     reason = link.reason;
   }
 
-let workspace_of_config (workspace : Workspace_config.workspace) =
+let resolve_path ~base path =
+  Path_resolver.resolve ~base path
+
+let workspace_of_config ~config_dir (workspace : Workspace_config.workspace) =
   {
     id = workspace.id;
     label = workspace.label;
-    root = workspace.root;
+    root = resolve_path ~base:config_dir workspace.root;
     harness_path = workspace.harness_path;
     tmux_session = Some workspace.tmux_session;
     active_view = workspace.default_view;
@@ -44,17 +51,20 @@ let append_event store ~workspace ~actor kind =
     next_seq = store.next_seq + 1;
   }
 
-let of_validated_config (config : Workspace_config.t) =
-  let workspaces = List.map workspace_of_config config.workspaces in
+let of_validated_config ?(config_dir = ".") (config : Workspace_config.t) =
+  let config_dir = Path_resolver.normalize config_dir in
+  let workspaces =
+    List.map (workspace_of_config ~config_dir) config.workspaces
+  in
   let store = { workspaces; audit_events = []; next_seq = 1 } in
   List.fold_left
     (fun acc (workspace : workspace) ->
       append_event acc ~workspace:workspace.id ~actor:None Workspace_loaded)
     store workspaces
 
-let of_config (config : Workspace_config.t) =
+let of_config ?(config_dir = ".") (config : Workspace_config.t) =
   match Workspace_config.validate config with
-  | [] -> Ok (of_validated_config config)
+  | [] -> Ok (of_validated_config ~config_dir config)
   | errors -> Error errors
 
 let workspaces store = store.workspaces
@@ -275,7 +285,16 @@ let actor_outgoing_visible actor names (link : link) =
   Id.Agent.equal actor link.from_agent && agent_name_visible names link.to_agent
 
 let readonly_agent_for_action_target (agent : agent) =
-  { agent with status = Not_started; pane = None; pane_identity = None }
+  {
+    agent with
+    command = [];
+    cwd = None;
+    env = [];
+    startup_prompt = None;
+    status = Not_started;
+    pane = None;
+    pane_identity = None;
+  }
 
 let visible_workspace store actor workspace =
   if not (actor_exists workspace actor) then None

@@ -98,7 +98,14 @@ let expect_loads_config () =
         "capabilities"
         [ "create-agent"; "connect-agents" ]
         (List.map Ta_core.Agent_capability.to_string
-           lead_agent.capabilities));
+           lead_agent.capabilities);
+      Alcotest.(check (list string))
+        "command" [ "codex" ] lead_agent.command;
+      Alcotest.(check (option string)) "cwd" (Some ".") lead_agent.cwd;
+      Alcotest.(check (list (pair string string)))
+        "env" [ ("TA_MODE", "lead") ] lead_agent.env;
+      Alcotest.(check (option string))
+        "startup prompt" None lead_agent.startup_prompt);
   match Ta_core.State_store.audit_events store with
   | [ event ] -> (
       check_audit_seq "load seq" 1 event;
@@ -293,6 +300,12 @@ let expect_snapshot_roundtrip () =
                 [ "create-agent"; "connect-agents" ]
                 (List.map Ta_core.Agent_capability.to_string
                    agent.capabilities);
+              Alcotest.(check (list string))
+                "restored command" [ "codex" ] agent.command;
+              Alcotest.(check (option string))
+                "restored cwd" (Some ".") agent.cwd;
+              Alcotest.(check (list (pair string string)))
+                "restored env" [ ("TA_MODE", "lead") ] agent.env;
               Alcotest.(check string)
                 "status" "running"
                 (Ta_core.State_store.status_to_string agent.status);
@@ -377,7 +390,84 @@ let expect_legacy_snapshot_defaults_capabilities () =
               Alcotest.(check (list string))
                 "legacy capabilities" []
                 (List.map Ta_core.Agent_capability.to_string
-                   agent.capabilities)))
+                   agent.capabilities);
+              Alcotest.(check (list string))
+                "legacy command" [] agent.command;
+              Alcotest.(check (option string)) "legacy cwd" None agent.cwd;
+              Alcotest.(check (list (pair string string))) "legacy env" []
+                agent.env;
+              Alcotest.(check (option string))
+                "legacy prompt" None agent.startup_prompt))
+
+let expect_action_visible_redacts_write_only_launch () =
+  let config =
+    {|
+{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "fixture",
+      "label": "Fixture",
+      "root": ".",
+      "tmux_session": "ta-fixture",
+      "default_view": "agents",
+      "views": [{"id": "agents", "label": "Agents"}],
+      "agents": [
+        {"name": "lead", "roster_agent": "tech-lead", "command": ["codex"]},
+        {
+          "name": "writer",
+          "roster_agent": "writer",
+          "command": ["secret-writer"],
+          "cwd": "/secret",
+          "env": [{"name": "SECRET", "value": "1"}],
+          "startup_prompt": "secret prompt"
+        }
+      ],
+      "links": [
+        {"from": "lead", "to": "writer", "permissions": ["write"], "reason": "writer"}
+      ]
+    }
+  ]
+}
+|}
+  in
+  let store =
+    match Ta_core.Workspace_config.parse_string config with
+    | Error errors ->
+        Alcotest.fail
+          (String.concat "\n"
+             (List.map Ta_core.Workspace_config.error_to_string errors))
+    | Ok config -> (
+        match Ta_core.State_store.of_config config with
+        | Ok store -> store
+        | Error errors ->
+            Alcotest.fail
+              (String.concat "\n"
+                 (List.map Ta_core.Workspace_config.error_to_string errors)))
+  in
+  let actor = Ta_core.Id.Agent.unsafe_of_string "lead" in
+  match Ta_core.State_store.action_visible_to_actor store ~actor with
+  | Error message -> Alcotest.fail message
+  | Ok visible -> (
+      match
+        Ta_core.State_store.find_workspace visible
+          (Ta_core.Id.Workspace.unsafe_of_string "fixture")
+      with
+      | Error message -> Alcotest.fail message
+      | Ok workspace -> (
+          match
+            Ta_core.State_store.find_agent workspace
+              (Ta_core.Id.Agent.unsafe_of_string "writer")
+          with
+          | Error message -> Alcotest.fail message
+          | Ok writer ->
+              Alcotest.(check (list string)) "redacted command" []
+                writer.command;
+              Alcotest.(check (option string)) "redacted cwd" None writer.cwd;
+              Alcotest.(check (list (pair string string))) "redacted env" []
+                writer.env;
+              Alcotest.(check (option string))
+                "redacted prompt" None writer.startup_prompt))
 
 let expect_snapshot_rejects_version () =
   let store, _, _, _, _ = store_with_runtime_changes () in
@@ -556,6 +646,8 @@ let () =
             expect_snapshot_roundtrip;
           Alcotest.test_case "legacy snapshot defaults capabilities" `Quick
             expect_legacy_snapshot_defaults_capabilities;
+          Alcotest.test_case "write-only launch redaction" `Quick
+            expect_action_visible_redacts_write_only_launch;
           Alcotest.test_case "snapshot rejects version" `Quick
             expect_snapshot_rejects_version;
           Alcotest.test_case "snapshot rejects stale next seq" `Quick

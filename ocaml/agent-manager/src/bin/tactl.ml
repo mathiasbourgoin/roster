@@ -47,13 +47,25 @@ let print_state_file_error error =
 
 let ( let* ) = Result.bind
 
+let absolute_path path =
+  Ta_core.Path_resolver.absolute ~cwd:(Sys.getcwd ()) path
+
+let absolute_path_option = function
+  | None -> None
+  | Some path -> Some (absolute_path path)
+
 let save_state roster_path output_path config_path =
+  let config_path = absolute_path config_path in
   match load_config ?roster_path config_path with
   | Error errors ->
       print_errors errors;
       `Ok 1
   | Ok config -> (
-      match Ta_core.State_store.of_config config with
+      match
+        Ta_core.State_store.of_config
+          ~config_dir:(Filename.dirname config_path)
+          config
+      with
       | Error errors ->
           print_errors errors;
           `Ok 1
@@ -455,6 +467,7 @@ let attach_state_pane state_path workspace agent pane actor =
           Ta_core.State_store.attach_pane store ~workspace ~agent ~pane ~actor)
 
 let launch_plan roster_path config_path =
+  let config_path = absolute_path config_path in
   match load_config ?roster_path config_path with
   | Error errors ->
       print_errors errors;
@@ -473,6 +486,7 @@ let launch_plan roster_path config_path =
           `Ok 0)
 
 let build_launch_plan roster_path config_path =
+  let config_path = absolute_path config_path in
   match load_config ?roster_path config_path with
   | Error errors -> Error (`Config errors)
   | Ok config -> (
@@ -605,14 +619,6 @@ let require_socket_option label = function
 let reject_socket_option label = function
   | None -> Ok ()
   | Some _ -> Error (label ^ " is not accepted for this socket command")
-
-let absolute_path path =
-  if Filename.is_relative path then Filename.concat (Sys.getcwd ()) path
-  else path
-
-let absolute_path_option = function
-  | None -> None
-  | Some path -> Some (absolute_path path)
 
 let trusted_launch_config config_path roster_path =
   match config_path with

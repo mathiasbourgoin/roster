@@ -17,9 +17,11 @@
   dashboard_viewport
   harness_ta_config
   launch_plan
+  launch_profile
   launch_runtime
   launch_state
   permission
+  path_resolver
   roster_frontmatter
   roster_pipeline_role
   roster_index

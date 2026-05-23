@@ -30,14 +30,22 @@ let state_dashboard_model lines state_path =
       let runtime = Ta_core.Runtime_snapshot.collect ~lines store in
       Ok (Ta_core.Dashboard_model.of_state_runtime store runtime)
 
+let absolute_path path =
+  Ta_core.Path_resolver.absolute ~cwd:(Sys.getcwd ()) path
+
 let state_store_from_config config_path =
+  let config_path = absolute_path config_path in
   match Ta_core.Workspace_config.load config_path with
   | Error errors ->
       Error
         (String.concat "\n"
            (List.map Ta_core.Workspace_config.error_to_string errors))
   | Ok config -> (
-      match Ta_core.State_store.of_config config with
+      match
+        Ta_core.State_store.of_config
+          ~config_dir:(Filename.dirname config_path)
+          config
+      with
       | Error errors ->
           Error
             (String.concat "\n"
@@ -77,10 +85,6 @@ let parse_dashboard_height = function
       match Ta_core.Dashboard_viewport.height value with
       | Ok height -> Ok (Some height)
       | Error _ -> Error "--height must be positive")
-
-let absolute_path path =
-  if Filename.is_relative path then Filename.concat (Sys.getcwd ()) path
-  else path
 
 let default_config_path explicit =
   match explicit with
@@ -198,6 +202,7 @@ let render_state_dashboard lines width height workspace agent keys tui_mode
 
 let bootstrap_state_dashboard lines width height workspace agent keys tui_mode
     socket_path config_path =
+  let config_path = absolute_path config_path in
   match
     create_state_from_config
       ~state_path:Ta_core.Startup_paths.default_state_path ~config_path

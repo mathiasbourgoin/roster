@@ -342,6 +342,9 @@ let expect_state_dashboard () =
         "workspace" true
         (contains_substring ~needle:"fixture" result.stdout);
       Alcotest.(check bool)
+        "launch command" true
+        (contains_substring ~needle:"Launch: 'codex'" result.stdout);
+      Alcotest.(check bool)
         "preview" true
         (contains_substring ~needle:"Preview: fixture/lead" result.stdout))
 
@@ -456,7 +459,14 @@ let expect_miaou_headless_tui_renders_dashboard () =
         (contains_substring ~needle:"tech-lead | id tech-lead" result.stdout);
       Alcotest.(check bool)
         "start action" true
-        (contains_substring ~needle:"Enter Start lead" result.stdout);
+        (contains_substring ~needle:"Enter Start lead | Codex | 'codex'"
+           result.stdout);
+      Alcotest.(check bool)
+        "launch detail" true
+        (contains_substring ~needle:"Launch" result.stdout);
+      Alcotest.(check bool)
+        "launch command detail" true
+        (contains_substring ~needle:"'codex'" result.stdout);
       Alcotest.(check bool)
         "pipeline edge" true
         (contains_substring ~needle:"Pipeline edge" result.stdout))
@@ -506,7 +516,8 @@ let expect_miaou_headless_tui_uses_full_collapsed_width () =
         (contains_substring ~needle:"tech-lead | id tech-lead" frame.frame_text);
       Alcotest.(check bool)
         "collapsed action remains visible" true
-        (contains_substring ~needle:"Enter Start lead" frame.frame_text))
+        (contains_substring ~needle:"Enter Start lead | Codex | 'codex'"
+           frame.frame_text))
 
 let expect_miaou_headless_tui_enter_without_socket_marks_stale () =
   with_temp_workspace (fun dir ->
@@ -1230,6 +1241,69 @@ let expect_default_config_renders_dashboard () =
             "state bootstrapped" true
             (Sys.file_exists ".ta-state.json")))
 
+let expect_default_config_enter_starts_agent () =
+  with_temp_workspace (fun dir ->
+      let session =
+        Printf.sprintf "ta-relative-default-%d" (Unix.getpid ())
+      in
+      let harness = Filename.concat dir ".harness" in
+      mkdir_noerr harness 0o700;
+      write_file
+        (Filename.concat harness "ta.json")
+        (Printf.sprintf
+           {|{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "smoke",
+      "label": "Smoke",
+      "root": ".",
+      "tmux_session": "%s",
+      "default_view": "agents",
+      "views": [{ "id": "agents", "label": "Agents" }],
+      "agents": [
+        {
+          "name": "lead",
+          "roster_agent": "tech-lead",
+          "command": ["sh", "-lc", "printf default-start-ready; sleep 60"]
+        }
+      ],
+      "links": []
+    }
+  ]
+}|}
+           session);
+      Fun.protect
+        ~finally:(fun () -> kill_tmux_session session)
+        (fun () ->
+          with_chdir dir (fun () ->
+              let result =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"key\",\"key\":\"Enter\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "exit" 0 result.status;
+              Alcotest.(check string) "stderr" "" result.stderr;
+              Alcotest.(check bool)
+                "state bootstrapped" true
+                (Sys.file_exists ".ta-state.json");
+              let frame = last_frame result.stdout in
+              Alcotest.(check bool)
+                "attached action" true
+                (contains_substring ~needle:"Enter Refresh | attached"
+                   frame.frame_text))))
+
 let expect_harness_config_generates_workspace_dashboard () =
   with_temp_workspace (fun dir ->
       write_harness_config dir;
@@ -1380,6 +1454,8 @@ let () =
             expect_no_defaults_prints_quickstart;
           Alcotest.test_case "default config renders dashboard" `Quick
             expect_default_config_renders_dashboard;
+          Alcotest.test_case "default config enter starts agent" `Quick
+            expect_default_config_enter_starts_agent;
           Alcotest.test_case "harness config generates workspace dashboard"
             `Quick expect_harness_config_generates_workspace_dashboard;
           Alcotest.test_case "ta config wins over harness config" `Quick

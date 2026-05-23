@@ -20,6 +20,10 @@ type agent = {
   workspace : Id.Workspace.t;
   name : Id.Agent.t;
   roster_agent : string;
+  command : string list;
+  cwd : string option;
+  env : (string * string) list;
+  startup_prompt : string option;
   roster_metadata : roster_metadata option;
   capabilities : Agent_capability.t list;
   status : State_store.agent_status;
@@ -109,6 +113,10 @@ let agent_of_state runtime workspace_id links (agent : State_store.agent) =
         workspace = workspace_id;
         name = agent.name;
         roster_agent = agent.roster_agent;
+        command = agent.command;
+        cwd = agent.cwd;
+        env = agent.env;
+        startup_prompt = agent.startup_prompt;
         roster_metadata = None;
         capabilities = agent.capabilities;
         status = agent.status;
@@ -122,6 +130,10 @@ let agent_of_state runtime workspace_id links (agent : State_store.agent) =
         workspace = workspace_id;
         name = agent.name;
         roster_agent = agent.roster_agent;
+        command = agent.command;
+        cwd = agent.cwd;
+        env = agent.env;
+        startup_prompt = agent.startup_prompt;
         roster_metadata = None;
         capabilities = agent.capabilities;
         status = agent.status;
@@ -318,9 +330,16 @@ let roster_pipeline_lines metadata =
 
 let option_to_list = function None -> [] | Some value -> [ value ]
 
+let launch_profile agent =
+  Launch_profile.of_parts ~command:agent.command ~cwd:agent.cwd
+    ~env:agent.env ~startup_prompt:agent.startup_prompt
+
 let roster_preview_lines agent =
+  let launch =
+    "Launch: " ^ Launch_profile.full_command_label (launch_profile agent)
+  in
   match agent.roster_metadata with
-  | None -> []
+  | None -> [ launch ]
   | Some metadata ->
       let label =
         Option.value metadata.display_name ~default:agent.roster_agent
@@ -337,7 +356,7 @@ let roster_preview_lines agent =
           (compact_source metadata.source)
           tags
       in
-      (roster :: option_to_list (roster_profile_line metadata))
+      (launch :: roster :: option_to_list (roster_profile_line metadata))
       @ option_to_list (roster_compatibility_line metadata)
       @ option_to_list (roster_description_line metadata)
       @ roster_pipeline_lines metadata

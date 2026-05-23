@@ -31,6 +31,9 @@ let permission_to_yojson permission = `String (Permission.to_string permission)
 let capability_to_yojson capability =
   `String (Agent_capability.to_string capability)
 
+let env_binding_to_yojson (name, value) =
+  `Assoc [ ("name", `String name); ("value", `String value) ]
+
 let agent_to_yojson agent =
   let pane_identity =
     match agent.pane_identity with
@@ -46,6 +49,14 @@ let agent_to_yojson agent =
     [
       ("name", `String (Id.Agent.to_string agent.name));
       ("roster_agent", `String agent.roster_agent);
+      ("command", `List (List.map (fun value -> `String value) agent.command));
+      ( "cwd",
+        match agent.cwd with None -> `Null | Some cwd -> `String cwd );
+      ("env", `List (List.map env_binding_to_yojson agent.env));
+      ( "startup_prompt",
+        match agent.startup_prompt with
+        | None -> `Null
+        | Some prompt -> `String prompt );
       ("status", status_to_yojson agent.status);
       ( "pane",
         match agent.pane with
@@ -185,12 +196,41 @@ let parse_status path json =
       Ok (Failed reason)
   | value -> fail (path ^ ".kind") ("unknown status: " ^ value)
 
+let parse_command path fields =
+  match optional_field "command" fields with
+  | None -> Ok []
+  | Some values -> list_at path (fun item_path value -> string_at item_path value) values
+
+let parse_optional_string path fields name =
+  match optional_field name fields with
+  | None | Some `Null -> Ok None
+  | Some value ->
+      let* value = string_at (path ^ "." ^ name) value in
+      Ok (Some value)
+
+let parse_env_binding path json =
+  let* fields = object_fields path json in
+  let* name_json = required_field path "name" fields in
+  let* name = string_at (path ^ ".name") name_json in
+  let* value_json = required_field path "value" fields in
+  let* value = string_at (path ^ ".value") value_json in
+  Ok (name, value)
+
+let parse_env path fields =
+  match optional_field "env" fields with
+  | None -> Ok []
+  | Some values -> list_at path parse_env_binding values
+
 let parse_agent path json =
   let* fields = object_fields path json in
   let* name_json = required_field path "name" fields in
   let* name = parse_id (path ^ ".name") Id.Agent.of_string name_json in
   let* roster_agent_json = required_field path "roster_agent" fields in
   let* roster_agent = string_at (path ^ ".roster_agent") roster_agent_json in
+  let* command = parse_command (path ^ ".command") fields in
+  let* cwd = parse_optional_string path fields "cwd" in
+  let* env = parse_env (path ^ ".env") fields in
+  let* startup_prompt = parse_optional_string path fields "startup_prompt" in
   let* status_json = required_field path "status" fields in
   let* status = parse_status (path ^ ".status") status_json in
   let* pane =
@@ -233,7 +273,19 @@ let parse_agent path json =
             | Error message -> fail item_path message)
           values
   in
-  Ok { name; roster_agent; status; pane; pane_identity; capabilities }
+  Ok
+    {
+      name;
+      roster_agent;
+      command;
+      cwd;
+      env;
+      startup_prompt;
+      status;
+      pane;
+      pane_identity;
+      capabilities;
+    }
 
 let parse_permission path json =
   let* text = string_at path json in

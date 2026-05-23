@@ -64,6 +64,7 @@ val unsafe_pane_identity :
 
 val parse_pane_identity : string -> (pane_identity, string) result
 val equal_pane_identity : pane_identity -> pane_identity -> bool
+val shell_command : string list -> string
 val argv : command -> string list
 val command_line : command -> string
 val run : command -> (string, error) result

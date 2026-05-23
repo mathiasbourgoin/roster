@@ -5,6 +5,7 @@ type agent = {
   name : Id.Agent.t;
   roster_agent : string;
   command : string list;
+  configured_cwd : string option;
   cwd : string;
   env : (string * string) list;
   startup_prompt : string option;

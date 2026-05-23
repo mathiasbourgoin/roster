@@ -12,6 +12,10 @@ let tactl_exe () =
 let fixture name = Filename.concat "fixtures" name
 let remove_noerr path = try Sys.remove path with Sys_error _ -> ()
 
+let absolute_path path =
+  if Filename.is_relative path then Filename.concat (Sys.getcwd ()) path
+  else path
+
 let contains_substring ~needle value =
   let needle_len = String.length needle in
   let value_len = String.length value in
@@ -313,12 +317,13 @@ let last_audit_kind snapshot =
 
 let expected_show
     ?(audit_lines = [ "#1 fixture actor=system workspace-loaded" ]) () =
+  let fixture_root = Filename.dirname (absolute_path (fixture "ta-valid.json")) in
   String.concat "\n"
     ([
        "TA state snapshot: 1 workspace(s), 2 agent(s), 3 audit event(s)";
        "- fixture: 2 agents, 1 links";
        "Workspace fixture (Fixture)";
-       "  root: .";
+       "  root: " ^ fixture_root;
        "  tmux_session: ta-fixture";
        "  active_view: agents";
        "  Agents:";

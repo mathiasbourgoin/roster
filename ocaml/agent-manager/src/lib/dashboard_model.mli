@@ -26,6 +26,10 @@ type agent = {
   workspace : Id.Workspace.t;
   name : Id.Agent.t;
   roster_agent : string;
+  command : string list;
+  cwd : string option;
+  env : (string * string) list;
+  startup_prompt : string option;
   roster_metadata : roster_metadata option;
   capabilities : Agent_capability.t list;
   status : State_store.agent_status;

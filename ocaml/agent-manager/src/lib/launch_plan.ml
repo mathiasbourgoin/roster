@@ -3,6 +3,7 @@ type agent = {
   name : Id.Agent.t;
   roster_agent : string;
   command : string list;
+  configured_cwd : string option;
   cwd : string;
   env : (string * string) list;
   startup_prompt : string option;
@@ -22,19 +23,12 @@ type t = { workspaces : workspace list }
 type selected_agent = { workspace : workspace; agent : agent }
 
 let resolve_path ~base path =
-  if Filename.is_relative path then
-    match (base, path) with
-    | ".", "." -> "."
-    | _, "." -> base
-    | ".", path -> path
-    | base, path -> Filename.concat base path
-  else path
+  Path_resolver.resolve ~base path
 
 let effective_cwd ~(root : string) = function
   | None -> root
   | Some "." -> root
-  | Some cwd when Filename.is_relative cwd -> Filename.concat root cwd
-  | Some cwd -> cwd
+  | Some cwd -> Path_resolver.resolve ~base:root cwd
 
 let planned_pane workspace agent =
   Id.Pane.unsafe_of_string
@@ -49,6 +43,7 @@ let plan_agent workspace pane_index (agent : Workspace_config.agent) =
     name = agent.name;
     roster_agent = agent.roster_agent;
     command = agent.command;
+    configured_cwd = agent.cwd;
     cwd = effective_cwd ~root:workspace.root agent.cwd;
     env = agent.env;
     startup_prompt = agent.startup_prompt;
@@ -67,6 +62,7 @@ let plan_workspace ~config_dir (workspace : Workspace_config.workspace) =
   }
 
 let of_config ?(config_dir = ".") config =
+  let config_dir = Path_resolver.normalize config_dir in
   match Workspace_config.validate config with
   | [] ->
       Ok

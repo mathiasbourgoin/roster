@@ -3,7 +3,7 @@
 val preflight : State_store.t -> Launch_plan.t -> (unit, string) result
 
 val preflight_agent :
-  State_store.t -> Launch_plan.agent -> (unit, string) result
+  State_store.t -> Launch_plan.selected_agent -> (unit, string) result
 
 val apply_attachments :
   ?actor:Id.Agent.t ->

@@ -73,10 +73,20 @@ let capability_label (agent : Ta_core.Dashboard_model.agent) =
       |> List.map Ta_core.Agent_capability.to_string
       |> String.concat ","
 
+let launch_profile agent =
+  Ta_core.Launch_profile.of_parts
+    ~command:agent.Ta_core.Dashboard_model.command ~cwd:agent.cwd
+    ~env:agent.env ~startup_prompt:agent.startup_prompt
+
 let action_bar_for_agent (agent : Ta_core.Dashboard_model.agent) =
   let name = Ta_core.Id.Agent.to_string agent.name in
   match agent.pane with
-  | None -> "Enter Start " ^ name
+  | None ->
+      let profile = launch_profile agent in
+      "Enter Start " ^ name ^ " | "
+      ^ Ta_core.Launch_profile.profile_label profile
+      ^ " | "
+      ^ Ta_core.Launch_profile.compact_command_label profile
   | Some pane -> "Enter Refresh | attached " ^ Ta_core.Id.Pane.to_string pane
 
 let join_agents values =
@@ -192,6 +202,8 @@ let agent_detail width workspace agent =
       ("Status", status_to_string agent.status);
       ("Runtime", runtime_state_to_string agent.runtime_state);
       ("Pane", pane_to_string agent.pane);
+      ( "Launch",
+        Ta_core.Launch_profile.full_command_label (launch_profile agent) );
       ("Roster", roster_label agent ^ " | id " ^ agent.roster_agent);
       ("Source", workspace_source_label workspace);
       ("Privileges", privilege_label agent);
