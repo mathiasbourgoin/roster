@@ -217,6 +217,9 @@ let preview_text lines (agent : Ta_core.Dashboard_model.agent) =
   | [] -> "Preview\n  no pane output captured"
   | preview -> "Preview\n" ^ (preview |> take lines [] |> join_lines)
 
+let agent_is_live (agent : Ta_core.Dashboard_model.agent) =
+  match agent.runtime_state with Live -> true | _ -> false
+
 let main_text profile width layout interaction =
   match Ta_core.Dashboard_interaction.focus interaction with
   | Pipeline -> layout.Ta_core.Dashboard_tui_layout.main |> join_lines
@@ -224,12 +227,12 @@ let main_text profile width layout interaction =
       match selected_agent interaction with
       | None -> layout.main |> join_lines
       | Some (workspace, agent) ->
-          String.concat "\n\n"
-            [
-              action_bar_for_agent agent;
-              agent_detail width workspace agent;
-              preview_text profile.lines agent;
-            ])
+          let action = action_bar_for_agent agent in
+          let detail = agent_detail width workspace agent in
+          let preview = preview_text profile.lines agent in
+          if agent_is_live agent then
+            String.concat "\n\n" [ action; preview; detail ]
+          else String.concat "\n\n" [ action; detail; preview ])
 
 let render profile runner ~size =
   let cols = max 1 size.LTerm_geom.cols in

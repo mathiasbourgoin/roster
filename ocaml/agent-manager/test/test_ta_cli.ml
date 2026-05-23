@@ -139,6 +139,30 @@ let contains_substring ~needle value =
   in
   String.equal needle "" || loop 0
 
+let index_of_substring ~needle value =
+  let needle_len = String.length needle in
+  let value_len = String.length value in
+  let rec loop idx =
+    if idx + needle_len > value_len then None
+    else if String.sub value idx needle_len = needle then Some idx
+    else loop (idx + 1)
+  in
+  if String.equal needle "" then Some 0 else loop 0
+
+let check_ordered_substrings label needles value =
+  let rec loop previous = function
+    | [] -> ()
+    | needle :: rest -> (
+        match index_of_substring ~needle value with
+        | None -> Alcotest.failf "%s: missing %S" label needle
+        | Some index ->
+            Alcotest.(check bool)
+              (label ^ ": " ^ needle)
+              true (index > previous);
+            loop index rest)
+  in
+  loop (-1) needles
+
 let line_count value =
   let lines = String.split_on_char '\n' value in
   match List.rev lines with
@@ -689,6 +713,158 @@ let expect_miaou_headless_tui_direct_start_with_config () =
                 (contains_substring ~needle:"Enter Refresh | attached"
                    frame.frame_text))))
 
+let expect_miaou_headless_live_preview_is_visible_when_short () =
+  with_temp_workspace (fun dir ->
+      let session =
+        Printf.sprintf "ta-loop46-live-preview-%d" (Unix.getpid ())
+      in
+      let state_path = Filename.concat dir ".ta-state.json" in
+      let tmux_session = Ta_core.Tmux.unsafe_session_of_string session in
+      let config_text =
+        Printf.sprintf
+          {|{
+  "version": "0.1.0",
+  "workspaces": [
+    {
+      "id": "smoke",
+      "label": "Smoke",
+      "root": ".",
+      "tmux_session": "%s",
+      "default_view": "agents",
+      "views": [{ "id": "agents", "label": "Agents" }],
+      "agents": [
+        {
+          "name": "lead",
+          "roster_agent": "tech-lead",
+          "command": ["sh", "-lc", "printf direct-start-ready; sleep 60"]
+        }
+      ],
+      "links": []
+    }
+  ]
+}|}
+          session
+      in
+      Fun.protect
+        ~finally:(fun () -> kill_tmux_session session)
+        (fun () ->
+          let pane =
+            match
+              Ta_core.Tmux.run
+                (Ta_core.Tmux.New_detached_session_with_pane_id
+                   {
+                     session = tmux_session;
+                     cwd = Some dir;
+                     command =
+                       [
+                         "sh";
+                         "-lc";
+                         "printf direct-start-ready; sleep 60";
+                       ];
+                   })
+            with
+            | Ok output -> Ta_core.Id.Pane.unsafe_of_string (String.trim output)
+            | Error error ->
+                Alcotest.fail (Ta_core.Tmux.error_to_string error)
+          in
+          Unix.sleepf 0.2;
+          let identity =
+            match
+              Ta_core.Tmux.run
+                (Ta_core.Tmux.Display_pane_identity
+                   (Ta_core.Tmux.unsafe_target_of_string
+                      (Ta_core.Id.Pane.to_string pane)))
+            with
+            | Ok output -> (
+                match Ta_core.Tmux.parse_pane_identity output with
+                | Ok identity -> identity
+                | Error message -> Alcotest.fail message)
+            | Error error ->
+                Alcotest.fail (Ta_core.Tmux.error_to_string error)
+          in
+          let store =
+            match Ta_core.Workspace_config.parse_string config_text with
+            | Error errors ->
+                Alcotest.fail
+                  (String.concat "\n"
+                     (List.map Ta_core.Workspace_config.error_to_string
+                        errors))
+            | Ok config -> (
+                match Ta_core.State_store.of_config config with
+                | Error errors ->
+                    Alcotest.fail
+                      (String.concat "\n"
+                         (List.map Ta_core.Workspace_config.error_to_string
+                            errors))
+                | Ok store ->
+                    let workspace =
+                      Ta_core.Id.Workspace.unsafe_of_string "smoke"
+                    in
+                    let agent = Ta_core.Id.Agent.unsafe_of_string "lead" in
+                    let store =
+                      match
+                        Ta_core.State_store.set_agent_status store ~workspace
+                          ~agent ~status:Ta_core.State_store.Running
+                          ~actor:None
+                      with
+                      | Ok store -> store
+                      | Error message -> Alcotest.fail message
+                    in
+                    match
+                      Ta_core.State_store.attach_pane store ~identity
+                        ~workspace ~agent ~pane ~actor:None
+                    with
+                    | Ok store -> store
+                    | Error message -> Alcotest.fail message)
+          in
+          (match Ta_core.State_file.save ~path:state_path store with
+          | Ok () -> ()
+          | Error error ->
+              Alcotest.fail (Ta_core.State_file.error_to_string error));
+          with_chdir dir (fun () ->
+              let result =
+                run_ta_with_input
+                  ~env:[ ("MIAOU_DRIVER", "headless") ]
+                  ~stdin:
+                    "{\"cmd\":\"resize\",\"rows\":10,\"cols\":80}\n\
+                     {\"cmd\":\"key\",\"key\":\"Enter\"}\n\
+                     {\"cmd\":\"render\"}\n\
+                     {\"cmd\":\"quit\"}\n"
+                  [
+                    "--state";
+                    state_path;
+                    "--workspace";
+                    "smoke";
+                    "--agent";
+                    "lead";
+                    "--tui";
+                    "always";
+                  ]
+              in
+              check_exit "exit" 0 result.status;
+              Alcotest.(check string) "stderr" "" result.stderr;
+              let frame = last_frame result.stdout in
+              Alcotest.(check int) "frame rows" 10 frame.frame_rows;
+              Alcotest.(check bool)
+                "frame fits terminal height" true
+                (line_count frame.frame_text <= frame.frame_rows);
+              Alcotest.(check bool)
+                "live preview visible" true
+                (contains_substring ~needle:"direct-start-ready"
+                   frame.frame_text);
+              Alcotest.(check bool)
+                "attached action visible" true
+                (contains_substring ~needle:"Enter Refresh | attached"
+                   frame.frame_text);
+              check_ordered_substrings "live layout order"
+                [
+                  "Enter Refresh | attached";
+                  "Preview";
+                  "direct-start-ready";
+                  "Agent detail";
+                ]
+                frame.frame_text)))
+
 let expect_no_defaults_prints_quickstart () =
   with_temp_workspace (fun dir ->
       with_chdir dir (fun () ->
@@ -917,5 +1093,7 @@ let () =
             expect_miaou_headless_tui_s_rejects_attached_start;
           Alcotest.test_case "miaou headless direct start with config" `Quick
             expect_miaou_headless_tui_direct_start_with_config;
+          Alcotest.test_case "miaou headless live preview visible when short"
+            `Quick expect_miaou_headless_live_preview_is_visible_when_short;
         ] );
     ]

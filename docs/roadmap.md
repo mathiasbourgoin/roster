@@ -152,6 +152,9 @@ pick workspace, pick agent, start or connect.
 - TA's MIAOU dashboard now has a Herdr-simpler primary action: `Enter` starts a
   detached selected agent and refreshes an attached selected agent, so the
   normal flow is select workspace, select agent, press Enter.
+- Attached live agents now render their pane preview before metadata in the
+  MIAOU main panel, keeping session output visible on short terminals while
+  detached agents keep the detail-first view.
 
 ## Near-Term Milestones
 
