@@ -178,6 +178,9 @@ pick workspace, pick agent, start or connect.
 - The MIAOU sidebar is now navigation-only in the launcher view; duplicated
   start/source text was removed so the launch panel and pinned footer own the
   selected action context.
+- The MIAOU agent picker now shows each agent's configured launch profile
+  directly in the table, so selecting an agent also shows whether Enter will run
+  Codex, shell, Claude, OpenCode, or another command.
 
 ## Near-Term Milestones
 

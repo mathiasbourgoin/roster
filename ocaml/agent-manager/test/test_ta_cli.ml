@@ -487,6 +487,14 @@ let expect_miaou_headless_tui_renders_dashboard () =
         "agent table" true
         (contains_substring ~needle:"tech-lead | id tech-lead" result.stdout);
       Alcotest.(check bool)
+        "agent table shows launch profile" true
+        (contains_substring ~needle:"│ lead   │ Codex"
+           result.stdout);
+      Alcotest.(check bool)
+        "agent table keeps profile picker compact" false
+        (contains_substring ~needle:"│ Profile  │ Status"
+           result.stdout);
+      Alcotest.(check bool)
         "start action" true
         (contains_substring
            ~needle:"Launch fixture/lead | Codex | 'codex' | Enter Start"
@@ -528,7 +536,7 @@ let expect_miaou_headless_launcher_axes_and_footer () =
       "views": [{"id": "agents", "label": "Agents"}],
       "agents": [
         {"name": "writer", "roster_agent": "documenter", "command": ["codex"]},
-        {"name": "editor", "roster_agent": "reviewer", "command": ["codex"]}
+        {"name": "editor", "roster_agent": "reviewer", "command": ["sh", "-lc", "printf editor-ready"]}
       ]
     }
   ]
@@ -556,9 +564,15 @@ let expect_miaou_headless_launcher_axes_and_footer () =
         "down selects agent" true
         (contains_substring ~needle:"Agent         editor" frame.frame_text);
       Alcotest.(check bool)
+        "agent table exposes selected profile" true
+        (contains_substring ~needle:"│ editor"
+           frame.frame_text
+        && contains_substring ~needle:"│ shell"
+           frame.frame_text);
+      Alcotest.(check bool)
         "launcher footer" true
         (contains_substring
-           ~needle:"Launch docs/editor | Codex | 'codex' | Enter Start"
+           ~needle:"Launch docs/editor | shell | 'sh' '-lc' 'printf editor-ready' | Enter Start"
            (last_text_line frame.frame_text));
       Alcotest.(check int) "frame rows" 18 frame.frame_rows;
       Alcotest.(check bool)

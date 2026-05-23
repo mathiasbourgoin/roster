@@ -229,7 +229,10 @@ let agent_table width interaction workspace =
   let rows =
     workspace.Ta_core.Dashboard_model.agents
     |> List.map (fun (agent : Ta_core.Dashboard_model.agent) ->
-        [ Ta_core.Id.Agent.to_string agent.name; status_to_string agent.status ])
+        [
+          Ta_core.Id.Agent.to_string agent.name;
+          Ta_core.Launch_profile.profile_label (launch_profile agent);
+        ])
   in
   let opts =
     {
@@ -240,7 +243,7 @@ let agent_table width interaction workspace =
   in
   Table.render_table_generic_with_opts
     ~cols:(Some (max 20 width))
-    ~header_list:[ "Agent"; "Status" ] ~rows_list:rows
+    ~header_list:[ "Agent"; "Profile" ] ~rows_list:rows
     ~cursor:(selected_agent_index interaction workspace)
     ~sel_col:0 ~opts ()
 
