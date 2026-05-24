@@ -1,5 +1,72 @@
 # Changes
 
+## v2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
+
+### Architecture Shift: Skills as Primary Orchestration Unit
+
+The system now treats **skills** as the primary orchestration unit for multi-step development workflows. Agents remain directly accessible and complementary, but the preferred path for a complete design→ship cycle is the `roster-*` skill pipeline. Key differences from the agent pipeline:
+
+- Skills run in the main context (no context boundary between phases)
+- Artifacts chain explicitly: `intake.md → plan.md → impl.md → review.json → qa.md → PR`
+- Human gates are built into each skill's `human_gate` frontmatter field
+- The full pipeline is auditable from a single session
+
+### New Skills — `roster-*` Pipeline
+
+Twelve new skills implementing the full development pipeline:
+
+- `roster-run` — Entry point: detects context (intake brief present? QA running? nothing?) and routes to the right skill
+- `roster-init` — Bootstrap for greenfield projects and onboarding onto existing ones. Runs an adversarial interview (6 questions, 3 adversarial). Weak answers trigger a warning + brainstorming protocol before proceeding.
+- `roster-intake` — Intake phase: transforms a task into a contractual brief (`briefs/<task>-intake.md`) with structured human gate
+- `roster-plan` — Dual-voice decomposition: two adversarial sub-agents produce independent plans, reconciled into a consensus table (AGREE / DISAGREE / USER-CHALLENGE). USER-CHALLENGE is never auto-decided.
+- `roster-implement` — TDD-first implementation with improve loop and OCaml sub-agents
+- `roster-review` — Fix-first review with conditional specialists (referenced by path for multi-runtime compatibility). Produces `review.json` with GO/NO-GO verdict.
+- `roster-qa` — Deterministic quality gates + tmux test matrix. Gated on review GO.
+- `roster-ship` — Rebase-merge, conventional commits, PR. Hard-gated on review+QA GO.
+- `roster-investigate` — Root-cause analysis: read-only, freezes scope, hypothesis-driven
+- `roster-audit` — Combined code quality + spec compliance report with file:line citations
+- `roster-skill-health` — Periodic friction log analysis (cold start: creates file + asks user about frictions). Clusters patterns and proposes [SKILL] / [TOOL] / [ADAPT] / [AGENT] actions.
+- `roster-skill-evolve` — Implements approved skill-health proposals with gated execution
+
+### Skill Metabolism
+
+Skills log frictions to `skills-meta/friction.jsonl` (gitignored, project-local). The friction entry format records the skill name, timestamp, friction description, method used, and outcome. Over time, `roster-skill-health` clusters these into actionable proposals:
+
+- `[SKILL]` — develop a new reusable skill
+- `[TOOL]` — build a deterministic tool (example: fuzzer for red-team analysis workflows)
+- `[ADAPT]` — tune an existing skill to local project patterns
+- `[AGENT]` — create a new specialist sub-agent
+
+Minimum threshold: `min_entries_for_signal` occurrences (default 3) per cluster before proposing action. This prevents noise from one-off frictions.
+
+### Shared Preamble
+
+All `preamble: true` pipeline skills inject `skills/shared/preamble.md` at projection time. The preamble encodes the project's core ethos: anti-sycophancy, complétude (deliver complete solutions), search-before-build, user sovereignty (escalate on ambiguity, never decide silently), and friction log instructions.
+
+### Schema Extensions
+
+- `schema/skill-schema.md` — new frontmatter fields: `name`, `friction_log`, `artifacts` (inputs/outputs), `human_gate`, `tunables`, `pipeline_role`
+- `schema/harness-schema.md` — new `layers.metabolism` block: `friction_log` path, `health_schedule`, `last_health_run`, `completed_tasks`
+
+### Recruiter Update (v2.4.0 → v2.5.0)
+
+- Added v2.5.0 Update Notes proposing skill pipeline installation during `/recruit update`
+- Added `### New Skill Discovery` section to Self-Update: compares locally installed skills against roster skill index and surfaces uninstalled `roster-*` skills with install prompt
+- Skill install target: `.harness/skills/` (canonical), `.claude/commands/` (Claude), `.agents/skills/` (Codex)
+
+### Tooling
+
+- `scripts/sync-harness.sh` — now syncs `roster-*.md` from all `skills/*/` subdirectories into `.claude/commands/` and `.agents/skills/`; skips `skills/shared/` (preamble is injected, not a slash command)
+- `.gitignore` — added `skills-meta/` exclusion
+- `index.json` — rebuilt: 1512 entries (local=45, remote=1467). All 12 `roster-*` skills now appear as `component_type: skill, source: local`.
+
+### Friction Log — Existing Skills
+
+Added `## Friction Log` sections to pre-existing workflow skills:
+- `skills/workflow/improvement-loop.md`
+- `skills/workflow/git-conventions.md`
+- `skills/testing/tdd-workflow.md`
+
 ## Unreleased
 
 ### Team-First Philosophy Reframe
