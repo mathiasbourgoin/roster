@@ -102,6 +102,11 @@ You guide the user through a strict red-green-refactor cycle.
 The canonical installer should place the skill in the shared harness and then generate runtime entrypoints:
 
 - Claude Code: copy or render to `.claude/commands/<name>.md`
-- Codex: expose the same workflow through `.agents/skills/<name>.md` or another Codex-native skill surface
+- Codex project-local: render to `.agents/skills/<name>/SKILL.md`
+- Codex global/session-discovered: render to `$CODEX_HOME/skills/<name>/SKILL.md` only when an explicit `codex-global` runtime is enabled
+- OpenCode: render to `.opencode/agents/<name>.md` (agents) and `.opencode/commands/<name>.md` (skills)
+- Pi (pi.dev): render to `.pi/skills/<name>/SKILL.md` — Pi uses the same SKILL.md directory structure as Codex
+- GitHub Copilot: render to `.github/copilot-instructions.md` (global) and `.github/instructions/<name>.instructions.md` (per-agent)
 
 Runtime wrappers should stay thin and mechanically regenerable from the shared source.
+Do not reuse the Codex `SKILL.md` layout for OpenCode or Copilot — their loader contracts differ. Pi is the exception: it uses the same `<name>/SKILL.md` directory structure as Codex.
