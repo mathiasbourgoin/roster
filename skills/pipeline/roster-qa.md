@@ -1,6 +1,6 @@
 ---
 name: roster-qa
-description: QA déterministe — quality gates, tmux matrix si TUI, bloqué si review NO-GO.
+description: Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO.
 version: 1.0.0
 domain: pipeline
 phase: qa
@@ -19,137 +19,137 @@ artifacts:
   writes:
     - briefs/<task>-qa.md
 pipeline_role:
-  triggered_by: /roster-review avec statut GO
-  receives: briefs/<task>-review.json GO + implémentation sur branch
-  produces: briefs/<task>-qa.md GO ou NO-GO
+  triggered_by: /roster-review with GO status
+  receives: briefs/<task>-review.json GO + implementation on branch
+  produces: briefs/<task>-qa.md GO or NO-GO
 ---
 
 # Roster QA
 
-Tu exécutes les checks déterministes et tu produis un verdict GO/NO-GO. Pas d'écriture de code — tu observes, tu mesures, tu rapportes.
+You run deterministic checks and produce a GO/NO-GO verdict. No code writing — observe, measure, report.
 
-**Token discipline :** sorties brutes, pas de paraphrase. Lien vers les logs si longs.
+**Token discipline:** raw output, no paraphrase. Link to logs if long.
 
 ## Input Contract
 
-Lire `briefs/<task>-review.json` en entier.
+Read `briefs/<task>-review.json` in full.
 
-**BLOQUER** si :
-- statut `NO-GO` dans review.json
-- review.json absent
+**BLOCK** if:
+- status is `NO-GO` in review.json
+- review.json is absent
 
 ```
-⛔ BLOQUÉ : review.json est NO-GO ou absent.
-Résoudre les issues de review avant de lancer QA.
+⛔ BLOCKED: review.json is NO-GO or absent.
+Resolve review issues before running QA.
 ```
 
 ## Steps
 
-### 1. Lire le contexte
+### 1. Read context
 
-- `briefs/<task>-review.json` — noter les points d'attention pour le reviewer
-- `briefs/<task>-impl.md` — scope exact de l'implémentation
+- `briefs/<task>-review.json` — note reviewer's points of attention
+- `briefs/<task>-impl.md` — exact scope of implementation
 
-### 2. Quality gates déterministes
+### 2. Deterministic quality gates
 
-Exécuter dans l'ordre. Chaque gate doit passer avant le suivant.
+Run in order. Each gate must pass before the next.
 
 ```bash
-# Gate 1 : Build
-<build command depuis intake brief>
+# Gate 1: Build
+<build command from intake brief>
 
-# Gate 2 : Tests (suite complète)
+# Gate 2: Tests (full suite)
 <test command>
 
-# Gate 3 : Format / Lint
+# Gate 3: Format / Lint
 <format command>
 
-# Gate 4 : Tests projet-spécifiques (si documentés dans intake brief)
-<commande spécifique>
+# Gate 4: Project-specific tests (if documented in intake brief)
+<specific command>
 ```
 
-Pour chaque gate : noter le résultat exact (exit code, durée, nombre de tests).
+For each gate: record the exact result (exit code, duration, number of tests).
 
-Si un gate échoue :
-- Enregistrer le log d'erreur complet
-- Statut immédiat : NO-GO
-- Ne pas continuer les gates suivants
-- Inclure dans le rapport sans édulcorer
+If a gate fails:
+- Record the full error log
+- Immediate status: NO-GO
+- Do not continue to subsequent gates
+- Include in the report without softening
 
-### 3. Check TUI (si applicable)
+### 3. TUI check (if applicable)
 
-Si le scope contient une interface TUI et `tunables.require_tmux_matrix_for_tui: true` :
+If the scope contains a TUI interface and `tunables.require_tmux_matrix_for_tui: true`:
 
 ```bash
-# Lancer l'application dans une session tmux
+# Launch the application in a tmux session
 tmux new-session -d -s qa-check -x 220 -y 50
-tmux send-keys -t qa-check "<commande de lancement>" Enter
+tmux send-keys -t qa-check "<launch command>" Enter
 sleep 3
 
-# Capturer l'affichage
+# Capture the display
 tmux capture-pane -t qa-check -p
 ```
 
-Vérifier :
-- L'application démarre sans erreur
-- L'affichage est cohérent dans les dimensions standards (80x24, 120x40, 220x50)
-- Les interactions de base fonctionnent (navigation, sélection)
+Verify:
+- The application starts without error
+- The display is consistent at standard dimensions (80x24, 120x40, 220x50)
+- Basic interactions work (navigation, selection)
 
 ```bash
 tmux kill-session -t qa-check
 ```
 
-### 4. Écrire le rapport QA
+### 4. Write the QA report
 
-Produire `briefs/<task>-qa.md` :
+Produce `briefs/<task>-qa.md`:
 
 ```markdown
 # QA Brief — <task-slug>
 
-**Date :** <ISO-8601>
-**Statut :** GO ✅ / NO-GO ❌
+**Date:** <ISO-8601>
+**Status:** GO ✅ / NO-GO ❌
 
 ## Quality Gates
 
-| Gate | Commande | Résultat | Durée |
+| Gate | Command | Result | Duration |
 |---|---|---|---|
 | Build | `<cmd>` | ✅ PASS / ❌ FAIL | <Xs> |
 | Tests | `<cmd>` | ✅ <N> passed / ❌ <N> failed | <Xs> |
 | Format | `<cmd>` | ✅ PASS / ❌ FAIL | <Xs> |
 
-## Tests : détail
+## Tests: detail
 
-- Nouveaux tests ajoutés : <N>
-- Tests existants : <N> pass, <N> skip, <N> fail
-- Régression détectée : OUI / NON
+- New tests added: <N>
+- Existing tests: <N> pass, <N> skip, <N> fail
+- Regression detected: YES / NO
 
-## TUI (si applicable)
+## TUI (if applicable)
 
-- Dimensions testées : 80x24 / 120x40 / 220x50
-- Résultat : ✅ OK / ❌ Problème détecté
-- Capture : <description de ce qui a été observé>
+- Dimensions tested: 80x24 / 120x40 / 220x50
+- Result: ✅ OK / ❌ Issue detected
+- Capture: <description of what was observed>
 
-## Issues NO-GO (si applicable)
+## NO-GO issues (if applicable)
 
-<Log d'erreur complet — pas de résumé, le log brut>
+<Full error log — no summary, the raw log>
 
 ## Verdict
 
-**GO** — prêt pour `/roster-ship`
-**NO-GO** — retour à `/roster-implement` pour : <raison précise>
+**GO** — ready for `/roster-ship`
+**NO-GO** — return to `/roster-implement` for: <precise reason>
 ```
 
-### 5. Gate humain
+### 5. Human gate
 
-Présenter le rapport et demander validation.
-Si NO-GO : suggérer le retour à `/roster-implement` avec la raison exacte.
+Present the report and request validation.
+If NO-GO: suggest returning to `/roster-implement` with the exact reason.
 
 ## Output Contract
 
-`briefs/<task>-qa.md` avec statut GO ou NO-GO documenté.
+`briefs/<task>-qa.md` with GO or NO-GO status documented.
 
-**Si GO :** `/roster-ship` peut démarrer.
-**Si NO-GO :** retour à `/roster-implement` avec le log d'erreur dans le brief.
+**If GO:** `/roster-ship` can start.
+**If NO-GO:** return to `/roster-implement` with the error log in the brief.
 
 ## Friction Log
 
@@ -168,8 +168,8 @@ Si NO-GO : suggérer le retour à `/roster-implement` avec la raison exacte.
 
 ## Rules
 
-- Jamais d'écriture de code — observer et mesurer uniquement
-- Jamais de résumé des logs d'erreur — le log brut dans le rapport
-- Jamais de GO si un gate échoue
-- Jamais de saut de gate — tous dans l'ordre
-- Si une commande de gate est absente du brief → noter "non documenté" et demander
+- Never write code — observe and measure only
+- Never summarize error logs — the raw log in the report
+- Never GO if a gate fails
+- Never skip a gate — all in order
+- If a gate command is missing from the brief → note "not documented" and ask

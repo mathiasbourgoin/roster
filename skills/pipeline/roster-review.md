@@ -1,6 +1,6 @@
 ---
 name: roster-review
-description: Review fix-first avec specialists conditionnels — produit un verdict GO/NO-GO structuré.
+description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
 version: 1.0.0
 domain: pipeline
 phase: review
@@ -15,77 +15,77 @@ artifacts:
   reads:
     - briefs/<task>-impl.md
     - briefs/<task>-reviewer.md
-    - git diff (courant)
+    - git diff (current)
   writes:
     - briefs/<task>-review.json
 pipeline_role:
-  triggered_by: /roster-implement terminé
-  receives: briefs/<task>-impl.md + diff courant
-  produces: briefs/<task>-review.json GO ou NO-GO
+  triggered_by: /roster-implement completed
+  receives: briefs/<task>-impl.md + current diff
+  produces: briefs/<task>-review.json GO or NO-GO
 ---
 
 # Roster Review
 
-Tu fais une review structurée, fix-first. Les corrections mécaniques sont appliquées sans demander. Les ambiguïtés sont groupées en une seule question. Tu produis un verdict JSON structuré.
+You conduct a structured, fix-first review. Mechanical corrections are applied without asking. Ambiguities are grouped into one single question. You produce a structured JSON verdict.
 
-**Règle d'or :** toute affirmation ("c'est géré", "les tests couvrent ça") doit citer le fichier et la ligne. Jamais "probablement" ou "likely".
+**Golden rule:** every claim ("it's handled", "tests cover that") must cite the file and line. Never "probably" or "likely".
 
 ## Input Contract
 
-Lire dans l'ordre :
-1. `briefs/<task>-reviewer.md` — contexte et points d'attention
-2. `briefs/<task>-impl.md` — fichiers modifiés et décisions prises
-3. `git diff main...HEAD` — le diff complet
+Read in order:
+1. `briefs/<task>-reviewer.md` — context and points of attention
+2. `briefs/<task>-impl.md` — modified files and decisions made
+3. `git diff main...HEAD` — the complete diff
 
-Si `briefs/<task>-impl.md` est absent :
-> ⛔ Brief impl manquant. La review ne peut pas démarrer sans connaître le scope de l'implémentation.
+If `briefs/<task>-impl.md` is absent:
+> ⛔ Impl brief missing. Review cannot start without knowing the implementation scope.
 
 ## Steps
 
-### 1. Lecture du diff
+### 1. Read the diff
 
 ```bash
 git diff main...HEAD
 git log main...HEAD --oneline
 ```
 
-Lire chaque fichier modifié dans son intégralité — pas juste les lignes diff.
+Read each modified file in its entirety — not just the diff lines.
 
-### 2. Fix-first : corrections auto
+### 2. Fix-first: auto corrections
 
-Appliquer sans demander les corrections mécaniques suivantes :
+Apply the following mechanical corrections without asking:
 
-| Catégorie | Exemples | Seuil auto-fix |
+| Category | Examples | Auto-fix threshold |
 |---|---|---|
-| Dead code | Variables non utilisées, imports inutilisés | Toujours |
-| Magic numbers | Constantes inline → constantes nommées | Toujours |
-| Commentaires stale | Commentaires qui contredisent le code | Toujours |
-| Style / format | Incohérences de style locales, trailing whitespace | Toujours |
-| DRY évident | Bloc identique copy-paste 3+ lignes | Si < `tunables.auto_fix_threshold_lines` |
+| Dead code | Unused variables, unused imports | Always |
+| Magic numbers | Inline constants → named constants | Always |
+| Stale comments | Comments that contradict the code | Always |
+| Style / format | Local style inconsistencies, trailing whitespace | Always |
+| Obvious DRY | Identical copy-paste block 3+ lines | If < `tunables.auto_fix_threshold_lines` |
 
-**Ne pas auto-fixer :**
-- Sécurité (auth, injection, XSS) → toujours dans les findings
-- Race conditions → toujours dans les findings
-- Changements de comportement visible → toujours demander
-- Refactors > `tunables.auto_fix_threshold_lines` lignes → toujours demander
+**Do not auto-fix:**
+- Security (auth, injection, XSS) → always in findings
+- Race conditions → always in findings
+- Visible behavior changes → always ask
+- Refactors > `tunables.auto_fix_threshold_lines` lines → always ask
 
-Après chaque fix auto, vérifier que les quality gates passent encore.
+After each auto-fix, verify that quality gates still pass.
 
-### 3. Specialists conditionnels
+### 3. Conditional specialists
 
-Spawner les specialists selon le scope. Chaque specialist reçoit :
-- Le diff complet
-- Le `briefs/<task>-reviewer.md`
-- Ses instructions propres (path ci-dessous)
+Spawn specialists based on scope. Each specialist receives:
+- The complete diff
+- The `briefs/<task>-reviewer.md`
+- Their own instructions (path below)
 
 | Specialist | Condition | Path / Invocation |
 |---|---|---|
-| `spec-compliance` | Toujours si KB existe | Skill — lire `skills/kb/spec-compliance-auditor.md` et invoquer via `Skill` tool ou spawner en sub-agent avec ce contenu |
-| `architect` | Blast radius moyen ou large (>3 fichiers modifiés ou module public) | `.claude/agents/architect.md` |
-| `terminal-ux-reviewer` | Scope TUI détecté dans le diff ou le brief | `.claude/agents/terminal-ux-reviewer.md` |
-| `reviewer` (agent) | Toujours | `.claude/agents/reviewer.md` |
+| `spec-compliance` | Always if KB exists | Skill — read `skills/kb/spec-compliance-auditor.md` and invoke via `Skill` tool or spawn as sub-agent with this content |
+| `architect` | Medium or large blast radius (>3 files modified or public module) | `.claude/agents/architect.md` |
+| `terminal-ux-reviewer` | TUI scope detected in diff or brief | `.claude/agents/terminal-ux-reviewer.md` |
+| `reviewer` (agent) | Always | `.claude/agents/reviewer.md` |
 
-**Format de findings attendu de chaque specialist :**
+**Expected findings format from each specialist:**
 
 ```json
 {
@@ -94,40 +94,40 @@ Spawner les specialists selon le scope. Chaque specialist reçoit :
   "path": "file/path.ml",
   "line": 42,
   "category": "correctness|security|architecture|ux|spec|style",
-  "summary": "Description courte du problème",
-  "evidence": "Fichier X ligne Y — citation exacte du code",
-  "fix": "Ce qu'il faut faire",
+  "summary": "Short problem description",
+  "evidence": "File X line Y — exact code quote",
+  "fix": "What to do",
   "fingerprint": "path:line:category",
   "specialist": "architect|reviewer|spec-compliance|terminal-ux-reviewer"
 }
 ```
 
-### 4. Déduplication
+### 4. Deduplication
 
-Si deux specialists signalent le même finding (même `fingerprint` ou même path+line+category) :
-- Garder le finding avec la severity la plus haute
-- Mentionner que les deux specialists ont convergé (signal de confiance)
+If two specialists report the same finding (same `fingerprint` or same path+line+category):
+- Keep the finding with the highest severity
+- Note that both specialists converged (confidence signal)
 
-### 5. Grouper les ambiguïtés
+### 5. Group ambiguities
 
-Collecter tous les findings qui nécessitent une décision humaine (severity HIGH+ sur des changements de comportement, sécurité, design).
+Collect all findings that require a human decision (severity HIGH+ on behavior changes, security, design).
 
-Présenter en **une seule** `AskUserQuestion` :
+Present in **one single** `AskUserQuestion`:
 
 ```
-J'ai des questions sur [N] points avant de finaliser la review :
+I have questions on [N] points before finalizing the review:
 
-1. [path:line] — <résumé du finding> — <option A vs option B>
+1. [path:line] — <finding summary> — <option A vs option B>
 2. [path:line] — ...
 
-Pour chaque point : A, B, ou autre réponse libre.
+For each point: A, B, or free-form answer.
 ```
 
-Ne jamais poser plusieurs questions séparées. Une seule pass.
+Never ask multiple separate questions. One single pass.
 
-### 6. Écrire le verdict
+### 6. Write the verdict
 
-Produire `briefs/<task>-review.json` :
+Produce `briefs/<task>-review.json`:
 
 ```json
 {
@@ -168,28 +168,28 @@ Produire `briefs/<task>-review.json` :
 }
 ```
 
-**Statut GO si :** aucun finding CRITICAL ou HIGH OPEN.
-**Statut NO-GO si :** au moins un finding CRITICAL ou HIGH OPEN non résolu ni explicitement accepté.
+**GO status if:** no CRITICAL or HIGH OPEN finding.
+**NO-GO status if:** at least one CRITICAL or HIGH OPEN finding not resolved or explicitly accepted.
 
-### 7. Gate humain
+### 7. Human gate
 
-Présenter un résumé :
+Present a summary:
 ```
-Review terminée.
-Auto-fixes appliqués : <N>
-Findings : <N> critical, <N> high, <N> medium, <N> low
-Statut : GO ✅ / NO-GO ❌
+Review complete.
+Auto-fixes applied: <N>
+Findings: <N> critical, <N> high, <N> medium, <N> low
+Status: GO ✅ / NO-GO ❌
 
-[Si NO-GO] : résoudre les findings HIGH+ avant de passer à QA.
-[Si GO] : prêt pour /roster-qa.
+[If NO-GO]: resolve HIGH+ findings before proceeding to QA.
+[If GO]: ready for /roster-qa.
 ```
 
 ## Output Contract
 
-`briefs/<task>-review.json` avec statut GO ou NO-GO et tous les findings documentés.
+`briefs/<task>-review.json` with GO or NO-GO status and all findings documented.
 
-**Si GO :** `/roster-qa` peut démarrer.
-**Si NO-GO :** retour à `/roster-implement` avec les findings OPEN.
+**If GO:** `/roster-qa` can start.
+**If NO-GO:** return to `/roster-implement` with OPEN findings.
 
 ## Friction Log
 
@@ -208,9 +208,9 @@ Statut : GO ✅ / NO-GO ❌
 
 ## Rules
 
-- Toute affirmation de couverture doit citer le fichier et la ligne — jamais "probablement"
-- "Ça a l'air bien" n'est pas un finding — si c'est bien, ne pas mentionner
-- Une seule AskUserQuestion groupée — jamais de questions multiples
-- Auto-fixes : vérifier les quality gates après chaque fix
-- Les specialists doivent produire des findings JSON — ne pas accepter du texte libre comme output
-- Ne pas auto-fix des changements de comportement visible même si < seuil de lignes
+- Every coverage claim must cite the file and line — never "probably"
+- "Looks good" is not a finding — if it's good, don't mention it
+- One single grouped AskUserQuestion — never multiple separate questions
+- Auto-fixes: verify quality gates after each fix
+- Specialists must produce JSON findings — do not accept free-form text as output
+- Do not auto-fix visible behavior changes even if under the line threshold

@@ -1,6 +1,6 @@
 ---
 name: roster-run
-description: Entry point du pipeline roster — détecte le contexte et route vers le bon skill.
+description: Pipeline entry point — detects context and routes to the right skill.
 version: 1.0.0
 domain: pipeline
 phase: null
@@ -12,52 +12,52 @@ human_gate: none
 
 # Roster Run
 
-Tu es l'entry point du pipeline roster. Ton seul travail est de détecter le contexte et de router vers le skill approprié — pas de faire le travail toi-même.
+You are the entry point of the roster pipeline. Your only job is to detect context and route to the appropriate skill — not to do the work yourself.
 
 ## Routing
 
-Analyse `$ARGUMENTS` et l'état du repo pour déterminer où en est le projet.
+Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
 
-### Table de routing
+### Routing table
 
-| Signal détecté | Route vers |
+| Detected signal | Route to |
 |---|---|
-| Tâche floue, nouvelle feature, pas de brief existant | `/roster-intake` |
-| `briefs/<task>-intake.md` existe et est validé | `/roster-plan` |
-| `briefs/<task>-plan.md` existe et est validé | `/roster-implement` |
-| Implémentation terminée, branch prête | `/roster-review` |
-| `briefs/<task>-review.json` avec statut GO | `/roster-qa` |
-| `briefs/<task>-qa.md` avec statut GO | `/roster-ship` |
-| Bug, régression, comportement inattendu | `/roster-investigate` |
-| Nouveau projet ou projet existant sans harness | `/roster-init` |
-| Analyse périodique, patterns de friction | `/roster-skill-health` |
+| Vague task, new feature, no existing brief | `/roster-intake` |
+| `briefs/<task>-intake.md` exists and is validated | `/roster-plan` |
+| `briefs/<task>-plan.md` exists and is validated | `/roster-implement` |
+| Implementation complete, branch ready | `/roster-review` |
+| `briefs/<task>-review.json` with GO status | `/roster-qa` |
+| `briefs/<task>-qa.md` with GO status | `/roster-ship` |
+| Bug, regression, unexpected behavior | `/roster-investigate` |
+| New project or existing project without harness | `/roster-init` |
+| Periodic analysis, friction patterns | `/roster-skill-health` |
 
-### Détection
+### Detection
 
-1. Vérifier l'existence des artefacts `briefs/` avec des commandes bash explicites :
+1. Check for the existence of `briefs/` artifacts with explicit bash commands:
    ```bash
    ls briefs/ 2>/dev/null || echo "briefs/ absent"
-   # Puis pour la tâche en cours :
+   # Then for the current task:
    [ -f briefs/<task>-intake.md ] && echo "intake: present" || echo "intake: absent"
    [ -f briefs/<task>-plan.md ]   && echo "plan: present"   || echo "plan: absent"
    [ -f briefs/<task>-review.json ] && echo "review: present" || echo "review: absent"
    [ -f briefs/<task>-qa.md ]     && echo "qa: present"     || echo "qa: absent"
    ```
-2. Vérifier le statut des artefacts existants (GO / NO-GO / absent) — lire la première ligne de statut de chaque fichier présent.
-3. Si `briefs/` est absent ou vide et que $ARGUMENTS est vide ou ambigu, poser **une seule question** :
-   > "Qu'est-ce qu'on fait ?" (ne pas proposer de liste, laisser l'utilisateur décrire)
+2. Check the status of existing artifacts (GO / NO-GO / absent) — read the first status line of each present file.
+3. If `briefs/` is absent or empty and $ARGUMENTS is empty or ambiguous, ask **one single question**:
+   > "What are we doing?" (do not propose a list, let the user describe)
 
-### Annonce
+### Announce
 
-Avant de router, annonce en une ligne :
-> "→ je route vers `/roster-<skill>` parce que <raison en 5 mots max>"
+Before routing, announce in one line:
+> "→ routing to `/roster-<skill>` because <reason in 5 words max>"
 
-### Faux positif acceptable
+### Acceptable false positive
 
-Un faux positif (router vers un skill non strictement nécessaire) est préférable à un faux négatif (sauter une phase). En cas de doute, route vers la phase la plus en amont.
+A false positive (routing to a skill not strictly necessary) is preferable to a false negative (skipping a phase). When in doubt, route to the earliest upstream phase.
 
 ## Rules
 
-- Ne jamais faire le travail d'un autre skill — router seulement
-- Ne jamais router vers plusieurs skills en parallèle depuis ici
-- Si aucune route ne correspond, demander à l'utilisateur avant d'inventer
+- Never do the work of another skill — route only
+- Never route to multiple skills in parallel from here
+- If no route matches, ask the user before inventing one

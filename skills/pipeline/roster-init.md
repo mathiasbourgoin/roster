@@ -1,6 +1,6 @@
 ---
 name: roster-init
-description: Bootstrap un nouveau projet ou onboard un projet existant dans l'écosystème roster.
+description: Bootstrap a new project or onboard an existing project into the roster ecosystem.
 version: 1.0.0
 domain: pipeline
 phase: null
@@ -24,302 +24,302 @@ artifacts:
     - skills-meta/friction.jsonl
     - briefs/project-intake.md
 pipeline_role:
-  triggered_by: utilisateur (nouveau projet ou projet sans harness)
-  receives: description optionnelle du projet dans $ARGUMENTS
-  produces: harness installé, KB bootstrappée, equipe recrutée, project-intake.md prêt
+  triggered_by: user (new project or project without harness)
+  receives: optional project description in $ARGUMENTS
+  produces: harness installed, KB bootstrapped, team recruited, project-intake.md ready
 ---
 
 # Roster Init
 
-Tu bootstrappes un projet dans l'écosystème roster. Deux modes selon le contexte — tu détectes automatiquement lequel s'applique.
+You bootstrap a project into the roster ecosystem. Two modes depending on context — detect automatically which applies.
 
-**Token discipline :** questions une par une. Pas de liste de questions d'un coup.
-Ne commence pas à écrire avant la gate humain finale.
+**Token discipline:** questions one at a time. No list of questions all at once.
+Do not start writing before the final human gate.
 
 ---
 
-## Détection du mode
+## Mode detection
 
-Avant toute question :
+Before any question:
 
-1. Vérifier si le dossier courant contient du code (`ls`, `git log --oneline -1`, `find . -name "*.ml" -o -name "*.ts" -o -name "*.py" | head -5`)
-2. Vérifier si un harness existe déjà (`.harness/harness.json` ou `.claude/harness.json`)
+1. Check if the current directory contains code (`ls`, `git log --oneline -1`, `find . -name "*.ml" -o -name "*.ts" -o -name "*.py" | head -5`)
+2. Check if a harness already exists (`.harness/harness.json` or `.claude/harness.json`)
 
 | Situation | Mode |
 |---|---|
-| Dossier vide ou quasi-vide, pas de git | **A — Greenfield** |
-| Code existant, pas de harness roster | **B — Onboard** |
-| Harness déjà présent | Rediriger vers `/roster-skill-health` pour audit d'équipe |
+| Empty or near-empty directory, no git | **A — Greenfield** |
+| Existing code, no roster harness | **B — Onboard** |
+| Harness already present | Redirect to `/roster-skill-health` for team audit |
 
 ---
 
 ## Mode A — Greenfield
 
-### A1. Analyse silencieuse (avant toute question)
+### A1. Silent analysis (before any question)
 
-Lis `$ARGUMENTS` si fourni. Extrait ce que tu peux déduire sans demander.
-Note ce qui reste ambigu.
+Read `$ARGUMENTS` if provided. Extract what you can deduce without asking.
+Note what remains ambiguous.
 
-### A2. Interview adversariale
+### A2. Adversarial interview
 
-Pose les questions **une par une**. Attends la réponse avant de poser la suivante.
-Challenge les réponses faibles (max 1 relance par question).
+Ask questions **one at a time**. Wait for the answer before asking the next.
+Challenge weak answers (max 1 follow-up per question).
 
-**Q1 — Technique (neutre)**
-> "Quelle(s) langue(s) et quels invariants techniques non-négociables pour ce projet ?"
+**Q1 — Technical (neutral)**
+> "What language(s) and non-negotiable technical invariants for this project?"
 
-*Si la réponse est vague ("peu importe") :*
-> "Ce n'est pas une réponse utilisable. Même une préférence ou une contrainte d'environnement — dis-moi quelque chose de concret."
-
----
-
-**Q2 — Critères de succès (neutre→adversariale)**
-> "Quels sont tes critères de succès mesurables — pas des intentions, des métriques ?"
-
-*Si la réponse est vague ("un bon produit", "ça marche bien") :*
-> "Ce n'est pas mesurable. Donne-moi un chiffre, un seuil, un comportement observable.
-> Sans ça, on ne saura jamais si c'est terminé ou si c'est raté."
+*If the answer is vague ("doesn't matter"):*
+> "That is not a usable answer. Even a preference or an environment constraint — give me something concrete."
 
 ---
 
-**Q3 — Adversariale : l'existant**
-> "Pourquoi ce projet n'existe pas déjà sous une forme qui te convient ?
-> Qu'as-tu trouvé en cherchant, et pourquoi c'est insuffisant ?"
+**Q2 — Success criteria (neutral→adversarial)**
+> "What are your measurable success criteria — not intentions, metrics?"
 
-*Si la réponse est "j'ai pas vraiment cherché" ou évasive :*
-> "Alors cherchons ensemble maintenant."
-> → Lancer une recherche WebFetch sur le domaine décrit.
-> → Si un existant pertinent est trouvé : présenter, demander si ça change la direction.
-> → Logguer dans friction.jsonl : `suggestion_type: "research"`.
-
-*Si la réponse montre une recherche sérieuse et une vraie raison de construire :*
-> Valider et continuer.
+*If the answer is vague ("a good product", "it works fine"):*
+> "That is not measurable. Give me a number, a threshold, an observable behavior.
+> Without that, we will never know if it's done or if it failed."
 
 ---
 
-**Q4 — Adversariale : le risque architectural**
-> "Quelle est la décision technique que tu es le moins sûr de ?
-> Laquelle te gardera éveillé dans 3 mois si tu te trompes maintenant ?"
+**Q3 — Adversarial: the existing landscape**
+> "Why doesn't this project already exist in a form that works for you?
+> What did you find when you looked, and why is it insufficient?"
 
-*Si la réponse est "je suis sûr de tout" ou silence :*
+*If the answer is "I didn't really look" or evasive:*
+> "Then let's look together now."
+> → Run a WebFetch search on the described domain.
+> → If a relevant existing solution is found: present it, ask if it changes the direction.
+> → Log in friction.jsonl: `suggestion_type: "research"`.
+
+*If the answer shows serious research and a genuine reason to build:*
+> Validate and continue.
+
+---
+
+**Q4 — Adversarial: architectural risk**
+> "What is the technical decision you are least confident about?
+> Which one will keep you awake in 3 months if you get it wrong now?"
+
+*If the answer is "I'm confident about everything" or silence:*
 > ⚠️ SIGNAL
-> Tout projet non trivial a une décision à risque élevé. L'absence de réponse
-> signifie soit que le projet est trivial, soit que le risque n'a pas été identifié.
-> L'un ou l'autre mérite d'être explicite.
+> Every non-trivial project has a high-risk decision. No answer
+> means either the project is trivial, or the risk has not been identified.
+> Either way, being explicit about this matters.
 >
-> Options :
-> A. Brainstorming — on cherche ensemble le risque principal (~10 min)
-> B. Continuer — je note "risque non identifié" dans kb/risks.md
-> C. Reformuler — peut-être que j'ai mal compris le projet
+> Options:
+> A. Brainstorm — we identify the main risk together (~10 min)
+> B. Continue — I note "risk not identified" in kb/risks.md
+> C. Rephrase — perhaps I misunderstood the project
 
-*Si une réponse identifie un vrai risque :*
-> Excellent. Ce risque entre dans `kb/risks.md` et sera visible à chaque `/roster-review` et `/roster-plan`.
-
----
-
-**Q5 — Adversariale : la priorisation réelle**
-> "Si tu devais livrer 70% du scope en 30% du temps — qu'est-ce qui reste absolument ?
-> Qu'est-ce que ça révèle sur ce qui est vraiment essentiel ?"
-
-*Si la réponse couvre encore tout le scope original :*
-> "Tu viens de me dire que tout est essentiel. Ce n'est jamais vrai.
-> Reprends — qu'est-ce qui n'a aucune valeur sans les autres fonctionnalités ?"
-
-*Si la réponse révèle un vrai core :*
-> Enregistrer — ce core devient la section principale de `kb/spec.md`.
+*If an answer identifies a real risk:*
+> Good. This risk goes into `kb/risks.md` and will be visible at every `/roster-review` and `/roster-plan`.
 
 ---
 
-**Q6 — Politique qualité (semi-adversariale)**
-> "Quelle est ta politique de test ? TDD strict, tests après implémentation, ou pragmatique selon le contexte ?
-> Et si je détecte de la dette de test en cours de route — je bloque ou je note ?"
+**Q5 — Adversarial: real prioritization**
+> "If you had to deliver 70% of scope in 30% of the time — what absolutely stays?
+> What does that reveal about what is truly essential?"
 
-*Si "tests après" ou "pas de tests" :*
-> "Politique acceptée. Mais chaque dette de test sera enregistrée explicitement dans le friction log.
-> Tu devras assumer chaque dérogation — pas de dérive silencieuse."
+*If the answer still covers the entire original scope:*
+> "You just told me everything is essential. That is never true.
+> Try again — what has no value without the other features?"
 
-### A3. Synthèse avant action
+*If the answer reveals a real core:*
+> Record it — this core becomes the main section of `kb/spec.md`.
 
-Après les 6 questions, présenter une synthèse :
+---
+
+**Q6 — Quality policy (semi-adversarial)**
+> "What is your testing policy? Strict TDD, tests after implementation, or pragmatic depending on context?
+> And if I detect test debt along the way — do I block or note it?"
+
+*If "tests after" or "no tests":*
+> "Policy accepted. But every test debt will be explicitly recorded in the friction log.
+> You will own each deviation — no silent drift."
+
+### A3. Synthesis before action
+
+After the 6 questions, present a synthesis:
 
 ```
-Voici ce que j'ai compris :
-- Projet : <description>
-- Langue(s) : <langues>
-- Invariants : <invariants>
-- Critère de succès : <métrique>
-- Raison de construire : <justification>
-- Risque principal : <risque ou "non identifié">
-- Core minimal : <scope essentiel>
-- Politique test : <politique>
+Here is what I understood:
+- Project: <description>
+- Language(s): <languages>
+- Invariants: <invariants>
+- Success criterion: <metric>
+- Reason to build: <justification>
+- Main risk: <risk or "not identified">
+- Minimal core: <essential scope>
+- Test policy: <policy>
 
-Valide ou corrige avant que j'installe quoi que ce soit.
+Validate or correct before I install anything.
 ```
 
-Gate humain : attendre validation explicite.
+Human gate: wait for explicit validation.
 
-### A4. Install (après validation)
+### A4. Install (after validation)
 
-1. `git init` si pas déjà fait
-2. Créer `.gitignore` minimal adapté aux langues détectées
-3. Créer `README.md` minimal avec description et critère de succès
-4. Spawner `recruiter` si disponible (`.claude/agents/recruiter.md` existe) — Mode 1 fresh team. Sinon : proposer d'abord `/recruit` pour l'installer.
-5. Proposer la KB dans le terminal (ne pas écrire encore) :
-   - `kb/spec.md` draft basé sur les réponses
-   - `kb/properties.md` avec invariants + politique test
-   - `kb/risks.md` avec le risque identifié (ou "non identifié")
-   - Gate : "Voici le draft KB — je l'écris ?"
-6. Si domaine spécifique détecté sans skill roster adapté :
-   - Lister les skills domaine manquants
-   - Demander : "Je crée ces skills maintenant via skill-creator ?"
-   - Si oui → spawner `skill-creator` si disponible (`.claude/agents/skill-creator.md` existe) ; sinon décrire manuellement le skill à créer et ouvrir une issue roster.
-7. Créer `skills-meta/friction.jsonl` (tableau vide)
-8. Ajouter `skills-meta/` à `.gitignore` si absent
-9. Créer `briefs/project-intake.md` prêt pour le premier `/roster-run`
-10. Projeter le harness sur les runtimes (`scripts/sync-harness.sh` si disponible)
-
----
-
-## Mode B — Onboard (projet existant)
-
-### B1. Analyse read-only silencieuse
-
-Lire le repo sans poser de questions. Former une opinion basée sur les preuves.
-
-Collecter :
-- Langages détectés (extensions, config files)
-- Framework de test (jest, pytest, alcotest, etc.) + état (tests passent ? cassés ?)
-- CI présente ? verte ?
-- Dette visible : TODOs, FIXMEs, failing tests, lint errors non corrigés
-- Commit history : cadence, convention de messages (ou chaos)
-- Ce qui est installé : `.harness/`, `.claude/`, KB, agents
-- Structure principale (modules, entrées publiques)
-
-### B2. Interview adversariale (basée sur ce qu'on a vu)
-
-Les questions sont **contextualisées** par l'analyse B1. Pas de questions génériques.
-
-**Q1 — Adversariale contextuelle : la dette**
-
-Si des problèmes ont été trouvés (tests cassés, TODOs, lint errors) :
-> "J'ai trouvé [liste précise de ce qu'on a vu].
-> C'est un choix délibéré ou une dette accidentelle ?"
-
-*Si "c'est temporaire" :*
-> "Ça l'est toujours. On va logger ça comme dette prioritaire dans la KB.
-> Tu me dis quand c'est non-temporaire — d'ici là, `/roster-review` la signalera à chaque run."
-
-Si rien de problématique trouvé :
-> "Le projet est dans un état propre — tests verts, pas de dette visible. Bon signal."
+1. `git init` if not already done
+2. Create a minimal `.gitignore` adapted to detected languages
+3. Create a minimal `README.md` with description and success criterion
+4. Spawn `recruiter` if available (`.claude/agents/recruiter.md` exists) — Mode 1 fresh team. Otherwise: propose `/recruit` first to install it.
+5. Propose the KB in the terminal (do not write yet):
+   - `kb/spec.md` draft based on the answers
+   - `kb/properties.md` with invariants + test policy
+   - `kb/risks.md` with the identified risk (or "not identified")
+   - Gate: "Here is the KB draft — shall I write it?"
+6. If a specific domain is detected without an adapted roster skill:
+   - List the missing domain skills
+   - Ask: "Shall I create these skills now via skill-creator?"
+   - If yes → spawn `skill-creator` if available (`.claude/agents/skill-creator.md` exists); otherwise manually describe the skill to create and open a roster issue.
+7. Create `skills-meta/friction.jsonl` (empty array)
+8. Add `skills-meta/` to `.gitignore` if absent
+9. Create `briefs/project-intake.md` ready for the first `/roster-run`
+10. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
 
 ---
 
-**Q2 — Adversariale : les mauvais choix**
-> "Quels sont les 2 choix techniques que tu referais différemment si tu repartais de zéro ?
-> Pas pour les corriger maintenant — juste pour que je comprenne où sont les vraies contraintes."
+## Mode B — Onboard (existing project)
 
-*Si "tout est parfait" :*
-> "Ce n'est pas crédible sur un vrai projet. Je cherche les zones fragiles pour mieux les protéger,
-> pas pour les critiquer."
+### B1. Silent read-only analysis
+
+Read the repo without asking questions. Form an opinion based on evidence.
+
+Collect:
+- Detected languages (extensions, config files)
+- Test framework (jest, pytest, alcotest, etc.) + state (tests passing? broken?)
+- CI present? green?
+- Visible debt: TODOs, FIXMEs, failing tests, uncorrected lint errors
+- Commit history: cadence, message convention (or chaos)
+- What is installed: `.harness/`, `.claude/`, KB, agents
+- Main structure (modules, public entry points)
+
+### B2. Adversarial interview (based on what was found)
+
+Questions are **contextualized** by the B1 analysis. No generic questions.
+
+**Q1 — Contextual adversarial: the debt**
+
+If problems were found (broken tests, TODOs, lint errors):
+> "I found [precise list of what was seen].
+> Is this a deliberate choice or accidental debt?"
+
+*If "it's temporary":*
+> "It always is. We will log this as priority debt in the KB.
+> Tell me when it's no longer temporary — until then, `/roster-review` will flag it at every run."
+
+If nothing problematic was found:
+> "The project is in a clean state — green tests, no visible debt. Good signal."
 
 ---
 
-**Q3 — Adversariale : le comportement critique**
-> "Quel est le comportement le plus critique de ce projet — celui dont la régression serait catastrophique ?
-> Est-ce qu'il y a un test qui vérifie exactement ça ?"
+**Q2 — Adversarial: the bad choices**
+> "What are the 2 technical decisions you would make differently if starting from scratch?
+> Not to fix them now — just so I understand where the real constraints are."
 
-*Si pas de test :*
+*If "everything is perfect":*
+> "That is not credible on a real project. I am looking for fragile areas to better protect them,
+> not to criticize them."
+
+---
+
+**Q3 — Adversarial: the critical behavior**
+> "What is the most critical behavior of this project — the one whose regression would be catastrophic?
+> Is there a test that verifies exactly that?"
+
+*If no test:*
 > ⚠️ SIGNAL
-> Le comportement le plus critique n'est pas couvert par un test.
+> The most critical behavior is not covered by a test.
 >
-> Options :
-> A. Brainstorming — on définit ensemble comment le tester (~15 min)
-> B. Continuer — je note dans kb/risks.md : "comportement critique non testé"
-> C. Reformuler — peut-être que j'ai mal identifié ce qui est critique
+> Options:
+> A. Brainstorm — we define together how to test it (~15 min)
+> B. Continue — I note in kb/risks.md: "critical behavior not tested"
+> C. Rephrase — perhaps I misidentified what is critical
 
 ---
 
-**Q4 — Adversariale : la lisibilité**
-> "Quelqu'un d'autre que toi peut reprendre ce projet et comprendre où tout est en 30 minutes ?
-> Sans que tu lui expliques ?"
+**Q4 — Adversarial: readability**
+> "Can someone other than you pick up this project and understand where everything is in 30 minutes?
+> Without you explaining it?"
 
-*Si non :*
-> "Alors bootstrapper la KB a comme objectif explicite de rendre ça possible.
-> On va documenter les entrées, les modules critiques, et les décisions non-évidentes."
-
----
-
-**Q5 — Neutre : l'objectif d'onboarding**
-> "Qu'est-ce que tu veux faire avec roster sur ce projet ?
-> Quel est le premier vrai problème que tu veux résoudre ?"
-
-→ Oriente l'install et le premier `/roster-run`.
+*If no:*
+> "Then bootstrapping the KB has the explicit goal of making that possible.
+> We will document the entry points, critical modules, and non-obvious decisions."
 
 ---
 
-**Q6 — Sécurité du périmètre**
-> "Quelles parties du projet je ne dois pas toucher ?
-> Fichiers, architectures, ou dépendances non-négociables ?"
+**Q5 — Neutral: the onboarding objective**
+> "What do you want to do with roster on this project?
+> What is the first real problem you want to solve?"
 
-→ Définit le scope de protection. Entrera dans `kb/properties.md` comme contraintes hard.
+→ Orients the install and the first `/roster-run`.
 
-### B3. Synthèse avant action
+---
+
+**Q6 — Perimeter safety**
+> "What parts of the project should I not touch?
+> Files, architectures, or non-negotiable dependencies?"
+
+→ Defines the protection scope. Will enter `kb/properties.md` as hard constraints.
+
+### B3. Synthesis before action
 
 ```
-Voici ce que j'ai compris du projet :
-- État : <propre / dette identifiée>
-- Risques détectés : <liste>
-- Comportement critique : <testé / non testé>
-- Contraintes non-négociables : <liste>
-- Objectif roster : <premier problème à résoudre>
+Here is what I understood about the project:
+- State: <clean / identified debt>
+- Detected risks: <list>
+- Critical behavior: <tested / not tested>
+- Non-negotiable constraints: <list>
+- Roster objective: <first problem to solve>
 
-Voici ce que je vais installer :
-- Harness : <agents proposés par recruiter>
-- KB draft : <structure proposée>
-- Skills domaine : <si manquants>
+Here is what I will install:
+- Harness: <agents proposed by recruiter>
+- KB draft: <proposed structure>
+- Domain skills: <if missing>
 
-Valide avant que j'écrive quoi que ce soit.
+Validate before I write anything.
 ```
 
-Gate humain : attendre validation explicite.
+Human gate: wait for explicit validation.
 
-### B4. Install non-destructive (après validation)
+### B4. Non-destructive install (after validation)
 
-1. Merger le harness (pas overwrite) :
-   - Si équipe existante → recruiter Mode 2 (audit + upgrade)
-   - Si pas d'équipe → recruiter Mode 1 (fresh, adapté au projet)
-2. Proposer la KB dans le terminal :
-   - `kb/spec.md` draft inféré du code existant (README, docs, tests comme source)
-   - `kb/properties.md` avec invariants détectés + contraintes de Q6
-   - `kb/risks.md` avec risques identifiés en B1 et B2-B3
-   - Gate : "Voici le draft KB — je l'écris ?"
-3. Si domaine spécifique détecté sans skill roster adapté :
-   - Demander : "Je crée ces skills maintenant via skill-creator ?"
-   - Si oui → spawner `skill-creator` si disponible (`.claude/agents/skill-creator.md` existe) ; sinon décrire manuellement le skill et ouvrir une issue roster.
-4. Créer `skills-meta/friction.jsonl` (vide)
-5. Ajouter `skills-meta/` à `.gitignore` si absent
-6. Créer `briefs/project-intake.md` avec état du projet et premier objectif
-7. Projeter le harness sur les runtimes
+1. Merge the harness (do not overwrite):
+   - If existing team → recruiter Mode 2 (audit + upgrade)
+   - If no team → recruiter Mode 1 (fresh, adapted to the project)
+2. Propose the KB in the terminal:
+   - `kb/spec.md` draft inferred from existing code (README, docs, tests as source)
+   - `kb/properties.md` with detected invariants + Q6 constraints
+   - `kb/risks.md` with risks identified in B1 and B2-B3
+   - Gate: "Here is the KB draft — shall I write it?"
+3. If a specific domain is detected without an adapted roster skill:
+   - Ask: "Shall I create these skills now via skill-creator?"
+   - If yes → spawn `skill-creator` if available (`.claude/agents/skill-creator.md` exists); otherwise manually describe the skill and open a roster issue.
+4. Create `skills-meta/friction.jsonl` (empty)
+5. Add `skills-meta/` to `.gitignore` if absent
+6. Create `briefs/project-intake.md` with project state and first objective
+7. Project the harness to runtimes
 
 ---
 
-## Protocole brainstorming
+## Brainstorming protocol
 
-Déclenché quand une question adversariale révèle un problème fondamental et que l'utilisateur choisit option A.
+Triggered when an adversarial question reveals a fundamental problem and the user chooses option A.
 
-1. Annoncer le sujet du brainstorming (1 ligne)
-2. Poser 3 à 5 questions ciblées sur ce sujet spécifique — une par une
-3. Synthétiser les réponses en une conclusion actionnable
-4. Écrire la conclusion dans :
-   - `kb/risks.md` si c'est un risque
-   - `kb/spec.md` si c'est une clarification de scope
-5. Reprendre le flux d'interview là où on l'avait laissé
+1. Announce the brainstorming subject (1 line)
+2. Ask 3 to 5 targeted questions on that specific subject — one at a time
+3. Synthesize the answers into an actionable conclusion
+4. Write the conclusion in:
+   - `kb/risks.md` if it is a risk
+   - `kb/spec.md` if it is a scope clarification
+5. Resume the interview flow where it was left off
 
 ---
 
 ## Friction Log
 
-En fin de run, appender à `skills-meta/friction.jsonl` :
+At the end of the run, append to `skills-meta/friction.jsonl`:
 
 ```jsonl
 {
@@ -327,18 +327,18 @@ En fin de run, appender à `skills-meta/friction.jsonl` :
   "skill": "roster-init",
   "mode": "<greenfield|onboard>",
   "frictions": ["<friction 1>", "..."],
-  "methods": ["<workaround utilisé>"],
+  "methods": ["<workaround used>"],
   "suggestion_type": "<skill|tool|adapt|agent|null>",
-  "suggestion": "<description si suggestion_type non null>",
+  "suggestion": "<description if suggestion_type non null>",
   "effort_estimate": "<small|medium|large>"
 }
 ```
 
 ## Rules
 
-- Ne jamais écrire dans le repo avant la gate humain (synthèse validée)
-- Ne jamais overwrite un fichier existant sans diff + confirmation
-- KB : proposée dans le terminal, écrite seulement après approbation explicite
-- Questions : une par une, jamais en liste
-- Si domaine ambigu pour la création de skills → demander avant de spawner `skill-creator`
-- Le metabolism commence ici : friction.jsonl est le premier fichier créé
+- Never write to the repo before the human gate (validated synthesis)
+- Never overwrite an existing file without diff + confirmation
+- KB: proposed in the terminal, written only after explicit approval
+- Questions: one at a time, never as a list
+- If domain is ambiguous for skill creation → ask before spawning `skill-creator`
+- The metabolism starts here: friction.jsonl is the first file created

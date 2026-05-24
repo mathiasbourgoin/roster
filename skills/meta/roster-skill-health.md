@@ -1,6 +1,6 @@
 ---
 name: roster-skill-health
-description: Analyse périodique des frictions — propose nouveaux skills, outils déterministes, et adaptations.
+description: Periodic friction analysis — proposes new skills, deterministic tools, and adaptations.
 version: 1.0.0
 domain: meta
 phase: null
@@ -17,163 +17,163 @@ artifacts:
   writes:
     - skills-meta/health-<date>.md
 pipeline_role:
-  triggered_by: humain (périodique ou après accumulation de frictions)
+  triggered_by: human (periodic or after friction accumulation)
   receives: skills-meta/friction.jsonl
-  produces: skills-meta/health-<date>.md avec propositions validées
+  produces: skills-meta/health-<date>.md with approved proposals
 ---
 
 # Roster Skill Health
 
-Tu analyses les frictions accumulées dans le projet pour proposer des améliorations systémiques : nouveaux skills, outils déterministes, adaptations de skills existants, ou nouveaux agents.
+You analyze accumulated frictions in the project to propose systemic improvements: new skills, deterministic tools, adaptations of existing skills, or new agents.
 
-Tu ne proposes que ce qui est justifié par les données. Pas de propositions spéculatives.
+Only propose what is justified by the data. No speculative proposals.
 
 ## Input Contract
 
-Lire `skills-meta/friction.jsonl`.
+Read `skills-meta/friction.jsonl`.
 
-### Cold start (fichier absent ou vide)
+### Cold start (file absent or empty)
 
-Si `skills-meta/friction.jsonl` n'existe pas ou est vide :
+If `skills-meta/friction.jsonl` does not exist or is empty:
 
-1. Créer le fichier :
+1. Create the file:
 ```bash
 mkdir -p skills-meta
 touch skills-meta/friction.jsonl
 ```
 
-2. Poser une question ouverte à l'utilisateur :
-> "Le friction log est vide — le metabolism démarre maintenant.
+2. Ask the user an open question:
+> "The friction log is empty — the metabolism is starting now.
 >
-> Est-ce que tu rencontres des frictions dans ton travail avec des agents IA sur ce projet ?
-> Par exemple :
-> - des analyses que tu fais manuellement et qui pourraient être automatisées ?
-> - des workarounds répétitifs que tu appliques à chaque fois ?
-> - des outils qui manquent pour ton domaine (red teaming, TUI, OCaml, ...) ?
+> Are you encountering frictions in your work with AI agents on this project?
+> For example:
+> - analyses you do manually that could be automated?
+> - repetitive workarounds you apply every time?
+> - missing tools for your domain (red teaming, TUI, OCaml, ...)?
 >
-> Décris librement — je vais structurer ça et l'ajouter au log."
+> Describe freely — I will structure this and add it to the log."
 
-3. Si l'utilisateur décrit des frictions → les structurer en entrées JSONL et les ajouter.
-4. Produire un rapport `skills-meta/health-<date>.md` avec les propositions issues de ces frictions initiales.
-5. Si aucune friction décrite → noter "aucune friction initiale" et suggérer de relancer après quelques cycles.
+3. If the user describes frictions → structure them into JSONL entries and add them.
+4. Produce a report `skills-meta/health-<date>.md` with proposals from these initial frictions.
+5. If no frictions described → note "no initial frictions" and suggest re-running after a few cycles.
 
-## Steps (run normal)
+## Steps (normal run)
 
-### 1. Parser le log
+### 1. Parse the log
 
 ```bash
 cat skills-meta/friction.jsonl
 ```
 
-Extraire toutes les entrées. Les entrées avec `"frictions": []` comptent comme runs propres (signal positif) mais ne génèrent pas de cluster.
+Extract all entries. Entries with `"frictions": []` count as clean runs (positive signal) but do not generate clusters.
 
-### 2. Clustering par thème
+### 2. Clustering by theme
 
-Grouper les entrées par thème cohérent :
-- Même skill + même type de friction
-- Même workaround répété
-- Même `suggestion_type`
-- Même domaine fonctionnel
+Group entries by coherent theme:
+- Same skill + same friction type
+- Same repeated workaround
+- Same `suggestion_type`
+- Same functional domain
 
-Calculer pour chaque cluster :
-- Fréquence (nb d'occurrences)
-- Skills concernés
-- Effort estimé dominant (small / medium / large)
+Calculate for each cluster:
+- Frequency (number of occurrences)
+- Affected skills
+- Dominant estimated effort (small / medium / large)
 
-### 3. Filtrer les signaux pertinents
+### 3. Filter relevant signals
 
-Seuil : `tunables.min_entries_for_signal` occurrences dans un cluster.
-Sous le seuil → noter dans le rapport, ne pas proposer d'action.
+Threshold: `tunables.min_entries_for_signal` occurrences in a cluster.
+Below threshold → note in the report, do not propose action.
 
-### 4. Produire les propositions
+### 4. Produce proposals
 
-4 catégories, par ordre de priorité recommandée :
+4 categories, in recommended priority order:
 
-#### A. Nouveaux skills
+#### A. New skills
 
-Signal : friction thématique récurrente (≥ seuil), cohérente entre plusieurs runs.
-
-```
-**[SKILL] roster-<nom-suggéré>**
-Signal : <N> occurrences sur <skills concernés>
-Frictions couvertes : <liste>
-Description : <ce que le skill ferait>
-Effort estimé : small / medium / large
-```
-
-#### B. Outils déterministes (scripts, binaires)
-
-Signal : même workaround manuel répété, `effort_estimate: small` dominant.
+Signal: recurring thematic friction (≥ threshold), consistent across multiple runs.
 
 ```
-**[TOOL] scripts/<nom>.sh**
-Signal : <N> occurrences du workaround "<workaround>"
-Outil proposé : <description>
-Impact : <friction éliminée>
-Effort : small (~<N>h)
+**[SKILL] roster-<suggested-name>**
+Signal: <N> occurrences across <affected skills>
+Frictions covered: <list>
+Description: <what the skill would do>
+Estimated effort: small / medium / large
 ```
 
-#### C. Adaptations de skills existants
+#### B. Deterministic tools (scripts, binaries)
 
-Signal : friction liée à une étape spécifique d'un skill identifié.
+Signal: same manual workaround repeated, `effort_estimate: small` dominant.
+
+```
+**[TOOL] scripts/<name>.sh**
+Signal: <N> occurrences of workaround "<workaround>"
+Proposed tool: <description>
+Impact: <friction eliminated>
+Effort: small (~<N>h)
+```
+
+#### C. Adaptations of existing skills
+
+Signal: friction tied to a specific step of an identified skill.
 
 ```
 **[ADAPT] roster-<skill-name> → v<X.Y+1>**
-Friction : "<description>"
-Adaptation : <ce qui change>
-Section impactée : <Steps N / Rules / Input Contract>
+Friction: "<description>"
+Adaptation: <what changes>
+Impacted section: <Steps N / Rules / Input Contract>
 ```
 
-#### D. Nouveaux agents dédiés
+#### D. New dedicated agents
 
-Signal : `suggestion_type: "agent"` répété, `effort_estimate: large`.
+Signal: `suggestion_type: "agent"` repeated, `effort_estimate: large`.
 
 ```
-**[AGENT] <nom-agent>**
-Signal : <N> occurrences, effort large
-Domaine : <domaine>
-Rôle : <description>
-Prochaine étape : recruiter + skill-creator
+**[AGENT] <agent-name>**
+Signal: <N> occurrences, large effort
+Domain: <domain>
+Role: <description>
+Next step: recruiter + skill-creator
 ```
 
-### 5. Rapport
+### 5. Report
 
-Produire `skills-meta/health-<YYYY-MM-DD>.md` :
+Produce `skills-meta/health-<YYYY-MM-DD>.md`:
 
 ```markdown
 # Skill Health Report — <date>
 
-**Entrées analysées :** <N total> (<N> avec frictions, <N> clean runs)
-**Clusters identifiés :** <N>
-**Propositions :** <N>
+**Entries analyzed:** <N total> (<N> with frictions, <N> clean runs)
+**Clusters identified:** <N>
+**Proposals:** <N>
 
-## Propositions (signaux forts)
+## Proposals (strong signals)
 
-<propositions A/B/C/D>
+<proposals A/B/C/D>
 
-## Signaux faibles (< seuil — à surveiller)
+## Weak signals (< threshold — to monitor)
 
-<entrées sous le seuil>
+<entries below threshold>
 
-## Stabilité
+## Stability
 
-<N> runs propres — skills stables : <liste>
+<N> clean runs — stable skills: <list>
 ```
 
-### 6. Gate humain
+### 6. Human gate
 
-Présenter le rapport et demander :
-> "Quelles propositions approuves-tu ? Je les marque APPROUVÉ pour `/roster-skill-evolve`."
+Present the report and ask:
+> "Which proposals do you approve? I will mark them APPROVED for `/roster-skill-evolve`."
 
 ## Output Contract
 
-`skills-meta/health-<date>.md` avec propositions approuvées marquées `**APPROUVÉ**`.
+`skills-meta/health-<date>.md` with approved proposals marked `**APPROVED**`.
 
-**Suivant :** `/roster-skill-evolve` avec le rapport comme input.
+**Next:** `/roster-skill-evolve` with the report as input.
 
 ## Rules
 
-- Jamais de proposition sans ≥ `tunables.min_entries_for_signal` occurrences dans un cluster
-- Jamais d'invention de frictions — uniquement ce qui est dans le log
-- Cold start : créer le fichier, interroger l'utilisateur, ne pas bloquer sur absence de données
-- Les runs propres sont un signal positif à nommer explicitement
+- Never propose without ≥ `tunables.min_entries_for_signal` occurrences in a cluster
+- Never invent frictions — only what is in the log
+- Cold start: create the file, query the user, do not block on missing data
+- Clean runs are a positive signal to name explicitly

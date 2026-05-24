@@ -1,6 +1,6 @@
 ---
 name: roster-ship
-description: Ship — commits conventionnels, rebase-merge, PR GitHub. Gated sur review + QA go.
+description: Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go.
 version: 1.0.0
 domain: pipeline
 phase: ship
@@ -18,88 +18,88 @@ artifacts:
     - briefs/<task>-qa.md
     - briefs/<task>-impl.md
   writes:
-    - PR GitHub (artefact externe — non tracé dans briefs/)
+    - PR GitHub (external artifact — not tracked in briefs/)
 pipeline_role:
-  triggered_by: /roster-qa avec statut GO
-  receives: branch prête, review.json GO, qa.md GO
-  produces: PR ouverte ou statut BLOQUÉ avec raison
+  triggered_by: /roster-qa with GO status
+  receives: ready branch, review.json GO, qa.md GO
+  produces: PR opened or BLOCKED status with reason
 ---
 
 # Roster Ship
 
-Tu portes la branche de l'implémentation jusqu'au merge. Conventional commits, rebase-merge uniquement, PR avec closing issue. Tu ne shippes jamais sans double gate review + QA.
+You carry the implementation branch through to merge. Conventional commits, rebase-merge only, PR with closing issue. Never ship without the double review + QA gate.
 
-**Token discipline :** terse — liens pas pastes, un-liner commit subjects.
+**Token discipline:** terse — links not pastes, one-liner commit subjects.
 
 ## Input Contract
 
-Avant toute action, lire :
-- `briefs/<task>-review.json` — **BLOQUER** si statut `NO-GO`
-- `briefs/<task>-qa.md` — **BLOQUER** si statut `NO-GO`
-- `briefs/<task>-impl.md` — pour les messages de commit
+Before any action, read:
+- `briefs/<task>-review.json` — **BLOCK** if status is `NO-GO`
+- `briefs/<task>-qa.md` — **BLOCK** if status is `NO-GO`
+- `briefs/<task>-impl.md` — for commit messages
 
-Si l'un des deux est NO-GO ou absent :
-> ⛔ BLOQUÉ : `<fichier>` est NO-GO ou manquant.
-> Résoudre les issues signalées avant de shipper.
+If either is NO-GO or absent:
+> ⛔ BLOCKED: `<file>` is NO-GO or missing.
+> Resolve the reported issues before shipping.
 
 ## Steps
 
-### 1. Pré-checks
+### 1. Pre-checks
 
 ```bash
-git status           # repo propre ?
-git log --oneline -5 # état de la branche
+git status           # repo clean?
+git log --oneline -5 # branch state
 ```
 
-Si le repo est dirty sur des fichiers hors scope de la tâche → signaler et demander quoi faire.
+If the repo is dirty on files outside the task scope → report and ask what to do.
 
-Si `tunables.pre_pr_checks` est défini, l'exécuter et bloquer si échec.
+If `tunables.pre_pr_checks` is defined, execute it and block on failure.
 
-### 2. Commits conventionnels
+### 2. Conventional commits
 
-Depuis `briefs/<task>-impl.md`, construire les commits :
+From `briefs/<task>-impl.md`, build the commits:
 
-**Format :** `type(scope): description`
+**Format:** `type(scope): description`
 
-Types : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
+Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
 
-Règles :
-- Description en minuscules, impératif, sans point final, max 72 chars
-- Un commit = un changement logique qui compile indépendamment
-- Body si nécessaire (pourquoi, pas quoi) — séparé par une ligne vide
-- Footer : `Closes #N` si issue référencée
+Rules:
+- Description in lowercase, imperative, no trailing period, max 72 chars
+- One commit = one logical change that compiles independently
+- Body if necessary (why, not what) — separated by a blank line
+- Footer: `Closes #N` if issue referenced
 
 ```bash
-git add <fichiers scope>
+git add <scope files>
 git commit -m "type(scope): description"
 ```
 
-### 3. Rebase sur main
+### 3. Rebase on main
 
 ```bash
 git fetch origin
 git rebase origin/main
 ```
 
-Si conflits → résoudre dans le scope de la tâche uniquement. Si conflit hors scope, signaler à l'humain.
+If conflicts → resolve within the task scope only. If conflict is out of scope, report to the human.
 
-### 4. Gate humain — avant push
+### 4. Human gate — before push
 
-Présenter :
+Present:
 ```
-Commits préparés :
-  <sha courte> type(scope): description
+Commits prepared:
+  <short sha> type(scope): description
   ...
 
-Branch : <nom>
-Target : main
+Branch: <name>
+Target: main
 
-Push et ouvrir la PR ?
+Push and open PR?
 ```
 
-Attendre confirmation.
+Wait for confirmation.
 
-### 5. Push et PR
+### 5. Push and PR
 
 ```bash
 git push origin <branch> --force-with-lease
@@ -111,37 +111,37 @@ Closes #N" \
   --base main
 ```
 
-### 6. Gate humain — merge
+### 6. Human gate — merge
 
-Après review et CI verts :
+After review and CI green:
 ```bash
 gh pr merge <N> --rebase --delete-branch
 ```
 
-**Rebase merge uniquement.** Jamais de merge commit, jamais de squash.
+**Rebase merge only.** Never a merge commit, never squash.
 
 ### 7. Confirmation
 
 ```
-✅ Shippé : PR #N mergée sur main
-Branch supprimée : <branch>
-Closes : #N
+✅ Shipped: PR #N merged to main
+Branch deleted: <branch>
+Closes: #N
 ```
 
 ## Output Contract
 
-PR GitHub ouverte (puis mergée après approbation humaine), ou statut BLOQUÉ documenté.
+GitHub PR opened (then merged after human approval), or BLOCKED status documented.
 
-**Suivant :** tech-lead / humain avec confirmation de merge.
+**Next:** tech-lead / human with merge confirmation.
 
-**Incrémenter le compteur metabolism :** Après un ship GO (PR ouverte ou mergée), incrémenter `completed_tasks` dans `.harness/harness.json` (ou `.claude/harness.json` si `.harness/` absent) :
+**Increment metabolism counter:** After a GO ship (PR opened or merged), increment `completed_tasks` in `.harness/harness.json` (or `.claude/harness.json` if `.harness/` absent):
 
 ```bash
-# lecture → incrément → écriture (jq requis)
+# read → increment → write (jq required)
 jq '.layers.metabolism.completed_tasks += 1' .harness/harness.json > /tmp/hj && mv /tmp/hj .harness/harness.json
 ```
 
-Si `jq` n'est pas disponible ou si le fichier n'existe pas, noter l'incrément manqué dans le friction log sans bloquer.
+If `jq` is not available or the file does not exist, note the missed increment in the friction log without blocking.
 
 ## Friction Log
 
@@ -160,8 +160,8 @@ Si `jq` n'est pas disponible ou si le fichier n'existe pas, noter l'incrément m
 
 ## Rules
 
-- Jamais de merge commit — rebase-merge uniquement
-- Jamais de push sans gate humain explicite
-- Jamais de ship si review.json ou qa.md est NO-GO ou absent
-- Jamais de commit avec des fichiers hors scope de la tâche
-- Si la CI échoue après push → ne pas merger, signaler
+- Never a merge commit — rebase-merge only
+- Never push without an explicit human gate
+- Never ship if review.json or qa.md is NO-GO or absent
+- Never commit files outside the task scope
+- If CI fails after push → do not merge, report
