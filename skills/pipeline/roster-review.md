@@ -1,7 +1,7 @@
 ---
 name: roster-review
 description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: review
 preamble: true
@@ -191,12 +191,23 @@ Status: GO ✅ / NO-GO ❌
 **If GO:** `/roster-qa` can start.
 **If NO-GO:** return to `/roster-implement` with OPEN findings.
 
-## Friction Log
+## When to Go Back
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-review",
+| Condition | Action |
+|---|---|
+| NO-GO verdict — fixes required | Stop — return to `/roster-implement` with OPEN findings listed |
+| Research reveals a design flaw missed in planning | Stop — re-run `/roster-plan` or `/roster-intake` before fixes |
+
+## What Next
+
+**Primary path (GO):** `/roster-qa`
+**Primary path (NO-GO):** `/roster-implement` — pass `briefs/<task>-review.json` as context
+**Alternatives:**
+- `/roster-audit` — if broader code quality concerns were flagged beyond this task
+
+> 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
+
+## Friction Log
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

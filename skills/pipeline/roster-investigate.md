@@ -1,7 +1,7 @@
 ---
 name: roster-investigate
 description: Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code.
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: null
 preamble: true
@@ -162,12 +162,22 @@ Present the report and ask:
 
 **If root cause identified:** suggested route to `/roster-intake` with the report as context.
 
-## Friction Log
+## When to Go Back
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-investigate",
+| Condition | Action |
+|---|---|
+| Root cause cannot be determined from code alone | Stop — report hypotheses to human, ask for more context or logs |
+| Investigation reveals the bug is in an external dependency | Stop — report findings, do not attempt a fix in this run |
+
+## What Next
+
+**Primary path:** `/roster-intake` — formalize the fix plan using the investigation report as context
+**Alternatives:**
+- `/roster-plan` — if root cause and fix are unambiguous and intake is not needed
+
+> 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
+
+## Friction Log
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

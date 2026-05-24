@@ -1,7 +1,7 @@
 ---
 name: roster-run
 description: Pipeline entry point — detects context and routes to the right skill.
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: null
 preamble: true
@@ -14,6 +14,16 @@ human_gate: none
 
 You are the entry point of the roster pipeline. Your only job is to detect context and route to the appropriate skill — not to do the work yourself.
 
+## Standard route for new tasks
+
+For any new task (no existing brief), the mandatory route is:
+
+```
+/roster-question → /roster-research → /roster-intake → /roster-plan → /roster-implement → /roster-review → /roster-qa → /roster-ship
+```
+
+Always start with `/roster-question`. Do not skip to `/roster-intake` directly unless the user explicitly requests it and the task is a trivial single-file change.
+
 ## Routing
 
 Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
@@ -22,7 +32,7 @@ Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
 
 | Detected signal | Route to |
 |---|---|
-| Vague task, new feature, no existing brief | `/roster-intake` |
+| Vague task, new feature, no existing brief | `/roster-question` (then research → intake) |
 | `briefs/<task>-intake.md` exists and is validated | `/roster-plan` |
 | `briefs/<task>-plan.md` exists and is validated | `/roster-implement` |
 | Implementation complete, branch ready | `/roster-review` |
@@ -55,6 +65,12 @@ Before routing, announce in one line:
 ### Acceptable false positive
 
 A false positive (routing to a skill not strictly necessary) is preferable to a false negative (skipping a phase). When in doubt, route to the earliest upstream phase.
+
+## What Next
+
+After routing, the destination skill announces its own **What Next** upon completion — follow that chain.
+
+> 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
 
 ## Rules
 

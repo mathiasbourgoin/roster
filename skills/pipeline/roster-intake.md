@@ -1,7 +1,7 @@
 ---
 name: roster-intake
 description: Intake phase — transforms a task into a contractual brief validated by the human.
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: intake
 preamble: true
@@ -15,6 +15,7 @@ artifacts:
     - kb/risks.md
     - AGENTS.md
     - README.md
+    - roster/<task-slug>/research.md (optional — read if present)
   writes:
     - briefs/<task>-intake.md
 pipeline_role:
@@ -31,11 +32,22 @@ You transform a task into a contractual brief. This brief is the single source o
 
 ## Input Contract
 
-- `$ARGUMENTS`: task description (can be short or long)
+- `$ARGUMENTS`: task description or task slug (if coming from `/roster-research`)
+- `roster/<task-slug>/research.md` — read if present; use as enrichment context, not as a replacement for your own analysis
 - KB if it exists (`kb/spec.md`, `kb/properties.md`, `kb/risks.md`)
 - `AGENTS.md`, `README.md` for project context
 
 ## Steps
+
+### 0. Consume research (if available)
+
+Derive the task slug from `$ARGUMENTS`. Check for `roster/<task-slug>/research.md`:
+
+```bash
+ls roster/<task-slug>/research.md 2>/dev/null && echo "research: present" || echo "research: absent"
+```
+
+If present: read it fully before any other step. Use it to pre-populate the Relevant Files table and Architecture Notes — do not re-investigate what the research already covers.
 
 ### 1. Silent reading
 
@@ -144,12 +156,22 @@ Wait for explicit validation. Apply corrections if requested, then set `**Status
 
 **Next:** `/roster-plan` reads this file as the single source of truth.
 
-## Friction Log
+## When to Go Back
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-intake",
+| Condition | Action |
+|---|---|
+| `roster/<task-slug>/research.md` is missing critical context | Stop — re-run `/roster-research` with more targeted questions |
+| Task is too ambiguous to form a brief | Stop — clarify with the user before writing anything |
+
+## What Next
+
+**Primary path:** `/roster-plan`
+**Alternatives:**
+- `/roster-investigate` — if the root cause of a bug is still unclear before planning
+
+> 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
+
+## Friction Log
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

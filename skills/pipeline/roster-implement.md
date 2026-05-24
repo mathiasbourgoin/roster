@@ -1,7 +1,7 @@
 ---
 name: roster-implement
 description: Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief.
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -138,12 +138,23 @@ Produce `briefs/<task>-impl.md`:
 
 **Next:** `/roster-review` reads `briefs/<task>-impl.md` + the current diff.
 
-## Friction Log
+## When to Go Back
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-implement",
+| Condition | Action |
+|---|---|
+| A plan step cannot be implemented as described | Stop — re-run `/roster-plan` with the blocker as input |
+| Quality gates are broken at baseline before any change | Stop — report to human, do not proceed |
+| Implementation reveals the brief was fundamentally wrong | Stop — re-run `/roster-intake` with the new information |
+
+## What Next
+
+**Primary path:** `/roster-review`
+**Alternatives:**
+- Re-run `/roster-plan` if a step was unimplementable as specified
+
+> 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
+
+## Friction Log
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],
