@@ -38,7 +38,7 @@ Do not start writing before the final human gate.
 
 ---
 
-## Mode detection
+## Steps
 
 Before any question:
 
