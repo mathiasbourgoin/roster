@@ -45,7 +45,9 @@ Version: 2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
 
 **Proposing skill pipeline installation:**
 When presenting this update, ask: *"Would you like to install the roster-* pipeline skills alongside your agent team? They provide intake→plan→implement→review→qa→ship as slash commands, plus `/roster-init` for any new projects you start."*
-- If yes: fetch `skills/pipeline/roster-*.md` and `skills/meta/roster-*.md` from the roster repo and install per the skills install flow (`.harness/skills/`, `.claude/commands/`, `.agents/skills/`).
+- If yes: use the **New Skill Discovery** install procedure in the Self-Update section to fetch and write all skills.
+- Install targets: `.harness/skills/<name>.md` (canonical) + `.agents/skills/<name>.md` (Codex) + `.claude/commands/<name>.md` (Claude). Skip absent directories — do not fail.
+- Skills with `preamble: true` in frontmatter must have `skills/shared/preamble.md` prepended before writing to `.agents/skills/` and `.claude/commands/`.
 - If the project is brand new: suggest starting with `/roster-init` first.
 
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
@@ -562,12 +564,12 @@ This preserves the "no auto-install" philosophy while making new agents discover
 
 ### New Skill Discovery
 
-Also check roster skills (`component_type: "skill"`, `source: "local"`) against locally installed skills in `.harness/skills/` and `.claude/commands/`. For any roster skill not installed locally, surface it alongside the agent discovery report:
+Also check roster skills (`component_type: "skill"`, `source: "local"`) against locally installed skills in `.harness/skills/` and `.claude/commands/` and `.agents/skills/`. For any roster skill not installed locally, surface it alongside the agent discovery report:
 
 ```
 New skills available in roster:
-  - roster-run (v<version>) — Entry point du pipeline roster
-  - roster-init (v<version>) — Bootstrap greenfield or onboard existing project
+  - roster-run (v1.0.0) — Entry point du pipeline roster
+  - roster-init (v1.0.0) — Bootstrap greenfield or onboard existing project
   - roster-intake, roster-plan, roster-implement, roster-review, roster-qa, roster-ship — Full pipeline
   - roster-investigate, roster-audit — Operational skills
   - roster-skill-health, roster-skill-evolve — Skill metabolism (self-improvement)
@@ -577,12 +579,66 @@ plus `/roster-init` for project bootstrapping and `/roster-skill-health` for sel
 [Y/n]
 ```
 
-On approval, fetch each skill from the roster repo and install it:
-- `.harness/skills/<name>.md` (canonical)
-- `.claude/commands/<name>.md` (Claude projection)
-- `.agents/skills/<name>.md` (Codex projection)
+On approval, install using the following concrete procedure:
 
-Skills flagged `preamble: true` must have `skills/shared/preamble.md` prepended during projection. Fetch it from the roster repo alongside the skill files.
+**Step 1 — Create target directories:**
+```bash
+mkdir -p .harness/skills .claude/commands .agents/skills
+```
+
+**Step 2 — Fetch the shared preamble:**
+```bash
+ROSTER_RAW="https://raw.githubusercontent.com/<roster_repo>/main"
+PREAMBLE=$(curl -sL "$ROSTER_RAW/skills/shared/preamble.md")
+```
+
+**Step 3 — Install each skill:**
+
+Skills to install:
+- `skills/pipeline/roster-run.md`
+- `skills/pipeline/roster-init.md`
+- `skills/pipeline/roster-intake.md`
+- `skills/pipeline/roster-plan.md`
+- `skills/pipeline/roster-implement.md`
+- `skills/pipeline/roster-review.md`
+- `skills/pipeline/roster-qa.md`
+- `skills/pipeline/roster-ship.md`
+- `skills/pipeline/roster-investigate.md`
+- `skills/pipeline/roster-audit.md`
+- `skills/meta/roster-skill-health.md`
+- `skills/meta/roster-skill-evolve.md`
+
+For each skill at path `<skill-path>` with filename `<name>.md`:
+```bash
+SKILL_CONTENT=$(curl -sL "$ROSTER_RAW/<skill-path>")
+
+# Check if preamble: true in frontmatter
+if echo "$SKILL_CONTENT" | grep -q "^preamble: true"; then
+  PROJECTED="${PREAMBLE}
+
+---
+
+${SKILL_CONTENT}"
+else
+  PROJECTED="$SKILL_CONTENT"
+fi
+
+# Write canonical copy
+echo "$SKILL_CONTENT" > .harness/skills/<name>.md
+
+# Write projected copies (with preamble injected)
+echo "$PROJECTED" > .claude/commands/<name>.md
+echo "$PROJECTED" > .agents/skills/<name>.md
+```
+
+**Step 4 — Verify:**
+```bash
+ls .agents/skills/roster-*.md
+```
+
+If `.harness/` or `.claude/` do not exist (e.g., Codex-only environment), write only to `.agents/skills/` and skip the other targets — do not fail.
+
+**Note on preamble injection:** The preamble (`skills/shared/preamble.md`) encodes the project's shared ethos (anti-sycophancy, complétude, user sovereignty, friction log instructions). It must be prepended to all skills where `preamble: true` appears in the frontmatter YAML block. Skills without this field or with `preamble: false` are written as-is.
 
 ### Team Re-Adaptation (major version updates)
 
