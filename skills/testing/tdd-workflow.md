@@ -69,3 +69,20 @@ Summarize: what behavior was added, how many tests pass, coverage %, and any ref
 - If stuck, simplify the test to a smaller assertion and iterate.
 - Run the **full** suite after every change, not just the new test.
 - Each cycle adds exactly one behavior. For multiple behaviors, repeat the cycle.
+
+## Friction Log
+
+En fin de run, appender à `skills-meta/friction.jsonl` :
+
+```jsonl
+{
+  "date": "<ISO-8601>",
+  "skill": "tdd-workflow",
+  "task": "<task-slug ou description courte>",
+  "frictions": [],
+  "methods": [],
+  "suggestion_type": null,
+  "suggestion": null,
+  "effort_estimate": null
+}
+```

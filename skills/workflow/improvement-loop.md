@@ -132,3 +132,20 @@ At the end, report:
 - Never keep a change that fails the guard command
 - Never silently discard user changes outside the current loop
 - If the metric cannot be measured reliably, stop rather than pretending
+
+## Friction Log
+
+En fin de run, appender à `skills-meta/friction.jsonl` :
+
+```jsonl
+{
+  "date": "<ISO-8601>",
+  "skill": "improvement-loop",
+  "task": "<task-slug ou description courte>",
+  "frictions": [],
+  "methods": [],
+  "suggestion_type": null,
+  "suggestion": null,
+  "effort_estimate": null
+}
+```

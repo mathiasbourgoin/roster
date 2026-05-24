@@ -68,12 +68,30 @@ Populated by: **tech-lead**
 
 ### `layers.skills`
 
-Populated by: **tech-lead**
+Populated by: **tech-lead**, **roster-skill-evolve**
 
 ```yaml
-- name: <string>             # Skill name (kebab-case)
+- name: <string>             # Skill name (kebab-case, must start with roster-)
   source: <roster|external|custom>  # Origin
   version: <semver>          # Installed version
+  domain: <pipeline|operational|meta|shared>  # Skill domain
+  phase: <intake|plan|implement|review|qa|ship|null>  # Pipeline phase (null if not a pipeline skill)
+  tunables: {}               # Local overrides for skill tunables
+```
+
+### `layers.metabolism`
+
+Populated by: **roster-init**, maintained by **roster-skill-health** and **roster-skill-evolve**.
+Controls the skill metabolism system.
+
+```yaml
+friction_log: <string>         # Path to friction log (default: "skills-meta/friction.jsonl")
+health_schedule: <manual|N-tasks>  # When to trigger roster-skill-health
+                               # "manual" = human-triggered only
+                               # "10-tasks" = suggest after every 10 completed tasks
+health_reports_dir: <string>   # Directory for health reports (default: "skills-meta/")
+last_health_run: <date|null>   # ISO 8601 date of last skill-health run
+completed_tasks: <int>         # Counter for health_schedule trigger
 ```
 
 ### `layers.mcp`
@@ -130,8 +148,29 @@ auditors: [<string>]                 # Agent names that audit the KB
       { "name": "post-edit-lint", "event": "PostToolUse", "matcher": "Edit|Write", "source": "roster" }
     ],
     "skills": [
-      { "name": "tdd-workflow", "source": "roster", "version": "1.0.0" }
+      { "name": "git-conventions", "source": "roster", "version": "1.0.0", "domain": "workflow", "phase": null },
+      { "name": "kb-update", "source": "roster", "version": "1.0.0", "domain": "operational", "phase": null },
+      { "name": "tdd-workflow", "source": "roster", "version": "1.0.0", "domain": "testing", "phase": null },
+      { "name": "roster-run", "source": "roster", "version": "1.0.0", "domain": "pipeline", "phase": null },
+      { "name": "roster-init", "source": "roster", "version": "1.0.0", "domain": "pipeline", "phase": null },
+      { "name": "roster-intake", "source": "roster", "version": "1.0.0", "domain": "pipeline", "phase": "intake" },
+      { "name": "roster-plan", "source": "roster", "version": "1.0.0", "domain": "pipeline", "phase": "plan" },
+      { "name": "roster-implement", "source": "roster", "version": "1.0.0", "domain": "pipeline", "phase": "implement" },
+      { "name": "roster-review", "source": "roster", "version": "1.0.0", "domain": "pipeline", "phase": "review" },
+      { "name": "roster-qa", "source": "roster", "version": "1.0.0", "domain": "pipeline", "phase": "qa" },
+      { "name": "roster-ship", "source": "roster", "version": "1.0.0", "domain": "pipeline", "phase": "ship" },
+      { "name": "roster-investigate", "source": "roster", "version": "1.0.0", "domain": "operational", "phase": null },
+      { "name": "roster-audit", "source": "roster", "version": "1.0.0", "domain": "operational", "phase": null },
+      { "name": "roster-skill-health", "source": "roster", "version": "1.0.0", "domain": "meta", "phase": null },
+      { "name": "roster-skill-evolve", "source": "roster", "version": "1.0.0", "domain": "meta", "phase": null }
     ],
+    "metabolism": {
+      "friction_log": "skills-meta/friction.jsonl",
+      "health_schedule": "manual",
+      "health_reports_dir": "skills-meta/",
+      "last_health_run": null,
+      "completed_tasks": 0
+    },
     "mcp": [
       { "name": "context-mode", "status": "vetted", "vetted_by": "mcp-vetter" }
     ],
