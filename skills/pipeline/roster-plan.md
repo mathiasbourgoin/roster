@@ -1,4 +1,5 @@
 ---
+name: roster-plan
 description: Décomposition dual-voice — lit le brief intake, produit des sous-briefs par rôle.
 version: 1.0.0
 domain: pipeline

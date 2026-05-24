@@ -1,4 +1,5 @@
 ---
+name: roster-implement
 description: Implémentation guidée — TDD, improve loop, sub-agents OCaml. Lit le plan, produit un brief d'impl.
 version: 1.0.0
 domain: pipeline
