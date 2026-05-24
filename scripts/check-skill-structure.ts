@@ -70,11 +70,18 @@ function hasStepsSection(content: string): boolean {
 }
 
 function hasJsonlFence(content: string): boolean {
-  // Find ## Friction Log section boundary using indexOf to avoid regex lookahead pitfalls
+  // Find ## Friction Log section boundary using indexOf to avoid regex lookahead pitfalls.
+  // Also handle the (theoretical) case where the heading starts at position 0.
   const sectionMark = "\n## Friction Log";
-  const sectionStart = content.indexOf(sectionMark);
-  if (sectionStart === -1) return false;
-  const headingEnd = content.indexOf("\n", sectionStart + 1);
+  let sectionStart = content.indexOf(sectionMark);
+  if (sectionStart === -1) {
+    // Could be at position 0 (start of file — unlikely but safe to handle)
+    if (!content.startsWith("## Friction Log")) return false;
+    sectionStart = -1; // handled below via headingEnd from position 0
+  }
+  const headingEnd = sectionStart === -1
+    ? content.indexOf("\n")
+    : content.indexOf("\n", sectionStart + 1);
   if (headingEnd === -1) return false;
   const bodyStart = headingEnd + 1;
   const nextSection = content.indexOf("\n## ", bodyStart);
