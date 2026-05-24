@@ -36,7 +36,7 @@ Version: 2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
 - **`/roster-init`.** New bootstrap skill for greenfield and onboard scenarios. Runs an adversarial interview (6 questions, 3 adversarial) to challenge assumptions. Weak answers trigger a warning + brainstorming protocol before continuing. Detects greenfield vs existing-project automatically.
 - **Shared preamble.** All pipeline skills inject a shared ethos: anti-sycophancy, complétude, search-before-build, user sovereignty, escalation paths, and friction log instructions.
 - **Schema extension.** `skill-schema.md` now includes `friction_log`, `artifacts`, `human_gate`, `tunables`, `pipeline_role`. `harness-schema.md` has a new `layers.metabolism` block.
-- **`sync-harness.sh` updated.** Now syncs `roster-*.md` from all `skills/*/` subdirectories into `.claude/commands/` and `.agents/skills/`.
+- **`sync-harness.sh` updated.** Now syncs `roster-*.md` from all `skills/*/` subdirectories into `.claude/commands/` and Codex `SKILL.md` directories. Codex global installation is a separate explicit `codex-global` runtime.
 
 **After applying this update:**
 - Run `/roster-init` to bootstrap pipeline skills for this project, or install individual skills via `/recruit`.
@@ -46,8 +46,8 @@ Version: 2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
 **Proposing skill pipeline installation:**
 When presenting this update, ask: *"Would you like to install the roster-* pipeline skills alongside your agent team? They provide intake→plan→implement→review→qa→ship as slash commands, plus `/roster-init` for any new projects you start."*
 - If yes: use the **New Skill Discovery** install procedure in the Self-Update section to fetch and write all skills.
-- Install targets: `.harness/skills/<name>.md` (canonical) + `.agents/skills/<name>.md` (Codex) + `.claude/commands/<name>.md` (Claude). Skip absent directories — do not fail.
-- Skills with `preamble: true` in frontmatter must have `skills/shared/preamble.md` prepended before writing to `.agents/skills/` and `.claude/commands/`.
+- Install targets: `.harness/skills/<name>.md` (canonical) + `.agents/skills/<name>/SKILL.md` (Codex project-local) + `.claude/commands/<name>.md` (Claude). Use `$CODEX_HOME/skills/<name>/SKILL.md` only when an explicit `codex-global` runtime is enabled. Skip absent directories — do not fail.
+- Skills with `preamble: true` in frontmatter must have `skills/shared/preamble.md` injected after frontmatter before writing runtime projections.
 - If the project is brand new: suggest starting with `/roster-init` first.
 
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
@@ -628,17 +628,24 @@ echo "$SKILL_CONTENT" > .harness/skills/<name>.md
 
 # Write projected copies (with preamble injected)
 echo "$PROJECTED" > .claude/commands/<name>.md
-echo "$PROJECTED" > .agents/skills/<name>.md
+mkdir -p .agents/skills/<name>
+echo "$PROJECTED" > .agents/skills/<name>/SKILL.md
+
+# Optional only when codex-global is explicitly enabled:
+# mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/<name>"
+# echo "$PROJECTED" > "${CODEX_HOME:-$HOME/.codex}/skills/<name>/SKILL.md"
 ```
 
 **Step 4 — Verify:**
 ```bash
-ls .agents/skills/roster-*.md
+find .agents/skills -maxdepth 2 -name SKILL.md
 ```
 
-If `.harness/` or `.claude/` do not exist (e.g., Codex-only environment), write only to `.agents/skills/` and skip the other targets — do not fail.
+If `.harness/` or `.claude/` do not exist (e.g., Codex-only environment), write only to the configured Codex runtime entrypoint and skip the other targets — do not fail.
 
-**Note on preamble injection:** The preamble (`skills/shared/preamble.md`) encodes the project's shared ethos (anti-sycophancy, complétude, user sovereignty, friction log instructions). It must be prepended to all skills where `preamble: true` appears in the frontmatter YAML block. Skills without this field or with `preamble: false` are written as-is.
+**Note on preamble injection:** The preamble (`skills/shared/preamble.md`) encodes the project's shared ethos (anti-sycophancy, complétude, user sovereignty, friction log instructions). It must be injected after frontmatter for all skills where `preamble: true` appears in the frontmatter YAML block. Skills without this field or with `preamble: false` are written as-is.
+
+**Runtime note:** OpenCode, Copilot, and Pi runtimes each have a dedicated renderer in `sync-harness.sh`. Enable them in `.harness/harness.json` (`"enabled": true`) and re-run `sync-harness.sh`. Pi uses the same `<name>/SKILL.md` format as Codex; OpenCode uses flat `.md` files; Copilot uses `.github/copilot-instructions.md` + per-agent `.github/instructions/` files.
 
 ### Team Re-Adaptation (major version updates)
 

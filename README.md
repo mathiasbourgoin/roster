@@ -88,6 +88,7 @@ project/
 │   └── settings.local.json
 ├── .agents/
 │   └── skills/
+│       └── <skill-name>/SKILL.md
 └── AGENTS.md
 ```
 
@@ -95,25 +96,30 @@ Runtime rule:
 
 - `.harness/` is canonical
 - `.claude/` is a generated Claude compatibility surface
-- `.agents/skills/` is a generated Codex compatibility surface
+- `.agents/skills/<skill-name>/SKILL.md` is a generated project-local Codex compatibility surface
+- `$CODEX_HOME/skills/<skill-name>/SKILL.md` is only generated when an explicit `codex-global` runtime is enabled
 - `AGENTS.md` remains optional project instructions, not the canonical harness store
 
 ## Runtime Support
 
 Current runtime projections:
 
-- OpenCode:
-  - `.opencode/agents/`
-  - `.opencode/rules/`
-  - `opencode.json` for configuration
-- Claude Code:
-  - `.claude/agents/`
-  - `.claude/commands/`
-  - `.claude/rules/`
-  - `.claude/harness.json`
-  - `.claude/settings.local.json` for hook projection
-- Codex:
-  - `.agents/skills/`
+| Runtime | Enable in harness | Key targets |
+|---------|------------------|-------------|
+| **Claude Code** | `"name": "claude-code"` | `.claude/agents/`, `.claude/commands/`, `.claude/rules/`, `.claude/settings.local.json` |
+| **Codex** (project-local) | `"name": "codex"` | `.agents/skills/<name>/SKILL.md` |
+| **Codex** (global) | `"name": "codex-global"` | `~/.codex/skills/<name>/SKILL.md` |
+| **OpenCode** | `"name": "opencode"` | `.opencode/agents/<name>.md`, `.opencode/commands/<name>.md` |
+| **Pi** (pi.dev) | `"name": "pi"` | `.pi/skills/<name>/SKILL.md` (same structure as Codex) |
+| **GitHub Copilot** | `"name": "copilot"` | `.github/copilot-instructions.md`, `.github/instructions/<name>.instructions.md` |
+
+All runtimes are disabled by default except `claude-code` and `codex`. Enable them in `.harness/harness.json`:
+
+```json
+{ "name": "opencode", "enabled": true, "entrypoint": ".opencode" }
+```
+
+Then re-run `./scripts/sync-harness.sh` to project.
 
 The data model is shared. Runtime surfaces are generated.
 
@@ -211,7 +217,7 @@ This creates:
 
 - `.harness/` canonical state
 - `.claude/...` Claude projection
-- `.agents/skills/...` Codex projection
+- `.agents/skills/<skill-name>/SKILL.md` Codex project projection
 
 If you edit canonical files later, re-project them with:
 

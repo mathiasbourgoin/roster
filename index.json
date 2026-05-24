@@ -2738,7 +2738,7 @@
       "claude-code",
       "codex"
     ],
-    "version": "2.4.0",
+    "version": "2.5.1",
     "path": "recruiter/recruiter.md",
     "source": "local",
     "source_id": "local",
