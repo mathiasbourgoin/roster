@@ -160,6 +160,9 @@ If `jq` is not available or the file does not exist, note the missed increment i
 > 💡 A completed ship is the best time to run `/roster-skill-health` and capture what the cycle taught you.
 
 ## Friction Log
+
+```jsonl
+{
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

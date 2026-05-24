@@ -168,6 +168,9 @@ If NO-GO: suggest returning to `/roster-implement` with the exact reason.
 > 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
 
 ## Friction Log
+
+```jsonl
+{
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

@@ -66,6 +66,13 @@ Before routing, announce in one line:
 
 A false positive (routing to a skill not strictly necessary) is preferable to a false negative (skipping a phase). When in doubt, route to the earliest upstream phase.
 
+## When to Go Back
+
+| Condition | Action |
+|---|---|
+| No route matches the current project state | Stop — ask the user to describe the situation before routing |
+| Routing would skip a mandatory phase | Route to the earliest upstream phase instead |
+
 ## What Next
 
 After routing, the destination skill announces its own **What Next** upon completion — follow that chain.

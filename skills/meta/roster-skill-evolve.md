@@ -180,6 +180,9 @@ For each APPROVED proposal:
 > 💡 After evolving skills, run a few pipeline cycles to validate the improvements before the next health check.
 
 ## Friction Log
+
+```jsonl
+{
   "task": "skill-evolution",
   "frictions": [],
   "methods": [],

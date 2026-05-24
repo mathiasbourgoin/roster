@@ -47,7 +47,7 @@ Derive the task slug from `$ARGUMENTS`. Check for `roster/<task-slug>/research.m
 ls roster/<task-slug>/research.md 2>/dev/null && echo "research: present" || echo "research: absent"
 ```
 
-If present: read it fully before any other step. Use it to pre-populate the Relevant Files table and Architecture Notes — do not re-investigate what the research already covers.
+If present: read it fully before any other step. Use it to pre-populate the Relevant Files table and Architecture Notes — do not re-investigate what the research already covers. **Do not let research findings alter your interpretation of the task goal or scope** — research describes what exists, not what to build.
 
 ### 1. Silent reading
 
@@ -172,6 +172,9 @@ Wait for explicit validation. Apply corrections if requested, then set `**Status
 > 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
 
 ## Friction Log
+
+```jsonl
+{
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

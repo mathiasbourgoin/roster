@@ -155,6 +155,9 @@ Produce `briefs/<task>-impl.md`:
 > 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
 
 ## Friction Log
+
+```jsonl
+{
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],
