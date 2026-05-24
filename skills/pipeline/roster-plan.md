@@ -1,7 +1,7 @@
 ---
 name: roster-plan
 description: Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs.
-version: 1.1.0
+version: 1.2.0
 domain: pipeline
 phase: plan
 preamble: true
@@ -39,6 +39,23 @@ If required sections are missing (Goal, Scope Boundary, Relevant Files, Quality 
 > ⛔ Incomplete brief — missing section(s): <list>. Complete the brief before planning.
 
 ## Steps
+
+### 0. KB ambiguity pre-check (conditional)
+
+```bash
+[ -d kb ] && ([ -f kb/spec.md ] || [ -f kb/index.md ]) && echo "KB present" || echo "KB absent"
+```
+
+If KB is **present**:
+→ Invoke `skills/kb/ambiguity-auditor.md` on the KB.
+→ If the audit returns **Critical** findings: present them to the human and ask:
+  - "These KB contradictions may corrupt the plan. Fix KB first, or continue knowing these risks?"
+  - If "fix first": STOP — return to user.
+  - If "continue": annotate the plan's "Identified risks" table with each contradiction.
+→ If only Warnings/Info: log them in the plan's "Identified risks" table. Continue.
+→ If no findings: continue silently.
+
+If KB is **absent**: skip silently.
 
 ### 1. Read the brief
 
@@ -221,6 +238,7 @@ Set `**Status:** VALIDATED` in each sub-brief after approval.
 |---|---|
 | Brief has unresolvable ambiguity or missing required sections | Stop — re-run `/roster-intake` to complete the brief |
 | Both voices agree the brief's direction should change | Stop — present to user, re-run `/roster-intake` if approved |
+| KB has Critical contradictions and user chose to fix KB first | Stop — fix KB with `/ambiguity-auditor`, then re-run `/roster-plan` |
 
 ## What Next
 

@@ -1,7 +1,7 @@
 ---
 name: roster-implement
 description: Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief.
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -45,6 +45,16 @@ Pre-flight: verify both required sub-briefs exist:
 If either is absent:
 > ⛔ Sub-brief missing: `briefs/<task>-implementer.md` and/or `briefs/<task>-reviewer.md` not found.
 > Re-run `/roster-plan` to produce both sub-briefs before starting implementation.
+
+**KB invariants (conditional):**
+
+```bash
+[ -d kb ] && [ -f kb/properties.md ] && echo "KB present" || echo "KB absent"
+```
+
+If `kb/properties.md` exists, read it **before touching any code**.
+Extract the invariants — keep them as a mental checklist throughout implementation.
+Violating a KB invariant is a **blocker**: stop and escalate rather than breaking the invariant.
 
 ## Steps
 

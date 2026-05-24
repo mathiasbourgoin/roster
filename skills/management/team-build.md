@@ -13,7 +13,7 @@ Apply an approved team proposal to the project harness. This is the install step
    - If no proposal file is found, stop: "No approved proposal found. Run `/recruit` first to generate and validate one."
 2. The proposal must have passed the recruiter validation quiz — confirm this before proceeding.
 
-## Workflow
+## Steps
 
 1. **Locate the proposal** — find the most recent `docs/team-proposal-*.md`. If multiple exist, list them and ask the user to confirm which to apply.
 

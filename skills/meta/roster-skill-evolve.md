@@ -1,7 +1,7 @@
 ---
 name: roster-skill-evolve
 description: Implements skill-health approved improvements — skills, tools, adaptations, agents.
-version: 1.2.0
+version: 1.3.0
 domain: meta
 phase: null
 preamble: true
@@ -170,6 +170,22 @@ fi
 
 If any skill fails: restore the `## Friction Log` block with the correct format before proceeding to the next proposal.
 
+### Harness coherence check (run after every proposal)
+
+```bash
+[ -d kb ] || [ -d .harness ] && echo "harness present" || echo "harness absent"
+```
+
+If harness/KB is **present**:
+→ Invoke `skills/kb/harness-validator.md` skill.
+→ If **Critical** findings:
+  - Present findings to human before proceeding to the next proposal.
+  - Ask: "Critical harness coherence issues found. Fix now, skip remaining proposals, or continue knowing the risks?"
+  - If "fix now": STOP — fix harness, then re-run `/roster-skill-evolve`.
+  - If "skip remaining" or "continue": log to friction log and proceed as directed.
+→ If **Warnings only**: log to friction log; continue to next proposal.
+→ If harness/KB is **absent**: skip silently.
+
 ---
 
 ## Output Contract
@@ -186,6 +202,7 @@ For each APPROVED proposal:
 |---|---|
 | No approved proposals in the health report | Stop — re-run `/roster-skill-health` to generate proposals first |
 | A proposal implementation breaks existing quality gates | Stop — revert the change, note in friction log, skip that proposal |
+| Harness-validator returns Critical and user chose to fix harness | Stop — fix harness, then re-run `/roster-skill-evolve` |
 
 ## What Next
 

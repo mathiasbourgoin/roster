@@ -28,7 +28,7 @@ You cannot spawn agents. The pipeline runs through human-mediated handoffs:
 
 Tell the user this upfront. Do not imply agents hand off autonomously.
 
-## Workflow
+## Steps
 
 1. **Intake check** — if the task is fuzzy or high-stakes (team composition, architecture, scope, governance), run the diagnostic interview (per `rules/governance/diagnostic-interview.md`) before proceeding.
 

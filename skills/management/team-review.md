@@ -12,7 +12,7 @@ Audit the currently installed team. Equivalent to running recruiter Mode 2 (Team
 1. An installed team must exist (`.harness/harness.json` or `.claude/agents/`).
    - If none found, stop: "No installed team found. Run `/recruit` to assemble one."
 
-## Workflow
+## Steps
 
 1. **Read current harness state** — check `.harness/harness.json` (or `.claude/harness.json` if legacy). Note installed agents, versions, and last-modified dates.
 

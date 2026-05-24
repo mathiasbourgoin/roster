@@ -7,6 +7,12 @@ version: 1.0.0
 
 Apply standardized git conventions for the action described in $ARGUMENTS (e.g., "commit this", "create PR", "new branch for auth feature").
 
+## Steps
+
+1. Identify the action requested in `$ARGUMENTS` (commit, branch, PR, or full workflow).
+2. Apply the relevant convention sections below.
+3. Execute the git command(s) following the format.
+
 ## Commit Format
 
 ```

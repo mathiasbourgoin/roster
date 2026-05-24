@@ -1,7 +1,7 @@
 ---
 name: roster-ship
 description: Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go.
-version: 1.1.0
+version: 1.2.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -128,6 +128,25 @@ Branch deleted: <branch>
 Closes: #N
 ```
 
+### 8. KB sync (conditional)
+
+```bash
+[ -d kb ] && ([ -f kb/spec.md ] || [ -f kb/index.md ]) && echo "KB present" || echo "KB absent"
+```
+
+If KB is **present**:
+→ Invoke `skills/kb/kb-update.md` skill.
+→ If `kb-update` reports a **contradiction** (code contradicts KB spec):
+  - Surface as WARNING in the ship log — **do not attempt to revert the merge**.
+  - Open a follow-up task: "KB amendment — `<task-slug>`" (describe the contradiction).
+→ If KB updated cleanly:
+  ```bash
+  git add kb/
+  git commit -m "docs(kb): sync KB with <task-slug> changes"
+  git push
+  ```
+→ If KB is **absent**: skip silently.
+
 ## Output Contract
 
 GitHub PR opened (then merged after human approval), or BLOCKED status documented.
@@ -149,6 +168,7 @@ If `jq` is not available or the file does not exist, note the missed increment i
 |---|---|
 | QA brief is not GO | Stop — do not ship; return to `/roster-qa` or `/roster-implement` |
 | Pre-ship gate check reveals a new failure | Stop — re-run `/roster-qa` before retrying |
+| `kb-update` reports code contradicts KB spec | Log WARNING, do not revert — open a KB amendment follow-up task |
 
 ## What Next
 
