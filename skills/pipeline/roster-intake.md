@@ -1,6 +1,6 @@
 ---
 name: roster-intake
-description: Phase d'intake — transforme une tâche en brief contractuel validé par l'humain.
+description: Intake phase — transforms a task into a contractual brief validated by the human.
 version: 1.0.0
 domain: pipeline
 phase: intake
@@ -18,131 +18,131 @@ artifacts:
   writes:
     - briefs/<task>-intake.md
 pipeline_role:
-  triggered_by: /roster-run ou humain avec une tâche
-  receives: description de tâche dans $ARGUMENTS
-  produces: briefs/<task>-intake.md validé
+  triggered_by: /roster-run or human with a task
+  receives: task description in $ARGUMENTS
+  produces: briefs/<task>-intake.md validated
 ---
 
 # Roster Intake
 
-Tu transformes une tâche en brief contractuel. Ce brief est la seule source de vérité pour toutes les phases suivantes — il doit être complet, précis, et sans ambiguïté non résolue.
+You transform a task into a contractual brief. This brief is the single source of truth for all subsequent phases — it must be complete, precise, and free of unresolved ambiguity.
 
-**Token discipline :** lis d'abord, pose ensuite. Jamais de questions sur des choses lisibles.
+**Token discipline:** read first, then ask. Never ask about things that are readable.
 
 ## Input Contract
 
-- `$ARGUMENTS` : description de la tâche (peut être courte ou longue)
-- KB si elle existe (`kb/spec.md`, `kb/properties.md`, `kb/risks.md`)
-- `AGENTS.md`, `README.md` pour le contexte projet
+- `$ARGUMENTS`: task description (can be short or long)
+- KB if it exists (`kb/spec.md`, `kb/properties.md`, `kb/risks.md`)
+- `AGENTS.md`, `README.md` for project context
 
 ## Steps
 
-### 1. Lecture silencieuse
+### 1. Silent reading
 
-Avant toute question :
+Before any question:
 
-- Lire la KB si elle existe
-- Lire `AGENTS.md` et `README.md`
-- Identifier les fichiers probablement impliqués (grep si besoin)
-- Former une première compréhension de la tâche
+- Read the KB if it exists
+- Read `AGENTS.md` and `README.md`
+- Identify files likely involved (grep if needed)
+- Form an initial understanding of the task
 
-Si la tâche est dans $ARGUMENTS, l'analyser complètement avant de demander quoi que ce soit.
+If the task is in $ARGUMENTS, analyze it completely before asking anything.
 
-### 2. Questions de clarification (si nécessaire)
+### 2. Clarification questions (if necessary)
 
-Ne poser que ce qu'on ne peut pas inférer. Une question à la fois.
+Only ask what cannot be inferred. One question at a time.
 
-Questions typiques selon les gaps :
-- "Quel est le comportement attendu pour [cas non couvert dans la description] ?"
-- "Est-ce que [composant X] est dans le scope ou non ?"
-- "Quelle est la contrainte de compatibilité pour [Y] ?"
+Typical questions based on gaps:
+- "What is the expected behavior for [case not covered in the description]?"
+- "Is [component X] in scope or not?"
+- "What is the compatibility constraint for [Y]?"
 
-**Ne pas demander** ce qui est dans la KB, dans le README, ou dans les fichiers du repo.
+**Do not ask** about what is in the KB, the README, or the repo files.
 
-### 3. Identifier les fichiers relevant
+### 3. Identify relevant files
 
-Lire (pas juste lister) les fichiers directement impliqués :
-- Fichiers à modifier
-- Fichiers de test associés
-- Fichiers de configuration impactés
-- Extraire les snippets clés (fonctions, types, interfaces)
+Read (not just list) the files directly involved:
+- Files to modify
+- Associated test files
+- Impacted configuration files
+- Extract key snippets (functions, types, interfaces)
 
-### 4. Vérifier les quality gates
+### 4. Verify quality gates
 
-Depuis `AGENTS.md`, README, ou KB — trouver les commandes exactes pour :
+From `AGENTS.md`, README, or KB — find the exact commands for:
 - Build
 - Tests
 - Lint / format
-- Tout gate projet-spécifique
+- Any project-specific gate
 
-Si aucun gate n'est documenté, noter explicitement "non documenté" — pas d'invention.
+If no gate is documented, explicitly note "not documented" — do not invent.
 
-### 5. Écrire le brief
+### 5. Write the brief
 
-Produire `briefs/<task>-intake.md` au format exact ci-dessous.
+Produce `briefs/<task>-intake.md` in the exact format below.
 
-**Dériver le slug de tâche** depuis $ARGUMENTS : kebab-case, max 4 mots.
-Exemple : "ajouter le support des webhooks" → `webhook-support`
+**Derive the task slug** from $ARGUMENTS: kebab-case, max 4 words.
+Example: "add webhook support" → `webhook-support`
 
 ```markdown
 # Intake Brief — <task-slug>
 
-**Date :** <ISO-8601>
-**Statut :** DRAFT — en attente de validation
+**Date:** <ISO-8601>
+**Status:** DRAFT — pending validation
 
 ## Goal
 
-<1-2 paragraphes : ce qui est construit ou corrigé, pourquoi, valeur attendue>
+<1-2 paragraphs: what is built or fixed, why, expected value>
 
 ## Scope Boundary
 
-Ce qui est explicitement HORS scope :
+What is explicitly OUT of scope:
 - <item 1>
 - <item 2>
 
 ## Relevant Files
 
-| Fichier | Rôle | Snippet clé |
+| File | Role | Key snippet |
 |---|---|---|
-| `path/to/file.ml` | <rôle> | `<extrait de code pertinent>` |
+| `path/to/file.ml` | <role> | `<relevant code excerpt>` |
 
 ## Architecture Notes
 
-<Uniquement ce qui est pertinent pour cette tâche — pas de survol général>
+<Only what is relevant for this task — no general overview>
 
 ## Quality Gates
 
 ```bash
 # Build
-<commande exacte>
+<exact command>
 
 # Tests
-<commande exacte>
+<exact command>
 
 # Lint/Format
-<commande exacte>
+<exact command>
 ```
 
 ## Open Questions
 
-- [ ] <question non résolue 1 — ce que les agents d'implémentation ne doivent pas assumer>
-- [ ] <question non résolue 2>
+- [ ] <unresolved question 1 — what implementation agents must not assume>
+- [ ] <unresolved question 2>
 
-_(vide si tout est résolu)_
+_(empty if everything is resolved)_
 ```
 
-### 6. Gate humain
+### 6. Human gate
 
-Présenter le brief et demander :
-> "Brief prêt. Valide ou corrige avant que je passe à `/roster-plan`."
+Present the brief and ask:
+> "Brief ready. Validate or correct before I proceed to `/roster-plan`."
 
-Attendre validation explicite. Appliquer les corrections si demandées, puis mettre `**Statut :** VALIDÉ` dans le brief.
+Wait for explicit validation. Apply corrections if requested, then set `**Status:** VALIDATED` in the brief.
 
 ## Output Contract
 
-`briefs/<task>-intake.md` avec statut VALIDÉ, contenant les 6 sections requises sans ambiguïté non résolue.
+`briefs/<task>-intake.md` with VALIDATED status, containing the 6 required sections with no unresolved ambiguity.
 
-**Suivant :** `/roster-plan` lit ce fichier comme seule source de vérité.
+**Next:** `/roster-plan` reads this file as the single source of truth.
 
 ## Friction Log
 
@@ -161,7 +161,7 @@ Attendre validation explicite. Appliquer les corrections si demandées, puis met
 
 ## Rules
 
-- Ne jamais passer à l'étape suivante sans validation humaine explicite
-- Ne jamais inventer des quality gates — noter "non documenté" si absent
-- Ne jamais laisser une Open Question avec "TBD" ou "à voir" — soit on la résout, soit on la formule précisément pour que les implémenteurs ne l'assument pas
-- Lire les fichiers avant de les lister dans Relevant Files
+- Never proceed to the next step without explicit human validation
+- Never invent quality gates — note "not documented" if absent
+- Never leave an Open Question with "TBD" or "to be decided" — either resolve it, or formulate it precisely so implementers do not assume
+- Read files before listing them in Relevant Files

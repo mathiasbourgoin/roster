@@ -1,6 +1,6 @@
 ---
 name: roster-skill-evolve
-description: Implémente les améliorations approuvées par skill-health — skills, outils, adaptations, agents.
+description: Implements skill-health approved improvements — skills, tools, adaptations, agents.
 version: 1.0.0
 domain: meta
 phase: null
@@ -16,153 +16,153 @@ artifacts:
     - scripts/<name>.sh
     - .harness/harness.json (via sync-harness.sh)
 pipeline_role:
-  triggered_by: /roster-skill-health avec propositions APPROUVÉ
+  triggered_by: /roster-skill-health with APPROVED proposals
   receives: skills-meta/health-<date>.md
-  produces: skills / scripts / patches installés dans le harness
+  produces: skills / scripts / patches installed in the harness
 ---
 
 # Roster Skill Evolve
 
-Tu implémentes les améliorations approuvées par `/roster-skill-health`. Tu travailles proposition par proposition, avec une gate humain avant chaque install.
+You implement improvements approved by `/roster-skill-health`. Work one proposal at a time, with a human gate before each install.
 
-**Token discipline :** une proposition à la fois. Pas de batch silencieux.
+**Token discipline:** one proposal at a time. No silent batching.
 
 ## Input Contract
 
-Trouver le rapport le plus récent :
+Find the most recent report:
 ```bash
 ls -t skills-meta/health-*.md | head -1
 ```
 
-Lire ce fichier. Extraire les propositions marquées `**APPROUVÉ**`.
+Read this file. Extract proposals marked `**APPROVED**`.
 
-Si aucune proposition APPROUVÉ :
-> "Aucune proposition approuvée dans le dernier rapport.
-> Relancer `/roster-skill-health` pour analyser le friction log."
+If no APPROVED proposal:
+> "No approved proposals in the latest report.
+> Re-run `/roster-skill-health` to analyze the friction log."
 
 ## Steps
 
-Pour chaque proposition APPROUVÉ, dans l'ordre A → B → C → D :
+For each APPROVED proposal, in order A → B → C → D:
 
-### Proposition [SKILL] — Nouveau skill
+### Proposal [SKILL] — New skill
 
-1. **Gate avant** : présenter le nom et la description proposée. Confirmer le domaine (`pipeline`, `operational`, `meta`).
+1. **Gate before**: present the proposed name and description. Confirm the domain (`pipeline`, `operational`, `meta`).
 
-2. **Search first** :
-   - Chercher dans `skills/` si un skill similaire existe
-   - Chercher dans l'index roster (`index.json`) si disponible
-   - Si équivalent trouvé → proposer adaptation plutôt que création
+2. **Search first**:
+   - Search in `skills/` for a similar existing skill
+   - Search in the roster index (`index.json`) if available
+   - If equivalent found → propose adaptation instead of creation
 
-3. **Invoquer skill-creator** :
-   Spawner le sub-agent `skill-creator` si disponible (`.claude/agents/skill-creator.md` existe).
-   Sinon, décrire manuellement le skill (nom, domaine, description, artifacts in/out) et ouvrir une issue sur le roster repo.
-   Fournir :
-   - Description de la capacité
-   - Domaine cible
-   - Contexte des frictions qui ont motivé la création
-   - Path : `.claude/agents/` (lire depuis le harness installé)
+3. **Invoke skill-creator**:
+   Spawn the `skill-creator` sub-agent if available (`.claude/agents/skill-creator.md` exists).
+   Otherwise, manually describe the skill (name, domain, description, artifacts in/out) and open an issue on the roster repo.
+   Provide:
+   - Capability description
+   - Target domain
+   - Context of frictions that motivated the creation
+   - Path: `.claude/agents/` (read from installed harness)
 
-4. **Review du skill généré** :
-   - Vérifier frontmatter (description, version, domain, friction_log, preamble)
-   - Vérifier présence des sections requises (Input Contract, Steps, Output Contract, Friction Log, Rules)
-   - Vérifier cohérence avec les artefacts des skills adjacents
-   - Appliquer corrections si nécessaires
+4. **Review the generated skill**:
+   - Verify frontmatter (description, version, domain, friction_log, preamble)
+   - Verify presence of required sections (Input Contract, Steps, Output Contract, Friction Log, Rules)
+   - Verify consistency with artifacts of adjacent skills
+   - Apply corrections if necessary
 
-5. **Gate après** : présenter le skill final. Demander approbation d'install.
+5. **Gate after**: present the final skill. Request install approval.
 
-6. **Install** :
+6. **Install**:
    ```bash
-   # Placer dans le domaine approprié
+   # Place in the appropriate domain
    mv <skill-draft> skills/<domain>/roster-<name>.md
 
-   # Ajouter au harness.json
-   # (section layers.skills)
+   # Add to harness.json
+   # (layers.skills section)
 
-   # Projeter sur les runtimes si sync-harness.sh disponible
-   bash scripts/sync-harness.sh 2>/dev/null || echo "sync manuel requis"
+   # Project to runtimes if sync-harness.sh available
+   bash scripts/sync-harness.sh 2>/dev/null || echo "manual sync required"
    ```
 
 ---
 
-### Proposition [TOOL] — Outil déterministe
+### Proposal [TOOL] — Deterministic tool
 
-1. **Gate avant** : présenter le nom du script et son comportement attendu.
+1. **Gate before**: present the script name and its expected behavior.
 
-2. **Écrire le script** dans `scripts/` :
-   - Header de documentation obligatoire :
+2. **Write the script** in `scripts/`:
+   - Mandatory documentation header:
      ```bash
      #!/usr/bin/env bash
-     # <nom>.sh — <description une ligne>
-     # Usage: ./<nom>.sh [args]
-     # Motivé par: friction "<friction originale>" (<N> occurrences)
-     # Ajouté le: <date>
+     # <name>.sh — <one-line description>
+     # Usage: ./<name>.sh [args]
+     # Motivated by: friction "<original friction>" (<N> occurrences)
+     # Added: <date>
      set -euo pipefail
      ```
-   - Comportement déterministe — mêmes inputs → mêmes outputs
-   - Exit code explicite (0 = succès, non-zero = erreur)
-   - Message d'erreur utile sur stderr
+   - Deterministic behavior — same inputs → same outputs
+   - Explicit exit code (0 = success, non-zero = error)
+   - Useful error message on stderr
 
-3. **Tester le script** :
-   - Cas nominal
-   - Cas d'erreur (input manquant, environnement cassé)
-   - Documenter les cas testés dans le header
+3. **Test the script**:
+   - Nominal case
+   - Error case (missing input, broken environment)
+   - Document tested cases in the header
 
-4. **Référencer dans le skill concerné** :
-   - Ouvrir le skill qui génère la friction
-   - Remplacer le workaround par l'appel au script dans la section Steps
-   - Bump version (patch : +0.0.1)
+4. **Reference in the affected skill**:
+   - Open the skill that generates the friction
+   - Replace the workaround with the script call in the Steps section
+   - Bump version (patch: +0.0.1)
 
-5. **Gate après** : montrer le script et le diff du skill modifié.
+5. **Gate after**: show the script and the diff of the modified skill.
 
 ---
 
-### Proposition [ADAPT] — Adaptation de skill existant
+### Proposal [ADAPT] — Adaptation of existing skill
 
-1. **Gate avant** : présenter le skill cible, la section à modifier, et le changement proposé.
+1. **Gate before**: present the target skill, the section to modify, and the proposed change.
 
-2. **Lire le skill actuel** dans son intégralité.
+2. **Read the current skill** in its entirety.
 
-3. **Appliquer le patch** :
-   - Modifier uniquement la section identifiée
-   - Ne pas toucher au reste
-   - Bump version :
-     - Changement de comportement minor : +0.1.0
-     - Fix / clarification : +0.0.1
+3. **Apply the patch**:
+   - Modify only the identified section
+   - Do not touch the rest
+   - Bump version:
+     - Minor behavior change: +0.1.0
+     - Fix / clarification: +0.0.1
 
-4. **Vérifier la cohérence** :
-   - Les artefacts produits correspondent toujours aux artefacts lus par le skill suivant
-   - Les Rules ne sont pas contredites par les nouveaux Steps
-   - Le Friction Log est toujours présent
+4. **Verify consistency**:
+   - Produced artifacts still match the artifacts read by the next skill
+   - Rules are not contradicted by the new Steps
+   - Friction Log is still present
 
-5. **Gate après** : présenter le diff. Demander approbation avant de sauvegarder.
+5. **Gate after**: present the diff. Request approval before saving.
 
-6. **Projeter** si le skill est dans `.claude/commands/` :
+6. **Project** if the skill is in `.claude/commands/`:
    ```bash
    cp skills/<domain>/roster-<name>.md .claude/commands/roster-<name>.md
    ```
 
 ---
 
-### Proposition [AGENT] — Nouvel agent dédié
+### Proposal [AGENT] — New dedicated agent
 
-1. **Gate avant** : présenter le rôle, le domaine, et les frictions qui le motivent. C'est un investissement large — confirmer explicitement.
+1. **Gate before**: present the role, domain, and frictions motivating it. This is a large investment — confirm explicitly.
 
-2. **Séquencer** :
-   - D'abord invoquer `skill-creator` pour définir le profil du skill associé
-   - Puis invoquer `recruiter` en Mode 1 avec le nouveau rôle comme besoin identifié
-   - Gate humain entre les deux
+2. **Sequence**:
+   - First invoke `skill-creator` to define the associated skill profile
+   - Then invoke `recruiter` in Mode 1 with the new role as the identified need
+   - Human gate between the two
 
-3. **Suivre le workflow recruiter standard** pour l'install dans le harness.
+3. **Follow the standard recruiter workflow** for install in the harness.
 
 ---
 
 ## Output Contract
 
-Pour chaque proposition APPROUVÉ :
-- [SKILL] → `skills/<domain>/roster-<name>.md` installé + harness mis à jour
-- [TOOL] → `scripts/<name>.sh` créé + skill concerné patché
-- [ADAPT] → skill patché + version bumpée
-- [AGENT] → agent installé via recruiter
+For each APPROVED proposal:
+- [SKILL] → `skills/<domain>/roster-<name>.md` installed + harness updated
+- [TOOL] → `scripts/<name>.sh` created + affected skill patched
+- [ADAPT] → skill patched + version bumped
+- [AGENT] → agent installed via recruiter
 
 ## Friction Log
 
@@ -181,9 +181,9 @@ Pour chaque proposition APPROUVÉ :
 
 ## Rules
 
-- Une proposition à la fois — jamais de batch silencieux
-- Gate humain avant ET après chaque install
-- Search first pour les skills — ne pas créer ce qui existe
-- Ne jamais modifier un skill en dehors de la section identifiée dans la proposition ADAPT
-- Si skill-creator échoue → noter dans friction.jsonl et passer à la proposition suivante
-- Le friction log de skill-evolve lui-même est une source de méta-amélioration
+- One proposal at a time — no silent batching
+- Human gate before AND after each install
+- Search first for skills — do not create what already exists
+- Never modify a skill outside the section identified in the ADAPT proposal
+- If skill-creator fails → note in friction.jsonl and move to the next proposal
+- The friction log of skill-evolve itself is a source of meta-improvement

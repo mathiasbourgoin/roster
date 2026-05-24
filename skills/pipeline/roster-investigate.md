@@ -1,6 +1,6 @@
 ---
 name: roster-investigate
-description: Investigation root-cause — analyse un bug ou comportement inattendu sans modifier le code hors scope.
+description: Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code.
 version: 1.0.0
 domain: pipeline
 phase: null
@@ -16,151 +16,151 @@ artifacts:
   writes:
     - briefs/<task>-investigation.md
 pipeline_role:
-  triggered_by: /roster-run (bug, régression, comportement inattendu)
-  receives: description du symptôme dans $ARGUMENTS
-  produces: briefs/<task>-investigation.md avec root cause et plan de fix
+  triggered_by: /roster-run (bug, regression, unexpected behavior)
+  receives: symptom description in $ARGUMENTS
+  produces: briefs/<task>-investigation.md with root cause and fix plan
 ---
 
 # Roster Investigate
 
-Tu analyses un bug ou comportement inattendu. Ton travail est de **comprendre**, pas de corriger.
-Aucune modification de code sans gate humain explicite.
+You analyze a bug or unexpected behavior. Your job is to **understand**, not to fix.
+No code modification without an explicit human gate.
 
-**Règle fondamentale :** jamais de fix sans investigation complète. Un fix sans root cause est une dette déguisée en solution.
+**Fundamental rule:** never fix without a complete investigation. A fix without a root cause is debt disguised as a solution.
 
 ## Input Contract
 
-`$ARGUMENTS` : description du symptôme observé (peut être court).
+`$ARGUMENTS`: description of the observed symptom (can be short).
 
-Si le symptôme est trop vague pour commencer :
-> "Décris le comportement observé vs le comportement attendu, et dans quel contexte tu l'as vu."
+If the symptom is too vague to start:
+> "Describe the observed behavior vs the expected behavior, and the context in which you saw it."
 
 ## Steps
 
-### 1. Gate avant — freeze scope
+### 1. Gate before — freeze scope
 
-Si `tunables.auto_freeze_scope: true`, annoncer avant de commencer :
-> "Je vais investiguer en mode lecture seule. Je ne modifie aucun fichier sans te le demander explicitement. Le scope d'investigation : [ce qui est pertinent d'après la description]."
+If `tunables.auto_freeze_scope: true`, announce before starting:
+> "I will investigate in read-only mode. I will not modify any file without explicitly asking you. Investigation scope: [what is relevant from the description]."
 
-Attendre confirmation avant de commencer.
+Wait for confirmation before starting.
 
-### 2. Comprendre le symptôme
+### 2. Understand the symptom
 
-- Reformuler le symptôme en termes précis :
-  - Comportement observé
-  - Comportement attendu
-  - Conditions de reproduction (toujours / parfois / une fois)
-  - Contexte (environnement, données, état)
-- Identifier le module / fichier / fonction probablement impliqué
+- Restate the symptom in precise terms:
+  - Observed behavior
+  - Expected behavior
+  - Reproduction conditions (always / sometimes / once)
+  - Context (environment, data, state)
+- Identify the module / file / function most likely involved
 
-### 3. Reproduire (si possible)
-
-```bash
-# Tenter de reproduire le symptôme
-<commande de reproduction si connue>
-```
-
-Si non reproductible → noter et continuer l'analyse statique.
-
-### 4. Formuler des hypothèses
-
-Formuler jusqu'à `tunables.max_hypothesis` hypothèses de root cause, ordonnées par probabilité.
-
-Pour chaque hypothèse :
-```
-H1 : <description>
-  Probabilité : haute / moyenne / faible
-  Evidence : <ce qui supporte cette hypothèse dans le code>
-  Test : <comment confirmer ou infirmer>
-```
-
-### 5. Tester les hypothèses (lecture seule)
-
-Pour chaque hypothèse, dans l'ordre de probabilité :
-- Lire le code pertinent
-- Tracer le flux d'exécution
-- Chercher la preuve ou l'infirmation
+### 3. Reproduce (if possible)
 
 ```bash
-# Outils en lecture seule
-git log --oneline -20 -- <fichier>
-git blame <fichier>
-grep -n "<pattern>" <fichier>
+# Attempt to reproduce the symptom
+<reproduction command if known>
 ```
 
-Arrêter dès qu'une hypothèse est confirmée avec evidence.
+If not reproducible → note and continue with static analysis.
 
-### 6. Identifier la root cause
+### 4. Formulate hypotheses
 
-Formuler la root cause de façon précise :
+Formulate up to `tunables.max_hypothesis` root cause hypotheses, ordered by probability.
+
+For each hypothesis:
 ```
-Root cause : <description>
-Evidence : <fichier:ligne — citation exacte>
-Introduit : <commit ou date si traçable>
-Scope d'impact : <ce qui est affecté>
-```
-
-Si plusieurs hypothèses restent ouvertes → les lister avec leur niveau de confiance.
-
-### 7. Proposer un plan de fix
-
-Sans toucher au code :
-```
-Plan de fix :
-1. <étape 1 — fichier concerné>
-2. <étape 2>
-
-Risques du fix :
-- <ce qui pourrait régresser>
-
-Tests à ajouter :
-- <test qui aurait détecté ce bug>
+H1: <description>
+  Probability: high / medium / low
+  Evidence: <what supports this hypothesis in the code>
+  Test: <how to confirm or refute>
 ```
 
-### 8. Écrire le rapport
+### 5. Test hypotheses (read-only)
 
-Produire `briefs/<task>-investigation.md` :
+For each hypothesis, in probability order:
+- Read the relevant code
+- Trace the execution flow
+- Look for proof or refutation
+
+```bash
+# Read-only tools
+git log --oneline -20 -- <file>
+git blame <file>
+grep -n "<pattern>" <file>
+```
+
+Stop as soon as a hypothesis is confirmed with evidence.
+
+### 6. Identify the root cause
+
+State the root cause precisely:
+```
+Root cause: <description>
+Evidence: <file:line — exact quote>
+Introduced: <commit or date if traceable>
+Impact scope: <what is affected>
+```
+
+If multiple hypotheses remain open → list them with their confidence level.
+
+### 7. Propose a fix plan
+
+Without touching code:
+```
+Fix plan:
+1. <step 1 — affected file>
+2. <step 2>
+
+Fix risks:
+- <what could regress>
+
+Tests to add:
+- <test that would have caught this bug>
+```
+
+### 8. Write the report
+
+Produce `briefs/<task>-investigation.md`:
 
 ```markdown
 # Investigation — <task-slug>
 
-**Date :** <ISO-8601>
-**Symptôme :** <reformulation précise>
-**Statut :** ROOT CAUSE IDENTIFIÉE / HYPOTHÈSES EN COURS
+**Date:** <ISO-8601>
+**Symptom:** <precise restatement>
+**Status:** ROOT CAUSE IDENTIFIED / HYPOTHESES IN PROGRESS
 
 ## Root Cause
 
-<description précise>
-**Evidence :** `<fichier>:<ligne>` — `<citation exacte>`
-**Introduit :** <commit ou "indéterminé">
+<precise description>
+**Evidence:** `<file>:<line>` — `<exact quote>`
+**Introduced:** <commit or "undetermined">
 
-## Hypothèses testées
+## Tested hypotheses
 
-| # | Hypothèse | Résultat | Evidence |
+| # | Hypothesis | Result | Evidence |
 |---|---|---|---|
-| H1 | ... | CONFIRMÉE / INFIRMÉE | `fichier:ligne` |
+| H1 | ... | CONFIRMED / REFUTED | `file:line` |
 
-## Plan de fix
+## Fix plan
 
-<étapes proposées>
+<proposed steps>
 
-## Tests à ajouter
+## Tests to add
 
-<tests qui auraient détecté ce bug>
+<tests that would have caught this bug>
 
-## Scope d'impact
+## Impact scope
 
-<ce qui est affecté — modules, utilisateurs, données>
+<what is affected — modules, users, data>
 ```
 
-Présenter le rapport et demander :
-> "Root cause identifiée. Veux-tu que je passe à `/roster-intake` pour formaliser le fix, ou tu préfères le faire toi-même ?"
+Present the report and ask:
+> "Root cause identified. Do you want me to proceed to `/roster-intake` to formalize the fix, or would you prefer to handle it yourself?"
 
 ## Output Contract
 
-`briefs/<task>-investigation.md` avec root cause documentée ou hypothèses en cours.
+`briefs/<task>-investigation.md` with documented root cause or hypotheses in progress.
 
-**Si root cause identifiée :** route suggérée vers `/roster-intake` avec le rapport comme contexte.
+**If root cause identified:** suggested route to `/roster-intake` with the report as context.
 
 ## Friction Log
 
@@ -179,8 +179,8 @@ Présenter le rapport et demander :
 
 ## Rules
 
-- Jamais de modification de code sans gate humain explicite
-- Jamais de fix proposé sans root cause identifiée
-- Toute affirmation de cause doit citer le fichier et la ligne
-- "Ça ressemble à" n'est pas une root cause — confirmer ou infirmer
-- Si reproductible : reproduire avant d'analyser statiquement
+- Never modify code without an explicit human gate
+- Never propose a fix without an identified root cause
+- Every causal claim must cite the file and line
+- "Looks like" is not a root cause — confirm or refute
+- If reproducible: reproduce before analyzing statically

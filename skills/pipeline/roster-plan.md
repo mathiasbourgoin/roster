@@ -1,6 +1,6 @@
 ---
 name: roster-plan
-description: Décomposition dual-voice — lit le brief intake, produit des sous-briefs par rôle.
+description: Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs.
 version: 1.0.0
 domain: pipeline
 phase: plan
@@ -17,203 +17,203 @@ artifacts:
     - briefs/<task>-reviewer.md
     - briefs/<task>-qa-scope.md
 pipeline_role:
-  triggered_by: /roster-intake avec brief validé
-  receives: briefs/<task>-intake.md (seule source de vérité)
-  produces: sous-briefs par rôle + plan séquencé
+  triggered_by: /roster-intake with validated brief
+  receives: briefs/<task>-intake.md (single source of truth)
+  produces: per-role sub-briefs + sequenced plan
 ---
 
 # Roster Plan
 
-Tu décomposes un brief validé en sous-briefs exécutables. Tu n'as pas de contexte de recherche — le brief est ta seule source de vérité. Ce que le brief ne dit pas n'existe pas pour toi.
+You decompose a validated brief into executable sub-briefs. You have no research context — the brief is your single source of truth. What the brief does not say does not exist for you.
 
-**Token discipline :** décomposition précise. Pas d'invention hors brief.
+**Token discipline:** precise decomposition. No invention beyond the brief.
 
 ## Input Contract
 
-Lire `briefs/<task>-intake.md` **en entier** avant de faire quoi que ce soit.
+Read `briefs/<task>-intake.md` **in full** before doing anything.
 
-Si le brief est absent ou n'a pas le statut VALIDÉ :
-> ⛔ Brief intake absent ou non validé. Relancer `/roster-intake` d'abord.
+If the brief is absent or does not have VALIDATED status:
+> ⛔ Intake brief absent or not validated. Re-run `/roster-intake` first.
 
-Si des sections requises manquent (Goal, Scope Boundary, Relevant Files, Quality Gates) :
-> ⛔ Brief incomplet — section(s) manquante(s) : <liste>. Compléter le brief avant de planifier.
+If required sections are missing (Goal, Scope Boundary, Relevant Files, Quality Gates):
+> ⛔ Incomplete brief — missing section(s): <list>. Complete the brief before planning.
 
 ## Steps
 
-### 1. Lire le brief
+### 1. Read the brief
 
-Lire `briefs/<task>-intake.md` intégralement. Ne rien lire d'autre.
+Read `briefs/<task>-intake.md` in its entirety. Read nothing else.
 
-Extraire :
-- Le goal et son scope boundary
-- Les fichiers impliqués
-- Les quality gates exactes
-- Les open questions non résolues
+Extract:
+- The goal and its scope boundary
+- The files involved
+- The exact quality gates
+- Any unresolved open questions
 
-### 2. Dual-voice : deux analyses indépendantes
+### 2. Dual-voice: two independent analyses
 
-Lancer **séquentiellement** deux analyses indépendantes du plan.
+Run **sequentially** two independent analyses of the plan.
 
-#### Voice 1 — Sub-agent Claude (fresh context)
+#### Voice 1 — Claude sub-agent (fresh context)
 
-Spawner un sub-agent avec ce prompt exact (ne pas injecter le contexte de la conversation courante) :
-
-```
-Tu es un architecte logiciel. On te fournit un brief de tâche.
-Tu dois proposer un plan de décomposition en étapes séquentielles.
-
-Sois adversarial : cherche les hypothèses non vérifiées, les dépendances cachées,
-les risques d'implémentation, et les cas limites non couverts par le brief.
-Ne complimente pas le brief — trouve ses failles.
-
-Brief :
-<contenu intégral de briefs/<task>-intake.md>
-
-Produis :
-1. Plan séquencé (étapes numérotées avec dépendances)
-2. Hypothèses que tu as dû faire (ce que le brief ne dit pas clairement)
-3. Risques identifiés
-4. Questions que tu poserais avant de commencer
-```
-
-#### Voice 2 — Second modèle ou fallback adversarial
-
-**Si un second modèle (codex, o3, etc.) est disponible :**
-→ Lancer la même analyse via ce modèle.
-
-**Si non disponible ou si erreur :**
-→ Spawner un second sub-agent Claude avec ce prompt (différent — plus adversarial) :
+Spawn a sub-agent with this exact prompt (do not inject the current conversation context):
 
 ```
-Tu es un ingénieur senior sceptique. On te demande de challenger un plan d'implémentation.
-Ton rôle : trouver pourquoi ce plan va échouer.
+You are a software architect. You are given a task brief.
+You must propose a decomposition plan in sequential steps.
 
-Hypothèse de départ : le plan est trop optimiste.
-Questions à te poser :
-- Qu'est-ce qui n'est pas dit dans le brief mais qui va poser problème ?
-- Quelles dépendances vont casser ?
-- Où est le vrai risque (pas le risque apparent) ?
-- Qu'est-ce qui va prendre 3x plus de temps que prévu ?
+Be adversarial: look for unverified assumptions, hidden dependencies,
+implementation risks, and edge cases not covered by the brief.
+Do not compliment the brief — find its flaws.
 
-Brief :
-<contenu intégral de briefs/<task>-intake.md>
+Brief:
+<full content of briefs/<task>-intake.md>
 
-Ne propose pas de plan alternatif — uniquement des objections argumentées.
+Produce:
+1. Sequenced plan (numbered steps with dependencies)
+2. Assumptions you had to make (what the brief does not clearly state)
+3. Identified risks
+4. Questions you would ask before starting
 ```
 
-### 3. Table de consensus
+#### Voice 2 — Second model or adversarial fallback
 
-Construire une table de synthèse :
+**If a second model (codex, o3, etc.) is available:**
+→ Run the same analysis via that model.
+
+**If not available or on error:**
+→ Spawn a second Claude sub-agent with this prompt (different — more adversarial):
+
+```
+You are a skeptical senior engineer. You are asked to challenge an implementation plan.
+Your role: find why this plan will fail.
+
+Starting assumption: the plan is too optimistic.
+Questions to ask yourself:
+- What is not said in the brief but will cause problems?
+- Which dependencies will break?
+- Where is the real risk (not the apparent risk)?
+- What will take 3x longer than expected?
+
+Brief:
+<full content of briefs/<task>-intake.md>
+
+Do not propose an alternative plan — only give argued objections.
+```
+
+### 3. Consensus table
+
+Build a synthesis table:
 
 ```markdown
 ## Consensus Table
 
-| Point | Voice 1 | Voice 2 | Statut |
+| Point | Voice 1 | Voice 2 | Status |
 |---|---|---|---|
-| Étape 1 : <description> | ✅ | ✅ | AGREE |
-| Risque : <description> | ⚠️ | ✅ | AGREE |
-| Approche pour X | Option A | Option B | DISAGREE |
-| Direction sur Y | Garder | Changer | USER-CHALLENGE |
+| Step 1: <description> | ✅ | ✅ | AGREE |
+| Risk: <description> | ⚠️ | ✅ | AGREE |
+| Approach for X | Option A | Option B | DISAGREE |
+| Direction on Y | Keep | Change | USER-CHALLENGE |
 
-Statuts :
-- AGREE : les deux voices convergent → auto-décidé
-- DISAGREE : désaccord sur une approche → présenter les deux options à l'humain
-- USER-CHALLENGE : les deux voices pensent que la direction du brief devrait changer → JAMAIS auto-décidé
+Statuses:
+- AGREE: both voices converge → auto-decided
+- DISAGREE: disagreement on an approach → present both options to the human
+- USER-CHALLENGE: both voices think the brief's direction should change → NEVER auto-decided
 ```
 
-**Règle USER-CHALLENGE :** si les deux analyses s'accordent pour changer une direction du brief :
-- Présenter clairement la recommandation
-- Expliquer pourquoi les deux analyses convergent
-- Énoncer ce qu'on pourrait manquer comme contexte
-- Demander — ne jamais agir
+**USER-CHALLENGE rule:** if both analyses agree to change a direction from the brief:
+- Clearly present the recommendation
+- Explain why both analyses converge
+- State what context might be missing
+- Ask — never act
 
-### 4. Résoudre les DISAGREE
+### 4. Resolve DISAGREE items
 
-Pour chaque DISAGREE, présenter les deux options à l'humain avec :
-- La position de Voice 1 (et pourquoi)
-- La position de Voice 2 (et pourquoi)
-- La recommandation si une option est clairement meilleure
+For each DISAGREE, present both options to the human with:
+- Voice 1's position (and why)
+- Voice 2's position (and why)
+- Recommendation if one option is clearly better
 
-Attendre la décision avant de continuer.
+Wait for the decision before continuing.
 
-### 5. Écrire le plan
+### 5. Write the plan
 
-Produire `briefs/<task>-plan.md` :
+Produce `briefs/<task>-plan.md`:
 
 ```markdown
 # Plan — <task-slug>
 
-**Date :** <ISO-8601>
-**Statut :** DRAFT
+**Date:** <ISO-8601>
+**Status:** DRAFT
 
-## Étapes séquentielles
+## Sequential steps
 
-1. **<étape>** — <description, fichiers impliqués, critère de complétion>
-2. **<étape>** — ...
+1. **<step>** — <description, files involved, completion criterion>
+2. **<step>** — ...
 
-## Dépendances
+## Dependencies
 
-<Étape N doit précéder étape M parce que ...>
+<Step N must precede step M because ...>
 
-## Risques identifiés
+## Identified risks
 
-| Risque | Probabilité | Impact | Mitigation |
+| Risk | Probability | Impact | Mitigation |
 |---|---|---|---|
 
-## Décisions prises
+## Decisions made
 
-| Point | Décision | Raison |
+| Point | Decision | Reason |
 |---|---|---|
 
-## Hypothèses
+## Assumptions
 
-<Ce qu'on a assumé parce que le brief ne le précisait pas>
+<What was assumed because the brief did not specify it>
 ```
 
-### 6. Écrire les sous-briefs
+### 6. Write sub-briefs
 
-Produire un sous-brief par rôle d'exécution :
+Produce one sub-brief per execution role:
 
-**`briefs/<task>-implementer.md`** — pour `/roster-implement` :
-- Goal, scope boundary, fichiers à modifier avec snippets
-- Étapes séquentielles du plan
-- Quality gates exactes
-- Points d'attention des voices (risques, hypothèses)
+**`briefs/<task>-implementer.md`** — for `/roster-implement`:
+- Goal, scope boundary, files to modify with snippets
+- Sequential steps from the plan
+- Exact quality gates
+- Points of attention from voices (risks, assumptions)
 
-**`briefs/<task>-reviewer.md`** — pour `/roster-review` :
-- Ce qui a été implementé (résumé depuis le plan)
-- Fichiers à auditer en priorité
-- Risques identifiés à vérifier
-- Comportements attendus à confirmer
+**`briefs/<task>-reviewer.md`** — for `/roster-review`:
+- What was implemented (summary from the plan)
+- Files to audit first
+- Identified risks to verify
+- Expected behaviors to confirm
 
-**`briefs/<task>-qa-scope.md` (brief, pas le rapport)** — pour `/roster-qa` :
-- Quality gates exactes avec commandes
-- Comportements à valider
-- Si scope TUI : scénarios à tester dans tmux matrix
+**`briefs/<task>-qa-scope.md` (brief, not the report)** — for `/roster-qa`:
+- Exact quality gates with commands
+- Behaviors to validate
+- If TUI scope: scenarios to test in tmux matrix
 
-### 7. Quiz de validation humaine
+### 7. Human validation quiz
 
-Avant de présenter les sous-briefs, poser 3 questions de cohérence :
+Before presenting the sub-briefs, ask 3 consistency questions:
 
-1. "Le plan séquence les étapes dans cet ordre : [liste]. Est-ce que l'ordre est correct ?"
-2. "Les risques identifiés sont : [liste]. Est-ce qu'il y en a d'autres importants ?"
-3. "Le sous-brief implementer couvre [scope]. Est-ce que ça correspond à ce que tu veux dans cette itération ?"
+1. "The plan sequences steps in this order: [list]. Is the order correct?"
+2. "The identified risks are: [list]. Are there other important ones?"
+3. "The implementer sub-brief covers [scope]. Does that match what you want in this iteration?"
 
-Attendre les réponses avant de finaliser les sous-briefs.
+Wait for answers before finalizing the sub-briefs.
 
-### 8. Gate humain final
+### 8. Final human gate
 
-Présenter les sous-briefs avec les paths. Demander validation avant spawn des agents d'exécution.
+Present the sub-briefs with their paths. Request validation before spawning execution agents.
 
-Mettre `**Statut :** VALIDÉ` dans chaque sous-brief après approbation.
+Set `**Status:** VALIDATED` in each sub-brief after approval.
 
 ## Output Contract
 
-- `briefs/<task>-plan.md` (VALIDÉ)
-- `briefs/<task>-implementer.md` (VALIDÉ)
-- `briefs/<task>-reviewer.md` (VALIDÉ)
+- `briefs/<task>-plan.md` (VALIDATED)
+- `briefs/<task>-implementer.md` (VALIDATED)
+- `briefs/<task>-reviewer.md` (VALIDATED)
 
-**Suivant :** `/roster-implement` lit `briefs/<task>-implementer.md`.
+**Next:** `/roster-implement` reads `briefs/<task>-implementer.md`.
 
 ## Friction Log
 
@@ -232,8 +232,8 @@ Mettre `**Statut :** VALIDÉ` dans chaque sous-brief après approbation.
 
 ## Rules
 
-- Le brief est la seule source de vérité — ne pas lire le codebase
-- USER-CHALLENGE n'est jamais auto-décidé — toujours présenter à l'humain
-- Ne pas spawner les agents d'exécution — produire les sous-briefs uniquement
-- Si une étape du plan n'est pas couverte par le brief → noter comme hypothèse, ne pas inventer
-- Les sous-briefs doivent être auto-suffisants : l'agent qui les reçoit ne peut pas supposer accès au contexte courant
+- The brief is the single source of truth — do not read the codebase
+- USER-CHALLENGE is never auto-decided — always present to the human
+- Do not spawn execution agents — produce sub-briefs only
+- If a plan step is not covered by the brief → note as assumption, do not invent
+- Sub-briefs must be self-contained: the receiving agent cannot assume access to the current context

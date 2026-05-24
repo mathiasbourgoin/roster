@@ -1,6 +1,6 @@
 ---
 name: roster-implement
-description: Implémentation guidée — TDD, improve loop, sub-agents OCaml. Lit le plan, produit un brief d'impl.
+description: Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief.
 version: 1.0.0
 domain: pipeline
 phase: implement
@@ -19,124 +19,124 @@ artifacts:
   writes:
     - briefs/<task>-impl.md
 pipeline_role:
-  triggered_by: /roster-plan avec sous-briefs validés
+  triggered_by: /roster-plan with validated sub-briefs
   receives: briefs/<task>-implementer.md
-  produces: briefs/<task>-impl.md + code implémenté avec quality gates verts
+  produces: briefs/<task>-impl.md + implemented code with passing quality gates
 ---
 
 # Roster Implement
 
-Tu implémentes le sous-brief qui t'a été assigné. Tu suis le plan, tu ne le réinterprètes pas. Si le plan est insuffisant ou contradictoire, tu escalades — tu n'assumes pas.
+You implement the sub-brief you have been assigned. Follow the plan — do not reinterpret it. If the plan is insufficient or contradictory, escalate — do not assume.
 
-**Token discipline :** une chose à la fois. Pas de grands refactors non demandés. Si tu vois une amélioration hors scope, tu la notes dans le Friction Log.
+**Token discipline:** one thing at a time. No unsolicited large refactors. If you see an out-of-scope improvement, note it in the Friction Log.
 
 ## Input Contract
 
-Lire `briefs/<task>-implementer.md` en entier avant de toucher au code.
-Vérifier que les quality gates sont documentés — sinon escalader.
+Read `briefs/<task>-implementer.md` in full before touching any code.
+Verify that quality gates are documented — escalate if not.
 
-Si le brief est absent ou incomplet :
-> ⛔ Brief implementer manquant ou incomplet. Je ne commence pas sans brief valide.
-> Relancer `/roster-plan` pour produire le sous-brief.
+If the brief is absent or incomplete:
+> ⛔ Implementer brief missing or incomplete. I will not start without a valid brief.
+> Re-run `/roster-plan` to produce the sub-brief.
 
 ## Steps
 
-### 1. Lecture et setup
+### 1. Read and setup
 
-- Lire le sous-brief implementer complet
-- Lire les fichiers référencés dans "Relevant Files"
-- Vérifier l'état du repo (`git status`)
-- Lancer les quality gates en baseline :
+- Read the complete implementer sub-brief
+- Read the files referenced in "Relevant Files"
+- Check repo state (`git status`)
+- Run quality gates as baseline:
   ```bash
   <build command>
   <test command>
   ```
-  Si la baseline est cassée → signaler avant de commencer, ne pas masquer.
+  If the baseline is broken → report before starting, do not hide it.
 
-### 2. Détection du contexte
+### 2. Context detection
 
-**Si scope OCaml et module complexe (> `tunables.ocaml_specialist_threshold` lignes de logique) :**
-→ Spawner le sub-agent `ocaml-dune-specialist` avec le sous-brief comme contexte.
-  Path de référence : `.claude/agents/ocaml-dune-specialist.md`
-  Le sub-agent implémente, tu intègres et vérifies.
+**If OCaml scope and complex module (> `tunables.ocaml_specialist_threshold` lines of logic):**
+→ Spawn the `ocaml-dune-specialist` sub-agent with the sub-brief as context.
+  Reference path: `.claude/agents/ocaml-dune-specialist.md`
+  The sub-agent implements; you integrate and verify.
 
-**Si scope non-OCaml (scripts, docs, JS/TS) :**
-→ Spawner le sub-agent `implementer` pour les parties hors OCaml.
-  Path de référence : `.claude/agents/implementer.md`
+**If non-OCaml scope (scripts, docs, JS/TS):**
+→ Spawn the `implementer` sub-agent for the non-OCaml parts.
+  Reference path: `.claude/agents/implementer.md`
 
-**Si scope mixte :** séquencer — OCaml d'abord, reste ensuite.
+**If mixed scope:** sequence — OCaml first, rest after.
 
-### 3. TDD si requis
+### 3. TDD if required
 
-Si `tunables.enforce_tdd: true` **ou** si le brief spécifie des tests à écrire :
-→ Invoquer le skill `/tdd-workflow` avec la description du comportement à implémenter.
-  Ne pas écrire de code de production avant un test rouge.
+If `tunables.enforce_tdd: true` **or** if the brief specifies tests to write:
+→ Invoke the `/tdd-workflow` skill with the description of the behavior to implement.
+  Do not write production code before a failing test.
 
-### 4. Implémentation itérative
+### 4. Iterative implementation
 
-Pour chaque unité de travail du plan :
+For each unit of work in the plan:
 
-1. Implémenter le minimum pour satisfaire le brief
-2. Lancer les quality gates
-3. Si les gates échouent :
-   - Max `tunables.max_improve_iterations` tentatives de correction
-   - Si toujours cassé après N tentatives → invoquer `/improvement-loop` avec scope borné
-   - Si `/improvement-loop` échoue → escalader à l'humain
+1. Implement the minimum to satisfy the brief
+2. Run quality gates
+3. If gates fail:
+   - Max `tunables.max_improve_iterations` correction attempts
+   - If still broken after N attempts → invoke `/improvement-loop` with bounded scope
+   - If `/improvement-loop` fails → escalate to the human
 
-**Ne jamais** commiter du code qui casse les gates existants.
+**Never** commit code that breaks existing gates.
 
-### 5. Vérification finale
+### 5. Final verification
 
 ```bash
-<build command>     # doit passer
-<test command>      # doit passer — tous les tests, pas juste les nouveaux
-<format command>    # doit passer
+<build command>     # must pass
+<test command>      # must pass — all tests, not just new ones
+<format command>    # must pass
 ```
 
-Si un test existant régresse → corriger l'implémentation, jamais le test.
+If an existing test regresses → fix the implementation, never the test.
 
-### 6. Écrire le brief d'impl
+### 6. Write the impl brief
 
-Produire `briefs/<task>-impl.md` :
+Produce `briefs/<task>-impl.md`:
 
 ```markdown
 # Implementation Brief — <task-slug>
 
-**Date :** <ISO-8601>
-**Statut :** TERMINÉ / PARTIEL (avec raison si partiel)
+**Date:** <ISO-8601>
+**Status:** COMPLETED / PARTIAL (with reason if partial)
 
-## Fichiers modifiés
+## Modified files
 
-| Fichier | Type de changement | Raison |
+| File | Type of change | Reason |
 |---|---|---|
-| `path/to/file.ml` | ajout / modification / suppression | <raison> |
+| `path/to/file.ml` | addition / modification / deletion | <reason> |
 
-## Decisions prises
+## Decisions made
 
-<Décisions non triviales prises pendant l'implémentation — avec justification>
-<Dérogations par rapport au plan — avec justification>
+<Non-trivial decisions made during implementation — with justification>
+<Deviations from the plan — with justification>
 
 ## Quality Gates
 
-- [x] Build : `<commande>` ✅
-- [x] Tests : `<commande>` ✅ (<N> tests, <N> nouveaux)
-- [x] Format : `<commande>` ✅
+- [x] Build: `<command>` ✅
+- [x] Tests: `<command>` ✅ (<N> tests, <N> new)
+- [x] Format: `<command>` ✅
 
-## Points d'attention pour la review
+## Points of attention for review
 
-<Ce que le reviewer devrait regarder en priorité>
-<Edge cases non couverts si scope ne le permettait pas>
+<What the reviewer should prioritize>
+<Edge cases not covered if scope did not allow it>
 
-## Hors scope identifié
+## Identified out-of-scope
 
-<Améliorations vues mais non implémentées — avec référence au Friction Log>
+<Improvements seen but not implemented — with reference to the Friction Log>
 ```
 
 ## Output Contract
 
-`briefs/<task>-impl.md` + code implémenté avec tous les quality gates verts.
+`briefs/<task>-impl.md` + implemented code with all quality gates passing.
 
-**Suivant :** `/roster-review` lit `briefs/<task>-impl.md` + le diff courant.
+**Next:** `/roster-review` reads `briefs/<task>-impl.md` + the current diff.
 
 ## Friction Log
 
@@ -155,8 +155,8 @@ Produire `briefs/<task>-impl.md` :
 
 ## Rules
 
-- Ne jamais implémenter hors du scope du brief
-- Ne jamais modifier un test pour le faire passer — corriger l'implémentation
-- Ne jamais commiter du code qui casse les gates existants
-- Escalader si le brief est contradictoire ou insuffisant — ne pas assumer
-- Les améliorations hors scope vont dans le Friction Log, pas dans le code
+- Never implement outside the brief's scope
+- Never modify a test to make it pass — fix the implementation
+- Never commit code that breaks existing gates
+- Escalate if the brief is contradictory or insufficient — do not assume
+- Out-of-scope improvements go in the Friction Log, not in the code

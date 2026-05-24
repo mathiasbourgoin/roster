@@ -1,6 +1,6 @@
 ---
 name: roster-audit
-description: Audit qualité et conformité — combine code-quality et spec-compliance en un rapport actionnable.
+description: Quality and compliance audit — combines code-quality and spec-compliance into one actionable report.
 version: 1.0.0
 domain: pipeline
 phase: null
@@ -22,128 +22,128 @@ artifacts:
   writes:
     - briefs/audit-<date>.md
 pipeline_role:
-  triggered_by: humain ou /roster-skill-health
-  receives: scope optionnel dans $ARGUMENTS (fichiers / modules / tout le repo)
-  produces: briefs/audit-<date>.md avec findings actionnables
+  triggered_by: human or /roster-skill-health
+  receives: optional scope in $ARGUMENTS (files / modules / entire repo)
+  produces: briefs/audit-<date>.md with actionable findings
 ---
 
 # Roster Audit
 
-Tu audites la qualité du code et sa conformité à la KB. Tu produis des findings actionnables, pas un rapport de style. Chaque finding doit citer le fichier et la ligne.
+You audit code quality and its compliance with the KB. You produce actionable findings, not a style report. Every finding must cite the file and line.
 
-**Token discipline :** findings concis. Pas de paraphrase de la KB — pointer vers les violations.
+**Token discipline:** concise findings. Do not paraphrase the KB — point to violations.
 
 ## Input Contract
 
-- `$ARGUMENTS` : scope (ex: `ocaml/agent-manager/src/` ou vide pour le repo entier)
-- KB si elle existe (`kb/spec.md`, `kb/properties.md`, `kb/glossary.md`)
-- Si `tunables.require_kb: true` et KB absente → bloquer et le dire
+- `$ARGUMENTS`: scope (e.g. `ocaml/agent-manager/src/` or empty for the entire repo)
+- KB if it exists (`kb/spec.md`, `kb/properties.md`, `kb/glossary.md`)
+- If `tunables.require_kb: true` and KB absent → block and say so
 
-Scope par défaut si $ARGUMENTS vide : tout le code source (hors `_build/`, `node_modules/`, `dist/`).
+Default scope if $ARGUMENTS is empty: all source code (excluding `_build/`, `node_modules/`, `dist/`).
 
 ## Steps
 
-### 1. Charger les références
+### 1. Load references
 
-Si KB existe :
-- Lire `kb/properties.md` → invariants, seuils, contraintes
-- Lire `kb/glossary.md` → nomenclature canonique
-- Lire `kb/spec.md` → comportements spécifiés
+If KB exists:
+- Read `kb/properties.md` → invariants, thresholds, constraints
+- Read `kb/glossary.md` → canonical naming
+- Read `kb/spec.md` → specified behaviors
 
-Si KB absente et `tunables.require_kb: false` → continuer avec les défauts (seuils dans tunables).
+If KB absent and `tunables.require_kb: false` → continue with defaults (thresholds in tunables).
 
-### 2. Check : taille des fonctions (si `check_code_quality: true`)
+### 2. Check: function size (if `check_code_quality: true`)
 
 ```bash
-# Identifier les fonctions longues
+# Identify long functions
 grep -n "^let \|^  let \|^and " <scope>/**/*.ml | head -100
-# (adapter le pattern selon le langage)
+# (adapt pattern to the language)
 ```
 
-Seuil : `tunables.max_function_lines` lignes (défaut 50).
-Signaler chaque fonction qui dépasse avec : fichier, ligne, taille estimée.
+Threshold: `tunables.max_function_lines` lines (default 50).
+Report each function that exceeds this with: file, line, estimated size.
 
-### 3. Check : violations DRY
+### 3. Check: DRY violations
 
-Chercher les blocs de code dupliqués (≥ 5 lignes identiques ou quasi-identiques).
+Look for duplicated code blocks (≥ 5 identical or near-identical lines).
 
 ```bash
-# Chercher des patterns répétés
-grep -rn "<pattern suspect>" <scope>
+# Search for repeated patterns
+grep -rn "<suspect pattern>" <scope>
 ```
 
-Signaler avec les deux locations.
+Report with both locations.
 
-### 4. Check : nomenclature (si `check_naming: true` et glossaire disponible)
+### 4. Check: naming (if `check_naming: true` and glossary available)
 
-Pour chaque terme dans `kb/glossary.md` :
-- Chercher les variantes (abréviations, synonymes, casse différente)
-- Signaler les incohérences avec les deux formes (canonique vs trouvée)
+For each term in `kb/glossary.md`:
+- Search for variants (abbreviations, synonyms, different casing)
+- Report inconsistencies with both forms (canonical vs found)
 
-### 5. Check : conformité spec (si `check_spec_compliance: true` et spec disponible)
+### 5. Check: spec compliance (if `check_spec_compliance: true` and spec available)
 
-Pour chaque comportement spécifié dans `kb/spec.md` :
-1. Localiser l'implémentation
-2. Vérifier la correspondance
-3. Vérifier qu'un test couvre ce comportement
+For each behavior specified in `kb/spec.md`:
+1. Locate the implementation
+2. Verify the match
+3. Verify that a test covers this behavior
 
-Classification :
-| Statut | Signification |
+Classification:
+| Status | Meaning |
 |---|---|
-| **PASS** | Code conforme + test existant |
-| **PARTIAL** | Code conforme + pas de test |
-| **DIVERGE** | Code se comporte différemment |
-| **MISSING** | Pas d'implémentation trouvée |
+| **PASS** | Code compliant + test exists |
+| **PARTIAL** | Code compliant + no test |
+| **DIVERGE** | Code behaves differently |
+| **MISSING** | No implementation found |
 
-### 6. Check : invariants
+### 6. Check: invariants
 
-Pour chaque invariant dans `kb/properties.md` :
-- Vérifier qu'il est préservé dans le code
-- Si non vérifiable statiquement → noter "non vérifiable statiquement"
+For each invariant in `kb/properties.md`:
+- Verify it is preserved in the code
+- If not statically verifiable → note "not statically verifiable"
 
-### 7. Rapport
+### 7. Report
 
-Produire `briefs/audit-<YYYY-MM-DD>.md` :
+Produce `briefs/audit-<YYYY-MM-DD>.md`:
 
 ```markdown
 # Audit — <date>
 
-**Scope :** <scope audité>
-**KB utilisée :** OUI / NON (raison si non)
+**Scope:** <audited scope>
+**KB used:** YES / NO (reason if no)
 
-## Résumé
+## Summary
 
-| Catégorie | Findings | Actionnables |
+| Category | Findings | Actionable |
 |---|---|---|
-| Taille fonctions | N | N |
+| Function size | N | N |
 | DRY | N | N |
-| Nomenclature | N | N |
+| Naming | N | N |
 | Spec compliance | PASS: N / PARTIAL: N / DIVERGE: N / MISSING: N | N |
 | Invariants | N | N |
 
-## Findings actionnables
+## Actionable findings
 
-### CRITIQUE / HIGH
-<findings qui bloquent ou risquent des régressions>
+### CRITICAL / HIGH
+<findings that block or risk regressions>
 
 ### MEDIUM
-<findings de qualité importants>
+<important quality findings>
 
 ### LOW / INFO
-<findings mineurs>
+<minor findings>
 
-## Non actionnables (pour mémoire)
-<findings non vérifiables statiquement ou acceptés>
+## Non-actionable (for reference)
+<findings not statically verifiable or accepted>
 ```
 
-### 8. Gate humain
+### 8. Human gate
 
-Présenter le rapport et demander :
-> "Quels findings veux-tu traiter maintenant ? Je peux créer un `/roster-intake` pour chaque groupe."
+Present the report and ask:
+> "Which findings do you want to address now? I can create a `/roster-intake` for each group."
 
 ## Output Contract
 
-`briefs/audit-<date>.md` avec findings classifiés et actionnables.
+`briefs/audit-<date>.md` with classified and actionable findings.
 
 ## Friction Log
 
@@ -162,8 +162,8 @@ Présenter le rapport et demander :
 
 ## Rules
 
-- Tout finding doit citer fichier et ligne — jamais de généralité
-- "Le code a l'air propre" n'est pas un finding
-- Sans KB → appliquer les seuils tunables, ne pas inventer de règles
-- Non vérifiable statiquement → le dire explicitement, ne pas supposer
-- Ne jamais modifier le code pendant l'audit
+- Every finding must cite file and line — never a generality
+- "The code looks clean" is not a finding
+- Without KB → apply tunable thresholds, do not invent rules
+- Not statically verifiable → say so explicitly, do not assume
+- Never modify code during the audit
