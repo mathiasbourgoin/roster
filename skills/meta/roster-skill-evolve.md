@@ -1,7 +1,7 @@
 ---
 name: roster-skill-evolve
 description: Implements skill-health approved improvements — skills, tools, adaptations, agents.
-version: 1.1.0
+version: 1.2.0
 domain: meta
 phase: null
 preamble: true
@@ -153,6 +153,22 @@ For each APPROVED proposal, in order A → B → C → D:
    - Human gate between the two
 
 3. **Follow the standard recruiter workflow** for install in the harness.
+
+### Post-edit validation (run after every proposal)
+
+After any edit to skill `.md` files, run this integrity check:
+
+```bash
+# Verify all friction_log: true skills have a valid jsonl block
+missing=$(grep -rL '```jsonl' $(grep -rl 'friction_log: true' skills/ --include='*.md') 2>/dev/null)
+if [ -n "$missing" ]; then
+  echo "❌ Missing jsonl wrapper in: $missing"
+else
+  echo "✅ All friction_log skills have valid jsonl wrapper"
+fi
+```
+
+If any skill fails: restore the `## Friction Log` block with the correct format before proceeding to the next proposal.
 
 ---
 
