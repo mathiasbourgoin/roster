@@ -1,4 +1,5 @@
 ---
+name: roster-qa
 description: QA déterministe — quality gates, tmux matrix si TUI, bloqué si review NO-GO.
 version: 1.0.0
 domain: pipeline

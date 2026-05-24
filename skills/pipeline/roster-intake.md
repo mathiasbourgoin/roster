@@ -1,4 +1,5 @@
 ---
+name: roster-intake
 description: Phase d'intake — transforme une tâche en brief contractuel validé par l'humain.
 version: 1.0.0
 domain: pipeline

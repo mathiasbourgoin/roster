@@ -1,4 +1,5 @@
 ---
+name: roster-skill-evolve
 description: Implémente les améliorations approuvées par skill-health — skills, outils, adaptations, agents.
 version: 1.0.0
 domain: meta
