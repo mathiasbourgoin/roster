@@ -7,22 +7,70 @@ Skills are reusable workflow prompts. Each skill lives in `skills/<domain>/<name
 ```yaml
 ---
 description: <string>        # One-liner shown in Claude Code /help output
+version: <semver>            # e.g. "1.0.0"
 ---
 ```
 
-That's it. Claude Code only reads `description` from skill frontmatter, so the shared source schema stays intentionally small.
+Claude Code only reads `description` from skill frontmatter; all other fields are roster-internal metadata used by harness-builder, skill-health, and skill-evolve.
+
+## Optional Frontmatter
+
+```yaml
+---
+domain: <pipeline|operational|meta|shared>
+phase: <intake|plan|implement|review|qa|ship|null>
+tags: [tag1, tag2]
+allowed_tools: [Read, Write, Edit, Bash, Agent, AskUserQuestion, Skill]
+preamble: <bool>             # true → inject skills/shared/preamble.md content
+friction_log: <bool>         # true → skill appends to skills-meta/friction.jsonl at end of run
+tunables:
+  <key>: <value>             # overridable per-project in harness.json
+artifacts:
+  reads: [<path pattern>]    # contractual inputs (checked at skill start)
+  writes: [<path pattern>]   # contractual outputs (produced before skill ends)
+human_gate: <before|after|both|none>
+pipeline_role:
+  triggered_by: <string>
+  receives: <string>
+  produces: <string>
+---
+```
 
 ## Body
 
-The markdown body contains the full workflow instructions. Write it as a direct system prompt in runtime-neutral terms when possible: imperative mood, clear steps, minimal assumptions about slash-command syntax.
+The markdown body contains the full workflow instructions. Write it as a direct system prompt in runtime-neutral terms: imperative mood, numbered steps, minimal assumptions about slash-command syntax.
+
+### Required sections for pipeline skills (`phase` is set)
+
+```markdown
+## Input Contract
+[What the skill expects — verified before starting]
+
+## Steps
+[Numbered, sequential steps]
+
+## Output Contract
+[What the skill produces — exact artifact format]
+
+## Friction Log
+[Filled at end of run — appended to skills-meta/friction.jsonl]
+
+## Rules
+[Non-negotiable rules specific to this skill]
+```
+
+### Preamble injection
+
+If `preamble: true`, the contents of `skills/shared/preamble.md` are injected at the top of the rendered skill (after frontmatter). This is done at projection time by `sync-harness.sh`, not at runtime.
 
 ## Naming Convention
 
 - File: `skills/<domain>/<name>.md`
+- Names must start with `roster-` (e.g., `roster-run`, `roster-init`, `roster-review`)
 - Canonical shared location after install: `.harness/skills/<name>.md`
 - Claude compatibility location: `.claude/commands/<name>.md`
 - Name must be kebab-case, unique across all skills
-- Domain groups skills by function (e.g., `dev`, `security`, `workflow`)
+- Domain groups skills by function: `pipeline`, `operational`, `meta`, `shared`
 
 ## Example
 
