@@ -231,6 +231,9 @@ Set `**Status:** VALIDATED` in each sub-brief after approval.
 > 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
 
 ## Friction Log
+
+```jsonl
+{
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],
