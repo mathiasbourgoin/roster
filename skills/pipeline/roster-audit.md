@@ -161,6 +161,9 @@ Present the report and ask:
 > 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
 
 ## Friction Log
+
+```jsonl
+{
   "task": "audit",
   "frictions": [],
   "methods": [],
