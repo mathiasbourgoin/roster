@@ -2,7 +2,7 @@
 name: roster-audit
 description: Audit qualité et conformité — combine code-quality et spec-compliance en un rapport actionnable.
 version: 1.0.0
-domain: operational
+domain: pipeline
 phase: null
 preamble: true
 friction_log: true
