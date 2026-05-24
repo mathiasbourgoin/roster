@@ -109,6 +109,20 @@ if runtime_enabled "claude-code"; then
     mkdir -p "$CLAUDE_DIR/agents" "$CLAUDE_DIR/commands" "$CLAUDE_DIR/rules"
     sync_markdown_dir "$HARNESS_DIR/agents" "$CLAUDE_DIR/agents"
     sync_markdown_dir "$HARNESS_DIR/skills" "$CLAUDE_DIR/commands"
+
+    # Also sync roster skills from skills/ subdirectories (pipeline, meta, operational)
+    ROSTER_SKILLS_DIR="$PROJECT_ROOT/skills"
+    if [ -d "$ROSTER_SKILLS_DIR" ]; then
+        for domain_dir in "$ROSTER_SKILLS_DIR"/*/; do
+            domain="$(basename "$domain_dir")"
+            # Skip shared (preamble is not a slash command)
+            [ "$domain" = "shared" ] && continue
+            find "$domain_dir" -maxdepth 1 -type f -name 'roster-*.md' | while read -r skill_file; do
+                cp "$skill_file" "$CLAUDE_DIR/commands/$(basename "$skill_file")"
+            done
+        done
+    fi
+
     sync_markdown_dir "$HARNESS_DIR/rules" "$CLAUDE_DIR/rules"
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
         cp "$HARNESS_DIR/agents/recruiter.md" "$CLAUDE_DIR/commands/recruit.md"
@@ -133,6 +147,16 @@ fi
 if runtime_enabled "codex"; then
     mkdir -p "$CODEX_SKILLS_DIR"
     sync_markdown_dir "$HARNESS_DIR/skills" "$CODEX_SKILLS_DIR"
+    # Also sync roster skills
+    if [ -d "$ROSTER_SKILLS_DIR" ]; then
+        for domain_dir in "$ROSTER_SKILLS_DIR"/*/; do
+            domain="$(basename "$domain_dir")"
+            [ "$domain" = "shared" ] && continue
+            find "$domain_dir" -maxdepth 1 -type f -name 'roster-*.md' | while read -r skill_file; do
+                cp "$skill_file" "$CODEX_SKILLS_DIR/$(basename "$skill_file")"
+            done
+        done
+    fi
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
         cp "$HARNESS_DIR/agents/recruiter.md" "$CODEX_SKILLS_DIR/recruit.md"
     else

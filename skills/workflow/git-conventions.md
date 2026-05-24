@@ -79,3 +79,20 @@ When committing:
 - **Never** commit `.env`, credentials, or secrets — warn the user if these are staged.
 - PR descriptions must be comprehensive — reviewers should understand the change without reading code.
 - One logical change per commit. Split unrelated changes into separate commits.
+
+## Friction Log
+
+En fin de run, appender à `skills-meta/friction.jsonl` :
+
+```jsonl
+{
+  "date": "<ISO-8601>",
+  "skill": "git-conventions",
+  "task": "<task-slug ou description courte>",
+  "frictions": [],
+  "methods": [],
+  "suggestion_type": null,
+  "suggestion": null,
+  "effort_estimate": null
+}
+```
