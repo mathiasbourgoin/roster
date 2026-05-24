@@ -21,11 +21,29 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.5.1
+version: 2.5.2
 author: mathiasbourgoin
 ---
 
 ## Update Notes
+
+Version: 2.5.2 — Deterministic update/projection report
+
+**What changed:**
+
+- **`/recruit update` must inspect the local roster clone first.** When `/home/mathias/dev/agent-roster` exists, use it as the update source and report its branch, commit, and dirty state before considering the remote GitHub fallback.
+- **Deterministic discovery report.** Every update now reports agents and skills added/modified/removed relative to the installed project harness.
+- **Runtime projection matrix.** Update output must list exact projected paths for Claude Code, Codex project-local, Codex global, OpenCode, Pi, and Copilot when those runtimes are enabled or their directories already exist.
+- **Codex restart-visible check.** Update output must explicitly verify `.agents/skills/<name>/SKILL.md`, flag stale flat `.agents/skills/<name>.md` files, report missing expected skills such as `skillq`, and tell the user when a Codex session restart/reload is required.
+
+**After applying this update:**
+- Run `/recruit update` again if you need a fresh projection report after restart.
+- For Codex, expect project-local skills under `.agents/skills/<skill-name>/SKILL.md`. `$CODEX_HOME/skills/<skill-name>/SKILL.md` is only populated when `codex-global` is explicitly enabled.
+
+- After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
+- Durable release history belongs in `CHANGES.md`.
+
+---
 
 Version: 2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
 
@@ -514,7 +532,12 @@ The Governor will then:
 
 When invoked with "update" (e.g., `/recruit update` or "update yourself"):
 
-1. Fetch the latest version from the roster repo:
+0. Resolve the update source deterministically:
+   - If `/home/mathias/dev/agent-roster` exists and contains `recruiter/recruiter.md`, use that local clone first.
+   - Report: source path, current branch, `git rev-parse --short HEAD`, and whether `git status --short` is clean or dirty.
+   - If the local clone is absent, fetch from the configured remote roster repo.
+
+1. Fetch or read the latest version from the roster repo:
    ```
    https://raw.githubusercontent.com/<roster_repo>/main/recruiter/recruiter.md
    ```
@@ -546,6 +569,67 @@ This also updates all locally installed agents from the roster:
 - For Claude compatibility, run `./scripts/sync-harness.sh <project-root>` after updating canonical files.
 - Preserve any local tuning (tunables overrides stay, core instructions update).
 
+### Self-Update Report Contract
+
+Every `/recruit update` response must end with this deterministic report. Do not omit sections because "nothing changed"; print `none`.
+
+```
+## Recruit Update Report
+
+Source:
+  roster: <local path or remote URL>
+  branch: <branch or n/a>
+  commit: <short sha or n/a>
+  dirty: <clean|dirty|n/a>
+
+Recruiter:
+  installed: <old version/path>
+  source: <new version/path>
+  action: <updated|already-current|blocked>
+
+Agents:
+  added: <list or none>
+  modified: <list or none>
+  removed: <list or none>
+
+Skills:
+  added: <list or none>
+  modified: <list or none>
+  removed: <list or none>
+  expected-but-missing: <list or none>
+
+Runtime projections:
+  claude-code: <enabled/disabled> <paths written or none>
+  codex: <enabled/disabled> <paths written or none>
+  codex-global: <enabled/disabled> <paths written or none>
+  opencode: <enabled/disabled> <paths written or none>
+  pi: <enabled/disabled> <paths written or none>
+  copilot: <enabled/disabled> <paths written or none>
+
+Codex visibility:
+  project-local skill dir: .agents/skills
+  expected format: .agents/skills/<skill-name>/SKILL.md
+  present skills: <count and names>
+  stale flat .md files: <list or none>
+  missing expected skills: <list or none>
+  restart needed: <yes/no + reason>
+```
+
+For the Codex visibility check:
+- Treat `.agents/skills/<skill-name>/SKILL.md` as the project-local format.
+- Treat `.agents/skills/<skill-name>.md` as stale unless the active harness explicitly documents that flat format.
+- Include `recruit` in expected Codex skills when the recruiter agent is installed.
+- Include any newly discovered roster skills (for example `skillq`) in `expected-but-missing` until installed or intentionally skipped.
+- Say explicitly when the current Codex session may not see new skills until restart/reload, even if files were written correctly.
+
+For runtime projections, do not assume all runtimes use the same layout:
+- Claude Code: `.claude/agents/*.md`, `.claude/commands/*.md`, `.claude/rules/*.md`, `.claude/harness.json`.
+- Codex project-local: `.agents/skills/<skill-name>/SKILL.md`.
+- Codex global: `$CODEX_HOME/skills/<skill-name>/SKILL.md`, only if runtime `codex-global` is enabled.
+- OpenCode: `.opencode/agents/*.md`, `.opencode/commands/*.md`, `opencode.json` when generated.
+- Pi: `.pi/skills/<skill-name>/SKILL.md`.
+- Copilot: `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md`; Copilot has no dynamic skill loader.
+
 ### New Agent Discovery
 
 After completing the self-update, compare the roster index against locally installed agents. For any roster agent not installed locally:
@@ -564,7 +648,7 @@ This preserves the "no auto-install" philosophy while making new agents discover
 
 ### New Skill Discovery
 
-Also check roster skills (`component_type: "skill"`, `source: "local"`) against locally installed skills in `.harness/skills/` and `.claude/commands/` and `.agents/skills/`. For any roster skill not installed locally, surface it alongside the agent discovery report:
+Also check roster skills (`component_type: "skill"`, `source: "local"`) against locally installed skills in `.harness/skills/` and the runtime projections listed in the Self-Update Report Contract. For any roster skill not installed locally, surface it alongside the agent discovery report:
 
 ```
 New skills available in roster:

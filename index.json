@@ -2738,7 +2738,7 @@
       "claude-code",
       "codex"
     ],
-    "version": "2.5.1",
+    "version": "2.5.2",
     "path": "recruiter/recruiter.md",
     "source": "local",
     "source_id": "local",
@@ -2997,7 +2997,7 @@
   {
     "name": "roster-audit",
     "display_name": "roster-audit",
-    "description": "Audit qualité et conformité — combine code-quality et spec-compliance en un rapport actionnable.",
+    "description": "Quality and compliance audit — combines code-quality and spec-compliance into one actionable report.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3013,7 +3013,7 @@
   {
     "name": "roster-implement",
     "display_name": "roster-implement",
-    "description": "Implémentation guidée — TDD, improve loop, sub-agents OCaml. Lit le plan, produit un brief d'impl.",
+    "description": "Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3029,7 +3029,7 @@
   {
     "name": "roster-init",
     "display_name": "roster-init",
-    "description": "Bootstrap un nouveau projet ou onboard un projet existant dans l'écosystème roster.",
+    "description": "Bootstrap a new project or onboard an existing project into the roster ecosystem.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3045,7 +3045,7 @@
   {
     "name": "roster-intake",
     "display_name": "roster-intake",
-    "description": "Phase d'intake — transforme une tâche en brief contractuel validé par l'humain.",
+    "description": "Intake phase — transforms a task into a contractual brief validated by the human.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3061,7 +3061,7 @@
   {
     "name": "roster-investigate",
     "display_name": "roster-investigate",
-    "description": "Investigation root-cause — analyse un bug ou comportement inattendu sans modifier le code hors scope.",
+    "description": "Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3077,7 +3077,7 @@
   {
     "name": "roster-plan",
     "display_name": "roster-plan",
-    "description": "Décomposition dual-voice — lit le brief intake, produit des sous-briefs par rôle.",
+    "description": "Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3093,7 +3093,7 @@
   {
     "name": "roster-qa",
     "display_name": "roster-qa",
-    "description": "QA déterministe — quality gates, tmux matrix si TUI, bloqué si review NO-GO.",
+    "description": "Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3109,7 +3109,7 @@
   {
     "name": "roster-review",
     "display_name": "roster-review",
-    "description": "Review fix-first avec specialists conditionnels — produit un verdict GO/NO-GO structuré.",
+    "description": "Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3125,7 +3125,7 @@
   {
     "name": "roster-run",
     "display_name": "roster-run",
-    "description": "Entry point du pipeline roster — détecte le contexte et route vers le bon skill.",
+    "description": "Pipeline entry point — detects context and routes to the right skill.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3141,7 +3141,7 @@
   {
     "name": "roster-ship",
     "display_name": "roster-ship",
-    "description": "Ship — commits conventionnels, rebase-merge, PR GitHub. Gated sur review + QA go.",
+    "description": "Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3157,7 +3157,7 @@
   {
     "name": "roster-skill-evolve",
     "display_name": "roster-skill-evolve",
-    "description": "Implémente les améliorations approuvées par skill-health — skills, outils, adaptations, agents.",
+    "description": "Implements skill-health approved improvements — skills, tools, adaptations, agents.",
     "domain": [],
     "tags": [],
     "model": "",
@@ -3173,7 +3173,7 @@
   {
     "name": "roster-skill-health",
     "display_name": "roster-skill-health",
-    "description": "Analyse périodique des frictions — propose nouveaux skills, outils déterministes, et adaptations.",
+    "description": "Periodic friction analysis — proposes new skills, deterministic tools, and adaptations.",
     "domain": [],
     "tags": [],
     "model": "",
