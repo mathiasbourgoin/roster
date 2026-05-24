@@ -251,7 +251,28 @@ Current notable agents include:
 
 ### Skills
 
-Current notable skills include:
+Skills are structured slash-command workflows — they are the primary orchestration unit for multi-step tasks. Unlike agents, skills run in the main context and produce contractual artifacts that chain across phases.
+
+**Roster pipeline skills** (`roster-*`) — a full development pipeline as skills:
+
+| Skill | Phase | What it does |
+|-------|-------|--------------|
+| `/roster-init` | Bootstrap | Adversarial project interview (greenfield or onboard). 6 questions, 3 adversarial. |
+| `/roster-run` | Entry point | Detects context and routes to the right pipeline skill |
+| `/roster-intake` | Intake | Turns a task into a contractual brief with human gate |
+| `/roster-plan` | Plan | Dual-voice decomposition (two adversarial sub-agents), consensus table |
+| `/roster-implement` | Implement | TDD + improve loop + specialist sub-agents |
+| `/roster-review` | Review | Fix-first review with conditional specialists, GO/NO-GO JSON verdict |
+| `/roster-qa` | QA | Deterministic quality gates, tmux test matrix, gated on review GO |
+| `/roster-ship` | Ship | Rebase-merge, conventional commits, PR. Gated on review+QA GO |
+| `/roster-investigate` | Operational | Root-cause analysis, read-only, freeze scope |
+| `/roster-audit` | Operational | Code quality + spec compliance combined report |
+| `/roster-skill-health` | Meta | Friction log analysis → proposes new skills, tools, adaptations |
+| `/roster-skill-evolve` | Meta | Implements approved skill-health proposals |
+
+**Skill metabolism** — skills log frictions to `skills-meta/friction.jsonl` (gitignored). Periodic `/roster-skill-health` analysis clusters patterns and proposes: `[SKILL]` new skills, `[TOOL]` deterministic tools (e.g., a fuzzer for red-teaming), `[ADAPT]` local tuning, `[AGENT]` new specialists. The system self-improves from its own usage.
+
+**Workflow skills** (pre-pipeline):
 
 - `tdd-workflow`
 - `git-conventions`
@@ -262,15 +283,6 @@ Current notable skills include:
 - `harness-validator`
 - `improvement-loop-planner`
 - `improvement-loop`
-
-### Improvement Loop Skills
-
-The improvement-loop pair is a constrained take on autoresearch-style workflows:
-
-- `improvement-loop-planner` discovers candidate bounded loops from KB, tests, CI, issues, and code signals
-- `improvement-loop` executes an approved bounded loop with explicit scope, metric, verify command, guard command, and keep/discard rules
-
-These are intentionally verification-first and bounded. They are not open-ended “run forever” autonomy tools.
 
 ## Recruiter Modes
 

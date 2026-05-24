@@ -21,11 +21,37 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.4.0
+version: 2.5.0
 author: mathiasbourgoin
 ---
 
 ## Update Notes
+
+Version: 2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
+
+**What changed:**
+
+- **Skill-first pipeline.** Twelve new `roster-*` skills implement a full design→plan→implement→review→qa→ship pipeline as skills (not agent-to-agent). Skills are the primary orchestration unit; sub-agents remain directly accessible and complementary. Install them via `/roster-run` (entry point) or individually.
+- **Skill metabolism.** Skills now log frictions to `skills-meta/friction.jsonl` (gitignored, project-local). `/roster-skill-health` performs periodic cluster analysis and proposes four proposal types: [SKILL] new skills, [TOOL] deterministic tools, [ADAPT] tuning to local workflows, [AGENT] new specialist agents. `/roster-skill-evolve` implements approved proposals. This enables the system to self-improve and propose concrete tools (e.g., a fuzzer for red-teaming) when friction accumulates.
+- **`/roster-init`.** New bootstrap skill for greenfield and onboard scenarios. Runs an adversarial interview (6 questions, 3 adversarial) to challenge assumptions. Weak answers trigger a warning + brainstorming protocol before continuing. Detects greenfield vs existing-project automatically.
+- **Shared preamble.** All pipeline skills inject a shared ethos: anti-sycophancy, complétude, search-before-build, user sovereignty, escalation paths, and friction log instructions.
+- **Schema extension.** `skill-schema.md` now includes `friction_log`, `artifacts`, `human_gate`, `tunables`, `pipeline_role`. `harness-schema.md` has a new `layers.metabolism` block.
+- **`sync-harness.sh` updated.** Now syncs `roster-*.md` from all `skills/*/` subdirectories into `.claude/commands/` and `.agents/skills/`.
+
+**After applying this update:**
+- Run `/roster-init` to bootstrap pipeline skills for this project, or install individual skills via `/recruit`.
+- Existing projects: run `/roster-skill-health` after a week of usage to start collecting friction signal.
+- The pipeline skills are independent of the agent team — they can be used alongside any existing team.
+
+**Proposing skill pipeline installation:**
+When presenting this update, ask: *"Would you like to install the roster-* pipeline skills alongside your agent team? They provide intake→plan→implement→review→qa→ship as slash commands, plus `/roster-init` for any new projects you start."*
+- If yes: fetch `skills/pipeline/roster-*.md` and `skills/meta/roster-*.md` from the roster repo and install per the skills install flow (`.harness/skills/`, `.claude/commands/`, `.agents/skills/`).
+- If the project is brand new: suggest starting with `/roster-init` first.
+
+- After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
+- Durable release history belongs in `CHANGES.md`.
+
+---
 
 Version: 2.4.0 — Pipeline Metadata, CI Lint, Diagnostic Interview, Team Lifecycle
 
@@ -533,6 +559,30 @@ Run `/recruit` to add them, or `/harness build` for full harness setup.
 ```
 
 This preserves the "no auto-install" philosophy while making new agents discoverable. The user always chooses.
+
+### New Skill Discovery
+
+Also check roster skills (`component_type: "skill"`, `source: "local"`) against locally installed skills in `.harness/skills/` and `.claude/commands/`. For any roster skill not installed locally, surface it alongside the agent discovery report:
+
+```
+New skills available in roster:
+  - roster-run (v<version>) — Entry point du pipeline roster
+  - roster-init (v<version>) — Bootstrap greenfield or onboard existing project
+  - roster-intake, roster-plan, roster-implement, roster-review, roster-qa, roster-ship — Full pipeline
+  - roster-investigate, roster-audit — Operational skills
+  - roster-skill-health, roster-skill-evolve — Skill metabolism (self-improvement)
+
+Install the pipeline skills? They add intake→plan→implement→review→qa→ship as slash commands,
+plus `/roster-init` for project bootstrapping and `/roster-skill-health` for self-improvement.
+[Y/n]
+```
+
+On approval, fetch each skill from the roster repo and install it:
+- `.harness/skills/<name>.md` (canonical)
+- `.claude/commands/<name>.md` (Claude projection)
+- `.agents/skills/<name>.md` (Codex projection)
+
+Skills flagged `preamble: true` must have `skills/shared/preamble.md` prepended during projection. Fetch it from the roster repo alongside the skill files.
 
 ### Team Re-Adaptation (major version updates)
 
