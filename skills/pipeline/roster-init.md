@@ -163,7 +163,7 @@ Gate humain : attendre validation explicite.
 1. `git init` si pas déjà fait
 2. Créer `.gitignore` minimal adapté aux langues détectées
 3. Créer `README.md` minimal avec description et critère de succès
-4. Spawner `recruiter` (Mode 1 — fresh team) avec le contexte du projet
+4. Spawner `recruiter` si disponible (`.claude/agents/recruiter.md` existe) — Mode 1 fresh team. Sinon : proposer d'abord `/recruit` pour l'installer.
 5. Proposer la KB dans le terminal (ne pas écrire encore) :
    - `kb/spec.md` draft basé sur les réponses
    - `kb/properties.md` avec invariants + politique test
@@ -172,7 +172,7 @@ Gate humain : attendre validation explicite.
 6. Si domaine spécifique détecté sans skill roster adapté :
    - Lister les skills domaine manquants
    - Demander : "Je crée ces skills maintenant via skill-creator ?"
-   - Si oui → spawner skill-creator pour chaque skill manquant
+   - Si oui → spawner `skill-creator` si disponible (`.claude/agents/skill-creator.md` existe) ; sinon décrire manuellement le skill à créer et ouvrir une issue roster.
 7. Créer `skills-meta/friction.jsonl` (tableau vide)
 8. Ajouter `skills-meta/` à `.gitignore` si absent
 9. Créer `briefs/project-intake.md` prêt pour le premier `/roster-run`
@@ -295,7 +295,7 @@ Gate humain : attendre validation explicite.
    - Gate : "Voici le draft KB — je l'écris ?"
 3. Si domaine spécifique détecté sans skill roster adapté :
    - Demander : "Je crée ces skills maintenant via skill-creator ?"
-   - Si oui → spawner skill-creator
+   - Si oui → spawner `skill-creator` si disponible (`.claude/agents/skill-creator.md` existe) ; sinon décrire manuellement le skill et ouvrir une issue roster.
 4. Créer `skills-meta/friction.jsonl` (vide)
 5. Ajouter `skills-meta/` à `.gitignore` si absent
 6. Créer `briefs/project-intake.md` avec état du projet et premier objectif
@@ -340,5 +340,5 @@ En fin de run, appender à `skills-meta/friction.jsonl` :
 - Ne jamais overwrite un fichier existant sans diff + confirmation
 - KB : proposée dans le terminal, écrite seulement après approbation explicite
 - Questions : une par une, jamais en liste
-- Si domaine ambigu pour la création de skills → demander avant de spawner skill-creator
+- Si domaine ambigu pour la création de skills → demander avant de spawner `skill-creator`
 - Le metabolism commence ici : friction.jsonl est le premier fichier créé

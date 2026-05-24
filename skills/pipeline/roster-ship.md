@@ -134,6 +134,15 @@ PR GitHub ouverte (puis mergée après approbation humaine), ou statut BLOQUÉ d
 
 **Suivant :** tech-lead / humain avec confirmation de merge.
 
+**Incrémenter le compteur metabolism :** Après un ship GO (PR ouverte ou mergée), incrémenter `completed_tasks` dans `.harness/harness.json` (ou `.claude/harness.json` si `.harness/` absent) :
+
+```bash
+# lecture → incrément → écriture (jq requis)
+jq '.layers.metabolism.completed_tasks += 1' .harness/harness.json > /tmp/hj && mv /tmp/hj .harness/harness.json
+```
+
+Si `jq` n'est pas disponible ou si le fichier n'existe pas, noter l'incrément manqué dans le friction log sans bloquer.
+
 ## Friction Log
 
 ```jsonl

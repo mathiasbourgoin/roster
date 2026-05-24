@@ -17,7 +17,7 @@ artifacts:
     - briefs/<task>-qa-scope.md
     - briefs/<task>-impl.md
   writes:
-    - briefs/<task>-qa-scope.md
+    - briefs/<task>-qa.md
 pipeline_role:
   triggered_by: /roster-review avec statut GO
   receives: briefs/<task>-review.json GO + implémentation sur branch
@@ -101,7 +101,7 @@ tmux kill-session -t qa-check
 
 ### 4. Écrire le rapport QA
 
-Produire `briefs/<task>-qa-scope.md` :
+Produire `briefs/<task>-qa.md` :
 
 ```markdown
 # QA Brief — <task-slug>
@@ -146,7 +146,7 @@ Si NO-GO : suggérer le retour à `/roster-implement` avec la raison exacte.
 
 ## Output Contract
 
-`briefs/<task>-qa-scope.md` avec statut GO ou NO-GO documenté.
+`briefs/<task>-qa.md` avec statut GO ou NO-GO documenté.
 
 **Si GO :** `/roster-ship` peut démarrer.
 **Si NO-GO :** retour à `/roster-implement` avec le log d'erreur dans le brief.

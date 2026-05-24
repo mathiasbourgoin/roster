@@ -69,7 +69,7 @@ Si le brief est absent ou incomplet :
 ### 3. TDD si requis
 
 Si `tunables.enforce_tdd: true` **ou** si le brief spécifie des tests à écrire :
-→ Invoquer le skill `/roster-tdd` avec la description du comportement à implémenter.
+→ Invoquer le skill `/tdd-workflow` avec la description du comportement à implémenter.
   Ne pas écrire de code de production avant un test rouge.
 
 ### 4. Implémentation itérative
@@ -80,8 +80,8 @@ Pour chaque unité de travail du plan :
 2. Lancer les quality gates
 3. Si les gates échouent :
    - Max `tunables.max_improve_iterations` tentatives de correction
-   - Si toujours cassé après N tentatives → invoquer `/roster-improve` avec scope borné
-   - Si `/roster-improve` échoue → escalader à l'humain
+   - Si toujours cassé après N tentatives → invoquer `/improvement-loop` avec scope borné
+   - Si `/improvement-loop` échoue → escalader à l'humain
 
 **Ne jamais** commiter du code qui casse les gates existants.
 
