@@ -1,7 +1,7 @@
 ---
 name: roster-implement
 description: Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief.
-version: 1.1.0
+version: 1.2.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -35,9 +35,16 @@ You implement the sub-brief you have been assigned. Follow the plan — do not r
 Read `briefs/<task>-implementer.md` in full before touching any code.
 Verify that quality gates are documented — escalate if not.
 
-If the brief is absent or incomplete:
-> ⛔ Implementer brief missing or incomplete. I will not start without a valid brief.
-> Re-run `/roster-plan` to produce the sub-brief.
+Pre-flight: verify both required sub-briefs exist:
+
+```bash
+[ -f briefs/<task>-implementer.md ] && echo "implementer: ✅" || echo "implementer: ❌"
+[ -f briefs/<task>-reviewer.md ]    && echo "reviewer: ✅"    || echo "reviewer: ❌"
+```
+
+If either is absent:
+> ⛔ Sub-brief missing: `briefs/<task>-implementer.md` and/or `briefs/<task>-reviewer.md` not found.
+> Re-run `/roster-plan` to produce both sub-briefs before starting implementation.
 
 ## Steps
 
@@ -142,6 +149,7 @@ Produce `briefs/<task>-impl.md`:
 
 | Condition | Action |
 |---|---|
+| `briefs/<task>-implementer.md` or `briefs/<task>-reviewer.md` absent | Stop — re-run `/roster-plan` to produce both sub-briefs |
 | A plan step cannot be implemented as described | Stop — re-run `/roster-plan` with the blocker as input |
 | Quality gates are broken at baseline before any change | Stop — report to human, do not proceed |
 | Implementation reveals the brief was fundamentally wrong | Stop — re-run `/roster-intake` with the new information |

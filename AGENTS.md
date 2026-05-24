@@ -8,7 +8,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 
 - **Commit convention:** conventional commits (`feat:`, `fix:`, `docs:`, `chore:`)
 - **Issue tracker:** GitHub
-- **Branch strategy:** feature branches → PR → merge to main
+- **Branch strategy:** feature branches → PR → rebase-merge to main (**rebase-only**: squash and merge-commits are disabled on this repo)
 - **Versioning:** semver on each component (`version:` frontmatter field)
   - Patch (x.x.+1): typo/wording, no behavioral change
   - Minor (x.+1.0): new capabilities, backward compatible
