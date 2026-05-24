@@ -79,7 +79,6 @@ Calculer pour chaque cluster :
 - Fréquence (nb d'occurrences)
 - Skills concernés
 - Effort estimé dominant (small / medium / large)
-- Présence de `repetition_signal: true`
 
 ### 3. Filtrer les signaux pertinents
 

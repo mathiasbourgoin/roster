@@ -78,9 +78,9 @@ Spawner les specialists selon le scope. Chaque specialist reçoit :
 - Le `briefs/<task>-reviewer.md`
 - Ses instructions propres (path ci-dessous)
 
-| Specialist | Condition | Path |
+| Specialist | Condition | Path / Invocation |
 |---|---|---|
-| `spec-compliance` | Toujours si KB existe | `.claude/agents/` — lire `skills/kb/spec-compliance-auditor.md` |
+| `spec-compliance` | Toujours si KB existe | Skill — lire `skills/kb/spec-compliance-auditor.md` et invoquer via `Skill` tool ou spawner en sub-agent avec ce contenu |
 | `architect` | Blast radius moyen ou large (>3 fichiers modifiés ou module public) | `.claude/agents/architect.md` |
 | `terminal-ux-reviewer` | Scope TUI détecté dans le diff ou le brief | `.claude/agents/terminal-ux-reviewer.md` |
 | `reviewer` (agent) | Toujours | `.claude/agents/reviewer.md` |

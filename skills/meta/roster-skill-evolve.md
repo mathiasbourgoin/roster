@@ -54,7 +54,9 @@ Pour chaque proposition APPROUVÉ, dans l'ordre A → B → C → D :
    - Si équivalent trouvé → proposer adaptation plutôt que création
 
 3. **Invoquer skill-creator** :
-   Spawner le sub-agent `skill-creator` avec :
+   Spawner le sub-agent `skill-creator` si disponible (`.claude/agents/skill-creator.md` existe).
+   Sinon, décrire manuellement le skill (nom, domaine, description, artifacts in/out) et ouvrir une issue sur le roster repo.
+   Fournir :
    - Description de la capacité
    - Domaine cible
    - Contexte des frictions qui ont motivé la création

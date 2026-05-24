@@ -34,9 +34,17 @@ Analyse `$ARGUMENTS` et l'état du repo pour déterminer où en est le projet.
 
 ### Détection
 
-1. Lire `briefs/` — quels fichiers `<task>-*.md` existent pour cette tâche ?
-2. Vérifier le statut des artefacts existants (GO / NO-GO / absent)
-3. Si $ARGUMENTS est vide ou ambigu, poser **une seule question** :
+1. Vérifier l'existence des artefacts `briefs/` avec des commandes bash explicites :
+   ```bash
+   ls briefs/ 2>/dev/null || echo "briefs/ absent"
+   # Puis pour la tâche en cours :
+   [ -f briefs/<task>-intake.md ] && echo "intake: present" || echo "intake: absent"
+   [ -f briefs/<task>-plan.md ]   && echo "plan: present"   || echo "plan: absent"
+   [ -f briefs/<task>-review.json ] && echo "review: present" || echo "review: absent"
+   [ -f briefs/<task>-qa.md ]     && echo "qa: present"     || echo "qa: absent"
+   ```
+2. Vérifier le statut des artefacts existants (GO / NO-GO / absent) — lire la première ligne de statut de chaque fichier présent.
+3. Si `briefs/` est absent ou vide et que $ARGUMENTS est vide ou ambigu, poser **une seule question** :
    > "Qu'est-ce qu'on fait ?" (ne pas proposer de liste, laisser l'utilisateur décrire)
 
 ### Annonce
