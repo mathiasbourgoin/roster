@@ -1,4 +1,5 @@
 ---
+name: roster-init
 description: Bootstrap un nouveau projet ou onboard un projet existant dans l'écosystème roster.
 version: 1.0.0
 domain: pipeline

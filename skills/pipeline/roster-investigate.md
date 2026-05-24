@@ -1,4 +1,5 @@
 ---
+name: roster-investigate
 description: Investigation root-cause — analyse un bug ou comportement inattendu sans modifier le code hors scope.
 version: 1.0.0
 domain: operational

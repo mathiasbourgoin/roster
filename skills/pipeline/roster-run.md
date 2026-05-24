@@ -1,4 +1,5 @@
 ---
+name: roster-run
 description: Entry point du pipeline roster — détecte le contexte et route vers le bon skill.
 version: 1.0.0
 domain: pipeline

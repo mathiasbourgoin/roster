@@ -1,4 +1,5 @@
 ---
+name: roster-skill-health
 description: Analyse périodique des frictions — propose nouveaux skills, outils déterministes, et adaptations.
 version: 1.0.0
 domain: meta
