@@ -46,7 +46,7 @@ Discard rule: revert if flake count stays the same or increases, or if guard fai
 KB basis: kb/spec.md auth requirements, kb/properties.md reliability rules
 ```
 
-## Setup
+## Steps
 
 ### 1. Validate Safety
 

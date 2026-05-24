@@ -7,7 +7,8 @@
     "build:index": "node scripts/run-build-index.js",
     "build:ts": "tsc -p tsconfig.json",
     "check:agents": "npm run build:ts && node dist/scripts/check-agents.js",
-    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node dist/scripts/check-agents.js"
+    "check:skills": "node dist/scripts/check-skill-structure.js",
+    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

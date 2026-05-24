@@ -1,7 +1,7 @@
 ---
 name: roster-review
 description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
-version: 1.1.0
+version: 1.2.0
 domain: pipeline
 phase: review
 preamble: true
@@ -80,10 +80,19 @@ Spawn specialists based on scope. Each specialist receives:
 
 | Specialist | Condition | Path / Invocation |
 |---|---|---|
-| `spec-compliance` | Always if KB exists | Skill — read `skills/kb/spec-compliance-auditor.md` and invoke via `Skill` tool or spawn as sub-agent with this content |
+| `spec-compliance` | Always if KB exists (`kb/spec.md` present) | Skill — read `skills/kb/spec-compliance-auditor.md` and invoke via `Skill` tool or spawn as sub-agent with this content |
+| `code-quality-auditor` | Always if KB exists (`kb/properties.md` present) | Skill — read `skills/kb/code-quality-auditor.md`; provide diff + `kb/properties.md` + `kb/glossary.md` + reviewer.md |
 | `architect` | Medium or large blast radius (>3 files modified or public module) | `.claude/agents/architect.md` |
 | `terminal-ux-reviewer` | TUI scope detected in diff or brief | `.claude/agents/terminal-ux-reviewer.md` |
 | `reviewer` (agent) | Always | `.claude/agents/reviewer.md` |
+
+**KB-conditional check:**
+
+```bash
+[ -d kb ] && [ -f kb/properties.md ] && echo "KB present" || echo "KB absent"
+```
+
+If KB is present, `code-quality-auditor` findings are merged into the review table alongside other specialists. Critical KB violations are auto-classified as HIGH severity.
 
 **Expected findings format from each specialist:**
 
@@ -197,6 +206,7 @@ Status: GO ✅ / NO-GO ❌
 |---|---|
 | NO-GO verdict — fixes required | Stop — return to `/roster-implement` with OPEN findings listed |
 | Research reveals a design flaw missed in planning | Stop — re-run `/roster-plan` or `/roster-intake` before fixes |
+| `code-quality-auditor` returns Critical KB violations | Auto-classify as HIGH finding → NO-GO unless immediately auto-fixable |
 
 ## What Next
 

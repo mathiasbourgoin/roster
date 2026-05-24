@@ -14,7 +14,7 @@ This skill is **KB-aware but not KB-dependent**:
 
 Your job is to **discover and define** candidate loops, not to run them.
 
-## Discovery Order
+## Steps
 
 ### 1. Read Intent And Constraints
 
