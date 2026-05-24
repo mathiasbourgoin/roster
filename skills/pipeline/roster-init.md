@@ -1,7 +1,7 @@
 ---
 name: roster-init
 description: Bootstrap a new project or onboard an existing project into the roster ecosystem.
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: null
 preamble: true
@@ -317,9 +317,23 @@ Triggered when an adversarial question reveals a fundamental problem and the use
 
 ---
 
-## Friction Log
+## When to Go Back
 
-At the end of the run, append to `skills-meta/friction.jsonl`:
+| Condition | Action |
+|---|---|
+| Onboarding reveals a deeper structural problem than expected | Stop — surface findings to human before proceeding |
+| `.harness/` initialization fails (missing tools, permissions) | Stop — report exact error, do not partially initialize |
+
+## What Next
+
+**Primary path:** `/roster-run` — pipeline is ready, start with a task
+**Alternatives:**
+- `/roster-intake` — if you already have a task in mind
+- `/roster-skill-health` — after first few runs, to capture early friction
+
+> 💡 Run `/roster-skill-health` after your first 3–5 pipeline runs to capture early friction patterns.
+
+## Friction Log
 
 ```jsonl
 {

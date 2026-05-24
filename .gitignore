@@ -21,3 +21,6 @@ dist/
 
 # Skill Metabolism (project-local, not committed)
 skills-meta/
+
+# roster per-task artifacts (ephemeral)
+roster/

@@ -1,7 +1,7 @@
 ---
 name: roster-skill-health
 description: Periodic friction analysis — proposes new skills, deterministic tools, and adaptations.
-version: 1.0.0
+version: 1.1.0
 domain: meta
 phase: null
 preamble: true
@@ -171,9 +171,20 @@ Present the report and ask:
 
 **Next:** `/roster-skill-evolve` with the report as input.
 
-## Rules
+## When to Go Back
 
-- Never propose without ≥ `tunables.min_entries_for_signal` occurrences in a cluster
-- Never invent frictions — only what is in the log
+| Condition | Action |
+|---|---|
+| No friction log found and user reports no frictions | Note "no initial frictions", suggest re-running after 3–5 more cycles |
+| Signal clusters are below `tunables.min_entries_for_signal` | Do not propose actions — note as weak signals to monitor |
+
+## What Next
+
+**Primary path (proposals exist):** `/roster-skill-evolve` — pass the health report as input
+**Primary path (no proposals):** Done — re-run after more pipeline cycles
+
+> 💡 Run after every 5–10 pipeline cycles to maintain a healthy improvement metabolism.
+
+## Rules
 - Cold start: create the file, query the user, do not block on missing data
 - Clean runs are a positive signal to name explicitly

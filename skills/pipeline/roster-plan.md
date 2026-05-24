@@ -1,7 +1,7 @@
 ---
 name: roster-plan
 description: Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs.
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: plan
 preamble: true
@@ -215,12 +215,22 @@ Set `**Status:** VALIDATED` in each sub-brief after approval.
 
 **Next:** `/roster-implement` reads `briefs/<task>-implementer.md`.
 
-## Friction Log
+## When to Go Back
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-plan",
+| Condition | Action |
+|---|---|
+| Brief has unresolvable ambiguity or missing required sections | Stop — re-run `/roster-intake` to complete the brief |
+| Both voices agree the brief's direction should change | Stop — present to user, re-run `/roster-intake` if approved |
+
+## What Next
+
+**Primary path:** `/roster-implement` (reads `briefs/<task>-implementer.md`)
+**Alternatives:**
+- Re-run `/roster-intake` if the brief was incomplete
+
+> 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
+
+## Friction Log
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

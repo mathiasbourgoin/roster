@@ -1,7 +1,7 @@
 ---
 name: roster-qa
 description: Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO.
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: qa
 preamble: true
@@ -151,12 +151,23 @@ If NO-GO: suggest returning to `/roster-implement` with the exact reason.
 **If GO:** `/roster-ship` can start.
 **If NO-GO:** return to `/roster-implement` with the error log in the brief.
 
-## Friction Log
+## When to Go Back
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-qa",
+| Condition | Action |
+|---|---|
+| Automated gate fails (build, tests, lint) | Stop — return to `/roster-implement` with the exact error log |
+| Manual verification reveals a regression not caught by tests | Stop — return to `/roster-implement` |
+
+## What Next
+
+**Primary path (GO):** `/roster-ship`
+**Primary path (NO-GO):** `/roster-implement` — include the QA brief with failing gates
+**Alternatives:**
+- `/roster-review` — if QA uncovered issues that warrant re-review
+
+> 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
+
+## Friction Log
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

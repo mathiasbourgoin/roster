@@ -1,7 +1,7 @@
 ---
 name: roster-skill-evolve
 description: Implements skill-health approved improvements — skills, tools, adaptations, agents.
-version: 1.0.0
+version: 1.1.0
 domain: meta
 phase: null
 preamble: true
@@ -164,12 +164,22 @@ For each APPROVED proposal:
 - [ADAPT] → skill patched + version bumped
 - [AGENT] → agent installed via recruiter
 
-## Friction Log
+## When to Go Back
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-skill-evolve",
+| Condition | Action |
+|---|---|
+| No approved proposals in the health report | Stop — re-run `/roster-skill-health` to generate proposals first |
+| A proposal implementation breaks existing quality gates | Stop — revert the change, note in friction log, skip that proposal |
+
+## What Next
+
+**Primary path:** Done — improvements installed; re-run `/roster-skill-health` after next batch of cycles
+**Alternatives:**
+- `/roster-skill-health` immediately — if new frictions were discovered during this run
+
+> 💡 After evolving skills, run a few pipeline cycles to validate the improvements before the next health check.
+
+## Friction Log
   "task": "skill-evolution",
   "frictions": [],
   "methods": [],

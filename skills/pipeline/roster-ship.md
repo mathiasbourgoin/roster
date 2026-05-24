@@ -1,7 +1,7 @@
 ---
 name: roster-ship
 description: Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go.
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -143,12 +143,23 @@ jq '.layers.metabolism.completed_tasks += 1' .harness/harness.json > /tmp/hj && 
 
 If `jq` is not available or the file does not exist, note the missed increment in the friction log without blocking.
 
-## Friction Log
+## When to Go Back
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-ship",
+| Condition | Action |
+|---|---|
+| QA brief is not GO | Stop — do not ship; return to `/roster-qa` or `/roster-implement` |
+| Pre-ship gate check reveals a new failure | Stop — re-run `/roster-qa` before retrying |
+
+## What Next
+
+**Primary path:** Done — PR opened, awaiting human merge approval
+**Alternatives:**
+- `/roster-intake` — start the next task
+- `/roster-skill-health` — good moment to analyze friction after a completed cycle
+
+> 💡 A completed ship is the best time to run `/roster-skill-health` and capture what the cycle taught you.
+
+## Friction Log
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

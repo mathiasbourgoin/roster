@@ -1,7 +1,7 @@
 ---
 name: roster-audit
 description: Quality and compliance audit — combines code-quality and spec-compliance into one actionable report.
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: null
 preamble: true
@@ -145,12 +145,22 @@ Present the report and ask:
 
 `briefs/audit-<date>.md` with classified and actionable findings.
 
-## Friction Log
+## When to Go Back
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-audit",
+| Condition | Action |
+|---|---|
+| Findings reveal the current brief or plan is mis-scoped | Stop — re-run `/roster-intake` or `/roster-plan` with findings as context |
+| Audit is blocked by missing KB or spec | Stop — ask human to run `/roster-init` or provide the missing spec |
+
+## What Next
+
+**Primary path:** `/roster-review` or `/roster-plan` — depending on whether findings are review-level or require re-planning
+**Alternatives:**
+- `/roster-intake` — if findings reveal a new task worth tackling separately
+
+> 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
+
+## Friction Log
   "task": "audit",
   "frictions": [],
   "methods": [],
