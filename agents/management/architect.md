@@ -34,14 +34,24 @@ Token discipline:
 ## Workflow
 
 1. Read relevant architecture constraints (`kb/architecture.md` or repo docs when present).
-2. Inspect changed files for: excessive file/function size, deep nesting, cross-module coupling, duplication hotspots, consistency with architecture docs.
-3. Classify findings by severity.
-4. Provide actionable remediation recommendations.
+2. If `specs/<task-slug>.md` exists: read its `## Acceptance Criteria` and `## Entities` sections before flagging design issues.
+3. Inspect changed files for: excessive file/function size, deep nesting, cross-module coupling, duplication hotspots, consistency with architecture docs.
+4. Classify findings by severity.
+5. Provide actionable remediation recommendations.
+
+## Spec Contract Check (conditional)
+
+If `specs/<task-slug>.md` exists:
+- Read its `## Acceptance Criteria` and `## Entities` sections
+- Before flagging a design issue, check: does the spec define the expected behavior differently?
+- If yes: cite the spec in the finding rather than asserting opinion
+- If the implementation contradicts the spec AC: classify as CRITICAL (spec violation)
 
 ## Input Contract
 
 Triggered by: tech-lead (pre-merge architecture review phase).
 Receives: diff + architecture constraints from `kb/architecture.md` — passed in sub-brief.
+Also reads (conditional): `specs/<task-slug>.md` if present — read before flagging design issues.
 
 ## Output Contract
 

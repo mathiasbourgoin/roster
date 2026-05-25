@@ -3219,6 +3219,22 @@
     "component_type": "skill"
   },
   {
+    "name": "roster-spec",
+    "display_name": "roster-spec",
+    "description": "Adversarial spec phase — derives user stories, surfaces challenges, produces structured contract with runnable checks.",
+    "domain": [],
+    "tags": [],
+    "model": "",
+    "complexity": "",
+    "compatible_with": [],
+    "version": "1.0.0",
+    "path": "skills/pipeline/roster-spec.md",
+    "source": "local",
+    "source_id": "local",
+    "source_repo": "mathiasbourgoin/roster",
+    "component_type": "skill"
+  },
+  {
     "name": "Accessibility Auditor",
     "display_name": "Accessibility Auditor",
     "description": "Expert accessibility specialist who audits interfaces against WCAG standards, tests with assistive technologies, and ensures inclusive design. Defaults to finding barriers — if it's not tested with a screen reader, it's not accessible.",

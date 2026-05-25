@@ -49,7 +49,24 @@ For each match, flag and recommend a quantified replacement.
 - Check for references to components, functions, or files that no longer exist in the codebase (use `find` / `grep` to verify).
 - Flag dead references.
 
-### 7. Generate Report
+### 7. Cross-Spec Entity Consistency (conditional)
+
+```bash
+ls specs/*.md 2>/dev/null
+```
+
+If specs found:
+1. For each spec file, extract all lines under `## Entities`
+2. Build a map: entity_name → {definition, source_file}
+3. For any entity_name appearing in more than one spec with different definitions:
+   - Report as CRITICAL finding: "Entity `<name>` defined differently in <file1> vs <file2>"
+   - Include both definitions in the report
+4. For any AC in a new spec referencing an entity not defined in its `## Entities` section:
+   - Report as WARNING: "AC references undefined entity `<name>`"
+
+Write findings to `kb/reports/ambiguity-report.md` under new section `## Cross-Spec Entities`.
+
+### 8. Generate Report
 
 Write the report to `kb/reports/ambiguity-report.md` using this format:
 
