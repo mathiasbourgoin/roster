@@ -267,7 +267,7 @@ status: live
 feature: <feature name from brief goal>
 brief: briefs/<task>-intake.md
 date: <ISO-8601>
-version: 1.0.0
+version: 1.0.0    # spec artifact version — not the roster-spec skill version
 ---
 
 # Spec — <feature name>

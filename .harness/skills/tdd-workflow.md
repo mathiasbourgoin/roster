@@ -72,13 +72,13 @@ Summarize: what behavior was added, how many tests pass, coverage %, and any ref
 
 ## Friction Log
 
-En fin de run, appender à `skills-meta/friction.jsonl` :
+At the end of each run, append to `skills-meta/friction.jsonl` :
 
 ```jsonl
 {
   "date": "<ISO-8601>",
   "skill": "tdd-workflow",
-  "task": "<task-slug ou description courte>",
+  "task": "<task-slug or short description>",
   "frictions": [],
   "methods": [],
   "suggestion_type": null,

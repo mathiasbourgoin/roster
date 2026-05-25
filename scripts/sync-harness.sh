@@ -190,7 +190,9 @@ sync_skill_sources_to_claude() {
         local name
         name="$(extract_frontmatter_field "$src" "name")"
         [ -n "$name" ] || name="$(basename "$src" .md)"
-        [ "$name" = "preamble" ] && continue
+        case "$name" in
+            preamble|roster-preamble) continue ;;
+        esac
         render_skill_source "$src" "$name" "$out_dir/$name.md" "$preamble"
     done
 }
@@ -213,7 +215,9 @@ sync_skill_sources_to_codex_dir() {
         local name
         name="$(extract_frontmatter_field "$src" "name")"
         [ -n "$name" ] || name="$(basename "$src" .md)"
-        [ "$name" = "preamble" ] && continue
+        case "$name" in
+            preamble|roster-preamble) continue ;;
+        esac
         render_skill_source "$src" "$name" "$out_dir/$name/SKILL.md" "$preamble"
         touch "$out_dir/$name/.roster-managed"
     done
@@ -304,6 +308,65 @@ build_hooks_json() {
     printf '%s\n' "$hooks_json"
 }
 
+sync_skill_hooks() {
+    local hooks_skills_dir="$HARNESS_DIR/hooks/skills"
+
+    # Exit silently if no hooks/skills directory exists or it is empty
+    if [ ! -d "$hooks_skills_dir" ]; then
+        return 0
+    fi
+
+    # Build-time include inlining: process shared fragments into hooks
+    # Finds all hook .md files under hooks/skills/, inlines any
+    # "include: shared/<name>.md" references within the steps YAML block,
+    # and writes the result as <hook>.inlined.md alongside the original.
+    # roster-run reads .inlined.md if present, falling back to the original.
+    find "$hooks_skills_dir" -name '*.md' ! -name '*.inlined.md' -print0 | \
+    while IFS= read -r -d '' hook_file; do
+        local inlined_file="${hook_file%.md}.inlined.md"
+        local shared_dir="$HARNESS_DIR/hooks/shared"
+        local has_include=0
+        if grep -q 'include: shared/' "$hook_file" 2>/dev/null; then
+            has_include=1
+        fi
+
+        if [ "$has_include" -eq 0 ]; then
+            # No includes — remove stale inlined file if present
+            rm -f "$inlined_file"
+            continue
+        fi
+
+        # Inline include: references
+        local content
+        content="$(cat "$hook_file")"
+        local result="$content"
+        # Process each "  - include: shared/<name>.md" line in the steps block
+        while IFS= read -r line; do
+            if echo "$line" | grep -qE '^\s*-\s+include:\s+shared/'; then
+                local fragment_name
+                fragment_name="$(echo "$line" | sed -E 's/.*include:\s+shared\///' | sed 's/[[:space:]]*$//')"
+                local fragment_path="$shared_dir/$fragment_name"
+                if [ -f "$fragment_path" ]; then
+                    local fragment_content
+                    fragment_content="$(cat "$fragment_path")"
+                    # Replace the include line with the fragment content
+                    result="$(echo "$result" | awk -v line="$line" -v frag="$fragment_content" '
+                        $0 == line { print frag; next }
+                        { print }
+                    ')"
+                else
+                    echo "sync_skill_hooks: include fragment not found: $fragment_path (in $hook_file)" >&2
+                fi
+            fi
+        done < "$hook_file"
+
+        printf '%s\n' "$result" > "$inlined_file"
+    done
+}
+
+# Inline shared skill-hook fragments before any runtime projection
+sync_skill_hooks
+
 if runtime_enabled "claude-code"; then
     mkdir -p "$CLAUDE_DIR/agents" "$CLAUDE_DIR/commands" "$CLAUDE_DIR/rules"
     sync_markdown_dir "$HARNESS_DIR/agents" "$CLAUDE_DIR/agents"
@@ -390,7 +453,9 @@ sync_skill_sources_to_opencode_commands() {
         [ -f "$src" ] || continue
         name="$(extract_frontmatter_field "$src" "name")"
         [ -n "$name" ] || name="$(basename "$src" .md)"
-        [ "$name" = "preamble" ] && continue
+        case "$name" in
+            preamble|roster-preamble) continue ;;
+        esac
         render_skill_source "$src" "$name" "$out_dir/$name.md" "$preamble"
     done
 }

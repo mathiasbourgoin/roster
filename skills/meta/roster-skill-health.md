@@ -1,7 +1,7 @@
 ---
 name: roster-skill-health
 description: Periodic friction analysis — proposes new skills, deterministic tools, and adaptations.
-version: 1.1.0
+version: 1.2.0
 domain: meta
 phase: null
 preamble: true
@@ -124,7 +124,35 @@ Adaptation: <what changes>
 Impacted section: <Steps N / Rules / Input Contract>
 ```
 
-#### D. New dedicated agents
+#### D. Skill hooks
+
+Signal: `min_entries_for_signal` (default: 3) friction entries on the same skill with `type: workaround`, where the workaround pattern is a guard check (validate precondition before running), a post-run cleanup, or a feedback loop (run → check → fix → retry).
+
+```
+**[HOOK] hooks/skills/<skill-name>/<pre|post>.md**
+
+Signal: <cite 1–2 friction entries>
+Problem: <what recurring manual step / guard / feedback loop is being done by hand>
+Proposed hook: <phase> hook for `<skill-name>` — <one-sentence description of what the hook automates>
+Expected friction reduction: <count> workaround entries eliminated
+```
+
+**`[HOOK]` trigger signals:**
+- ≥ `min_entries_for_signal` friction entries on the same skill with `type: workaround`
+- The workaround is a guard check (`effort_estimate: small`) or feedback loop (`effort_estimate: medium`)
+- A linter pass or metric-based signal is a bonus, not required
+
+**Hook lifecycle proposals (sub-section):**
+- **hook→skill migration:** If a hook has 100% pass rate over ≥10 runs logged in `friction.jsonl`, propose absorbing its logic into the skill's `## Steps` section as a first-class step, then deleting the hook.
+- **skill→hook extraction:** If a guard or cleanup prose pattern appears verbatim in 3+ skill files, propose extracting it to a shared hook fragment in `.harness/hooks/shared/`.
+
+**Additional `friction.jsonl` fields for hook-enabled runs:**
+```jsonl
+{"hook": "pre | post", "outcome": "pass | warn | abort | loop-N", "duration_hint_ms": 1200, "loop_iterations": 3}
+```
+Health analysis may filter on `"hook": "pre"` to identify pre-hook friction separately from skill friction.
+
+#### E. New dedicated agents
 
 Signal: `suggestion_type: "agent"` repeated, `effort_estimate: large`.
 

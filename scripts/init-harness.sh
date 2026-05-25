@@ -108,6 +108,7 @@ detect_project_metadata() {
 }
 
 mkdir -p "$AGENTS_DIR" "$SKILLS_DIR" "$RULES_DIR" "$HOOKS_DIR"
+mkdir -p "$HOOKS_DIR/skills" "$HOOKS_DIR/shared"
 
 copy_files() {
     local target_dir="$1"

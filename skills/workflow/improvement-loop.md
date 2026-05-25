@@ -1,4 +1,5 @@
 ---
+name: improvement-loop
 description: Run a bounded verification-first improvement loop from an approved loop spec.
 version: 1.0.0
 ---
@@ -135,13 +136,13 @@ At the end, report:
 
 ## Friction Log
 
-En fin de run, appender à `skills-meta/friction.jsonl` :
+At the end of each run, append to `skills-meta/friction.jsonl` :
 
 ```jsonl
 {
   "date": "<ISO-8601>",
   "skill": "improvement-loop",
-  "task": "<task-slug ou description courte>",
+  "task": "<task-slug or short description>",
   "frictions": [],
   "methods": [],
   "suggestion_type": null,

@@ -9,9 +9,6 @@ Thumbs.db
 *.swo
 
 # Claude
-.claude/
-.harness/
-.agents/
 /kb/
 
 # Node
@@ -24,3 +21,20 @@ skills-meta/
 
 # roster per-task artifacts (ephemeral)
 roster/
+
+# Pipeline working artifacts (ephemeral, project-local)
+briefs/
+reports/
+
+# Runtime state files
+.ta-state.json
+.ta-state.json.lock
+.imagelog.json
+
+# Test artifacts
+test-image.png
+
+# Internal docs (planning artifacts)
+docs/plans/
+docs/roadmap.md
+docs/iterations/

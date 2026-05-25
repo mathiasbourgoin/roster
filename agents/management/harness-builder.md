@@ -1,12 +1,12 @@
 ---
 name: harness-builder
 display_name: Harness Builder
-description: Builds and audits shared project harnesses, then projects them to Claude and Codex runtime surfaces.
+description: Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces.
 domain: [management, meta]
 tags: [harness, configuration, orchestration, profiles]
 model: opus
 complexity: high
-compatible_with: [claude-code, codex]
+compatible_with: [claude-code, codex, opencode]
 tunables:
   roster_repo: mathiasbourgoin/roster
   default_profile: developer
@@ -28,7 +28,7 @@ requires:
 isolation: none
 pipeline_role:
   triggered_by: human or tech-lead via /harness build, /harness audit, or /harness switch
-  receives: project root path and optional profile name; existing harness state from .harness/ or .claude/
+  receives: project root path and optional profile name; existing harness state from .harness/, .opencode/, or .claude/
   produces: assembled or audited harness with canonical .harness/ state and projected runtime files
   human_gate: after — proposed changes require explicit approval before write
 version: 1.3.0
@@ -68,7 +68,7 @@ Receives: project root path and optional profile name; existing harness state re
 3. Assemble layers:
    - agents (via recruiter)
    - rules (via governor + roster)
-   - hooks
+   - hooks (tool-level: `hooks/<category>/`, skill-level: `hooks/skills/<name>/pre.md` + `post.md`)
    - skills
    - mcp dependencies
    - KB bootstrap proposal (if enabled and appropriate)
@@ -76,6 +76,7 @@ Receives: project root path and optional profile name; existing harness state re
    - dependency satisfaction
    - rule conflicts
    - hook/tool conflicts
+   - skill-hook DSL validity (`npm run check:hooks`)
    - redundant skills
 5. On approval:
    - write canonical `.harness/`

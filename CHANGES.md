@@ -1,5 +1,34 @@
 # Changes
 
+## v2.6.0 — Skill-Level Hooks, Pre-Launch Cleanup
+
+### Skill-Level Hook System
+
+A new declarative hook DSL for roster pipeline skills (distinct from the existing tool-level PreToolUse/PostToolUse hooks):
+
+- `hooks/skills/<name>/pre.md` and `post.md` — hook files auto-discovered by `roster-run` before/after each skill dispatch
+- Full DSL: `run:`, `prompt:+agent:`, `test:+on_true:/on_false:`, `label:`, `loop:/until:`, `goto:`, `timeout:`, `log:`, `retry:+backoff:`, `include:`, `output:`, `parallel:` step types
+- `ABORT: <reason>` sentinel for pre-hooks that block skill execution
+- `on_error: stop|warn|continue` per-step error handling
+- `check-hook-structure.ts` linter (`npm run check:hooks`) — validates hook files with 12 error checks and 3 warning checks
+- `docs/hooks.md` — 524-line reference document covering format, DSL, examples, linting, and reliability caveats
+- `schema/hook-schema.md` updated to v1.1.0 with skill hook format section
+- `scripts/sync-harness.sh` updated with `sync_skill_hooks()` — inlines `include:` fragments at build time
+- `scripts/init-harness.sh` updated to create `hooks/skills/` and `hooks/shared/` directories
+
+### Pre-Launch Cleanup
+
+- **LICENSE** added (MIT, 2025)
+- **Brand assets** updated — dark-mode variants for all brand assets (logo, wordmark, mark, app icon, favicons, brand board)
+- **README** updated — adaptive dark/light logo, pipeline skills table, Pi ⚠️ untested note, hooks doc link
+- **Translation** — all French text translated to English across skills, skills projections, and preamble
+- **Personal artifacts removed** from git tracking: `briefs/`, `reports/`, `docs/plans/`, `docs/iterations/`, `.ta-state.json` state files, `.imagelog.json`, `test-image.png`
+- **Projections regenerated** — all `.claude/commands/` and `.agents/skills/` projections synced from source (roster-run v1.2→1.3, roster-spec v1.0→2.0, roster-skill-health v1.1→1.2, roster-research v1.0→1.1, French cleared from Codex surface)
+- **AGENTS.md** updated — correct agent count (22→27), all versions corrected, missing agents and skills added
+- `package.json` version set to 1.0.0
+- `harness-builder` source synced with its Claude projection (opencode added to compatible_with)
+- `skills/shared/preamble.md` frontmatter added with version 1.0.0
+
 ## v2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
 
 ### Architecture Shift: Skills as Primary Orchestration Unit
@@ -41,7 +70,7 @@ Minimum threshold: `min_entries_for_signal` occurrences (default 3) per cluster 
 
 ### Shared Preamble
 
-All `preamble: true` pipeline skills inject `skills/shared/preamble.md` at projection time. The preamble encodes the project's core ethos: anti-sycophancy, complétude (deliver complete solutions), search-before-build, user sovereignty (escalate on ambiguity, never decide silently), and friction log instructions.
+All `preamble: true` pipeline skills inject `skills/shared/preamble.md` at projection time. The preamble encodes the project's core ethos: anti-sycophancy, completeness (deliver complete solutions), search-before-build, user sovereignty (escalate on ambiguity, never decide silently), and friction log instructions.
 
 ### Schema Extensions
 

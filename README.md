@@ -1,4 +1,9 @@
-# Roster
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/roster-logo-dark-transparent.png" />
+    <img src="assets/brand/roster-logo-transparent.png" width="420" alt="Roster" />
+  </picture>
+</p>
 
 A pipeline framework for fast and correct software development with coordinated agent teams.
 
@@ -18,13 +23,13 @@ curl -fsSL https://raw.githubusercontent.com/mathiasbourgoin/roster/main/scripts
 
 Detects and installs for all present runtimes simultaneously:
 
-| Runtime | Detected by | Recruiter target |
-|---------|-------------|-----------------|
-| Claude Code | `.claude/` | `.claude/agents/recruiter.md` + `.claude/commands/recruit.md` |
-| OpenCode | `.opencode/` | `.opencode/agents/recruiter.md` |
-| Codex (project) | `.agents/` | `.agents/skills/recruit/SKILL.md` |
-| Codex (global) | `~/.codex/skills/` | `~/.codex/skills/recruit/SKILL.md` |
-| Pi | `.pi/` | `.pi/skills/recruit/SKILL.md` |
+| Runtime | Detected by | Recruiter target | Notes |
+|---------|-------------|-----------------|-------|
+| Claude Code | `.claude/` | `.claude/agents/recruiter.md` + `.claude/commands/recruit.md` | |
+| OpenCode | `.opencode/` | `.opencode/agents/recruiter.md` | |
+| Codex (project) | `.agents/` | `.agents/skills/recruit/SKILL.md` | |
+| Codex (global) | `~/.codex/skills/` | `~/.codex/skills/recruit/SKILL.md` | |
+| Pi | `.pi/` | `.pi/skills/recruit/SKILL.md` | ⚠️ untested |
 
 **Options:**
 
@@ -49,6 +54,8 @@ Roster ships as a set of slash-command skills. `/roster-run` is the entry point 
 |-------|-------|--------------|
 | `/roster-run` | Entry point | Detects context, routes to right phase |
 | `/roster-init` | Bootstrap | Adversarial project interview — 6 questions, 3 adversarial |
+| `/roster-question` | Question | Decomposes task into neutral research questions |
+| `/roster-research` | Research | Blind documentarian research — file:line grounded, optional online scan |
 | `/roster-intake` | Intake | Turns a task into a contractual brief with human gate |
 | `/roster-spec` | Spec | Adversarial spec phase: user stories + challenges + runnable AC checks |
 | `/roster-plan` | Plan | Dual-voice decomposition (two adversarial sub-agents), consensus |
@@ -59,6 +66,7 @@ Roster ships as a set of slash-command skills. `/roster-run` is the entry point 
 | `/roster-investigate` | Operational | Root-cause analysis, read-only, freeze scope |
 | `/roster-audit` | Operational | Code quality + spec compliance combined report |
 | `/roster-skill-health` | Meta | Friction log analysis → proposes new skills, tools, adaptations |
+| `/roster-skill-evolve` | Meta | Implements approved skill-health proposals |
 
 ### The spec phase
 
@@ -133,6 +141,10 @@ project/
 │   ├── skills/
 │   ├── rules/
 │   ├── hooks/
+│   │   ├── safety/          ← tool-level hooks (PreToolUse/PostToolUse)
+│   │   ├── quality/
+│   │   ├── skills/          ← skill-level hooks (pre/post per skill)
+│   │   └── shared/          ← shared hook fragments (build-time inlined)
 │   └── harness.json
 ├── .claude/           ← generated Claude projection
 │   ├── agents/
@@ -158,5 +170,18 @@ To add or update components:
 3. Update `AGENTS.md`
 4. Open a PR (rebase-merge only, conventional commits)
 
+`specs/` contains sample pipeline spec outputs (produced by `/roster-spec`) — useful as reference examples of what a complete spec looks like.
+
+`index.json` is the published component index (tracked, ~1.3 MB). Run `npm run build:index` when adding or updating components; commit the updated file in the same PR. Only rebuild on actual component changes — not on every edit.
+
+### Language Patterns
+
+`patterns/` contains curated good/antipattern guides per language (TypeScript, Go, Python, Rust, OCaml, prompt engineering). These are reference material consumed by language-specific agents (implementer, ocaml-implementer) and injected as context during implementation phases — not standalone skills.
+
+### OCaml Agent Manager
+
+`ocaml/agent-manager/` is an experimental companion runtime written in OCaml — a TUI-based agent orchestrator for running roster pipelines from the terminal. It is **alpha/experimental**, not required for normal roster usage, and tracked here for development convenience. The `ocaml-dune-specialist` and `ocaml-implementer` agents target this codebase specifically.
+
 → **[Full agent and skill catalog](docs/agents.md)**  
+→ **[Skill hooks DSL and tutorial](docs/hooks.md)**  
 → **[Changelog](CHANGES.md)**

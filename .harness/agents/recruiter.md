@@ -52,7 +52,7 @@ Version: 2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
 - **Skill-first pipeline.** Twelve new `roster-*` skills implement a full design→plan→implement→review→qa→ship pipeline as skills (not agent-to-agent). Skills are the primary orchestration unit; sub-agents remain directly accessible and complementary. Install them via `/roster-run` (entry point) or individually.
 - **Skill metabolism.** Skills now log frictions to `skills-meta/friction.jsonl` (gitignored, project-local). `/roster-skill-health` performs periodic cluster analysis and proposes four proposal types: [SKILL] new skills, [TOOL] deterministic tools, [ADAPT] tuning to local workflows, [AGENT] new specialist agents. `/roster-skill-evolve` implements approved proposals. This enables the system to self-improve and propose concrete tools (e.g., a fuzzer for red-teaming) when friction accumulates.
 - **`/roster-init`.** New bootstrap skill for greenfield and onboard scenarios. Runs an adversarial interview (6 questions, 3 adversarial) to challenge assumptions. Weak answers trigger a warning + brainstorming protocol before continuing. Detects greenfield vs existing-project automatically.
-- **Shared preamble.** All pipeline skills inject a shared ethos: anti-sycophancy, complétude, search-before-build, user sovereignty, escalation paths, and friction log instructions.
+- **Shared preamble.** All pipeline skills inject a shared ethos: anti-sycophancy, completeness, search-before-build, user sovereignty, escalation paths, and friction log instructions.
 - **Schema extension.** `skill-schema.md` now includes `friction_log`, `artifacts`, `human_gate`, `tunables`, `pipeline_role`. `harness-schema.md` has a new `layers.metabolism` block.
 - **`sync-harness.sh` updated.** Now syncs `roster-*.md` from all `skills/*/` subdirectories into `.claude/commands/` and Codex `SKILL.md` directories. Codex global installation is a separate explicit `codex-global` runtime.
 
@@ -126,7 +126,7 @@ Default to a shared harness model:
 | `/recruit` — no existing shared harness | Mode 1: Initial Team Assembly |
 | `/recruit` — `.harness/` or `.claude/agents/` already present | Mode 2: Team Audit & Upgrade |
 | `/recruit` with specific context ("adding Docker", "security audit") | Mode 3: Contextual Recruitment |
-| User asks for an agent that doesn't exist / gap found in Mode 1–3 | Mode 4: Agent Creation |
+| `/recruit create <description>` or gap found in Mode 1–3 | Mode 4: Agent Creation |
 | `/recruit govern` | Mode 5: Governance Setup |
 | `/recruit update` | Self-Update |
 
@@ -175,6 +175,42 @@ Present the top candidate per role as **Recommended**, next 1–2 as **Alternati
 
 - Domain coverage: ensure testing, review, implementation, and management roles are filled before adding specialists.
 - Avoid redundancy: two agents scoring within 2 points of each other for the same role = present both as alternatives, don't double-recruit.
+
+### Worked Example
+
+Task: *"I need a structured code reviewer for a TypeScript API project."*
+
+Candidate: `reviewer` (personal roster, domain: `testing`, tags: `[review, security, code-quality]`, compatible with: `claude-code`, has `pipeline_role` defined)
+
+| Criterion | Value | Points |
+|---|---|---|
+| `is_personal_roster` | yes | +10 |
+| `domain_exact_match` | `testing` ≠ `review` | 0 |
+| `domain_partial_match` | `testing` ≠ `review`, no domain overlap | 0 |
+| `tag_overlap` (review, code-quality) | 2 matches | +2 |
+| `compatible_with_claude_code` | yes | +3 |
+| `has_tunables` | yes | +1 |
+| `repo_stars` | N/A (personal roster) | 0 |
+| `last_commit_within_90d` | yes | +2 |
+| `no_pipeline_role_defined` | defined | 0 |
+| **Total** | | **18** |
+
+Competing external candidate: `awesome-claude-code-subagents/code-reviewer` (domain: `review`, 350 stars, no tunables, no `pipeline_role`, last commit 200 days ago)
+
+| Criterion | Value | Points |
+|---|---|---|
+| `is_personal_roster` | no | 0 |
+| `domain_exact_match` | `review` == `review` | +5 |
+| `tag_overlap` (code-quality) | 1 match | +1 |
+| `compatible_with_claude_code` | yes | +3 |
+| `has_tunables` | no | 0 |
+| `repo_stars` | floor(350/100)=3, capped at 5 | +3 |
+| `last_commit_within_90d` | no (200d) | 0 |
+| `last_commit_within_365d` | yes | +1 |
+| `no_pipeline_role_defined` | not defined | -2 |
+| **Total** | | **11** |
+
+→ **Recommended:** `reviewer` (score 18) · **Alternative:** `awesome.../code-reviewer` (score 11)
 
 ## Search Strategy
 
@@ -727,7 +763,7 @@ find .agents/skills -maxdepth 2 -name SKILL.md
 
 If `.harness/` or `.claude/` do not exist (e.g., Codex-only environment), write only to the configured Codex runtime entrypoint and skip the other targets — do not fail.
 
-**Note on preamble injection:** The preamble (`skills/shared/preamble.md`) encodes the project's shared ethos (anti-sycophancy, complétude, user sovereignty, friction log instructions). It must be injected after frontmatter for all skills where `preamble: true` appears in the frontmatter YAML block. Skills without this field or with `preamble: false` are written as-is.
+**Note on preamble injection:** The preamble (`skills/shared/preamble.md`) encodes the project's shared ethos (anti-sycophancy, completeness, user sovereignty, friction log instructions). It must be injected after frontmatter for all skills where `preamble: true` appears in the frontmatter YAML block. Skills without this field or with `preamble: false` are written as-is.
 
 **Runtime note:** OpenCode, Copilot, and Pi runtimes each have a dedicated renderer in `sync-harness.sh`. Enable them in `.harness/harness.json` (`"enabled": true`) and re-run `sync-harness.sh`. Pi uses the same `<name>/SKILL.md` format as Codex; OpenCode uses flat `.md` files; Copilot uses `.github/copilot-instructions.md` + per-agent `.github/instructions/` files.
 
