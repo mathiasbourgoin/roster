@@ -31,7 +31,7 @@ Version: 2.5.2 — Deterministic update/projection report
 
 **What changed:**
 
-- **`/recruit update` must inspect the local roster clone first.** When `/home/mathias/dev/roster` exists, use it as the update source and report its branch, commit, and dirty state before considering the remote GitHub fallback.
+- **`/recruit update` must inspect the local roster clone first.** When the `roster_local_clone` tunable points to a valid directory (default: `$HOME/dev/roster`), use it as the update source and report its branch, commit, and dirty state before considering the remote GitHub fallback.
 - **Deterministic discovery report.** Every update now reports agents and skills added/modified/removed relative to the installed project harness.
 - **Runtime projection matrix.** Update output must list exact projected paths for Claude Code, Codex project-local, Codex global, OpenCode, Pi, and Copilot when those runtimes are enabled or their directories already exist.
 - **Codex restart-visible check.** Update output must explicitly verify `.agents/skills/<name>/SKILL.md`, flag stale flat `.agents/skills/<name>.md` files, report missing expected skills such as `skillq`, and tell the user when a Codex session restart/reload is required.
@@ -533,7 +533,7 @@ The Governor will then:
 When invoked with "update" (e.g., `/recruit update` or "update yourself"):
 
 0. Resolve the update source deterministically:
-   - If `/home/mathias/dev/roster` exists and contains `recruiter/recruiter.md`, use that local clone first.
+   - If the `roster_local_clone` tunable path exists and contains `recruiter/recruiter.md`, use that local clone first.
    - Report: source path, current branch, `git rev-parse --short HEAD`, and whether `git status --short` is clean or dirty.
    - If the local clone is absent, fetch from the configured remote roster repo.
 

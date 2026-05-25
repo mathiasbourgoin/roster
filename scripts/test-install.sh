@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-INSTALL_SH="/home/mathias/dev/agent-roster/scripts/install.sh"
+INSTALL_SH="$(cd "$(dirname "$0")" && pwd)/install.sh"
 MOCK_ROOT="/tmp/roster-mock-raw"
 WORK_DIR="/tmp/roster-install-qa"
 FAKE_CODEX_HOME="/tmp/roster-fake-codex-home"
@@ -24,7 +24,7 @@ echo "# mock opencode recruiter" > "$MOCK_ROOT/.opencode/agents/recruiter.md"
 PATCHED_SH="/tmp/install-patched.sh"
 sed \
   -e "s|RAW=\"https://raw.githubusercontent.com/\${REPO}/\${BRANCH}\"|RAW=\"file://${MOCK_ROOT}\"|g" \
-  -e "s|CODEX_HOME_DIR=\"\${CODEX_HOME:-\$HOME/.codex}\"|CODEX_HOME_DIR=\"\${CODEX_HOME:-${FAKE_CODEX_HOME}}\"|g" \
+  -e "s|\${CODEX_HOME:-\$HOME/.codex}|${FAKE_CODEX_HOME}|g" \
   "$INSTALL_SH" > "$PATCHED_SH"
 chmod +x "$PATCHED_SH"
 

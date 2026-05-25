@@ -1,7 +1,7 @@
 # TA Roadmap
 
 TA is the roster-native tmux agent manager. It is developed as an
-agent-roster project: the `tech-lead` selects the next loop action, the team
+roster project: the `tech-lead` selects the next loop action, the team
 implements or improves the roadmap, then review and QA verify the result before
 commit.
 
