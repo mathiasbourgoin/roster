@@ -527,7 +527,13 @@ These features require a binding mechanism that was not designed in time for v1.
 
 ## 11. Hook Executor Exit Codes
 
-`scripts/run-hook.ts` (invoked via `npm run run-hook -- <file>`) returns the following exit codes. These are consumed by `roster-run` to decide whether to dispatch the skill.
+`scripts/run-hook.ts` is compiled to `dist/scripts/run-hook.js` via `npm run build:ts`. Invoke directly:
+
+```bash
+npm run build:ts && node dist/scripts/run-hook.js .harness/hooks/skills/roster-spec/pre.md
+```
+
+It returns the following exit codes, consumed by `roster-run` to decide whether to dispatch the skill.
 
 | Code | Meaning | roster-run behaviour |
 |------|---------|----------------------|
