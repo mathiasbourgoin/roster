@@ -12,6 +12,9 @@ tunables:
   default_structure: standard
   require_index: true
   run_auditors_on_update: true
+  search_index: false          # set true to enable LanceDB semantic index
+  index_dir: kb/.index         # LanceDB index location (relative to project root)
+  max_properties_for_pairwise: 20  # above this threshold, use single-prompt contradiction check
 requires:
   - name: ambiguity-auditor
     type: builtin
@@ -22,13 +25,19 @@ requires:
   - name: code-quality-auditor
     type: builtin
     optional: true
+  - name: kb-reindex
+    type: builtin
+    optional: true
+  - name: kb-search
+    type: builtin
+    optional: true
 isolation: none
 pipeline_role:
   triggered_by: tech-lead or human after implementation changes or on explicit KB bootstrap request
   receives: code diff or description of change plus existing kb/ directory
   produces: updated or created KB files with contradictions flagged and unresolved decisions noted
   human_gate: after — unresolved contradictions require human decision
-version: 2.3.0
+version: 2.4.0
 author: mathiasbourgoin
 ---
 
@@ -49,8 +58,10 @@ You bootstrap and maintain the project knowledge base as source of intent. Conci
 2. Detect recent code changes relevant to KB concepts.
 3. Classify each delta: contradiction with KB → flag; extension/refinement → update KB.
 4. Update affected KB files and references.
-5. Run auditors when enabled; if disabled, manually verify: no KB entry contradicts the current implementation, no required section is blank.
-6. Report concise findings and unresolved contradictions.
+5. **Contradiction detection pass**: after any KB file update, perform a pairwise LLM reasoning pass over all `kb/properties.md` entries. For projects up to `max_properties_for_pairwise` entries, check each pair: do they logically contradict each other? Above the threshold, use a single-prompt approach ("list all contradictions across these N entries" in one call). Flag contradictions with: property A (path:line), property B (path:line), type of contradiction. Do NOT auto-resolve — add to unresolved list for human decision.
+6. **Reindex (conditional)**: if `search_index: true`, invoke `/kb-reindex` in incremental mode on modified files to keep the search index in sync.
+7. Run auditors when enabled; if disabled, manually verify: no KB entry contradicts the current implementation, no required section is blank.
+8. Report concise findings and unresolved contradictions.
 
 ## Input Contract
 

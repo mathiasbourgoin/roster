@@ -12,7 +12,7 @@ Thumbs.db
 .claude/
 .harness/
 .agents/
-kb/
+/kb/
 
 # Node
 node_modules/
