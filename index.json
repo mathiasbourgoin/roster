@@ -2187,7 +2187,7 @@
     "path": "agents/management/architect.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2212,7 +2212,7 @@
     "path": "agents/specialist/config-migrator.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2237,7 +2237,7 @@
     "path": "agents/management/context-manager.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2263,7 +2263,7 @@
     "path": "agents/management/error-coordinator.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2288,7 +2288,7 @@
     "path": "agents/specialist/expert-debugger.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2320,7 +2320,7 @@
     "path": "agents/specialist/fex-wine-proton.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2352,7 +2352,7 @@
     "path": "agents/specialist/gamescope-mangohud-qam.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2379,7 +2379,7 @@
     "path": "agents/management/harness-builder.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2406,7 +2406,7 @@
     "path": "agents/backend/implementer.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2433,7 +2433,7 @@
     "path": "agents/management/kb-agent.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2465,7 +2465,7 @@
     "path": "agents/specialist/kernel-arm64-bringup.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2492,7 +2492,7 @@
     "path": "agents/security/mcp-vetter.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2519,7 +2519,7 @@
     "path": "agents/specialist/migration-guard.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2551,7 +2551,7 @@
     "path": "agents/specialist/ocaml-dune-specialist.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2579,7 +2579,7 @@
     "path": "agents/backend/ocaml-implementer.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2605,7 +2605,7 @@
     "path": "agents/devops/performance-monitor.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2631,7 +2631,7 @@
     "path": "agents/management/planner.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2658,7 +2658,7 @@
     "path": "agents/management/pr-workflow.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2689,7 +2689,7 @@
     "path": "agents/management/project-auditor.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2714,7 +2714,7 @@
     "path": "agents/testing/qa.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2742,7 +2742,7 @@
     "path": "recruiter/recruiter.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2772,7 +2772,7 @@
     "path": "agents/security/red-team-auditor.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2800,7 +2800,7 @@
     "path": "agents/testing/reviewer.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2826,7 +2826,7 @@
     "path": "agents/management/skill-creator.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2852,7 +2852,7 @@
     "path": "agents/management/tech-lead.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2879,7 +2879,7 @@
     "path": "agents/devops/tool-provisioner.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "agent"
   },
   {
@@ -2895,7 +2895,7 @@
     "path": "hooks/safety/block-dangerous-commands.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "hook"
   },
   {
@@ -2911,7 +2911,7 @@
     "path": "hooks/quality/post-edit-lint.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "hook"
   },
   {
@@ -2927,7 +2927,7 @@
     "path": "rules/common/code-quality.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "rule"
   },
   {
@@ -2943,7 +2943,7 @@
     "path": "rules/governance/diagnostic-interview.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "rule"
   },
   {
@@ -2959,7 +2959,7 @@
     "path": "rules/safety/escalation.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "rule"
   },
   {
@@ -2975,7 +2975,7 @@
     "path": "rules/governance/human-validation.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "rule"
   },
   {
@@ -2991,7 +2991,7 @@
     "path": "rules/safety/sycophancy.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "rule"
   },
   {
@@ -3007,7 +3007,7 @@
     "path": "skills/pipeline/roster-audit.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3023,7 +3023,7 @@
     "path": "skills/pipeline/roster-implement.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3039,7 +3039,7 @@
     "path": "skills/pipeline/roster-init.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3055,7 +3055,7 @@
     "path": "skills/pipeline/roster-intake.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3071,7 +3071,7 @@
     "path": "skills/pipeline/roster-investigate.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3087,7 +3087,7 @@
     "path": "skills/pipeline/roster-plan.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3103,7 +3103,7 @@
     "path": "skills/pipeline/roster-qa.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3119,7 +3119,7 @@
     "path": "skills/pipeline/roster-question.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3135,7 +3135,7 @@
     "path": "skills/pipeline/roster-research.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3151,7 +3151,7 @@
     "path": "skills/pipeline/roster-review.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3167,7 +3167,7 @@
     "path": "skills/pipeline/roster-run.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3183,7 +3183,7 @@
     "path": "skills/pipeline/roster-ship.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3199,7 +3199,7 @@
     "path": "skills/meta/roster-skill-evolve.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
@@ -3215,7 +3215,7 @@
     "path": "skills/meta/roster-skill-health.md",
     "source": "local",
     "source_id": "local",
-    "source_repo": "mathiasbourgoin/agent-roster",
+    "source_repo": "mathiasbourgoin/roster",
     "component_type": "skill"
   },
   {
