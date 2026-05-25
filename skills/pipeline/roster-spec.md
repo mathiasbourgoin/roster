@@ -118,9 +118,9 @@ Research:
 <research sub-agent output summary>
 ```
 
-Collect the Q&A table. Any [OPEN] items become your first questions to the user
-(counted against `tunables.max_questions_to_user`). Resolve all [OPEN] items before
-proceeding to story generation — either by re-reading sources or asking the user.
+Collect the Q&A table. Track `questions_asked_step2` = number of [OPEN] items resolved
+by asking the user. Resolve all [OPEN] items before proceeding to story generation —
+either by re-reading sources or asking the user (one question at a time).
 
 ### 3. Story Generation
 
@@ -200,10 +200,11 @@ Review the challenges. Classify each:
 - **Resolvable from brief**: resolve immediately, document resolution.
 - **Requires user input**: add to questions list.
 
-Ask the user questions **one at a time** (max `tunables.max_questions_to_user`).
+Ask the user questions **one at a time**. Remaining budget:
+`max_questions_to_user − questions_asked_step2` (questions already used in Step 2).
 Do NOT ask questions answerable by reading code or the brief.
 
-If more than `max_questions_to_user` challenges remain unresolved after research:
+If unresolved challenges exceed the remaining budget:
 > ⛔ Spec bounced: <N> challenges remain unresolved after research. Returning to intake.
 > Unresolved: [list challenges]
 Write `briefs/<task>-spec.md` with `**Status:** BOUNCED — unresolved challenges: [list]`.

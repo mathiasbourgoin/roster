@@ -35,7 +35,7 @@ silently resolved.
 | Tunable | Default | Effect |
 |---|---|---|
 | `include_git_history` | `true` | Run Sub-agent 4 (Git History Miner) |
-| `conflict_policy` | `surface` | Always surface conflicts; never auto-resolve |
+| `conflict_policy` | `surface` | Only valid value in v1.0.0: always surface conflicts, never auto-resolve. Reserved for future extension. |
 | `gap_threshold` | `0` | Register every uncovered public symbol as a GAP |
 
 ## Steps
@@ -114,7 +114,9 @@ Collect E2 claims. Note all public/exported symbols identified — used for gap 
 Spawn a sub-agent (fresh context) with this prompt:
 
 ```
-You are a Code+Docs Analyzer producing an independent claim set (for TRACE conflict detection).
+You are a Code+Docs Analyzer producing an independent claim set for conflict detection.
+(TRACE — Two-Reader Agreement with Corroborated Evidence — runs two independent analyzers
+to surface claim divergence caused by documentation drift.)
 
 Read all source files PLUS all documentation: .md files, READMEs, docstrings, JSDoc.
 
@@ -142,9 +144,11 @@ Spawn a sub-agent (fresh context) with this prompt:
 You are a Git History Miner. Annotate behavioral claims with design-decision
 context from commit history.
 
-1. Run: git log --follow --oneline -- <key implementation files identified by
-   Sub-agents 2/3>
-2. Run: git log --oneline -50
+1. Collect the list of key implementation files identified by Sub-agents 2 and 3
+   (files containing the most public/exported symbols). Pass this concrete list to
+   Sub-agent 4.
+2. Run: `git log --follow --oneline -- <collected file list>`
+3. Run: `git log --oneline -50`
 
 If not a git repo or no history: emit "Git history unavailable — commit
 annotations omitted." and return empty.
@@ -165,7 +169,7 @@ Collect commit annotations keyed by implementation area.
 
 After all sub-agents complete:
 
-**1. Conflict detection (TRACE mitigation)**
+**1. Conflict detection (TRACE — Two-Reader Agreement with Corroborated Evidence)**
 
 Diff Sub-agent 2 (code-only) vs Sub-agent 3 (code+docs) claim sets:
 - For each claim where the two describe the same symbol differently: create a CONFLICT entry:
@@ -176,8 +180,12 @@ Diff Sub-agent 2 (code-only) vs Sub-agent 3 (code+docs) claim sets:
     Note: [CONFLICT: doc-drift suspected] — human adjudication required.
   ```
 - Remove conflicting claims from `## Claims` — they belong ONLY in `## Conflicts`.
-- Non-conflicting claims from Sub-agent 3 that add documentation corroboration → promote
-  corresponding E2 claims to E2 (no label change; just note doc support in evidence).
+- For non-conflicting claims where Sub-agent 3 adds documentation corroboration to a
+  Sub-agent 2 claim: append the doc citation to the existing E2 claim's evidence field:
+  `(doc: <file>:<line>)`. No label change — the claim stays [E2].
+- If Sub-agent 3 found no documentation ("No documentation found"): conflict detection
+  is not applicable; note "No documentation found — conflict detection not applicable"
+  and proceed with Sub-agent 2's claims as the sole source.
 
 **2. Gap registration**
 
@@ -247,11 +255,8 @@ version: 1.0.0
    grouped by module/feature area
 2. `## Functional Requirements` — FR-NNN MUST/SHOULD statements from the Requirements
    Formalizer, grouped by module (E1-sourced FRs listed before E2-sourced)
-3. `## Edge Cases` — CONFLICT and GAP entries re-framed as edge cases:
-   - CONFLICTs → behaviors with unresolved doc-drift (human adjudication required)
-   - GAPs → untested surfaces (behavior undefined by evidence)
-4. `## Gaps` — all GAP-N entries (mandatory; "No gaps detected." if none)
-5. `## Conflicts` — all CONFLICT-N entries (mandatory; "No conflicts detected." if none)
+3. `## Gaps` — all GAP-N entries (mandatory; "No gaps detected." if none)
+4. `## Conflicts` — all CONFLICT-N entries (mandatory; "No conflicts detected." if none)
 
 **Completion messages (print at end of run):**
 
@@ -263,12 +268,6 @@ version: 1.0.0
 - `/spec-compliance-auditor specs/<slug>-inferred.md` — audit implementation against this inferred spec
 - `/roster-spec` — produce a forward spec that incorporates the inferred findings as a starting point
 
-## Friction Log
-
-```jsonl
-{"task":"roster-spec-infer","frictions":[],"methods":[],"suggestion_type":null,"suggestion":null,"effort_estimate":null}
-```
-
 ## Rules
 
 1. Evidence labels: `[E1]`, `[E2]`, `[E3]` only — never "Tier 1/2/3" (reserved for Ralph Loop quality gates).
@@ -276,7 +275,7 @@ version: 1.0.0
 3. **E2** is best-effort static inference. Not equivalent to E1.
 4. **E3** annotation `[E3: lowest confidence — verify against code]` is mandatory on every E3 claim.
 5. CONFLICT entries appear ONLY in `## Conflicts` — never in `## Claims`.
-6. Absence of conflicts does not certify correctness. Both analyzers may be wrong in the same direction (TRACE limitation).
+6. Absence of conflicts does not certify correctness. Both analyzers may agree on a wrong claim if the bug exists in both code and docs simultaneously (TRACE blind spot — not a substitute for human review).
 7. Gap registration is mandatory — every uncovered public surface is a GAP-N entry. Silence never implies completeness.
 8. FRs derived from E3-only sources are prohibited — E3 claims are documentation assertions, not behavioral evidence.
 9. Output frontmatter must contain `type: inferred-spec` and filename must end in `-inferred.md`.
