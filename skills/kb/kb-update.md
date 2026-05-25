@@ -1,6 +1,6 @@
 ---
 description: Update knowledge base — sync KB files with recent code changes without weakening specs.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # KB Update
@@ -48,6 +48,16 @@ For each changed concept, classify the delta:
 ### 6. Report
 
 Summarize: files updated, entries added/modified, contradictions found, ambiguity issues.
+
+### 7. Trigger reindex (conditional)
+
+```bash
+[ -d kb/.index ] && echo "index: present" || echo "index: absent"
+```
+
+If `kb/.index/` exists: invoke `/kb-reindex` in incremental mode, passing the list of files modified in Steps 4 and 5. This keeps the search index in sync without a full reindex.
+
+If `kb/.index/` does not exist: skip silently — the index is opt-in.
 
 ## Rules
 
