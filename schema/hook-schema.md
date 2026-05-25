@@ -1,3 +1,7 @@
+---
+version: 1.1.0
+---
+
 # Hook Definition Schema
 
 Hooks are markdown files that define automated behaviors triggered by assistant runtime events. Each hook lives in `hooks/<category>/<name>.md` and is installed into the shared harness before being projected into runtime-specific configuration.
@@ -130,3 +134,124 @@ The canonical installer should place the hook in `.harness/hooks/<name>.md`, the
 
 - Claude Code: serialize the `command` block and merge it into `.claude/settings.json` or `.claude/settings.local.json`
 - Other runtimes: project the same hook intent into the nearest equivalent mechanism, or mark it unsupported if no equivalent exists
+
+---
+
+## Skill Hook Format
+
+Skill hooks are markdown files with a fenced YAML `steps:` block. They are executed by the LLM agent (not a separate process) before (`pre`) or after (`post`) a skill is dispatched by `roster-run`.
+
+### Frontmatter Fields
+
+**Required:**
+
+```yaml
+name: <kebab-case>       # Unique identifier
+version: <semver>        # e.g., 1.0.0
+event: pre | post        # Hook phase
+skill: <skill-name>      # Target skill name (matches name: frontmatter field of the skill file)
+on_error: stop | warn | skip | skip-step | retry:N | ignore  # Hook-level default behavior
+```
+
+**Optional:**
+
+```yaml
+description: <string>   # One-line summary
+```
+
+**Default `on_error` by phase:**
+- `pre` hooks: `stop` (abort skill dispatch on failure)
+- `post` hooks: `warn` (log failure, do not affect skill outcome retroactively)
+
+### Body Format
+
+````markdown
+---
+(frontmatter)
+---
+
+(optional prose documentation)
+
+```yaml
+steps:
+  - run: "bash command"
+    on_error: stop       # step-level override (optional)
+  - prompt: "text to send"
+    agent: roster-implement
+    on_error: warn
+  - test: "bash returning 0=true"
+    on_true:
+      - run: "cmd if true"
+    on_false:
+      - goto: my-label
+  - label: my-label
+  - loop:
+      steps:
+        - run: "cmd"
+      until: "bash returning 0=done"
+  - goto: roster-implement    # pipeline jump (post-hooks only) OR intra-hook label
+  - timeout: 5000             # advisory ms — LLM best-effort, not enforced
+  - log: "message to user"
+  - retry: 3
+    backoff: 1000
+  - include: shared/validate-brief.md   # build-time inlined by sync-harness.sh
+  - output: key-name
+  - parallel:                 # prose-parallelism hint — executed sequentially in v1
+      agents:
+        - roster-implement
+        - roster-review
+      on_error: collect-all   # no-op in v1; first-wins is also a no-op
+```
+````
+
+### Step-Type Catalog
+
+| Operator | Required co-fields | Notes |
+|---|---|---|
+| `run:` | — | Bash execution; exit code semantics |
+| `prompt:` | `agent:` (required) | Invoke named agent; see ABORT sentinel |
+| `test:` | `on_true:` and/or `on_false:` | Bash branching; exit 0 = true |
+| `label:` | — | Named jump target (no-op execution) |
+| `loop:` | `steps:` (required), `until:` (optional) | Infinite loops allowed; linter warns when `until:` absent |
+| `goto:` | — | Intra-hook label or pipeline step (post-hooks only) |
+| `timeout:` | — | Advisory ms; LLM best-effort only |
+| `log:` | — | Print message to user |
+| `retry:` | `backoff:` (optional ms) | Retry the PREVIOUS step up to N times |
+| `include:` | — | Path relative to `.harness/hooks/shared/`; inlined at build time |
+| `output:` | — | Structured output key |
+| `parallel:` | `agents:` (required) | Prose-parallelism hint; sequential in v1; `first-wins`/`collect-all` are no-ops |
+
+Each step object must have **exactly one** operator key from the table above.
+
+### `ABORT:` Sentinel
+
+For `prompt:` + `agent:` steps, a step failure is triggered when the **entire** first non-empty line of agent output equals (after stripping leading whitespace):
+
+```
+ABORT: <reason>
+```
+
+Any other occurrence of the word "ABORT" in the response is ignored.
+
+### Discovery Path
+
+Auto-discovered by `roster-run` using the `name:` frontmatter field of the target skill file:
+
+```
+.harness/hooks/skills/<skill-name>/pre.md    # pre hook
+.harness/hooks/skills/<skill-name>/post.md   # post hook
+```
+
+### Non-Reentrance
+
+Hooks do not fire for skill invocations initiated from within a hook (depth > 1). This is enforced by prose instruction in `roster-run.md` — not by a process mechanism. See the reliability caveats in `docs/hooks.md`.
+
+### Friction Log Fields
+
+Hook-enabled runs emit additional fields in `friction.jsonl` alongside standard fields:
+
+```jsonl
+{"hook": "pre | post", "outcome": "pass | warn | abort | loop-N", "duration_hint_ms": 1200, "loop_iterations": 0}
+```
+
+> `duration_hint_ms` is LLM-approximate — no wall-clock timer is available.

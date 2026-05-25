@@ -1,7 +1,7 @@
 {
   "name": "roster",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "commonjs",
   "scripts": {
     "build:index": "node scripts/run-build-index.js",
@@ -9,10 +9,13 @@
     "check:agents": "npm run build:ts && node dist/scripts/check-agents.js",
     "check:skills": "node dist/scripts/check-skill-structure.js",
     "check:kb-links": "node scripts/check-kb-links.js",
-    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js && node scripts/check-kb-links.js"
+    "check:hooks": "node dist/scripts/check-hook-structure.js",
+    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js && node dist/scripts/check-hook-structure.js && node scripts/check-kb-links.js"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.15.3",
+    "js-yaml": "^4.1.0",
     "typescript": "^5.8.3"
   }
 }

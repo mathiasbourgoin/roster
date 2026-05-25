@@ -1,7 +1,7 @@
 ---
 name: roster-run
 description: Pipeline entry point — detects context and routes to the right skill.
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Roster Run
@@ -17,6 +17,59 @@ For any new task (no existing brief), the mandatory route is:
 ```
 
 Always start with `/roster-question`. Do not skip to `/roster-intake` directly unless the user explicitly requests it and the task is a trivial single-file change.
+
+## Hook Execution
+
+Before routing to a skill, check for skill hooks. Hooks are executed by you (the LLM agent) — not by a separate process.
+
+### Non-Reentrance Guard
+
+**Before executing any hook:** check whether `HOOK_RUNNING` is set in your current context. If it is, skip hook execution silently for all nested skill invocations — do not error. This is a prose convention, not a process mechanism.
+
+**When executing a hook:** set `HOOK_RUNNING: true` in your context for the duration of hook execution, then clear it after.
+
+### Discovery (before routing)
+
+1. Determine the `name:` frontmatter field of the target skill file in `.harness/skills/<skill-file>.md` — this is the lookup key, **not** the routing slug.
+2. Check if `.harness/hooks/skills/<name>/pre.md` exists.
+3. If present **and** `HOOK_RUNNING` is not set in current context: execute the pre-hook (see execution instructions below).
+
+### Pre-Hook Execution
+
+1. Read the hook `.md` file (use `.inlined.md` variant if present, fall back to original).
+2. Extract the `steps:` fenced YAML block.
+3. Execute each step in order by type using the step-type dispatch table below.
+4. If any step fails and `on_error:` (step-level, or hook-level default `stop` for pre-hooks) is `stop`:
+   - Print: `Hook <hook-name> aborted at step <N> (on_error: stop) — skill dispatch cancelled. Hook output: <stdout>`
+   - Do **not** dispatch the skill.
+5. If `on_error: warn` — log the failure and continue.
+6. If `on_error: skip` or `skip-step` — skip the current step, continue.
+7. If `on_error: retry:N` — retry up to N times before applying the next level default.
+8. If `on_error: ignore` — silently continue.
+
+### Post-Hook Execution
+
+1. After the skill completes (regardless of skill outcome), check for `.harness/hooks/skills/<name>/post.md`.
+2. If present and `HOOK_RUNNING` is not set: execute similarly to pre-hook.
+3. Pass skill outcome as implicit context (available in `prompt:` steps).
+4. Default `on_error:` for post-hooks is `warn` (log and continue — do not retroactively affect skill outcome).
+
+### Step-Type Dispatch
+
+| Step operator | Execution |
+|---|---|
+| `run: <cmd>` | Call Bash tool with `<cmd>`; read exit code — non-zero = failure |
+| `prompt: <text>` + `agent: <name>` | Invoke named skill/agent with prompt text; first non-empty output line = `ABORT: <reason>` → failure |
+| `test: <cmd>` | Run Bash; exit 0 = true → execute `on_true:` steps; non-zero = false → execute `on_false:` steps |
+| `label: <name>` | Mark this position as a jump target — no-op execution |
+| `goto: <target>` | Jump to named `label:` in this hook; or (post-hooks only) to a named pipeline step in roster-run routing |
+| `loop:` | Execute inner `steps:` repeatedly; check `until:` (Bash, exit 0 = done) after each iteration; no iteration cap |
+| `timeout: <ms>` | Advisory — note the time budget and use best-effort judgment; no enforcement |
+| `log: <text>` | Print to user |
+| `retry: N` + optional `backoff: <ms>` | Retry the **previous** step up to N times with optional delay |
+| `include: <path>` | Already inlined at build time by `sync-harness.sh`; treat inline content as additional steps |
+| `output: <key>` | Note this step produces structured output under the given key |
+| `parallel:` | Execute listed agents **sequentially** (v1 prose-parallelism); `first-wins`/`collect-all` are no-ops |
 
 ## Routing
 
