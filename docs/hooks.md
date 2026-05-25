@@ -522,3 +522,19 @@ The following features are **planned for v2** and are **absent from v1**:
 - `{{var}}` interpolation — reference captured values in subsequent steps
 
 These features require a binding mechanism that was not designed in time for v1. Do not attempt to use `capture:` or `{{var}}` syntax — the linter will flag them as unknown operators.
+
+---
+
+## 11. Hook Executor Exit Codes
+
+`scripts/run-hook.ts` (invoked via `npm run run-hook -- <file>`) returns the following exit codes. These are consumed by `roster-run` to decide whether to dispatch the skill.
+
+| Code | Meaning | roster-run behaviour |
+|------|---------|----------------------|
+| **0** | `pass` — all steps completed successfully | Dispatch the skill normally |
+| **1** | `abort` — a `run:` step failed with `on_error: stop`, or a `retry:` exhausted all attempts | **Block** skill dispatch; print abort reason |
+| **2** | `warn` — a step failed with `on_error: warn` and execution continued | Dispatch the skill; log the warning |
+| **3** | `pending` — hook contains `prompt:`, `loop:`, or `parallel:` steps that require LLM interpretation | Hand remaining steps back to the LLM agent; it decides whether to proceed |
+| **4** | `skip` — the re-entrance guard `ROSTER_HOOK_RUNNING` was set (hook called from within a hook) | Skip hook silently; dispatch the skill normally |
+
+**Rule of thumb for hook authors:** if your pre-hook must block the skill on failure, use `on_error: stop` on the `run:` step. Exit 1 is the only code that prevents dispatch.

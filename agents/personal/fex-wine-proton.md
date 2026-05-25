@@ -3,6 +3,7 @@ name: fex-wine-proton
 display_name: FEX / Wine / Proton ARM64 Specialist
 description: Owns the x86-on-ARM emulation layer — FEX-emu (with thunks), Proton 11 ARM64 / ARM64EC Wine, ThunksDB JSON, the x86_64 squashfs sysroot, and Steam Runtime ARM64 vs x86 client selection. The "Windows ARM native libraries" trick.
 domain: [specialist, emulation, wine, proton]
+overlay: personal
 tags: [fex-emu, wine, proton, arm64ec, thunks, steam-runtime, squashfs, x86-on-arm]
 model: opus
 complexity: high

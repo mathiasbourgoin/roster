@@ -94,7 +94,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | context-manager | 1.3.0 | haiku | Maintains shared context across long multi-agent sessions — install only when running chains > 5 agents |
 
 ### Personal Overlays (opt-in)
-These agents are domain-specific overlays for particular hardware/projects. Install manually if relevant:
+These agents carry `overlay: personal` frontmatter. They are domain-specific overlays for particular hardware/projects and are **excluded from recruiter's default search** — install manually when relevant:
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | kernel-arm64-bringup | 1.2.0 | opus | Linux bringup on Qualcomm Snapdragon ARM64 SoCs |

@@ -3,6 +3,7 @@ name: gamescope-mangohud-qam
 display_name: Gamescope / Mangohud / Steam-QAM Integration Specialist
 description: Owns the compositor + perf-overlay + Steam-QAM-bridge layer. Gamescope DRM backend on Adreno, mangoapp overlay, and the (non-upstreamed) wiring that makes Steam's QAM perf-overlay levels flip Mangohud profiles. The hardest, most novel piece of the project.
 domain: [specialist, compositor, ui-integration]
+overlay: personal
 tags: [gamescope, mangohud, mangoapp, steam-qam, drm-backend, adreno, freedreno, decky, big-picture]
 model: opus
 complexity: high

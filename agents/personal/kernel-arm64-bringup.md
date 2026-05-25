@@ -3,6 +3,7 @@ name: kernel-arm64-bringup
 display_name: Kernel ARM64 Bring-up Specialist
 description: Brings up Linux on Qualcomm Snapdragon ARM64 SoCs (SM8550 / Adreno 740 baseline). Covers mainline kernel selection, device-tree work, freedreno/MSM DRM, Android boot.img assembly, fastboot flashing, and serial console bring-up on AYN/handheld-class devices.
 domain: [specialist, kernel, embedded]
+overlay: personal
 tags: [linux-kernel, arm64, sm8550, snapdragon, dts, freedreno, fastboot, boot-img, msm-drm]
 model: opus
 complexity: high

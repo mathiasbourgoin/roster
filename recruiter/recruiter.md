@@ -219,8 +219,9 @@ Use index artifacts, not ad-hoc remote crawling.
 
 1. Run `index_build_command` in the roster repo context (or fetch the already-built `index.json` from `roster_repo`).
 2. Read `index.json` and filter entries by role/domain/tags/compatibility.
-3. Prefer `source == local` candidates when scores are close.
-4. For shortlisted candidates only, fetch full `.md` definitions by `path` to verify details before final recommendation.
+3. **Skip agents with `overlay: personal`** — these are hardware/project-specific overlays that must be opted into explicitly. Never include them in a default team proposal.
+4. Prefer `source == local` candidates when scores are close.
+5. For shortlisted candidates only, fetch full `.md` definitions by `path` to verify details before final recommendation.
 
 ### Source handling
 - Remote sources are controlled by `index_sources_file`.
