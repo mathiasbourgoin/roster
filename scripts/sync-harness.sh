@@ -173,7 +173,7 @@ render_recruit_skill() {
     {
         printf '%s\n' '---'
         printf '%s\n' 'name: recruit'
-        printf '%s\n' 'description: Use when the user invokes /recruit, $recruit, recruit update, or asks to assemble, audit, update, or govern an agent team using mathiasbourgoin/agent-roster.'
+        printf '%s\n' 'description: Use when the user invokes /recruit, $recruit, recruit update, or asks to assemble, audit, update, or govern an agent team using mathiasbourgoin/roster.'
         printf '%s\n\n' '---'
         strip_frontmatter "$src"
     } > "$dest"
@@ -203,7 +203,7 @@ sync_skill_sources_to_codex_dir() {
 
     mkdir -p "$out_dir"
     find "$out_dir" -maxdepth 1 -type f -name '*.md' -delete
-    find "$out_dir" -mindepth 2 -maxdepth 2 -type f -name '.agent-roster-managed' -print0 |
+    find "$out_dir" -mindepth 2 -maxdepth 2 -type f -name '.roster-managed' -print0 |
         while IFS= read -r -d '' marker; do
             rm -rf "$(dirname "$marker")"
         done
@@ -215,7 +215,7 @@ sync_skill_sources_to_codex_dir() {
         [ -n "$name" ] || name="$(basename "$src" .md)"
         [ "$name" = "preamble" ] && continue
         render_skill_source "$src" "$name" "$out_dir/$name/SKILL.md" "$preamble"
-        touch "$out_dir/$name/.agent-roster-managed"
+        touch "$out_dir/$name/.roster-managed"
     done
 }
 
@@ -339,7 +339,7 @@ if runtime_enabled "codex"; then
     sync_skill_sources_to_codex_dir "$CODEX_SKILLS_DIR" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
         render_recruit_skill "$HARNESS_DIR/agents/recruiter.md" "$CODEX_SKILLS_DIR/recruit/SKILL.md"
-        touch "$CODEX_SKILLS_DIR/recruit/.agent-roster-managed"
+        touch "$CODEX_SKILLS_DIR/recruit/.roster-managed"
     else
         rm -rf "$CODEX_SKILLS_DIR/recruit"
     fi
@@ -352,7 +352,7 @@ if runtime_enabled "codex-global"; then
     sync_skill_sources_to_codex_global "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
         render_recruit_skill "$HARNESS_DIR/agents/recruiter.md" "$CODEX_GLOBAL_SKILLS_DIR/recruit/SKILL.md"
-        touch "$CODEX_GLOBAL_SKILLS_DIR/recruit/.agent-roster-managed"
+        touch "$CODEX_GLOBAL_SKILLS_DIR/recruit/.roster-managed"
     fi
 fi
 
@@ -422,7 +422,7 @@ if runtime_enabled "pi"; then
     sync_skill_sources_to_codex_dir "$PI_SKILLS_DIR" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
         render_recruit_skill "$HARNESS_DIR/agents/recruiter.md" "$PI_SKILLS_DIR/recruit/SKILL.md"
-        touch "$PI_SKILLS_DIR/recruit/.agent-roster-managed"
+        touch "$PI_SKILLS_DIR/recruit/.roster-managed"
     fi
 fi
 
@@ -437,7 +437,7 @@ generate_copilot_instructions() {
     # Global instructions: recruiter description + harness overview
     {
         printf '# Copilot Instructions\n\n'
-        printf 'This project uses the [agent-roster](https://github.com/mathiasbourgoin/agent-roster) harness.\n'
+        printf 'This project uses the [roster](https://github.com/mathiasbourgoin/roster) harness.\n'
         printf 'See `AGENTS.md` for the installed team roster and execution model.\n\n'
         if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
             local desc

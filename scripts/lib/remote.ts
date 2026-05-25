@@ -6,7 +6,7 @@ import { sanitizeName } from "./normalize.js";
 export async function fetchText(url: string): Promise<string> {
   const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
   const headers: Record<string, string> = {
-    "user-agent": "agent-roster-indexer",
+    "user-agent": "roster-indexer",
   };
   if (token) {
     headers.authorization = `Bearer ${token}`;
@@ -23,7 +23,7 @@ export async function fetchText(url: string): Promise<string> {
 export async function fetchJson<T>(url: string): Promise<T> {
   const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
   const headers: Record<string, string> = {
-    "user-agent": "agent-roster-indexer",
+    "user-agent": "roster-indexer",
     accept: "application/vnd.github+json",
   };
   if (token) {

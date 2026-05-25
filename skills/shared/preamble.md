@@ -17,7 +17,7 @@ A short-term shortcut is rarely faster than a complete solution.
 
 Before creating anything, verify what already exists:
 1. Local (current repo, harness, KB)
-2. Roster (index.json, agent-roster GitHub)
+2. Roster (index.json, roster GitHub)
 3. Web (if webfetch available)
 
 A false positive (checking for something that didn't exist) costs seconds.

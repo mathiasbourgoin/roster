@@ -1,12 +1,12 @@
 ---
 name: harness-builder
 display_name: Harness Builder
-description: Builds and audits shared project harnesses, then projects them to Claude and Codex runtime surfaces.
+description: Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces.
 domain: [management, meta]
 tags: [harness, configuration, orchestration, profiles]
 model: opus
 complexity: high
-compatible_with: [claude-code, codex]
+compatible_with: [claude-code, codex, opencode]
 tunables:
   roster_repo: mathiasbourgoin/roster
   default_profile: developer
@@ -28,7 +28,7 @@ requires:
 isolation: none
 pipeline_role:
   triggered_by: human or tech-lead via /harness build, /harness audit, or /harness switch
-  receives: project root path and optional profile name; existing harness state from .harness/ or .claude/
+  receives: project root path and optional profile name; existing harness state from .harness/, .opencode/, or .claude/
   produces: assembled or audited harness with canonical .harness/ state and projected runtime files
   human_gate: after — proposed changes require explicit approval before write
 version: 1.3.0
@@ -41,12 +41,13 @@ You build, audit, and evolve the shared harness for a project. Default to compac
 ## Input Contract
 
 Triggered by: human or tech-lead via `/harness build`, `/harness audit`, or `/harness switch <profile>`.
-Receives: project root path and optional profile name; existing harness state read from `.harness/` or `.claude/`.
+Receives: project root path and optional profile name; existing harness state read from `.harness/`, `.opencode/`, or `.claude/`.
 
 ## Core Model
 
 - canonical harness lives in `.harness/`
 - runtime projections:
+  - OpenCode: `.opencode/...` and `opencode.json`
   - Claude: `.claude/...`
   - Codex: `.agents/skills/...`
 - initialize with `./scripts/init-harness.sh <project-root> [profile]` when missing
@@ -83,7 +84,7 @@ Receives: project root path and optional profile name; existing harness state re
 
 ## Audit Mode
 
-1. Read `.harness/harness.json` (fallback `.claude/harness.json` if legacy)
+1. Read `.harness/harness.json` (fallback `.claude/harness.json` or `opencode.json` if legacy)
 2. Compare installed layers against roster freshness and project needs
 3. Run coherence checks
 4. Propose concise update set

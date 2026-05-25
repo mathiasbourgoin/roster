@@ -113,7 +113,7 @@ When existing agents are found:
 2. **Fetch upstream for every installed agent — always:**
    - For each installed agent, fetch the upstream file with cache-busting:
      ```
-     curl -sH "Cache-Control: no-cache" "https://raw.githubusercontent.com/mathiasbourgoin/agent-roster/main/.opencode/agents/<name>.md?$(date +%s)"
+     curl -sH "Cache-Control: no-cache" "https://raw.githubusercontent.com/mathiasbourgoin/roster/main/.opencode/agents/<name>.md?$(date +%s)"
      ```
    - **Never skip this fetch based on a version string comparison.** Version strings can be stale, wrong, or absent. Always fetch.
    - If the upstream file is not found (404), note the agent as "not in roster" and skip.
@@ -222,7 +222,7 @@ Agent system prompt goes here...
 ## External Sources
 
 Search in priority order:
-1. Local roster (mathiasbourgoin/agent-roster)
+1. Local roster (mathiasbourgoin/roster)
 2. VoltAgent/awesome-claude-code-subagents
 3. VoltAgent/awesome-agent-skills
 4. wshobson/agents

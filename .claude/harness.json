@@ -1,0 +1,401 @@
+{
+  "version": "1.0.0",
+  "profile": "developer",
+  "source_of_truth": ".harness",
+  "runtimes": [
+    {
+      "name": "claude-code",
+      "enabled": true,
+      "entrypoint": ".claude/"
+    },
+    {
+      "name": "codex",
+      "enabled": true,
+      "entrypoint": ".agents/skills/"
+    },
+    {
+      "name": "opencode",
+      "enabled": true,
+      "entrypoint": ".opencode/"
+    }
+  ],
+  "project": {
+    "name": "roster",
+    "languages": [
+      "javascript",
+      "ocaml",
+      "typescript"
+    ],
+    "frameworks": [
+      "dune"
+    ],
+    "ci": null,
+    "issue_tracker": "github"
+  },
+  "layers": {
+    "agents": [
+      {
+        "name": "architect",
+        "source": "roster",
+        "version": "1.5.0",
+        "role": "Code quality and architecture guardian focused on structural regressions, duplication, and maintainability risks.",
+        "tunables": {
+          "opencode_permission": {
+            "edit": "deny",
+            "bash": {
+              "*": "deny",
+              "git diff*": "allow",
+              "git log*": "allow",
+              "git show*": "allow",
+              "git status*": "allow"
+            },
+            "webfetch": "deny"
+          }
+        }
+      },
+      {
+        "name": "harness-builder",
+        "source": "roster",
+        "version": "1.3.0",
+        "role": "Builds canonical .harness and projects runtime surfaces.",
+        "tunables": {
+          "default_profile": "developer",
+          "propose_kb": false,
+          "coherence_check": true,
+          "opencode_permission": {
+            "edit": "allow",
+            "bash": {
+              "*": "ask",
+              "./scripts/init-harness.sh*": "allow",
+              "./scripts/sync-harness.sh*": "allow",
+              "git diff*": "allow",
+              "git status*": "allow",
+              "install*": "allow",
+              "jq*": "allow",
+              "mkdir*": "allow",
+              "npm test*": "allow",
+              "npm run build:index*": "allow"
+            },
+            "webfetch": "allow"
+          }
+        }
+      },
+      {
+        "name": "implementer",
+        "source": "roster",
+        "version": "1.3.0",
+        "role": "Fallback implementer for non-OCaml roster scripts and docs.",
+        "tunables": {
+          "opencode_permission": {
+            "edit": "allow",
+            "bash": {
+              "*": "ask",
+              "git diff*": "allow",
+              "git status*": "allow",
+              "npm test*": "allow",
+              "opam exec -- dune*": "allow",
+              "dune*": "allow"
+            },
+            "webfetch": "deny"
+          }
+        }
+      },
+      {
+        "name": "mcp-vetter",
+        "source": "roster",
+        "version": "1.4.0",
+        "role": "Vets MCP and tool candidates before inter-agent read/write tools are installed.",
+        "tunables": {
+          "block_high_risk": true,
+          "require_source_visibility": true,
+          "max_default_risk": "medium",
+          "opencode_permission": {
+            "edit": "deny",
+            "bash": {
+              "*": "deny",
+              "command -v*": "allow",
+              "gh repo view*": "allow",
+              "git diff*": "allow",
+              "git show*": "allow",
+              "npm view*": "allow",
+              "opam info*": "allow",
+              "which*": "allow"
+            },
+            "webfetch": "allow"
+          }
+        }
+      },
+      {
+        "name": "ocaml-dune-specialist",
+        "source": "roster",
+        "version": "1.2.0",
+        "role": "Specialist for OCaml, dune, opam, .mli, and local switch failures.",
+        "tunables": {
+          "min_ocaml_version": "5.3.0",
+          "min_dune_version": "3.13",
+          "require_mli_for_public_modules": true,
+          "enforce_opam_lint": true,
+          "prefer_data_driven_adapters": true,
+          "coverage_tool": "bisect_ppx",
+          "test_framework": "alcotest",
+          "doc_tool": "odoc",
+          "opencode_permission": {
+            "edit": "allow",
+            "bash": {
+              "*": "ask",
+              "git diff*": "allow",
+              "git status*": "allow",
+              "opam exec -- dune*": "allow",
+              "opam install*": "allow",
+              "opam lint*": "allow",
+              "dune*": "allow"
+            },
+            "webfetch": "deny"
+          }
+        }
+      },
+      {
+        "name": "ocaml-implementer",
+        "source": "roster",
+        "version": "1.2.0",
+        "role": "Default implementation agent for TA OCaml work.",
+        "tunables": {
+          "require_mli_for_public": true,
+          "enforce_result_style": true,
+          "enforce_eio_posix": false,
+          "run_dune_fmt_before_handoff": true,
+          "copyright_check_script": "",
+          "extra_c_env_vars": [],
+          "dirty_worktree_bypass_var": "",
+          "opencode_permission": {
+            "edit": "allow",
+            "bash": {
+              "*": "ask",
+              "git diff*": "allow",
+              "git status*": "allow",
+              "opam exec -- dune*": "allow",
+              "dune*": "allow"
+            },
+            "webfetch": "deny"
+          }
+        }
+      },
+      {
+        "name": "planner",
+        "source": "roster",
+        "version": "1.2.0",
+        "role": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context — no research history.",
+        "tunables": {
+          "opencode_permission": {
+            "edit": "allow",
+            "bash": "deny",
+            "webfetch": "deny"
+          }
+        }
+      },
+      {
+        "name": "qa",
+        "source": "roster",
+        "version": "1.3.0",
+        "role": "Runs deterministic checks and tmux Matrix QA for TA loops.",
+        "tunables": {
+          "run_full_suite": true,
+          "include_manual_checks": true,
+          "ta_requires_local_switch": true,
+          "ta_requires_tmux_matrix_for_tui": true,
+          "opencode_permission": {
+            "edit": "deny",
+            "bash": {
+              "*": "deny",
+              "./scripts/init-harness.sh*": "allow",
+              "./scripts/sync-harness.sh*": "allow",
+              "bash -n*": "allow",
+              "command -v*": "allow",
+              "dune*": "allow",
+              "git diff*": "allow",
+              "git status*": "allow",
+              "jq*": "allow",
+              "node*": "allow",
+              "npm run*": "allow",
+              "npm test*": "allow",
+              "opam exec -- dune*": "allow",
+              "tmux*": "allow",
+              "which*": "allow"
+            },
+            "webfetch": "deny"
+          }
+        }
+      },
+      {
+        "name": "recruiter",
+        "source": "roster",
+        "version": "2.4.0",
+        "role": "Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team across shared harness files and runtime-specific entrypoints.",
+        "tunables": {
+          "audit_existing": true,
+          "auto_install": false,
+          "max_team_size": 12,
+          "opencode_permission": {
+            "edit": "allow",
+            "bash": {
+              "*": "ask",
+              "./scripts/init-harness.sh*": "allow",
+              "./scripts/sync-harness.sh*": "allow",
+              "git diff*": "allow",
+              "git status*": "allow",
+              "jq*": "allow",
+              "npm run build:index*": "allow",
+              "npm test*": "allow"
+            },
+            "webfetch": "allow"
+          }
+        }
+      },
+      {
+        "name": "reviewer",
+        "source": "roster",
+        "version": "1.4.0",
+        "role": "Performs structured code review focused on correctness, security, and regression risk.",
+        "tunables": {
+          "opencode_permission": {
+            "edit": "deny",
+            "bash": {
+              "*": "deny",
+              "git diff*": "allow",
+              "git log*": "allow",
+              "git show*": "allow",
+              "git status*": "allow"
+            },
+            "webfetch": "deny"
+          }
+        }
+      },
+      {
+        "name": "tech-lead",
+        "source": "roster",
+        "version": "1.9.0",
+        "role": "Owns TA roadmap loop, gates agent creation, review, QA, commits, and pushes.",
+        "tunables": {
+          "merge_strategy": "rebase-merge",
+          "require_review": true,
+          "require_qa": true,
+          "max_parallel_implementers": 5,
+          "agent_creation_authorities": [
+            "tech-lead",
+            "recruiter",
+            "harness-builder"
+          ],
+          "opencode_permission": {
+            "edit": "allow",
+            "bash": {
+              "*": "ask",
+              "./scripts/init-harness.sh*": "allow",
+              "./scripts/sync-harness.sh*": "allow",
+              "git add*": "allow",
+              "git commit*": "allow",
+              "git diff*": "allow",
+              "git log*": "allow",
+              "git push*": "allow",
+              "git status*": "allow",
+              "jq*": "allow",
+              "npm test*": "allow",
+              "opam exec -- dune*": "allow"
+            },
+            "webfetch": "allow"
+          }
+        }
+      },
+      {
+        "name": "terminal-ux-reviewer",
+        "source": "roster",
+        "version": "1.0.0",
+        "role": "Reviews terminal UX against Herdr-level workflow evidence.",
+        "tunables": {
+          "reference_tool": "herdr",
+          "require_tmux_capture": true,
+          "require_narrow_terminal_check": true,
+          "max_primary_selections_for_start_agent": 2,
+          "opencode_permission": {
+            "edit": "deny",
+            "bash": {
+              "*": "deny",
+              "command -v*": "allow",
+              "dune exec*": "allow",
+              "git diff*": "allow",
+              "git status*": "allow",
+              "herdr*": "allow",
+              "opam exec -- dune exec*": "allow",
+              "tmux*": "allow",
+              "which*": "allow"
+            },
+            "webfetch": "deny"
+          }
+        }
+      }
+    ],
+    "rules": [
+      {
+        "name": "code-quality",
+        "source": "roster",
+        "scope": "global",
+        "category": "style"
+      },
+      {
+        "name": "escalation",
+        "source": "roster",
+        "scope": "global",
+        "category": "safety"
+      },
+      {
+        "name": "human-validation",
+        "source": "roster",
+        "scope": "global",
+        "category": "governance"
+      },
+      {
+        "name": "sycophancy",
+        "source": "roster",
+        "scope": "global",
+        "category": "safety"
+      }
+    ],
+    "hooks": [
+      {
+        "name": "block-dangerous-commands",
+        "event": "PreToolUse",
+        "matcher": "Bash",
+        "source": "roster"
+      },
+      {
+        "name": "post-edit-lint",
+        "event": "PostToolUse",
+        "matcher": "Edit|Write",
+        "source": "roster"
+      }
+    ],
+    "skills": [
+      {
+        "name": "git-conventions",
+        "source": "roster",
+        "version": "1.0.0"
+      },
+      {
+        "name": "kb-update",
+        "source": "roster",
+        "version": "1.0.0"
+      },
+      {
+        "name": "tdd-workflow",
+        "source": "roster",
+        "version": "1.0.0"
+      }
+    ],
+    "mcp": [],
+    "kb": {
+      "structure": "minimal",
+      "bootstrapped": false,
+      "last_audit": null,
+      "auditors": []
+    }
+  }
+}

@@ -1,4 +1,4 @@
-# AGENTS.md — agent-roster
+# AGENTS.md — roster
 
 ## Project
 

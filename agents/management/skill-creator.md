@@ -9,7 +9,7 @@ complexity: high
 compatible_with: [claude-code]
 tunables:
   skills_dir: .harness/skills
-  roster_repo: mathiasbourgoin/agent-roster
+  roster_repo: mathiasbourgoin/roster
   require_search_first: true
   min_repetition_count: 3
 requires:
