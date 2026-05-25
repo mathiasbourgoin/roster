@@ -178,9 +178,6 @@ To add or update components:
 
 `patterns/` contains curated good/antipattern guides per language (TypeScript, Go, Python, Rust, OCaml, prompt engineering). These are reference material consumed by language-specific agents (implementer, ocaml-implementer) and injected as context during implementation phases — not standalone skills.
 
-### OCaml Agent Manager
-
-`ocaml/agent-manager/` is an experimental companion runtime written in OCaml — a TUI-based agent orchestrator for running roster pipelines from the terminal. It is **alpha/experimental**, not required for normal roster usage, and tracked here for development convenience. The `ocaml-dune-specialist` and `ocaml-implementer` agents target this codebase specifically.
 
 → **[Full agent and skill catalog](docs/agents.md)**  
 → **[Skill hooks DSL and tutorial](docs/hooks.md)**  
