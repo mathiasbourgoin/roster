@@ -1,0 +1,416 @@
+/**
+ * roster hook executor — runs the "real" steps of a skill hook file.
+ *
+ * Enforces: run:, test:, timeout:, retry:, log:, label:, goto:, on_error:
+ * Returns as pending_llm_steps: prompt:, loop:, parallel:
+ *
+ * CLI usage:
+ *   node dist/scripts/run-hook.js <pre|post> <skill-name> [hook-dir]
+ *
+ * Exit codes:
+ *   0  pass      — all real steps passed, no pending LLM steps
+ *   1  abort     — pre-hook hard failure (on_error: stop)
+ *   2  warn      — post-hook soft failure (on_error: warn)
+ *   3  pending   — pass but pending_llm_steps non-empty (LLM must handle them)
+ *   4  skip      — hook file absent or re-entrance guard active
+ */
+
+import { execFile } from "node:child_process";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { parseHookFile, stepOperator, Step, OnError } from "./lib/hook-parser";
+
+// ─── Public types ─────────────────────────────────────────────────────────────
+
+export type Outcome = "pass" | "abort" | "warn" | "skip" | "pending";
+
+export interface HookResult {
+  skill: string;
+  event: "pre" | "post";
+  outcome: Outcome;
+  steps_run: number;
+  pending_llm_steps: Step[];
+  abort_reason: string | null;
+  skip_reason: string | null;
+  log: string[];
+}
+
+export interface RunHookOptions {
+  /** Inline hook file content (for testing). Overrides hookDir lookup. */
+  content?: string;
+  event: "pre" | "post";
+  skill: string;
+  /** Directory containing <skill>/<event>.md. Defaults to .harness/hooks/skills */
+  hookDir?: string;
+}
+
+// ─── Shell execution ──────────────────────────────────────────────────────────
+
+interface ExecResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+}
+
+function execShell(cmd: string, timeoutMs: number): Promise<ExecResult> {
+  return new Promise((resolve) => {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), timeoutMs);
+
+    execFile("sh", ["-c", cmd], { signal: ac.signal, timeout: timeoutMs }, (err, stdout, stderr) => {
+      clearTimeout(timer);
+      if (err) {
+        const timedOut = (err as NodeJS.ErrnoException).code === "ABORT_ERR" || err.killed === true;
+        resolve({ exitCode: typeof err.code === "number" ? err.code : 1, stdout: stdout ?? "", stderr: stderr ?? "", timedOut });
+      } else {
+        resolve({ exitCode: 0, stdout: stdout ?? "", stderr: stderr ?? "", timedOut: false });
+      }
+    });
+  });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// ─── Executor ─────────────────────────────────────────────────────────────────
+
+class HookExecutor {
+  private steps: Step[];
+  private event: "pre" | "post";
+  private skill: string;
+  private currentTimeoutMs = 30_000; // default 30s per run: step
+  private log: string[] = [];
+  private stepsRun = 0;
+  private pendingLlm: Step[] = [];
+  private warnTriggered = false;
+
+  constructor(steps: Step[], event: "pre" | "post", skill: string) {
+    this.steps = steps;
+    this.event = event;
+    this.skill = skill;
+  }
+
+  private emit(msg: string): void {
+    this.log.push(msg);
+    process.stderr.write(msg + "\n");
+  }
+
+  private defaultOnError(): OnError {
+    return this.event === "pre" ? "stop" : "warn";
+  }
+
+  private resolveOnError(step: Step): OnError {
+    const s = step as unknown as Record<string, unknown>;
+    return (s["on_error"] as OnError | undefined) ?? this.defaultOnError();
+  }
+
+  /** Run a single shell command. Returns ExecResult. */
+  private async shell(cmd: string): Promise<ExecResult> {
+    return execShell(cmd, this.currentTimeoutMs);
+  }
+
+  /** Execute a flat list of steps. Returns null=continue, "abort"=hard stop, "warn"=soft stop. */
+  private async execSteps(steps: Step[]): Promise<null | "abort" | "warn"> {
+    // Build label index for goto
+    const labelIndex = new Map<string, number>();
+    steps.forEach((s, i) => {
+      if (stepOperator(s) === "label") labelIndex.set((s as { label: string }).label, i);
+    });
+
+    let i = 0;
+    let lastRunStep: { cmd: string; stepIndex: number } | null = null;
+
+    while (i < steps.length) {
+      const step = steps[i];
+      const op = stepOperator(step);
+      this.stepsRun++;
+
+      switch (op) {
+        // ── log: ────────────────────────────────────────────────────────────
+        case "log": {
+          this.emit(`[log] ${(step as { log: string }).log}`);
+          i++;
+          break;
+        }
+
+        // ── label: ──────────────────────────────────────────────────────────
+        case "label": {
+          i++;
+          break;
+        }
+
+        // ── goto: ───────────────────────────────────────────────────────────
+        case "goto": {
+          const target = (step as { goto: string }).goto;
+          const targetIdx = labelIndex.get(target);
+          if (targetIdx !== undefined) {
+            this.emit(`[goto] → label:${target} (step ${targetIdx + 1})`);
+            i = targetIdx;
+          } else {
+            // pipeline-level goto — return as pending
+            this.emit(`[goto] → pipeline step "${target}" (LLM-interpreted)`);
+            this.pendingLlm.push(step);
+            i++;
+          }
+          break;
+        }
+
+        // ── timeout: ────────────────────────────────────────────────────────
+        case "timeout": {
+          const raw = (step as { timeout: number | string }).timeout;
+          this.currentTimeoutMs = typeof raw === "number" ? raw : parseInt(String(raw), 10);          this.emit(`[timeout] current shell timeout set to ${this.currentTimeoutMs}ms`);
+          i++;
+          break;
+        }
+
+        // ── run: ────────────────────────────────────────────────────────────
+        case "run": {
+          const cmd = (step as { run: string }).run;
+          this.emit(`[run] ${cmd}`);
+          const res = await this.shell(cmd);
+
+          const failed = res.timedOut || res.exitCode !== 0;
+          lastRunStep = { cmd, stepIndex: i };
+
+          if (failed) {
+            const reason = res.timedOut
+              ? `step ${i + 1}: "${cmd}" timed out after ${this.currentTimeoutMs}ms`
+              : `step ${i + 1}: "${cmd}" exited with code ${res.exitCode}`;
+            this.emit(`[run] ✗ ${res.timedOut ? "timed out" : `exit ${res.exitCode}`}${res.stderr ? `: ${res.stderr.trim()}` : ""}`);
+
+            // Peek ahead: if next step is retry:, defer error handling to retry:
+            const nextStep = steps[i + 1];
+            if (nextStep && stepOperator(nextStep) === "retry") {
+              i++;
+              break; // let retry: handle the failure
+            }
+
+            const onErr = this.resolveOnError(step);
+            const outcome = await this.handleError(reason, onErr);
+            if (outcome) return outcome;
+          } else {
+            this.emit(`[run] ✓ exit 0`);
+          }
+          i++;
+          break;
+        }
+
+        // ── retry: ──────────────────────────────────────────────────────────
+        case "retry": {
+          const maxRetries = (step as { retry: number }).retry;
+          const backoff = (step as { retry: number; backoff?: number }).backoff ?? 0;
+
+          if (!lastRunStep) {
+            this.emit(`[retry] no previous run: step to retry — skipping`);
+            i++;
+            break;
+          }
+
+          const { cmd, stepIndex } = lastRunStep;
+          let succeeded = false;
+
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            if (backoff > 0) await sleep(backoff);
+            this.emit(`[retry] attempt ${attempt}/${maxRetries}: ${cmd}`);
+            const res = await this.shell(cmd);
+            if (res.exitCode === 0 && !res.timedOut) {
+              this.emit(`[retry] ✓ succeeded on attempt ${attempt}`);
+              succeeded = true;
+              break;
+            }
+            this.emit(`[retry] ✗ attempt ${attempt} failed (exit ${res.exitCode})`);
+          }
+
+          if (!succeeded) {
+            const onErr = this.resolveOnError(steps[stepIndex]);
+            const outcome = await this.handleError(
+              `step ${stepIndex + 1}: "${cmd}" failed after ${maxRetries} retries`,
+              onErr
+            );
+            if (outcome) return outcome;
+          }
+
+          lastRunStep = null;
+          i++;
+          break;
+        }
+
+        // ── test: ───────────────────────────────────────────────────────────
+        case "test": {
+          const testStep = step as {
+            test: string;
+            on_true?: Step[];
+            on_false?: Step[];
+          };
+          this.emit(`[test] ${testStep.test}`);
+          const res = await this.shell(testStep.test);
+          const branch = res.exitCode === 0 ? "on_true" : "on_false";
+          const branchSteps = testStep[branch] ?? [];
+          this.emit(`[test] → ${branch} (${branchSteps.length} step(s))`);
+          if (branchSteps.length > 0) {
+            const outcome = await this.execSteps(branchSteps);
+            if (outcome) return outcome;
+          }
+          i++;
+          break;
+        }
+
+        // ── prompt: / loop: / parallel: → pending LLM ─────────────────────
+        case "prompt":
+        case "loop":
+        case "parallel": {
+          this.emit(`[${op}] → deferred to LLM (pending_llm_steps)`);
+          this.pendingLlm.push(step);
+          i++;
+          break;
+        }
+
+        // ── include: / output: → no-op (already inlined or metadata) ───────
+        case "include":
+        case "output": {
+          i++;
+          break;
+        }
+
+        default: {
+          this.emit(`[unknown] step operator "${op}" — skipping`);
+          i++;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private async handleError(reason: string, onError: OnError): Promise<"abort" | "warn" | null> {
+    switch (onError) {
+      case "stop":
+        this.emit(`[error] abort: ${reason}`);
+        return "abort";
+      case "warn":
+        this.emit(`[error] warn: ${reason}`);
+        this.warnTriggered = true;
+        return null;
+      case "skip":
+        this.emit(`[error] skip: ${reason}`);
+        return null;
+      case "ignore":
+        return null;
+    }
+  }
+
+  async run(): Promise<HookResult> {
+    const outcome = await this.execSteps(this.steps);
+
+    let finalOutcome: Outcome;
+    if (outcome === "abort") {
+      finalOutcome = "abort";
+    } else if (this.warnTriggered) {
+      finalOutcome = "warn";
+    } else if (this.pendingLlm.length > 0) {
+      finalOutcome = "pending";
+    } else {
+      finalOutcome = "pass";
+    }
+
+    return {
+      skill: this.skill,
+      event: this.event,
+      outcome: finalOutcome,
+      steps_run: this.stepsRun,
+      pending_llm_steps: this.pendingLlm,
+          abort_reason: outcome === "abort" ? this.log.filter((l) => l.startsWith("[error] abort")).at(-1) ?? null : null,
+      skip_reason: null,
+      log: this.log,
+    };
+  }
+}
+
+// ─── Public entry point ───────────────────────────────────────────────────────
+
+const SKIP_RESULT = (skill: string, event: "pre" | "post", reason: string): HookResult => ({
+  skill,
+  event,
+  outcome: "skip",
+  steps_run: 0,
+  pending_llm_steps: [],
+  abort_reason: null,
+  skip_reason: reason,
+  log: [],
+});
+
+export async function runHook(opts: RunHookOptions): Promise<HookResult> {
+  const { event, skill } = opts;
+
+  // Re-entrance guard
+  if (process.env.ROSTER_HOOK_RUNNING === "1") {
+    return SKIP_RESULT(skill, event, "re-entrance guard: ROSTER_HOOK_RUNNING is set");
+  }
+
+  let content: string;
+
+  if (opts.content !== undefined) {
+    content = opts.content;
+  } else {
+    const hookDir =
+      opts.hookDir ?? path.resolve(process.cwd(), ".harness/hooks/skills");
+    const inlined = path.join(hookDir, skill, `${event}.inlined.md`);
+    const normal = path.join(hookDir, skill, `${event}.md`);
+
+    try {
+      content = await fs.readFile(inlined, "utf-8");
+    } catch {
+      try {
+        content = await fs.readFile(normal, "utf-8");
+      } catch {
+        return SKIP_RESULT(skill, event, `hook file not found: ${normal}`);
+      }
+    }
+  }
+
+  const parsed = parseHookFile(content);
+  const executor = new HookExecutor(parsed.steps, event, skill);
+
+  process.env.ROSTER_HOOK_RUNNING = "1";
+  try {
+    return await executor.run();
+  } finally {
+    delete process.env.ROSTER_HOOK_RUNNING;
+  }
+}
+
+// ─── CLI ─────────────────────────────────────────────────────────────────────
+
+async function main(): Promise<void> {
+  const [, , event, skill, hookDir] = process.argv;
+
+  if (!event || !skill || (event !== "pre" && event !== "post")) {
+    console.error("Usage: run-hook <pre|post> <skill-name> [hook-dir]");
+    process.exit(1);
+  }
+
+  const result = await runHook({
+    event: event as "pre" | "post",
+    skill,
+    ...(hookDir ? { hookDir } : {}),
+  });
+
+  console.log(JSON.stringify(result, null, 2));
+
+  switch (result.outcome) {
+    case "pass":    process.exit(0); break;
+    case "abort":   process.exit(1); break;
+    case "warn":    process.exit(2); break;
+    case "pending": process.exit(3); break;
+    case "skip":    process.exit(4); break;
+  }
+}
+
+if (require.main === module) {
+  main().catch((err: unknown) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

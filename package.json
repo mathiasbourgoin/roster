@@ -10,7 +10,7 @@
     "check:skills": "node dist/scripts/check-skill-structure.js",
     "check:kb-links": "node scripts/check-kb-links.js",
     "check:hooks": "node dist/scripts/check-hook-structure.js",
-    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js && node dist/scripts/check-hook-structure.js && node scripts/check-kb-links.js"
+    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node --test dist/scripts/run-hook.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js && node dist/scripts/check-hook-structure.js && node scripts/check-kb-links.js"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

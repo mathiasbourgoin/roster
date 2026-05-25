@@ -80,20 +80,30 @@ Before routing to a skill, check for skill hooks. Hooks are executed by you (the
 
 ### Step-Type Dispatch
 
-| Step operator | Execution |
-|---|---|
-| `run: <cmd>` | Call Bash tool with `<cmd>`; read exit code — non-zero = failure |
-| `prompt: <text>` + `agent: <name>` | Invoke named skill/agent with prompt text; first non-empty output line = `ABORT: <reason>` → failure |
-| `test: <cmd>` | Run Bash; exit 0 = true → execute `on_true:` steps; non-zero = false → execute `on_false:` steps |
-| `label: <name>` | Mark this position as a jump target — no-op execution |
-| `goto: <target>` | Jump to named `label:` in this hook; or (post-hooks only) to a named pipeline step in roster-run routing |
-| `loop:` | Execute inner `steps:` repeatedly; check `until:` (Bash, exit 0 = done) after each iteration; no iteration cap |
-| `timeout: <ms>` | Advisory — note the time budget and use best-effort judgment; no enforcement |
-| `log: <text>` | Print to user |
-| `retry: N` + optional `backoff: <ms>` | Retry the **previous** step up to N times with optional delay |
-| `include: <path>` | Already inlined at build time by `sync-harness.sh`; treat inline content as additional steps |
-| `output: <key>` | Note this step produces structured output under the given key |
-| `parallel:` | Execute listed agents **sequentially** (v1 prose-parallelism); `first-wins`/`collect-all` are no-ops |
+The hook executor (`scripts/run-hook.ts`, CLI: `node dist/scripts/run-hook.js <pre|post> <skill>`) enforces real execution for shell steps. Call it before routing for pre-hooks and after the skill completes for post-hooks.
+
+```bash
+node dist/scripts/run-hook.js pre <skill-name>
+# exit 0=pass  1=abort (skip dispatch)  2=warn  3=pending_llm_steps  4=skip (no hook)
+```
+
+For steps the runner returns in `pending_llm_steps` (prompt:, loop:, parallel:), execute them as LLM-interpreted steps after reading the JSON output.
+
+| Step operator | Executed by | Behaviour |
+|---|---|---|
+| `run: <cmd>` | **Runner (real shell)** | Enforced exit code, real timeout via AbortController, retry loop |
+| `test: <cmd>` | **Runner** | Real exit code → on_true / on_false branch |
+| `timeout: <ms>` | **Runner** | Updates shell timeout for all subsequent `run:` steps |
+| `retry: N` + `backoff:` | **Runner** | Real retry loop with setTimeout backoff |
+| `log: <text>` | **Runner** | process.stderr.write — always fires |
+| `label: <name>` | **Runner** | Jump target (index-based) |
+| `goto: <label>` | **Runner** (intra-hook) / **LLM** (pipeline) | Intra-hook: index jump. Pipeline target: returned in pending_llm_steps |
+| `on_error: stop/warn/skip/ignore` | **Runner** | Enforced by exit code logic |
+| `prompt:` + `agent:` | **LLM** (pending_llm_steps) | Returned by runner, executed by agent |
+| `loop:` | **LLM** (pending_llm_steps) | Returned by runner, executed by agent |
+| `parallel:` | **LLM** (pending_llm_steps) | Sequential in v1 |
+| `include:` | Build-time (sync-harness.sh) | Already inlined as `.inlined.md` variant |
+| `output:` | Metadata | Noted, not enforced |
 
 ## Routing
 
