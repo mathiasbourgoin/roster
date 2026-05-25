@@ -90,7 +90,7 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 export async function collectLocalMarkdownFiles(repoRoot: string): Promise<string[]> {
-  const roots = ["agents", "skills", "rules", "hooks", "kb", "recruiter", "governor"];
+  const roots = ["agents", "skills", "rules", "hooks", "kb", "recruiter", "governor", "specs"];
   const files: string[] = [];
 
   async function walk(absPath: string, relRoot: string): Promise<void> {

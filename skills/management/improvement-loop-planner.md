@@ -100,6 +100,22 @@ After the proposals, add:
 - Best starting loop: <Loop N>
 - Why: <why this one is the best first candidate>
 - Missing setup: <anything the user should define before execution, or “none”>
+
+## Tool Opportunities
+
+For each loop proposed above, identify patterns that could become deterministic tools
+instead of LLM judgment. Optional section — only include if a genuine opportunity exists.
+
+Format:
+```
+[TOOL] <tool description> — replaces: <the LLM judgment or manual step it eliminates>
+       Trigger: <when this tool would run — CI, pre-commit, post-edit>
+       Output: <what it produces — exit code, report, annotation>
+```
+
+Examples:
+- [TOOL] Custom linter rule for missing auth guards — replaces: reviewer manually checking auth on each new endpoint
+- [TOOL] Schema diff checker — replaces: LLM comparing API responses to spec definitions
 ```
 
 ## Rules

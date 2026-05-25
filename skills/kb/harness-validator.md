@@ -20,10 +20,13 @@ Verify the integrity of the knowledge base harness: KB structure, installed audi
 ### 2. Check: Auditor Skills Installed
 
 - Verify each required auditor skill exists in `skills/kb/`:
-  - `ambiguity-auditor.md`
-  - `code-quality-auditor.md`
-  - `spec-compliance-auditor.md`
-  - `harness-validator.md` (self)
+  - `ambiguity-auditor.md` — always required
+  - `code-quality-auditor.md` — always required
+  - `harness-validator.md` — always required (self-referential check)
+  - `spec-compliance-auditor.md` — required only if `specs/` directory exists in project root
+    ```bash
+    [ -d specs ] && echo "spec-compliance required" || echo "spec-compliance optional"
+    ```
 - Check each has valid frontmatter with `description`.
 - Verify installed copies exist in `.harness/skills/` and any Claude compatibility copies in `.claude/commands/` (if install has been run).
 - Flag missing auditors as Critical.

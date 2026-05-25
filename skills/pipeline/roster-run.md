@@ -19,7 +19,7 @@ You are the entry point of the roster pipeline. Your only job is to detect conte
 For any new task (no existing brief), the mandatory route is:
 
 ```
-/roster-question → /roster-research → /roster-intake → /roster-plan → /roster-implement → /roster-review → /roster-qa → /roster-ship
+/roster-question → /roster-research → /roster-intake → /roster-spec → /roster-plan → /roster-implement → /roster-review → /roster-qa → /roster-ship
 ```
 
 Always start with `/roster-question`. Do not skip to `/roster-intake` directly unless the user explicitly requests it and the task is a trivial single-file change.
@@ -33,6 +33,8 @@ Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
 | Detected signal | Route to |
 |---|---|
 | Vague task, new feature, no existing brief | `/roster-question` (then research → intake) |
+| `briefs/<task>-intake.md` VALIDATED + `**Type:**` is feature/api-change + `briefs/<task>-spec.md` absent | `/roster-spec` |
+| `briefs/<task>-spec.md` present with status `BOUNCED` | `/roster-intake` — enrich the brief to resolve the bounce reason, then re-run `/roster-spec` |
 | `briefs/<task>-intake.md` exists and is validated | `/roster-plan` |
 | `briefs/<task>-plan.md` exists and is validated | `/roster-implement` |
 | Implementation complete, branch ready | `/roster-review` |
@@ -49,6 +51,8 @@ Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
    ls briefs/ 2>/dev/null || echo "briefs/ absent"
    # Then for the current task:
    [ -f briefs/<task>-intake.md ] && echo "intake: present" || echo "intake: absent"
+   [ -f briefs/<task>-spec.md ]   && echo "spec: present"   || echo "spec: absent"
+   grep '\*\*Type:\*\*' briefs/<task>-intake.md | head -1
    [ -f briefs/<task>-plan.md ]   && echo "plan: present"   || echo "plan: absent"
    [ -f briefs/<task>-review.json ] && echo "review: present" || echo "review: absent"
    [ -f briefs/<task>-qa.md ]     && echo "qa: present"     || echo "qa: absent"

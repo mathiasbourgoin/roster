@@ -67,7 +67,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 
 ---
 
-## Skills (15)
+## Skills (16)
 
 Skills are slash-command workflows that run in the main context and produce contractual artifacts that chain across pipeline phases.
 
@@ -78,6 +78,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 | `/roster-run` | Entry point | Detects context and routes to the right pipeline skill |
 | `/roster-init` | Bootstrap | Adversarial project interview — 6 questions, 3 adversarial |
 | `/roster-intake` | Intake | Turns a task into a contractual brief with human gate |
+| `/roster-spec` | Spec | Adversarial spec: user stories, challenges, structured AC, runnable checks |
 | `/roster-plan` | Plan | Dual-voice decomposition, consensus table |
 | `/roster-implement` | Implement | TDD + improve loop + specialist sub-agents |
 | `/roster-review` | Review | Fix-first review, GO/NO-GO JSON verdict |
