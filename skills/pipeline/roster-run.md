@@ -1,13 +1,7 @@
 ---
 name: roster-run
 description: Pipeline entry point — detects context and routes to the right skill.
-version: 1.1.0
-domain: pipeline
-phase: null
-preamble: true
-friction_log: false
-allowed_tools: [Read, AskUserQuestion, Skill]
-human_gate: none
+version: 1.2.0
 ---
 
 # Roster Run
@@ -39,10 +33,13 @@ Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
 | `briefs/<task>-plan.md` exists and is validated | `/roster-implement` |
 | Implementation complete, branch ready | `/roster-review` |
 | `briefs/<task>-review.json` with GO status | `/roster-qa` |
+| `briefs/<task>-review.json` with NO-GO + `no_go_reason.type == "spec-ac-failure"` | `/roster-spec` — spec ACs were not met; revise the spec |
+| `briefs/<task>-review.json` with NO-GO (any other reason) | `/roster-implement` — pass review.json as context |
 | `briefs/<task>-qa.md` with GO status | `/roster-ship` |
 | Bug, regression, unexpected behavior | `/roster-investigate` |
 | New project or existing project without harness | `/roster-init` |
 | Periodic analysis, friction patterns | `/roster-skill-health` |
+| No signal matches | Stop — ask the user: "What are we doing?" before routing |
 
 ### Detection
 
@@ -55,6 +52,8 @@ Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
    grep '\*\*Type:\*\*' briefs/<task>-intake.md | head -1
    [ -f briefs/<task>-plan.md ]   && echo "plan: present"   || echo "plan: absent"
    [ -f briefs/<task>-review.json ] && echo "review: present" || echo "review: absent"
+   # If review.json is present, read its status and no_go_reason:
+   [ -f briefs/<task>-review.json ] && jq -r '"\(.status) \(.no_go_reason.type // "none")"' briefs/<task>-review.json 2>/dev/null
    [ -f briefs/<task>-qa.md ]     && echo "qa: present"     || echo "qa: absent"
    ```
 2. Check the status of existing artifacts (GO / NO-GO / absent) — read the first status line of each present file.
