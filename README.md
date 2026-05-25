@@ -283,6 +283,9 @@ Skills are structured slash-command workflows — they are the primary orchestra
 - `tdd-workflow`
 - `git-conventions`
 - `kb-update`
+- `kb-migrate`
+- `kb-reindex`
+- `kb-search`
 - `ambiguity-auditor`
 - `code-quality-auditor`
 - `spec-compliance-auditor`

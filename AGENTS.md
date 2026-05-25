@@ -44,7 +44,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | recruiter | 2.2.0 | opus | Finds and assembles agent teams from roster + external sources |
 | harness-builder | 1.0.0 | opus | Assembles complete harness configs (agents + rules + hooks + skills + KB) |
 | governor | 2.0.0 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
-| kb-agent | 2.0.0 | opus | Bootstraps, maintains, and audits the knowledge base (kb/) |
+| kb-agent | 2.4.0 | opus | Bootstraps, maintains, and audits the knowledge base (kb/) |
 | project-auditor | 1.0.0 | opus | Performs exhaustive repository audits and builds hierarchical kb/ knowledge bases |
 | skill-creator | 1.1.0 | opus | Creates reusable skills from MCP servers, CLI tools, or ideas |
 | architect | 1.2.0 | sonnet | Code quality guardian with built-in metric fallbacks + KB integration |
@@ -87,13 +87,16 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 |-------|---------|-------|---------|
 | error-coordinator | 1.1.0 | sonnet | Correlates failures across CI/tests/agents |
 
-## Skills (11)
+## Skills (14)
 
 | Skill | Domain | Purpose |
 |-------|--------|---------|
 | tdd-workflow | testing | Red-green-refactor with auto language detection |
 | git-conventions | workflow | Conventional commits, branch naming, PR templates |
 | kb-update | kb | Maintain KB after code changes, flag spec contradictions |
+| kb-migrate | kb | Audit, clean, reorg, and migrate existing KB to current schema |
+| kb-reindex | kb | Build or update LanceDB semantic search index for KB files |
+| kb-search | kb | Hybrid semantic+keyword search over the KB index |
 | ambiguity-auditor | kb/audit | Scan KB for gaps, contradictions, vague language |
 | code-quality-auditor | kb/audit | Check code against KB properties and naming |
 | spec-compliance-auditor | kb/audit | Compare implementation against kb/spec.md |

@@ -1,7 +1,7 @@
 ---
 name: roster-init
 description: Bootstrap a new project or onboard an existing project into the roster ecosystem.
-version: 1.1.0
+version: 1.2.0
 domain: pipeline
 phase: null
 preamble: true
@@ -175,8 +175,25 @@ Human gate: wait for explicit validation.
    - If yes → spawn `skill-creator` if available (`.claude/agents/skill-creator.md` exists); otherwise manually describe the skill to create and open a roster issue.
 7. Create `skills-meta/friction.jsonl` (empty array)
 8. Add `skills-meta/` to `.gitignore` if absent
-9. Create `briefs/project-intake.md` ready for the first `/roster-run`
-10. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
+9. Bootstrap episodic memory and vector index gitignore:
+   ```bash
+   mkdir -p memory/sessions memory/agents
+   ```
+   Write `memory/index.md`:
+   ```markdown
+   ---
+   title: Memory Index
+   date: <today>
+   owner: agents
+   ---
+   # Memory Index
+   Episodic memory for this project. See `schema/memory-schema.md` for conventions.
+   ## Sessions
+   ## Agent Notes
+   ```
+   Add `kb/.index/` to `.gitignore` (LanceDB vector index — never committed).
+10. Create `briefs/project-intake.md` ready for the first `/roster-run`
+11. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
 
 ---
 
@@ -298,8 +315,15 @@ Human gate: wait for explicit validation.
    - If yes → spawn `skill-creator` if available (`.claude/agents/skill-creator.md` exists); otherwise manually describe the skill and open a roster issue.
 4. Create `skills-meta/friction.jsonl` (empty)
 5. Add `skills-meta/` to `.gitignore` if absent
-6. Create `briefs/project-intake.md` with project state and first objective
-7. Project the harness to runtimes
+6. Bootstrap episodic memory (non-destructive):
+   ```bash
+   [ -d memory ] && echo "memory/ exists — skipping" || mkdir -p memory/sessions memory/agents
+   ```
+   If `memory/` does not exist: create it and write `memory/index.md` (same content as A4 step 9).
+   If `memory/` already exists: skip silently.
+   Add `kb/.index/` to `.gitignore` if not already present (LanceDB vector index — never committed).
+7. Create `briefs/project-intake.md` with project state and first objective
+8. Project the harness to runtimes
 
 ---
 

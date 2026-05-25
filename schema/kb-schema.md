@@ -10,12 +10,40 @@ All KB files are markdown with YAML frontmatter:
 ---
 title: <string>              # Document title
 last-updated: <date>         # ISO 8601 date
-status: <draft|reviewed|stale>  # Current state
+status: <live-doctrine|superseded|historical|derived>  # Current state (see values below)
 owner: <string>              # Agent or human responsible
+schema-version: 2            # Optional. Omit = legacy (v1). Presence = current format.
+superseded-by: <path|null>   # Optional. For spec files: path to replacing file, or null.
+supersedes: <path|null>      # Optional. For decisions/*.md ADRs: path to superseded ADR, or null.
 ---
 ```
 
 Body is standard markdown. Cross-references use relative markdown links (e.g., `[architecture](../architecture.md)`).
+
+### Status Values
+
+| Status | Meaning | Can be set by |
+|--------|---------|---------------|
+| `live-doctrine` | Current authoritative content — governs agents | Human or kb-agent |
+| `superseded` | Replaced by another file (see `superseded-by`) | Human or kb-agent |
+| `historical` | No longer current; kept for reference | Human or kb-agent |
+| `derived` | Generated/mirror content; not authoritative | Any agent |
+
+### Backward Compatibility
+
+The following legacy status values remain valid and are accepted by all agents:
+
+| Legacy value | Maps to | Migration action |
+|---|---|---|
+| `draft` | `live-doctrine` | `/kb-migrate` Phase D — **requires human review: verify document is complete before approving** |
+| `reviewed` | `live-doctrine` | `/kb-migrate` Phase D |
+| `stale` | `historical` | `/kb-migrate` Phase D |
+
+Files without `schema-version` are treated as v1 (legacy). Run `/kb-migrate` to upgrade.
+
+### Agent Governance of New Fields
+
+`schema-version`, `superseded-by`, and `supersedes` may be updated by `kb-agent` without requiring a human gate (they are operational metadata, not spec content).
 
 ## Structure Tiers
 
