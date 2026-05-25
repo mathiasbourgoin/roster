@@ -71,7 +71,7 @@
         "name": "planner",
         "source": "roster",
         "version": "1.2.0",
-        "role": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context — no research history.",
+        "role": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context \u2014 no research history.",
         "tunables": {}
       },
       {
@@ -166,6 +166,9 @@
       "bootstrapped": false,
       "last_audit": null,
       "auditors": []
+    },
+    "metabolism": {
+      "completed_tasks": 0
     }
   }
 }

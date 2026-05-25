@@ -126,7 +126,7 @@ Default to a shared harness model:
 | `/recruit` — no existing shared harness | Mode 1: Initial Team Assembly |
 | `/recruit` — `.harness/` or `.claude/agents/` already present | Mode 2: Team Audit & Upgrade |
 | `/recruit` with specific context ("adding Docker", "security audit") | Mode 3: Contextual Recruitment |
-| User asks for an agent that doesn't exist / gap found in Mode 1–3 | Mode 4: Agent Creation |
+| `/recruit create <description>` or gap found in Mode 1–3 | Mode 4: Agent Creation |
 | `/recruit govern` | Mode 5: Governance Setup |
 | `/recruit update` | Self-Update |
 
@@ -186,14 +186,14 @@ Candidate: `reviewer` (personal roster, domain: `testing`, tags: `[review, secur
 |---|---|---|
 | `is_personal_roster` | yes | +10 |
 | `domain_exact_match` | `testing` ≠ `review` | 0 |
-| `domain_partial_match` | `review` in tags | +2 |
+| `domain_partial_match` | `testing` ≠ `review`, no domain overlap | 0 |
 | `tag_overlap` (review, code-quality) | 2 matches | +2 |
 | `compatible_with_claude_code` | yes | +3 |
 | `has_tunables` | yes | +1 |
 | `repo_stars` | N/A (personal roster) | 0 |
 | `last_commit_within_90d` | yes | +2 |
 | `no_pipeline_role_defined` | defined | 0 |
-| **Total** | | **20** |
+| **Total** | | **18** |
 
 Competing external candidate: `awesome-claude-code-subagents/code-reviewer` (domain: `review`, 350 stars, no tunables, no `pipeline_role`, last commit 200 days ago)
 
@@ -210,7 +210,7 @@ Competing external candidate: `awesome-claude-code-subagents/code-reviewer` (dom
 | `no_pipeline_role_defined` | not defined | -2 |
 | **Total** | | **11** |
 
-→ **Recommended:** `reviewer` (score 20) · **Alternative:** `awesome.../code-reviewer` (score 11)
+→ **Recommended:** `reviewer` (score 18) · **Alternative:** `awesome.../code-reviewer` (score 11)
 
 ## Search Strategy
 
