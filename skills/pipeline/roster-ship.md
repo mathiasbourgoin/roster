@@ -156,11 +156,12 @@ GitHub PR opened (then merged after human approval), or BLOCKED status documente
 **Increment metabolism counter:** After a GO ship (PR opened or merged), increment `completed_tasks` in `.harness/harness.json` (or `.claude/harness.json` if `.harness/` absent):
 
 ```bash
-# read → increment → write (jq required)
-jq '.layers.metabolism.completed_tasks += 1' .harness/harness.json > /tmp/hj && mv /tmp/hj .harness/harness.json
+# read → increment → write (jq required; use a project-local temp file, never /tmp)
+HARNESS=".harness/harness.json"
+[ -f "$HARNESS" ] && jq '.layers.metabolism.completed_tasks += 1' "$HARNESS" > "${HARNESS}.tmp" && mv "${HARNESS}.tmp" "$HARNESS"
 ```
 
-If `jq` is not available or the file does not exist, note the missed increment in the friction log without blocking.
+If `jq` is not available or `.harness/harness.json` does not exist, note the missed increment in the friction log without blocking.
 
 ## When to Go Back
 
