@@ -1,7 +1,7 @@
 ---
 name: roster-qa
 description: Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO.
-version: 1.1.0
+version: 1.2.0
 domain: pipeline
 phase: qa
 preamble: true
