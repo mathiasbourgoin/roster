@@ -12,58 +12,58 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| tech-lead | 1.3.0 | opus | Orchestrates teams, enforces Ralph Loop with tiered evaluation |
-| recruiter | 2.2.0 | opus | Finds and assembles agent teams from roster + external sources |
-| harness-builder | 1.0.0 | opus | Assembles complete harness configs (agents + rules + hooks + skills + KB) |
-| governor | 2.0.0 | opus | Generates rules via Socratic dialogue, enforces KB properties |
+| tech-lead | 1.9.0 | opus | Orchestrates teams, enforces Ralph Loop with tiered evaluation |
+| recruiter | 2.5.2 | opus | Finds and assembles agent teams from roster + external sources |
+| harness-builder | 1.3.0 | opus | Assembles complete harness configs (agents + rules + hooks + skills + KB) |
+| governor | — | opus | Generates rules via Socratic dialogue, enforces KB properties |
 | kb-agent | 2.4.0 | opus | Bootstraps, maintains, and audits the knowledge base (kb/) |
-| project-auditor | 1.0.0 | opus | Performs exhaustive repository audits and builds hierarchical kb/ |
-| skill-creator | 1.1.0 | opus | Creates reusable skills from MCP servers, CLI tools, or ideas |
-| architect | 1.2.0 | sonnet | Code quality guardian with built-in metric fallbacks + KB integration |
-| context-manager | 1.0.0 | haiku | Maintains shared context document across multi-agent workflows |
+| project-auditor | 1.1.0 | opus | Performs exhaustive repository audits and builds hierarchical kb/ |
+| skill-creator | 1.4.0 | opus | Creates reusable skills from MCP servers, CLI tools, or ideas |
+| architect | 1.5.0 | sonnet | Code quality guardian with built-in metric fallbacks + KB integration |
+| context-manager | 1.3.0 | haiku | Maintains shared context document across multi-agent workflows |
 
 ### Backend (1)
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| implementer | 1.0.0 | sonnet | Implements features/fixes in isolated worktrees |
+| implementer | 1.3.0 | sonnet | Implements features/fixes in isolated worktrees |
 
 ### Testing (2)
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| reviewer | 1.1.0 | opus | Structured code review with security focus |
-| qa | 1.0.0 | haiku | Test verification + optional Playwright manual testing |
+| reviewer | 1.4.0 | opus | Structured code review with security focus |
+| qa | 1.3.0 | haiku | Test verification + optional Playwright manual testing |
 
 ### DevOps (2)
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| tool-provisioner | 1.1.0 | sonnet | MCP/CLI discovery, evaluation, and provisioning |
-| performance-monitor | 1.0.0 | sonnet | CI/test/app performance profiling |
+| tool-provisioner | 1.3.0 | sonnet | MCP/CLI discovery, evaluation, and provisioning |
+| performance-monitor | 1.2.0 | sonnet | CI/test/app performance profiling |
 
 ### Security (2)
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| mcp-vetter | 1.1.0 | sonnet | Security vetting of MCP server candidates |
-| red-team-auditor | 1.0.0 | opus | Scoped security audits with proof-backed findings |
+| mcp-vetter | 1.4.0 | sonnet | Security vetting of MCP server candidates |
+| red-team-auditor | 1.1.0 | opus | Scoped security audits with proof-backed findings |
 
 ### Specialist (5)
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| expert-debugger | 1.0.0 | opus | Escalation agent for hard diagnostic problems |
-| config-migrator | 1.0.0 | sonnet | One-shot env→pydantic-settings migration (Python) |
-| kernel-arm64-bringup | 1.0.0 | opus | Linux kernel and device bring-up for Qualcomm ARM64 handhelds |
-| fex-wine-proton | 1.0.0 | opus | FEX, Wine, Proton, ThunksDB, and Steam runtime work on ARM64 |
-| gamescope-mangohud-qam | 1.0.0 | opus | Gamescope, Mangohud, mangoapp, and Steam QAM bridge integration |
+| expert-debugger | 1.3.0 | opus | Escalation agent for hard diagnostic problems |
+| config-migrator | 1.3.0 | sonnet | One-shot env→pydantic-settings migration (Python) |
+| kernel-arm64-bringup | 1.2.0 | opus | Linux kernel and device bring-up for Qualcomm ARM64 handhelds |
+| fex-wine-proton | 1.3.0 | opus | FEX, Wine, Proton, ThunksDB, and Steam runtime work on ARM64 |
+| gamescope-mangohud-qam | 1.3.0 | opus | Gamescope, Mangohud, mangoapp, and Steam QAM bridge integration |
 
 ### Other (1)
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| error-coordinator | 1.1.0 | sonnet | Correlates failures across CI/tests/agents |
+| error-coordinator | 1.4.0 | sonnet | Correlates failures across CI/tests/agents |
 
 ---
 

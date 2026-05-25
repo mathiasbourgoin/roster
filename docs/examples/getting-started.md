@@ -4,7 +4,7 @@
 
 - Node 20 or later installed (`node --version` should print `v20.x.x` or higher)
 - TypeScript available globally or via npx (`npx tsc --version`)
-- Clone agent-roster: `git clone https://github.com/your-org/agent-roster && cd agent-roster`
+- Clone roster: `git clone https://github.com/your-org/roster && cd roster`
 
 ## The Sample Project
 

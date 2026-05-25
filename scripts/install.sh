@@ -41,10 +41,26 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --all)           OPT_ALL=true ;;
     --team)          OPT_TEAM=true ;;
-    --runtime)       OPT_RUNTIMES="$2"; shift ;;
+    --runtime)
+      [[ $# -gt 1 ]] || { warn "--runtime requires a value (e.g. --runtime claude,opencode)"; exit 1; }
+      OPT_RUNTIMES="$2"; shift ;;
     --runtime=*)     OPT_RUNTIMES="${1#--runtime=}" ;;
     -h|--help)
-      grep '^#' "$0" | head -20 | sed 's/^# \?//'
+      cat <<'USAGE'
+roster installer — install agents and recruiter skill into your AI runtime(s)
+
+Usage: bash scripts/install.sh [--all] [--runtime <list>] [--team] [-h]
+
+  --all                Install into all detected runtimes
+  --runtime <list>     Comma-separated runtimes: claude,opencode,codex,codex-global
+  --team               Append the install one-liner to AGENTS.md for teammates
+  -h, --help           Show this help
+
+Auto-detected runtimes: Claude Code (.claude/), OpenCode (.opencode/),
+  Codex project (.agents/), Codex global (~/.codex/skills), Pi (.pi/).
+
+Run with no flags to install into auto-detected runtimes interactively.
+USAGE
       exit 0 ;;
     *) warn "Unknown flag: $1" ;;
   esac
@@ -159,8 +175,12 @@ if $OPT_TEAM; then
   echo ""
   ONELINER="curl -fsSL https://raw.githubusercontent.com/${REPO}/${BRANCH}/scripts/install.sh | bash"
   if [ -f "AGENTS.md" ]; then
-    printf '\n## Roster\n\nThis project uses roster for AI-assisted development.\n\nTeam install: `%s`\n\nThen run `/recruit` to assemble your agent team.\n' "$ONELINER" >> AGENTS.md
-    ok "Team mode    →  appended install instructions to AGENTS.md"
+    if grep -q "## Roster" AGENTS.md; then
+      warn "Roster section already in AGENTS.md — skipping (already installed)."
+    else
+      printf '\n## Roster\n\nThis project uses roster for AI-assisted development.\n\nTeam install: `%s`\n\nThen run `/recruit` to assemble your agent team.\n' "$ONELINER" >> AGENTS.md
+      ok "Team mode    →  appended install instructions to AGENTS.md"
+    fi
   else
     warn "AGENTS.md not found — skipping team mode."
   fi
