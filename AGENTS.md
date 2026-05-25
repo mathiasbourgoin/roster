@@ -87,7 +87,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 |-------|---------|-------|---------|
 | error-coordinator | 1.1.0 | sonnet | Correlates failures across CI/tests/agents |
 
-## Skills (14)
+## Skills (15)
 
 | Skill | Domain | Purpose |
 |-------|--------|---------|
@@ -103,6 +103,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | harness-validator | kb/audit | Meta-audit: is the harness coherent? |
 | improvement-loop-planner | management | Propose bounded improvement loops from KB, tests, issues, CI, and code signals |
 | improvement-loop | workflow | Execute a bounded verification-first improvement loop from an approved spec |
+| roster-config | workflow | Discover, inspect, and interactively set tunables across installed roster agents |
 | roster-question | pipeline | Decompose task into neutral research questions — blind research prep, task intent not revealed |
 | roster-research | pipeline | Blind documentarian research — reads questions only, produces file:line grounded research |
 
