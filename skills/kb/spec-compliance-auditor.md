@@ -5,13 +5,24 @@ version: 1.0.0
 
 # Spec Compliance Auditor
 
-Compare the implementation against `kb/spec.md` to verify every specified behavior is implemented and every implemented behavior is specified.
+Compare the implementation against a spec file to verify every specified behavior is implemented and every implemented behavior is specified.
+
+## Input Contract
+
+- If `$ARGUMENTS` contains a file path to a spec: use that file as the spec source
+- Default (no `$ARGUMENTS`): read `kb/spec.md`
+- Fail gracefully if neither exists: report "No spec source available" and exit
 
 ## Steps
 
 ### 1. Extract Testable Claims
 
-- Read `kb/spec.md` in full.
+```bash
+SPEC_PATH="${ARGUMENTS:-kb/spec.md}"
+[ -f "$SPEC_PATH" ] || { echo "No spec at $SPEC_PATH — skipping"; exit 0; }
+```
+
+- Read the spec file at `$SPEC_PATH` in full.
 - Extract every concrete, testable claim. A testable claim is a statement that can be verified by reading code or running a test. Examples:
   - "The API returns 404 when the resource is not found"
   - "Passwords are hashed with bcrypt, cost factor 12"
@@ -91,4 +102,4 @@ coverage: X/Y claims verified (Z%)
 - If a spec claim is ambiguous, flag it as Info and note the ambiguity — do not guess intent.
 - Run existing tests where possible to confirm behavior rather than relying solely on code reading.
 - Create `kb/reports/` directory if it doesn't exist.
-- If `kb/spec.md` doesn't exist, report that as the only Critical finding and stop.
+- If `kb/spec.md` doesn't exist and no `$ARGUMENTS` path is given, report "No spec source available" and skip (exit 0).

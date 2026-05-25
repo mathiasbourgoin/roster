@@ -80,6 +80,7 @@ Spawn specialists based on scope. Each specialist receives:
 
 | Specialist | Condition | Path / Invocation |
 |---|---|---|
+| `spec-compliance` (per-feature) | `specs/<task-slug>.md` exists | Invoke `spec-compliance-auditor` with spec path as `$ARGUMENTS` |
 | `spec-compliance` | Always if KB exists (`kb/spec.md` present) | Skill — read `skills/kb/spec-compliance-auditor.md` and invoke via `Skill` tool or spawn as sub-agent with this content |
 | `code-quality-auditor` | Always if KB exists (`kb/properties.md` present) | Skill — read `skills/kb/code-quality-auditor.md`; provide diff + `kb/properties.md` + `kb/glossary.md` + reviewer.md |
 | `architect` | Medium or large blast radius (>3 files modified or public module) | `.claude/agents/architect.md` |
@@ -93,6 +94,10 @@ Spawn specialists based on scope. Each specialist receives:
 ```
 
 If KB is present, `code-quality-auditor` findings are merged into the review table alongside other specialists. Critical KB violations are auto-classified as HIGH severity.
+
+When findings have `category: "spec"` and severity CRITICAL or HIGH:
+- Set `no_go_reason.type = "spec-ac-failure"` in the verdict
+- Populate `no_go_reason.failed_acs` with the AC identifiers from those findings
 
 **Expected findings format from each specialist:**
 
@@ -173,7 +178,11 @@ Produce `briefs/<task>-review.json`:
     "low": 0,
     "auto_fixed": 0
   },
-  "no_go_reason": null
+  "no_go_reason": {
+    "type": null,
+    "failed_acs": []
+  }
+  // type values: null | "spec-ac-failure" | "code-plan-failure"
 }
 ```
 
@@ -199,6 +208,7 @@ Status: GO ✅ / NO-GO ❌
 
 **If GO:** `/roster-qa` can start.
 **If NO-GO:** return to `/roster-implement` with OPEN findings.
+**If NO-GO with `no_go_reason.type == "spec-ac-failure"`:** return to `/roster-spec` — the spec ACs were not met by the implementation.
 
 ## When to Go Back
 

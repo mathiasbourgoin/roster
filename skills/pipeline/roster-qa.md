@@ -76,7 +76,22 @@ If a gate fails:
 - Do not continue to subsequent gates
 - Include in the report without softening
 
-### 3. TUI check (if applicable)
+### 3. Spec runnable checks (conditional)
+
+```bash
+# Replace <task> with the actual task slug (e.g. "auth-feature")
+TASK_SLUG="<task>"
+[ -f "specs/${TASK_SLUG}.md" ] && echo "spec: present" || echo "spec: absent"
+```
+
+If spec present: extract `## Runnable Checks` section. For each CHECK-N:
+- Run the command
+- Verify against the expected output
+- Mark PASS / FAIL / N/A (with justification)
+
+At least one FAIL with no justification = QA NO-GO.
+
+### 4. TUI check (if applicable)
 
 If the scope contains a TUI interface and `tunables.require_tmux_matrix_for_tui: true`:
 
@@ -99,7 +114,7 @@ Verify:
 tmux kill-session -t qa-check
 ```
 
-### 4. Write the QA report
+### 5. Write the QA report
 
 Produce `briefs/<task>-qa.md`:
 
@@ -139,7 +154,7 @@ Produce `briefs/<task>-qa.md`:
 **NO-GO** — return to `/roster-implement` for: <precise reason>
 ```
 
-### 5. Human gate
+### 6. Human gate
 
 Present the report and request validation.
 If NO-GO: suggest returning to `/roster-implement` with the exact reason.

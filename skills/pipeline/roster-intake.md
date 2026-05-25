@@ -101,6 +101,7 @@ Example: "add webhook support" → `webhook-support`
 
 **Date:** <ISO-8601>
 **Status:** DRAFT — pending validation
+**Type:** feature|api-change|fix|chore|docs|refactor  ← delete all but the applicable type
 
 ## Goal
 
@@ -146,7 +147,7 @@ _(empty if everything is resolved)_
 ### 6. Human gate
 
 Present the brief and ask:
-> "Brief ready. Validate or correct before I proceed to `/roster-plan`."
+> "Brief ready. Validate or correct before I proceed. Confirm the Type field reflects the correct task type."
 
 Wait for explicit validation. Apply corrections if requested, then set `**Status:** VALIDATED` in the brief.
 

@@ -50,6 +50,7 @@ Roster ships as a set of slash-command skills. `/roster-run` is the entry point 
 | `/roster-run` | Entry point | Detects context, routes to right phase |
 | `/roster-init` | Bootstrap | Adversarial project interview — 6 questions, 3 adversarial |
 | `/roster-intake` | Intake | Turns a task into a contractual brief with human gate |
+| `/roster-spec` | Spec | Adversarial spec phase: user stories, challenges, AC, runnable checks |
 | `/roster-plan` | Plan | Dual-voice decomposition (two adversarial sub-agents), consensus |
 | `/roster-implement` | Implement | TDD + improvement loop + specialist sub-agents |
 | `/roster-review` | Review | Fix-first review, GO/NO-GO JSON verdict |
