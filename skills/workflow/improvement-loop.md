@@ -1,10 +1,22 @@
 ---
 name: improvement-loop
 description: Run a bounded verification-first improvement loop from an approved loop spec.
-version: 1.0.0
+version: 1.1.0
+domain: workflow
+phase: null
+preamble: true
+allowed_tools: [Read, Write, Edit, Bash, AskUserQuestion]
+human_gate: before
+pipeline_role:
+  triggered_by: human (after improvement-loop-planner produces an approved spec)
+  receives: loop spec in $ARGUMENTS
+  produces: code/config changes, results.tsv, friction log
+  pairs_with: improvement-loop-planner
 ---
 
 # Improvement Loop
+
+**Pair:** use `/improvement-loop-planner` first if you don't have a loop spec yet — it will propose and format the spec. Then pass the approved spec as `$ARGUMENTS` here.
 
 Execute a **bounded** self-improvement loop using a user-approved loop spec supplied in $ARGUMENTS.
 
@@ -150,3 +162,15 @@ At the end of each run, append to `skills-meta/friction.jsonl` :
   "effort_estimate": null
 }
 ```
+## When to Go Back
+
+| Condition | Action |
+|---|---|
+| Required loop spec fields are missing | Stop — return to `/improvement-loop-planner` to produce a complete spec |
+| Baseline verify command is broken | Stop — cannot compare; report to human before any changes |
+| Guard fails at baseline (before any iteration) | Stop — the guard must pass at baseline or the loop is unsafe |
+
+## What Next
+
+**Primary path:** after the loop completes with objective met → human decides whether to commit changes and open a PR.
+**If spec was incomplete or no signal existed:** return to `/improvement-loop-planner`.

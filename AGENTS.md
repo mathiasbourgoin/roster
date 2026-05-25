@@ -36,9 +36,9 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 - The operational projection command is `./scripts/sync-harness.sh <project-root>`
 - Agents manipulating installed project harness data should read `.harness/harness.json` first and treat `.opencode/`, `.claude/`, and `.agents/` as generated compatibility surfaces
 
-## Agents (27)
+## Agents (26)
 
-### Management (12)
+### Management (9)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | tech-lead | 1.9.0 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
@@ -48,13 +48,12 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | kb-agent | 2.4.0 | opus | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
 | project-auditor | 1.1.0 | opus | Performs exhaustive project mapping and multi-slice audits, producing a hierarchical kb/ with components, invariants, risks, and fix candidates |
 | skill-creator | 1.4.0 | opus | Designs reusable workflow skills from repeated patterns, with search-first and safety checks |
-| architect | 1.5.0 | sonnet | Code quality and architecture guardian focused on structural regressions, duplication, and maintainability risks |
-| context-manager | 1.3.0 | haiku | Maintains concise shared context for multi-agent execution to reduce drift and duplication |
-| planner | 1.2.0 | opus | Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent |
-| pr-workflow | 1.2.0 | sonnet | Owns the project PR/git workflow — conventional commits, rebase merge, pre-push validation, and review rounds |
-| error-coordinator | 1.4.0 | sonnet | Correlates failures across CI, tests, and agents to isolate likely root causes quickly |
+| planner | 1.2.0 | opus | Sub-agent behind `/roster-plan` — decomposes a validated brief into per-role sub-briefs with fresh context |
+| pr-workflow | 1.2.0 | sonnet | Sub-agent behind `/roster-ship` — conventional commits, rebase merge, pre-push validation, and review rounds |
 
 > **Note:** `recruiter` and `governor` source files live in `recruiter/` and `governor/` respectively (predates the `agents/<domain>/` convention). These directories are closed to new additions — all new agents go under `agents/<domain>/`. To add a new management agent, always use `agents/management/` — the `recruiter/` and `governor/` directories are legacy locations that cannot be changed without breaking the `install.sh` path references (which hardcode `recruiter/recruiter.md`).
+
+> **Skill↔Agent pairs:** `planner` is invoked by `/roster-plan`; `pr-workflow` is invoked by `/roster-ship`. They are not standalone — always use the skill as the entry point.
 
 ### Backend (2)
 | Agent | Version | Model | Purpose |
@@ -64,11 +63,14 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 
 > **Note:** `ocaml-implementer` and `ocaml-dune-specialist` are OCaml/Dune specific. They are included in the default catalog as useful general patterns but require OCaml tooling.
 
-### Testing (2)
+### Testing (3)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | reviewer | 1.4.0 | opus | Performs structured code review focused on correctness, security, and regression risk |
 | qa | 1.3.0 | haiku | Verifies implemented behavior through deterministic test execution and focused scenario checks |
+| architect | 1.5.0 | sonnet | Code quality and architecture guardian — spawned by `reviewer` on medium/large blast radius diffs |
+
+> **Note:** `architect` is a conditional specialist invoked by `/roster-review`, not a standalone agent. Do not invoke it directly — let the reviewer decide.
 
 ### DevOps (2)
 | Agent | Version | Model | Purpose |
@@ -82,13 +84,14 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | mcp-vetter | 1.4.0 | sonnet | Security vetting for MCP server candidates with risk scoring and explicit approval recommendations |
 | red-team-auditor | 1.1.0 | opus | Runs authorization-scoped security audits using slice-first mapping, invariant analysis, and evidence-backed proof plans |
 
-### Specialist (4)
+### Specialist (5)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| expert-debugger | 1.3.0 | opus | Performs deep diagnosis for ambiguous build, dependency, integration, and runtime failures |
+| expert-debugger | 1.4.0 | opus | Deep diagnosis for ambiguous failures — also handles CI failure correlation across agents and test suites |
 | config-migrator | 1.3.0 | sonnet | Performs one-shot environment/config migrations with minimal scope and rollback awareness |
 | migration-guard | 1.2.0 | sonnet | Owns SQLite schema migration discipline — version bumps, all_ddl alignment, migration-path tests, slot-drift avoidance |
 | ocaml-dune-specialist | 1.2.0 | sonnet | Specialist for OCaml projects built with dune — .mli discipline, dune layout, opam metadata hygiene, ppx wiring |
+| context-manager | 1.3.0 | haiku | Maintains shared context across long multi-agent sessions — install only when running chains > 5 agents |
 
 ### Personal Overlays (opt-in)
 These agents are domain-specific overlays for particular hardware/projects. Install manually if relevant:
@@ -98,18 +101,18 @@ These agents are domain-specific overlays for particular hardware/projects. Inst
 | fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
 | gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
-## Skills (33)
+## Skills (30)
 
 ### Pipeline (13)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.3.0 | Pipeline entry point — detects context and routes to the right skill |
+| roster-run | 1.5.0 | Pipeline entry point — detects context and routes to the right skill |
 | roster-init | 1.2.0 | Bootstrap a new project or onboard an existing project into the roster ecosystem |
 | roster-intake | 1.1.0 | Intake phase — transforms a task into a contractual brief validated by the human |
 | roster-spec | 2.0.0 | Adversarial spec phase — derives user stories with GWT scenarios, formalizes FR-NNN requirements |
 | roster-plan | 1.2.0 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
-| roster-implement | 1.3.0 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
-| roster-review | 1.2.0 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
+| roster-implement | 1.4.0 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
+| roster-review | 1.3.0 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
 | roster-qa | 1.1.0 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
 | roster-ship | 1.2.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
 | roster-investigate | 1.1.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
@@ -133,27 +136,17 @@ These agents are domain-specific overlays for particular hardware/projects. Inst
 | harness-validator | 1.0.0 | Meta-auditor — validate the KB harness itself (structure, auditors, rules coherence, feedback loops) |
 | roster-spec-infer | 1.0.0 | Reverse-engineer existing code into a structured, evidence-tiered inferred spec (specs/\<slug\>-inferred.md) |
 | kb-migrate | 1.0.0 | Audit, clean, reorg, and migrate an existing KB to the current schema — idempotent, human-gated |
-| kb-reindex | 1.0.0 | Build or update the LanceDB semantic search index for KB files — opt-in, cold-start or incremental |
-| kb-search | 1.0.0 | Hybrid semantic+keyword search over the KB LanceDB index — returns ranked chunks with source and section |
+| kb-reindex | 1.0.0 | ⚠️ Experimental — requires LanceDB. Build or update a vector index over kb/ — opt-in, cold-start or incremental |
+| kb-search | 1.0.0 | ⚠️ Experimental — requires LanceDB. Hybrid semantic+keyword search over the KB index |
 
-### Management (4)
-| Skill | Version | Purpose |
-|-------|---------|---------|
-| improvement-loop-planner | 1.0.0 | Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals |
-| team-build | 1.0.0 | Apply an approved team proposal — installs agents, rules, and skills into the shared harness |
-| team-review | 1.0.0 | Audit the installed team against the current project and roster — surfaces stale agents and gaps |
-| team-run | 1.0.0 | Run the agent team on a task — triggers tech-lead research → validation → planner → execution |
-
-### Workflow (3)
+### Workflow (6)
 | Skill | Version | Purpose |
 |-------|---------|---------|
 | git-conventions | 1.0.0 | Apply git workflow conventions — commits, branches, PRs |
-| improvement-loop | 1.0.0 | Run a bounded verification-first improvement loop from an approved loop spec |
+| improvement-loop | 1.1.0 | Run a bounded verification-first improvement loop from an approved loop spec |
+| improvement-loop-planner | 1.1.0 | Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals — pairs with improvement-loop |
 | roster-config | 1.0.0 | Discover, inspect, and interactively set tunables across installed roster agents |
-
-### Testing (1)
-| Skill | Version | Purpose |
-|-------|---------|---------|
+| team | 1.0.0 | Manage the installed agent team — `build` (apply proposal), `review` (audit gaps), `run <task>` (execute pipeline) |
 | tdd-workflow | 1.0.0 | Run TDD cycle — write failing test, implement, refactor, verify coverage |
 
 ### Media (1, experimental)

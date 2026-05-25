@@ -1,22 +1,23 @@
 ---
 name: expert-debugger
 display_name: Expert Debugger
-description: Performs deep diagnosis for ambiguous build, dependency, integration, and runtime failures.
+description: Performs deep diagnosis for ambiguous build, dependency, integration, and runtime failures. Also handles CI failure correlation across agents and test suites.
 domain: [specialist, debugging]
-tags: [debugging, diagnostics, root-cause]
+tags: [debugging, diagnostics, root-cause, ci, triage]
 model: opus
 complexity: high
 compatible_with: [claude-code]
 tunables:
   max_hypotheses: 3
   require_repro_steps: true
+  correlate_ci_failures: true
 isolation: none
 pipeline_role:
-  triggered_by: tech-lead on ambiguous root cause or repeated implementer failures
+  triggered_by: tech-lead on ambiguous root cause, repeated implementer failures, or cross-agent CI failure correlation
   receives: failure log, reproduction steps, and what has already been ruled out
   produces: ranked hypotheses with confidence, decisive evidence, and recommended fix plan
   human_gate: none
-version: 1.3.0
+version: 1.4.0
 author: mathiasbourgoin
 ---
 

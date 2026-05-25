@@ -39,3 +39,6 @@ docs/plans/
 docs/roadmap.md
 docs/iterations/
 ocaml/
+
+# Index (rebuilt with npm run build:index)
+index.json

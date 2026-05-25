@@ -1,10 +1,22 @@
 ---
 name: improvement-loop-planner
 description: Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals.
-version: 1.0.0
+version: 1.1.0
+domain: workflow
+phase: null
+preamble: true
+allowed_tools: [Read, Bash, AskUserQuestion]
+human_gate: after
+pipeline_role:
+  triggered_by: human (when improvement targets are unclear)
+  receives: $ARGUMENTS — area or project to analyze
+  produces: loop spec(s) approved by human → passed to improvement-loop
+  pairs_with: improvement-loop
 ---
 
 # Improvement Loop Planner
+
+**Pair:** this skill proposes loops; `/improvement-loop` executes them. Run this first when you don't have a loop spec yet — once the human approves a proposal, pass it as `$ARGUMENTS` to `/improvement-loop`.
 
 Propose a small set of high-value, bounded improvement loops for the project or area described in $ARGUMENTS.
 
@@ -127,3 +139,14 @@ Examples:
 - If no trustworthy verification signal exists, say so explicitly and refuse to propose an execution-ready loop
 - If KB exists and conflicts with issues or code, note the contradiction instead of papering over it
 - If confidence is low because KB is absent, say that explicitly
+
+## When to Go Back
+
+| Condition | Action |
+|---|---|
+| No measurable verification signal exists for any candidate | Stop — do not propose a loop; report to human |
+| KB contradicts the proposed improvement area | Stop — surface the contradiction, do not paper over it |
+
+## What Next
+
+**Primary path:** pass the approved loop spec as `$ARGUMENTS` to `/improvement-loop`.
