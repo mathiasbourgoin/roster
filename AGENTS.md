@@ -87,7 +87,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 |-------|---------|-------|---------|
 | error-coordinator | 1.1.0 | sonnet | Correlates failures across CI/tests/agents |
 
-## Skills (16)
+## Skills (17)
 
 | Skill | Domain | Purpose |
 |-------|--------|---------|
@@ -106,7 +106,8 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | roster-config | workflow | Discover, inspect, and interactively set tunables across installed roster agents |
 | roster-question | pipeline | Decompose task into neutral research questions — blind research prep, task intent not revealed |
 | roster-research | pipeline | Blind documentarian research — reads questions only, produces file:line grounded research |
-| roster-spec | pipeline | Adversarial spec phase: user stories → challenges → AC → runnable checks |
+| roster-spec | pipeline | Adversarial spec phase: clarifications → user stories (GWT) → challenges → FR-NNN → AC → runnable checks |
+| roster-spec-infer | kb | Reverse-engineer existing code into an evidence-tiered inferred spec (specs/\<slug\>-inferred.md) with [E1]/[E2]/[E3] labels, GWT scenarios, FR-NNN requirements, and conflict detection |
 
 ## Rules (3)
 
