@@ -1,18 +1,22 @@
 ---
 name: roster-research
-description: Blind documentarian research — reads questions only, never the task. Produces file:line grounded research.
-version: 1.0.0
+description: Blind documentarian research — reads questions only, never the task. Produces file:line grounded research with optional online prior-art scan.
+version: 1.1.0
 domain: pipeline
 phase: research
 preamble: true
 friction_log: true
-allowed_tools: [Read, Write, Bash, Agent, Glob, Grep]
+allowed_tools: [Read, Write, Bash, Agent, Glob, Grep, WebFetch, WebSearch]
 human_gate: never
 tunables:
   depth: auto
   # auto: infers from question count and codebase size (fast ≤3 questions, full >3)
   # fast: single sub-agent, surface scan
-  # full: 3 parallel sub-agents (locator + analyzer + pattern-finder)
+  # full: 4 parallel sub-agents (locator + analyzer + pattern-finder + external-researcher)
+  online_research: auto
+  # auto: enabled in full mode when questions reference patterns, alternatives, or prior art
+  # always: always spawn external researcher sub-agent
+  # never: disable online research entirely
 artifacts:
   reads:
     - roster/<task-slug>/questions.md
@@ -78,9 +82,9 @@ Output format:
 - `path/to/other.ext:17` — <what is there>
 ```
 
-### 3b. Full mode — 3 parallel documentarian sub-agents
+### 3b. Full mode — up to 4 parallel sub-agents
 
-Distribute questions across 3 specialists. Spawn all 3 in parallel, wait for ALL to complete before proceeding.
+Distribute questions across specialists. Spawn all in parallel, wait for ALL to complete before proceeding.
 
 **Sub-agent 1 — Locator** (Grep, Glob, Bash — no file reading):
 ```
@@ -109,6 +113,23 @@ Every finding must include a file:line reference and a code snippet.
 Questions to answer: <assign questions focused on patterns/examples>
 ```
 
+**Sub-agent 4 — External Researcher** (WebFetch, WebSearch — spawn when `online_research` is `always`, or when `auto` and any question references patterns, alternatives, prior art, or comparisons):
+```
+You are an external research documentarian. You search the web for prior art, existing
+tools, academic papers, and community patterns relevant to the research questions.
+
+Rules:
+- Report only what EXISTS in the world — not what to build
+- Cite every source (URL, title, author, year if available)
+- Flag contradictions between sources explicitly
+- Do NOT suggest what the project should do — document what others have done
+
+Questions to answer: <assign questions that benefit from external context>
+
+Produce findings in the same format as codebase research, substituting
+file:line references with URL citations.
+```
+
 ### 4. Synthesize into research.md
 
 Merge all sub-agent outputs into `roster/<task-slug>/research.md`:
@@ -118,6 +139,7 @@ Merge all sub-agent outputs into `roster/<task-slug>/research.md`:
 
 _Generated: <ISO-8601>_
 _Mode: fast | full_
+_Online research: enabled | disabled_
 
 ## Question 1: <question text>
 
@@ -139,9 +161,15 @@ _Mode: fast | full_
 |---|---|---|---|
 | <pattern name> | `path/file.ext` | 42–67 | <what it does> |
 
+## External prior art (if online_research enabled)
+
+| Tool / Paper / Approach | Source | Key finding |
+|---|---|---|
+| <name> | <URL or citation> | <what it does, one line> |
+
 ## Coverage gaps
 
-Questions that could not be fully answered from code alone:
+Questions that could not be fully answered from code or external sources:
 - Q3: <reason — e.g. "behavior is runtime-configured, not statically readable">
 ```
 
@@ -151,7 +179,7 @@ Questions that could not be fully answered from code alone:
 
 ## Output Contract
 
-`roster/<task-slug>/research.md` — facts with file:line references, zero solution intent.
+`roster/<task-slug>/research.md` — codebase facts with file:line references + optional external prior art citations, zero solution intent.
 
 **Next:** `/roster-intake` reads this file as enrichment context alongside the task.
 
