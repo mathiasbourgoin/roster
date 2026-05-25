@@ -292,6 +292,7 @@ Skills are structured slash-command workflows — they are the primary orchestra
 - `harness-validator`
 - `improvement-loop-planner`
 - `improvement-loop`
+- `roster-config`
 
 ## Recruiter Modes
 
