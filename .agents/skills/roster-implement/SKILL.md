@@ -1,7 +1,7 @@
 ---
 name: roster-implement
 description: Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief.
-version: 1.3.0
+version: 1.4.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -19,8 +19,8 @@ artifacts:
   writes:
     - briefs/<task>-impl.md
 pipeline_role:
-  triggered_by: /roster-plan with validated sub-briefs
-  receives: briefs/<task>-implementer.md
+  triggered_by: /roster-plan with validated sub-briefs, or directly from /roster-run in Express/Fast mode
+  receives: briefs/<task>-implementer.md (Full mode) or task description directly (Express/Fast)
   produces: briefs/<task>-impl.md + implemented code with passing quality gates
 ---
 
@@ -184,6 +184,7 @@ Produce `briefs/<task>-impl.md`:
 # Implementation Brief — <task-slug>
 
 **Date:** <ISO-8601>
+**Mode:** express | fast | full
 **Status:** COMPLETED / PARTIAL (with reason if partial)
 
 ## Modified files

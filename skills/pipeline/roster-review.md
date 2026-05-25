@@ -1,7 +1,7 @@
 ---
 name: roster-review
 description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: review
 preamble: true
@@ -29,6 +29,29 @@ pipeline_role:
 You conduct a structured, fix-first review. Mechanical corrections are applied without asking. Ambiguities are grouped into one single question. You produce a structured JSON verdict.
 
 **Golden rule:** every claim ("it's handled", "tests cover that") must cite the file and line. Never "probably" or "likely".
+
+## Mode Awareness
+
+**Read the mode from `briefs/<task>-impl.md`** (field `mode: express|fast|full`). If absent, infer from context.
+
+| Mode | Review scope | Specialist invocation | Escalation check |
+|---|---|---|---|
+| **Express** | Correctness + security only. Skip spec/KB compliance — no spec impact expected. | `reviewer` agent only. Skip `spec-compliance`, `code-quality-auditor`, `architect` unless diff > 5 files. | Mandatory — see below |
+| **Fast** | Full review. Spec/KB compliance only if KB exists. | `reviewer` + conditionals per normal rules. | Mandatory — see below |
+| **Full** | Full review. All specialists per normal rules. | All conditionals apply. | N/A |
+
+### Mode Escalation Check (Express and Fast only)
+
+After reading the diff, check for signs the task scope exceeded its mode:
+
+| Signal | Escalation |
+|---|---|
+| New public API, interface, or exported function | Recommend upgrading to Full (spec needed) |
+| Behaviour change affecting callers beyond the reported fix | Recommend upgrading to Full |
+| Design decision made implicitly in the code (no brief, no spec) | Recommend upgrading to Fast if Express, or Full if Fast |
+| Spec or KB update is clearly needed but was not done | Flag as `escalation_needed: true` in verdict |
+
+If escalation is needed: set `escalation_needed: true` and `escalation_reason` in the verdict. **Do not block GO** for this — it is informational. The human decides whether to loop back.
 
 ## Input Contract
 
@@ -181,8 +204,12 @@ Produce `briefs/<task>-review.json`:
   "no_go_reason": {
     "type": null,
     "failed_acs": []
-  }
+  },
+  "mode": "express|fast|full",
+  "escalation_needed": false,
+  "escalation_reason": null
   // type values: null | "spec-ac-failure" | "code-plan-failure"
+  // escalation_reason: null | "new-public-api" | "implicit-design-decision" | "spec-update-needed" | "behaviour-change"
 }
 ```
 
@@ -217,6 +244,7 @@ Status: GO ✅ / NO-GO ❌
 | NO-GO verdict — fixes required | Stop — return to `/roster-implement` with OPEN findings listed |
 | Research reveals a design flaw missed in planning | Stop — re-run `/roster-plan` or `/roster-intake` before fixes |
 | `code-quality-auditor` returns Critical KB violations | Auto-classify as HIGH finding → NO-GO unless immediately auto-fixable |
+| `escalation_needed: true` in Express/Fast mode | Present to human — they decide whether to loop back to `/roster-spec` or accept as-is |
 
 ## What Next
 

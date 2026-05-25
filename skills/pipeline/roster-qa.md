@@ -34,6 +34,10 @@ You run deterministic checks and produce a GO/NO-GO verdict. No code writing —
 
 Read `briefs/<task>-review.json` in full.
 
+**Check the mode** from `review.json` field `mode`:
+- **Express**: skip QA entirely — `/roster-ship` directly after review GO. QA is not needed when there is no spec/KB impact.
+- **Fast** or **Full**: run full QA below.
+
 **BLOCK** if:
 - status is `NO-GO` in review.json
 - review.json is absent
