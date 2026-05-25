@@ -9,7 +9,7 @@ A pipeline framework for fast and correct software development with coordinated 
 
 Three principles:
 
-- **Agents cannot spawn agents.** The human is always the relay between pipeline stages. This is the human gate in practice.
+- **Platform constraint:** Claude Code and Codex do not support recursive agent spawning at runtime. Roster is designed around this: each skill invocation is a single-context operation, and multi-stage work requires the human to relay context between sessions. This is not a feature — it is an architectural reality we work within.
 - **The team is the unit, not the agent.** Adding an agent means wiring it into the pipeline: patching the lead, updating adjacent agents, validating the integration.
 - **Every plan needs a human who understood it.** A structured quiz runs before any execution batch begins. Passive approval is not validation.
 
@@ -161,6 +161,15 @@ Profiles: `core` · `developer` · `security` · `full`
 
 Roster's own harness (`.harness/harness.json`) uses the `developer` profile — a live reference for what a minimal, working harness looks like.
 
+## In Production
+
+Roster was built while developing [octez-manager](https://github.com/tezos/octez-manager), a production OCaml project. The pipeline has been used for:
+- Spec-driven feature development with the adversarial spec phase catching requirement gaps before implementation
+- Multi-runtime agent harness management across Claude Code and OpenCode
+- Iterative self-improvement via the friction log → skill-health → skill-evolve loop
+
+This project is the distillation of what worked.
+
 ## Development
 
 To add or update components:
@@ -180,5 +189,6 @@ To add or update components:
 
 
 → **[Full agent and skill catalog](docs/agents.md)**  
+→ **[Skill Overlap Guide](docs/skill-overlap.md)** — when to use each audit/spec/research skill  
 → **[Skill hooks DSL and tutorial](docs/hooks.md)**  
 → **[Changelog](CHANGES.md)**

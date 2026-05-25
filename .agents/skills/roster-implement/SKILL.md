@@ -24,6 +24,12 @@ pipeline_role:
   produces: briefs/<task>-impl.md + implemented code with passing quality gates
 ---
 
+---
+name: roster-preamble
+version: 1.0.0
+description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
+---
+
 # Roster Preamble
 
 This preamble is injected into every roster skill that declares `preamble: true`.

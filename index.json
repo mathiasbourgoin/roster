@@ -2317,7 +2317,7 @@
       "claude-code"
     ],
     "version": "1.3.0",
-    "path": "agents/specialist/fex-wine-proton.md",
+    "path": "agents/personal/fex-wine-proton.md",
     "source": "local",
     "source_id": "local",
     "source_repo": "mathiasbourgoin/roster",
@@ -2349,7 +2349,7 @@
       "claude-code"
     ],
     "version": "1.3.0",
-    "path": "agents/specialist/gamescope-mangohud-qam.md",
+    "path": "agents/personal/gamescope-mangohud-qam.md",
     "source": "local",
     "source_id": "local",
     "source_repo": "mathiasbourgoin/roster",
@@ -2463,7 +2463,7 @@
       "claude-code"
     ],
     "version": "1.2.0",
-    "path": "agents/specialist/kernel-arm64-bringup.md",
+    "path": "agents/personal/kernel-arm64-bringup.md",
     "source": "local",
     "source_id": "local",
     "source_repo": "mathiasbourgoin/roster",
@@ -3383,7 +3383,7 @@
     "model": "",
     "complexity": "",
     "compatible_with": [],
-    "version": "1.3.0",
+    "version": "1.4.0",
     "path": "skills/pipeline/roster-run.md",
     "source": "local",
     "source_id": "local",

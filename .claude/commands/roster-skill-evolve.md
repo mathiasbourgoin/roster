@@ -21,6 +21,12 @@ pipeline_role:
   produces: skills / scripts / patches installed in the harness
 ---
 
+---
+name: roster-preamble
+version: 1.0.0
+description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
+---
+
 # Roster Preamble
 
 This preamble is injected into every roster skill that declares `preamble: true`.

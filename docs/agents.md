@@ -25,7 +25,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | pr-workflow | 1.2.0 | sonnet | Owns the project PR/git workflow — conventional commits, rebase merge, pre-push validation, and review rounds |
 | error-coordinator | 1.4.0 | sonnet | Correlates failures across CI, tests, and agents to isolate likely root causes quickly |
 
-> **Note:** `recruiter` and `governor` source files live in `recruiter/` and `governor/` respectively (predates the `agents/<domain>/` convention). These directories are closed to new additions.
+> **Note:** `recruiter` and `governor` source files live in `recruiter/` and `governor/` respectively (predates the `agents/<domain>/` convention). These directories are closed to new additions. To add a new management agent, always use `agents/management/` — the `recruiter/` and `governor/` directories are legacy locations that cannot be changed without breaking the `install.sh` path references (which hardcode `recruiter/recruiter.md`).
 
 ### Backend (2)
 
@@ -33,6 +33,8 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 |-------|---------|-------|---------|
 | implementer | 1.3.0 | sonnet | Executes scoped feature/fix tasks in isolated worktrees with deterministic verification before handoff |
 | ocaml-implementer | 1.2.0 | sonnet | Implements OCaml changes with eio_posix, Caqti, Result-style errors, and mandatory .mli discipline |
+
+> **Note:** `ocaml-implementer` and `ocaml-dune-specialist` are OCaml/Dune specific. They are included in the default catalog as useful general patterns but require OCaml tooling.
 
 ### Testing (2)
 
@@ -55,7 +57,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | mcp-vetter | 1.4.0 | sonnet | Security vetting of MCP server candidates |
 | red-team-auditor | 1.1.0 | opus | Runs scoped security audits with slice-first vulnerability research and proof-backed findings |
 
-### Specialist (7)
+### Specialist (4)
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
@@ -63,6 +65,13 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | config-migrator | 1.3.0 | sonnet | One-shot env→pydantic-settings migration (Python) |
 | migration-guard | 1.2.0 | sonnet | Guards incremental migrations — detects regressions between steps |
 | ocaml-dune-specialist | 1.2.0 | sonnet | Specialist for OCaml/dune/.opam: .mli discipline, dune layout, ppx wiring, opam metadata |
+
+### Personal Overlays (opt-in)
+
+These agents are domain-specific overlays for particular hardware/projects. Install manually if relevant:
+
+| Agent | Version | Model | Purpose |
+|-------|---------|-------|---------|
 | kernel-arm64-bringup | 1.2.0 | opus | Linux kernel and device bring-up for Qualcomm ARM64 handhelds |
 | fex-wine-proton | 1.3.0 | opus | FEX, Wine, Proton, ThunksDB, and Steam runtime work on ARM64 |
 | gamescope-mangohud-qam | 1.3.0 | opus | Gamescope, Mangohud, mangoapp, and Steam QAM bridge integration |

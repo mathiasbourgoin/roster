@@ -54,13 +54,15 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | pr-workflow | 1.2.0 | sonnet | Owns the project PR/git workflow — conventional commits, rebase merge, pre-push validation, and review rounds |
 | error-coordinator | 1.4.0 | sonnet | Correlates failures across CI, tests, and agents to isolate likely root causes quickly |
 
-> **Note:** `recruiter` and `governor` source files live in `recruiter/` and `governor/` respectively (predates the `agents/<domain>/` convention). These directories are closed to new additions — all new agents go under `agents/<domain>/`.
+> **Note:** `recruiter` and `governor` source files live in `recruiter/` and `governor/` respectively (predates the `agents/<domain>/` convention). These directories are closed to new additions — all new agents go under `agents/<domain>/`. To add a new management agent, always use `agents/management/` — the `recruiter/` and `governor/` directories are legacy locations that cannot be changed without breaking the `install.sh` path references (which hardcode `recruiter/recruiter.md`).
 
 ### Backend (2)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | implementer | 1.3.0 | sonnet | Executes scoped feature/fix tasks in isolated worktrees with deterministic verification before handoff |
 | ocaml-implementer | 1.2.0 | sonnet | Implements OCaml changes with eio_posix, Caqti, Result-style errors, and mandatory .mli discipline |
+
+> **Note:** `ocaml-implementer` and `ocaml-dune-specialist` are OCaml/Dune specific. They are included in the default catalog as useful general patterns but require OCaml tooling.
 
 ### Testing (2)
 | Agent | Version | Model | Purpose |
@@ -80,16 +82,21 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | mcp-vetter | 1.4.0 | sonnet | Security vetting for MCP server candidates with risk scoring and explicit approval recommendations |
 | red-team-auditor | 1.1.0 | opus | Runs authorization-scoped security audits using slice-first mapping, invariant analysis, and evidence-backed proof plans |
 
-### Specialist (7)
+### Specialist (4)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | expert-debugger | 1.3.0 | opus | Performs deep diagnosis for ambiguous build, dependency, integration, and runtime failures |
 | config-migrator | 1.3.0 | sonnet | Performs one-shot environment/config migrations with minimal scope and rollback awareness |
-| kernel-arm64-bringup | 1.2.0 | opus | Brings up Linux on Qualcomm Snapdragon ARM64 SoCs — device-tree, freedreno/MSM DRM, boot.img, fastboot |
-| fex-wine-proton | 1.3.0 | opus | Owns the x86-on-ARM emulation layer — FEX-emu, Proton 11 ARM64/ARM64EC Wine, ThunksDB, Steam runtime selection |
-| gamescope-mangohud-qam | 1.3.0 | opus | Owns the compositor + perf-overlay + Steam-QAM-bridge layer on Adreno |
 | migration-guard | 1.2.0 | sonnet | Owns SQLite schema migration discipline — version bumps, all_ddl alignment, migration-path tests, slot-drift avoidance |
 | ocaml-dune-specialist | 1.2.0 | sonnet | Specialist for OCaml projects built with dune — .mli discipline, dune layout, opam metadata hygiene, ppx wiring |
+
+### Personal Overlays (opt-in)
+These agents are domain-specific overlays for particular hardware/projects. Install manually if relevant:
+| Agent | Version | Model | Purpose |
+|-------|---------|-------|---------|
+| kernel-arm64-bringup | 1.2.0 | opus | Linux bringup on Qualcomm Snapdragon ARM64 SoCs |
+| fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
+| gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
 ## Skills (33)
 
@@ -206,6 +213,8 @@ The **tech-lead** enforces the **Ralph Loop** during implementation:
 5. QA validates → merge
 
 No agent provisions tools or creates skills without tech-lead approval.
+
+> **Platform constraint:** Claude Code and Codex do not support recursive agent spawning at runtime. Roster is designed around this: each skill invocation is a single-context operation, and multi-stage work requires the human to relay context between sessions. This is not a feature — it is an architectural reality we work within.
 
 When the installed harness changes, project-local agents should update canonical `.harness/` files first, then run `./scripts/sync-harness.sh <project-root>` to refresh Claude and Codex projections.
 

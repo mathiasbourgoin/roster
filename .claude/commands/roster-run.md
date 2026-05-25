@@ -1,7 +1,7 @@
 ---
 name: roster-run
 description: Pipeline entry point — detects context and routes to the right skill.
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Roster Run
@@ -75,10 +75,13 @@ Before routing to a skill, check for skill hooks. Hooks are executed by you (the
 
 Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
 
+> **Fast track:** For bug fixes, typos, single-file changes with no ambiguity — skip directly to `/roster-implement`. Only use the full pipeline for features, API changes, and multi-file refactors.
+
 ### Routing table
 
 | Detected signal | Route to |
 |---|---|
+| Task is explicitly tagged trivial/hotfix OR is a single-file bug fix with no design decisions | `/roster-implement` directly — skip question/research/intake/spec/plan |
 | Vague task, new feature, no existing brief | `/roster-question` (then research → intake) |
 | `briefs/<task>-intake.md` VALIDATED + `**Type:**` is feature/api-change + `briefs/<task>-spec.md` absent | `/roster-spec` |
 | `briefs/<task>-spec.md` present with status `BOUNCED` | `/roster-intake` — enrich the brief to resolve the bounce reason, then re-run `/roster-spec` |

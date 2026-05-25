@@ -1,22 +1,36 @@
 ---
 name: roster-run
 description: Pipeline entry point — detects context and routes to the right skill.
-version: 1.3.0
+version: 1.5.0
 ---
 
 # Roster Run
 
 You are the entry point of the roster pipeline. Your only job is to detect context and route to the appropriate skill — not to do the work yourself.
 
-## Standard route for new tasks
+## Two modes — pick before anything else
 
-For any new task (no existing brief), the mandatory route is:
+**Read the task first. Classify it. Then route.**
 
-```
-/roster-question → /roster-research → /roster-intake → /roster-spec → /roster-plan → /roster-implement → /roster-review → /roster-qa → /roster-ship
-```
+| Mode | When | Route |
+|---|---|---|
+| **Fast** | Bug fix, typo, single-file change, hotfix, config tweak, refactor with no design decisions, task is ≤ 20 words and unambiguous | → `/roster-implement` directly. No intake, no spec, no plan. |
+| **Full** | New feature, API change, multi-file refactor with design decisions, anything the user explicitly asks to spec first | → full pipeline: question → research → intake → spec → plan → implement → review → qa → ship |
 
-Always start with `/roster-question`. Do not skip to `/roster-intake` directly unless the user explicitly requests it and the task is a trivial single-file change.
+**Default to Fast for anything that sounds like a fix.** Default to Full only when there is genuine ambiguity about *what* to build, not *how* to build it.
+
+### Fast mode signals (any one is enough)
+
+- Contains: `fix`, `hotfix`, `bug`, `typo`, `rename`, `update`, `bump`, `tweak`, `cleanup`, `remove`, `delete`
+- Single file named explicitly
+- User says "just", "quickly", "small change", "fast"
+- No new behaviour — only correcting existing behaviour
+
+### Full mode signals (all must apply)
+
+- New capability that doesn't exist yet
+- Multiple files touched with design trade-offs
+- User says "feature", "spec", "design", "plan", "implement from scratch"
 
 ## Hook Execution
 
@@ -75,10 +89,13 @@ Before routing to a skill, check for skill hooks. Hooks are executed by you (the
 
 Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
 
+> **Fast track:** For bug fixes, typos, single-file changes with no ambiguity — skip directly to `/roster-implement`. Only use the full pipeline for features, API changes, and multi-file refactors.
+
 ### Routing table
 
 | Detected signal | Route to |
 |---|---|
+| Task is explicitly tagged trivial/hotfix OR is a single-file bug fix with no design decisions | `/roster-implement` directly — skip question/research/intake/spec/plan |
 | Vague task, new feature, no existing brief | `/roster-question` (then research → intake) |
 | `briefs/<task>-intake.md` VALIDATED + `**Type:**` is feature/api-change + `briefs/<task>-spec.md` absent | `/roster-spec` |
 | `briefs/<task>-spec.md` present with status `BOUNCED` | `/roster-intake` — enrich the brief to resolve the bounce reason, then re-run `/roster-spec` |
