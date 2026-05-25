@@ -8,29 +8,39 @@ version: 1.5.0
 
 You are the entry point of the roster pipeline. Your only job is to detect context and route to the appropriate skill — not to do the work yourself.
 
-## Two modes — pick before anything else
+## Three modes — pick before anything else
 
 **Read the task first. Classify it. Then route.**
 
-| Mode | When | Route |
+| Mode | When | Pipeline |
 |---|---|---|
-| **Fast** | Bug fix, typo, single-file change, hotfix, config tweak, refactor with no design decisions, task is ≤ 20 words and unambiguous | → `/roster-implement` directly. No intake, no spec, no plan. |
-| **Full** | New feature, API change, multi-file refactor with design decisions, anything the user explicitly asks to spec first | → full pipeline: question → research → intake → spec → plan → implement → review → qa → ship |
+| **Express** | No spec/KB impact — typo, rename, formatting, config tweak, dependency bump, doc fix, pure refactor with no behaviour change | implement → review → ship |
+| **Fast** | Quick task with potential spec/KB impact — bug fix, small behaviour change, adding a missing case, performance fix | implement → review → qa → (update KB/specs/friction log) → ship |
+| **Full** | New capability, API change, design decisions, multi-file refactor with trade-offs, anything the user asks to spec first | question → research → intake → spec → plan → implement → review → qa → ship |
 
-**Default to Fast for anything that sounds like a fix.** Default to Full only when there is genuine ambiguity about *what* to build, not *how* to build it.
+**When in doubt between Express and Fast, pick Fast.** When in doubt between Fast and Full, ask one question: "Does this require deciding *what* to build, or just *how*?" — if only *how*, stay Fast.
 
-### Fast mode signals (any one is enough)
+> Express and Fast are not shortcuts on quality — review is always mandatory. What changes is the upfront discovery and downstream documentation overhead.
 
-- Contains: `fix`, `hotfix`, `bug`, `typo`, `rename`, `update`, `bump`, `tweak`, `cleanup`, `remove`, `delete`
-- Single file named explicitly
-- User says "just", "quickly", "small change", "fast"
-- No new behaviour — only correcting existing behaviour
+### Express signals (all must apply)
 
-### Full mode signals (all must apply)
+- No new behaviour — same inputs produce same outputs after the change
+- No spec, KB, or friction log update needed
+- Change is self-evident from the task description alone
+
+### Fast signals (any one is enough)
+
+- Fix to existing behaviour (bug, edge case, missing guard)
+- Small addition that doesn't change the overall design
+- User says "quickly", "fast", "small", "just fix"
+- Task ≤ 20 words and unambiguous but has some spec/KB impact
+
+### Full signals (any one is enough)
 
 - New capability that doesn't exist yet
-- Multiple files touched with design trade-offs
-- User says "feature", "spec", "design", "plan", "implement from scratch"
+- API or interface change affecting callers
+- Multiple design trade-offs to resolve
+- User says "feature", "spec", "design", "plan", "implement from scratch", or asks a question about *what* to build
 
 ## Hook Execution
 
@@ -87,16 +97,19 @@ Before routing to a skill, check for skill hooks. Hooks are executed by you (the
 
 ## Routing
 
-Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
+**Step 1 — classify the task (Express / Fast / Full).** Do this before checking briefs/.
 
-> **Fast track:** For bug fixes, typos, single-file changes with no ambiguity — skip directly to `/roster-implement`. Only use the full pipeline for features, API changes, and multi-file refactors.
+If **Express** mode: announce and route directly through **implement → review → ship**.
 
-### Routing table
+If **Fast** mode: announce and route through **implement → review → qa → ship** in sequence. After QA, update KB/specs and friction log if impacted.
+
+If Full mode: check briefs/ state and use the routing table below.
+
+### Full-mode routing table
 
 | Detected signal | Route to |
 |---|---|
-| Task is explicitly tagged trivial/hotfix OR is a single-file bug fix with no design decisions | `/roster-implement` directly — skip question/research/intake/spec/plan |
-| Vague task, new feature, no existing brief | `/roster-question` (then research → intake) |
+| No brief, new feature, vague or multi-file task | `/roster-question` (then research → intake) |
 | `briefs/<task>-intake.md` VALIDATED + `**Type:**` is feature/api-change + `briefs/<task>-spec.md` absent | `/roster-spec` |
 | `briefs/<task>-spec.md` present with status `BOUNCED` | `/roster-intake` — enrich the brief to resolve the bounce reason, then re-run `/roster-spec` |
 | `briefs/<task>-intake.md` exists and is validated | `/roster-plan` |
@@ -106,7 +119,7 @@ Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
 | `briefs/<task>-review.json` with NO-GO + `no_go_reason.type == "spec-ac-failure"` | `/roster-spec` — spec ACs were not met; revise the spec |
 | `briefs/<task>-review.json` with NO-GO (any other reason) | `/roster-implement` — pass review.json as context |
 | `briefs/<task>-qa.md` with GO status | `/roster-ship` |
-| Bug, regression, unexpected behavior | `/roster-investigate` |
+| Complex bug with unclear root cause, no obvious fix | `/roster-investigate` |
 | New project or existing project without harness | `/roster-init` |
 | Periodic analysis, friction patterns | `/roster-skill-health` |
 | No signal matches | Stop — ask the user: "What are we doing?" before routing |
@@ -133,11 +146,7 @@ Analyze `$ARGUMENTS` and the repo state to determine where the project stands.
 ### Announce
 
 Before routing, announce in one line:
-> "→ routing to `/roster-<skill>` because <reason in 5 words max>"
-
-### Acceptable false positive
-
-A false positive (routing to a skill not strictly necessary) is preferable to a false negative (skipping a phase). When in doubt, route to the earliest upstream phase.
+> "→ [FAST|FULL] mode: <route> because <reason in 5 words max>"
 
 ## When to Go Back
 
