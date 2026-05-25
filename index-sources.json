@@ -1,7 +1,7 @@
 {
   "local": {
     "enabled": true,
-    "repo": "mathiasbourgoin/agent-roster"
+    "repo": "mathiasbourgoin/roster"
   },
   "remotes": [
     {
