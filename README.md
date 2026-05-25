@@ -50,7 +50,7 @@ Roster ships as a set of slash-command skills. `/roster-run` is the entry point 
 | `/roster-run` | Entry point | Detects context, routes to right phase |
 | `/roster-init` | Bootstrap | Adversarial project interview — 6 questions, 3 adversarial |
 | `/roster-intake` | Intake | Turns a task into a contractual brief with human gate |
-| `/roster-spec` | Spec | Adversarial spec phase: user stories, challenges, AC, runnable checks |
+| `/roster-spec` | Spec | Adversarial spec phase: user stories + challenges + runnable AC checks |
 | `/roster-plan` | Plan | Dual-voice decomposition (two adversarial sub-agents), consensus |
 | `/roster-implement` | Implement | TDD + improvement loop + specialist sub-agents |
 | `/roster-review` | Review | Fix-first review, GO/NO-GO JSON verdict |
@@ -59,6 +59,19 @@ Roster ships as a set of slash-command skills. `/roster-run` is the entry point 
 | `/roster-investigate` | Operational | Root-cause analysis, read-only, freeze scope |
 | `/roster-audit` | Operational | Code quality + spec compliance combined report |
 | `/roster-skill-health` | Meta | Friction log analysis → proposes new skills, tools, adaptations |
+
+### The spec phase
+
+`/roster-spec` is auto-triggered for `feature` and `api-change` tasks. It runs a multi-sub-agent adversarial mini-pipeline before any implementation begins:
+
+1. **Research sub-agent** — blind codebase survey (existing patterns, adjacent tests, entity conflicts)
+2. **Story generation** — ≥2 independent user stories, each with priority, "why", and an independent test description; bounces if not achievable
+3. **Challenge sub-agent** — adversarial agent finds ≥1 challenge per story (gaps, contradictions, missing constraints)
+4. **Resolution loop** — challenges resolved from code/KB or escalated to the user (max 5 questions)
+5. **Cross-spec consistency** — entity names grepped across `specs/*.md` to catch definition conflicts
+6. **Artifact write** — `specs/<slug>.md` (permanent, indexed) + `briefs/<task>-spec.md` (pipeline marker)
+
+Produced `specs/<slug>.md` files are indexed as `component_type: "spec"` and consumed by the architect, reviewer, and QA agents throughout the rest of the pipeline. A spec-level failure in review routes back to `/roster-spec`, not `/roster-implement`.
 
 ## Metabolism
 
