@@ -181,6 +181,7 @@ Present the report and ask:
 ## What Next
 
 **Primary path (proposals exist):** `/roster-skill-evolve` — pass the health report as input
+**Optional — after proposals approved:** `/improvement-loop-planner` — converts approved proposals into bounded, measurable improvement loops with explicit success signals, guard conditions, and iteration budgets. Run this when ≥2 proposals are APPROVED and you want structured execution plans rather than open-ended implementation.
 **Primary path (no proposals):** Done — re-run after more pipeline cycles
 
 > 💡 Run after every 5–10 pipeline cycles to maintain a healthy improvement metabolism.

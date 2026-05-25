@@ -12,6 +12,7 @@ tunables:
   merge_strategy: rebase-merge
   commit_convention: conventional
   pre_pr_checks: ""
+  friction_warn_threshold: 10
 artifacts:
   reads:
     - briefs/<task>-review.json
@@ -162,6 +163,14 @@ HARNESS=".harness/harness.json"
 ```
 
 If `jq` is not available or `.harness/harness.json` does not exist, note the missed increment in the friction log without blocking.
+
+**Friction reminder:** After incrementing, print the current friction log size:
+
+```bash
+FRICTION_COUNT=$(wc -l < skills-meta/friction.jsonl 2>/dev/null || echo 0)
+echo "💡 Friction log: ${FRICTION_COUNT} entries."
+[ "$FRICTION_COUNT" -gt "${FRICTION_WARN_THRESHOLD:-10}" ] && echo "⚠️  Consider running /roster-skill-health to surface improvement proposals."
+```
 
 ## When to Go Back
 
