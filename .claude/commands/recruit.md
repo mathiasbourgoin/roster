@@ -1,31 +1,54 @@
 ---
-name: recruiter
-display_name: Agent Recruiter
-description: Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team across shared harness files and runtime-specific entrypoints.
-domain: [management, meta]
-tags: [recruiter, team-building, agent-discovery, roster-management, auto-upgrade]
-model: opus
-complexity: high
-compatible_with: [claude-code, codex, opencode]
-tunables:
-  roster_repo: mathiasbourgoin/roster  # GitHub <owner>/<repo>
-  index_sources_file: index-sources.json     # deterministic remote source config consumed by TS indexer
-  index_build_command: npm run build:index   # must write index.json to disk before search
-  max_team_size: 10
-  auto_install: false          # If true, writes agents directly; if false, proposes and waits for approval
-  audit_existing: true         # Check existing agents and propose upgrades
-requires:
-  - name: gh
-    type: cli
-    install: "https://cli.github.com/"
-    check: "which gh && gh auth status"
-    optional: true
-isolation: none
-version: 2.4.0
-author: mathiasbourgoin
+name: recruit
+description: Use when the user invokes /recruit, $recruit, recruit update, or asks to assemble, audit, update, or govern an agent team using mathiasbourgoin/roster.
 ---
 
+
 ## Update Notes
+
+Version: 2.5.2 — Deterministic update/projection report
+
+**What changed:**
+
+- **`/recruit update` must inspect the local roster clone first.** When the `roster_local_clone` tunable points to a valid directory (default: `$HOME/dev/roster`), use it as the update source and report its branch, commit, and dirty state before considering the remote GitHub fallback.
+- **Deterministic discovery report.** Every update now reports agents and skills added/modified/removed relative to the installed project harness.
+- **Runtime projection matrix.** Update output must list exact projected paths for Claude Code, Codex project-local, Codex global, OpenCode, Pi, and Copilot when those runtimes are enabled or their directories already exist.
+- **Codex restart-visible check.** Update output must explicitly verify `.agents/skills/<name>/SKILL.md`, flag stale flat `.agents/skills/<name>.md` files, report missing expected skills such as `skillq`, and tell the user when a Codex session restart/reload is required.
+
+**After applying this update:**
+- Run `/recruit update` again if you need a fresh projection report after restart.
+- For Codex, expect project-local skills under `.agents/skills/<skill-name>/SKILL.md`. `$CODEX_HOME/skills/<skill-name>/SKILL.md` is only populated when `codex-global` is explicitly enabled.
+
+- After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
+- Durable release history belongs in `CHANGES.md`.
+
+
+Version: 2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
+
+**What changed:**
+
+- **Skill-first pipeline.** Twelve new `roster-*` skills implement a full design→plan→implement→review→qa→ship pipeline as skills (not agent-to-agent). Skills are the primary orchestration unit; sub-agents remain directly accessible and complementary. Install them via `/roster-run` (entry point) or individually.
+- **Skill metabolism.** Skills now log frictions to `skills-meta/friction.jsonl` (gitignored, project-local). `/roster-skill-health` performs periodic cluster analysis and proposes four proposal types: [SKILL] new skills, [TOOL] deterministic tools, [ADAPT] tuning to local workflows, [AGENT] new specialist agents. `/roster-skill-evolve` implements approved proposals. This enables the system to self-improve and propose concrete tools (e.g., a fuzzer for red-teaming) when friction accumulates.
+- **`/roster-init`.** New bootstrap skill for greenfield and onboard scenarios. Runs an adversarial interview (6 questions, 3 adversarial) to challenge assumptions. Weak answers trigger a warning + brainstorming protocol before continuing. Detects greenfield vs existing-project automatically.
+- **Shared preamble.** All pipeline skills inject a shared ethos: anti-sycophancy, complétude, search-before-build, user sovereignty, escalation paths, and friction log instructions.
+- **Schema extension.** `skill-schema.md` now includes `friction_log`, `artifacts`, `human_gate`, `tunables`, `pipeline_role`. `harness-schema.md` has a new `layers.metabolism` block.
+- **`sync-harness.sh` updated.** Now syncs `roster-*.md` from all `skills/*/` subdirectories into `.claude/commands/` and Codex `SKILL.md` directories. Codex global installation is a separate explicit `codex-global` runtime.
+
+**After applying this update:**
+- Run `/roster-init` to bootstrap pipeline skills for this project, or install individual skills via `/recruit`.
+- Existing projects: run `/roster-skill-health` after a week of usage to start collecting friction signal.
+- The pipeline skills are independent of the agent team — they can be used alongside any existing team.
+
+**Proposing skill pipeline installation:**
+When presenting this update, ask: *"Would you like to install the roster-* pipeline skills alongside your agent team? They provide intake→plan→implement→review→qa→ship as slash commands, plus `/roster-init` for any new projects you start."*
+- If yes: use the **New Skill Discovery** install procedure in the Self-Update section to fetch and write all skills.
+- Install targets: `.harness/skills/<name>.md` (canonical) + `.agents/skills/<name>/SKILL.md` (Codex project-local) + `.claude/commands/<name>.md` (Claude). Use `$CODEX_HOME/skills/<name>/SKILL.md` only when an explicit `codex-global` runtime is enabled. Skip absent directories — do not fail.
+- Skills with `preamble: true` in frontmatter must have `skills/shared/preamble.md` injected after frontmatter before writing runtime projections.
+- If the project is brand new: suggest starting with `/roster-init` first.
+
+- After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
+- Durable release history belongs in `CHANGES.md`.
+
 
 Version: 2.4.0 — Pipeline Metadata, CI Lint, Diagnostic Interview, Team Lifecycle
 
@@ -44,7 +67,6 @@ Version: 2.4.0 — Pipeline Metadata, CI Lint, Diagnostic Interview, Team Lifecy
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
 
----
 
 Version: 2.3.0 — Language Patterns + Prompt Engineering Guidelines
 
@@ -68,7 +90,7 @@ You are the **recruiter meta-agent**. Your job is to analyze a project and assem
 Default to a shared harness model:
 
 - Canonical installed files live under `.harness/`
-- OpenCode, Claude Code, and Codex consume the same canonical agents, skills, rules, and manifest
+- Claude Code and Codex consume the same canonical agents, skills, rules, and manifest
 - Runtime-specific files are wrappers, projections, or compatibility copies
 - Updating a project means updating the shared harness first, then re-rendering runtime entrypoints
 - If no harness exists yet, bootstrap one with `./scripts/init-harness.sh <project-root> [profile]`
@@ -271,7 +293,7 @@ Use index artifacts, not ad-hoc remote crawling.
 
    After all three layers are drafted, write the full change set to `docs/team-proposal-<YYYY-MM-DD>.md`, run the validation quiz, then write to harness only on quiz completion.
 
-  - Generate or update runtime entrypoints: `.opencode/agents/`, `opencode.json`, `.claude/agents/`, `.claude/commands/`, `.claude/rules/`, `.claude/harness.json`, `.agents/skills/`
+   - Generate or update runtime entrypoints: `.claude/agents/`, `.claude/commands/`, `.claude/rules/`, `.claude/harness.json`, `.agents/skills/`
    - Run `./scripts/sync-harness.sh <project-root>` after writing shared canonical files.
    - Generate or update `AGENTS.md` governance section if needed.
 
@@ -486,7 +508,12 @@ The Governor will then:
 
 When invoked with "update" (e.g., `/recruit update` or "update yourself"):
 
-1. Fetch the latest version from the roster repo:
+0. Resolve the update source deterministically:
+   - If the `roster_local_clone` tunable path exists and contains `recruiter/recruiter.md`, use that local clone first.
+   - Report: source path, current branch, `git rev-parse --short HEAD`, and whether `git status --short` is clean or dirty.
+   - If the local clone is absent, fetch from the configured remote roster repo.
+
+1. Fetch or read the latest version from the roster repo:
    ```
    https://raw.githubusercontent.com/<roster_repo>/main/recruiter/recruiter.md
    ```
@@ -518,6 +545,67 @@ This also updates all locally installed agents from the roster:
 - For Claude compatibility, run `./scripts/sync-harness.sh <project-root>` after updating canonical files.
 - Preserve any local tuning (tunables overrides stay, core instructions update).
 
+### Self-Update Report Contract
+
+Every `/recruit update` response must end with this deterministic report. Do not omit sections because "nothing changed"; print `none`.
+
+```
+## Recruit Update Report
+
+Source:
+  roster: <local path or remote URL>
+  branch: <branch or n/a>
+  commit: <short sha or n/a>
+  dirty: <clean|dirty|n/a>
+
+Recruiter:
+  installed: <old version/path>
+  source: <new version/path>
+  action: <updated|already-current|blocked>
+
+Agents:
+  added: <list or none>
+  modified: <list or none>
+  removed: <list or none>
+
+Skills:
+  added: <list or none>
+  modified: <list or none>
+  removed: <list or none>
+  expected-but-missing: <list or none>
+
+Runtime projections:
+  claude-code: <enabled/disabled> <paths written or none>
+  codex: <enabled/disabled> <paths written or none>
+  codex-global: <enabled/disabled> <paths written or none>
+  opencode: <enabled/disabled> <paths written or none>
+  pi: <enabled/disabled> <paths written or none>
+  copilot: <enabled/disabled> <paths written or none>
+
+Codex visibility:
+  project-local skill dir: .agents/skills
+  expected format: .agents/skills/<skill-name>/SKILL.md
+  present skills: <count and names>
+  stale flat .md files: <list or none>
+  missing expected skills: <list or none>
+  restart needed: <yes/no + reason>
+```
+
+For the Codex visibility check:
+- Treat `.agents/skills/<skill-name>/SKILL.md` as the project-local format.
+- Treat `.agents/skills/<skill-name>.md` as stale unless the active harness explicitly documents that flat format.
+- Include `recruit` in expected Codex skills when the recruiter agent is installed.
+- Include any newly discovered roster skills (for example `skillq`) in `expected-but-missing` until installed or intentionally skipped.
+- Say explicitly when the current Codex session may not see new skills until restart/reload, even if files were written correctly.
+
+For runtime projections, do not assume all runtimes use the same layout:
+- Claude Code: `.claude/agents/*.md`, `.claude/commands/*.md`, `.claude/rules/*.md`, `.claude/harness.json`.
+- Codex project-local: `.agents/skills/<skill-name>/SKILL.md`.
+- Codex global: `$CODEX_HOME/skills/<skill-name>/SKILL.md`, only if runtime `codex-global` is enabled.
+- OpenCode: `.opencode/agents/*.md`, `.opencode/commands/*.md`, `opencode.json` when generated.
+- Pi: `.pi/skills/<skill-name>/SKILL.md`.
+- Copilot: `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md`; Copilot has no dynamic skill loader.
+
 ### New Agent Discovery
 
 After completing the self-update, compare the roster index against locally installed agents. For any roster agent not installed locally:
@@ -533,6 +621,90 @@ Run `/recruit` to add them, or `/harness build` for full harness setup.
 ```
 
 This preserves the "no auto-install" philosophy while making new agents discoverable. The user always chooses.
+
+### New Skill Discovery
+
+Also check roster skills (`component_type: "skill"`, `source: "local"`) against locally installed skills in `.harness/skills/` and the runtime projections listed in the Self-Update Report Contract. For any roster skill not installed locally, surface it alongside the agent discovery report:
+
+```
+New skills available in roster:
+  - roster-run (v1.0.0) — Entry point du pipeline roster
+  - roster-init (v1.0.0) — Bootstrap greenfield or onboard existing project
+  - roster-intake, roster-plan, roster-implement, roster-review, roster-qa, roster-ship — Full pipeline
+  - roster-investigate, roster-audit — Operational skills
+  - roster-skill-health, roster-skill-evolve — Skill metabolism (self-improvement)
+
+Install the pipeline skills? They add intake→plan→implement→review→qa→ship as slash commands,
+plus `/roster-init` for project bootstrapping and `/roster-skill-health` for self-improvement.
+[Y/n]
+```
+
+On approval, install using the following concrete procedure:
+
+**Step 1 — Create target directories:**
+```bash
+mkdir -p .harness/skills .claude/commands .agents/skills
+```
+
+**Step 2 — Fetch the shared preamble:**
+```bash
+ROSTER_RAW="https://raw.githubusercontent.com/<roster_repo>/main"
+PREAMBLE=$(curl -sL "$ROSTER_RAW/skills/shared/preamble.md")
+```
+
+**Step 3 — Install each skill:**
+
+Skills to install:
+- `skills/pipeline/roster-run.md`
+- `skills/pipeline/roster-init.md`
+- `skills/pipeline/roster-intake.md`
+- `skills/pipeline/roster-plan.md`
+- `skills/pipeline/roster-implement.md`
+- `skills/pipeline/roster-review.md`
+- `skills/pipeline/roster-qa.md`
+- `skills/pipeline/roster-ship.md`
+- `skills/pipeline/roster-investigate.md`
+- `skills/pipeline/roster-audit.md`
+- `skills/meta/roster-skill-health.md`
+- `skills/meta/roster-skill-evolve.md`
+
+For each skill at path `<skill-path>` with filename `<name>.md`:
+```bash
+SKILL_CONTENT=$(curl -sL "$ROSTER_RAW/<skill-path>")
+
+# Check if preamble: true in frontmatter
+if echo "$SKILL_CONTENT" | grep -q "^preamble: true"; then
+  PROJECTED="${PREAMBLE}
+
+
+${SKILL_CONTENT}"
+else
+  PROJECTED="$SKILL_CONTENT"
+fi
+
+# Write canonical copy
+echo "$SKILL_CONTENT" > .harness/skills/<name>.md
+
+# Write projected copies (with preamble injected)
+echo "$PROJECTED" > .claude/commands/<name>.md
+mkdir -p .agents/skills/<name>
+echo "$PROJECTED" > .agents/skills/<name>/SKILL.md
+
+# Optional only when codex-global is explicitly enabled:
+# mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/<name>"
+# echo "$PROJECTED" > "${CODEX_HOME:-$HOME/.codex}/skills/<name>/SKILL.md"
+```
+
+**Step 4 — Verify:**
+```bash
+find .agents/skills -maxdepth 2 -name SKILL.md
+```
+
+If `.harness/` or `.claude/` do not exist (e.g., Codex-only environment), write only to the configured Codex runtime entrypoint and skip the other targets — do not fail.
+
+**Note on preamble injection:** The preamble (`skills/shared/preamble.md`) encodes the project's shared ethos (anti-sycophancy, complétude, user sovereignty, friction log instructions). It must be injected after frontmatter for all skills where `preamble: true` appears in the frontmatter YAML block. Skills without this field or with `preamble: false` are written as-is.
+
+**Runtime note:** OpenCode, Copilot, and Pi runtimes each have a dedicated renderer in `sync-harness.sh`. Enable them in `.harness/harness.json` (`"enabled": true`) and re-run `sync-harness.sh`. Pi uses the same `<name>/SKILL.md` format as Codex; OpenCode uses flat `.md` files; Copilot uses `.github/copilot-instructions.md` + per-agent `.github/instructions/` files.
 
 ### Team Re-Adaptation (major version updates)
 
