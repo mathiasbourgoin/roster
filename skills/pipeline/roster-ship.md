@@ -154,22 +154,25 @@ GitHub PR opened (then merged after human approval), or BLOCKED status documente
 
 **Next:** tech-lead / human with merge confirmation.
 
-**Increment metabolism counter:** After a GO ship (PR opened or merged), increment `completed_tasks` in `.harness/harness.json` (or `.claude/harness.json` if `.harness/` absent):
+**Increment metabolism counter:** After a GO ship (PR opened or merged), increment `completed_tasks` in `.harness/harness.json` (fall back to `.claude/harness.json` if absent):
 
 ```bash
 # read → increment → write (jq required; use a project-local temp file, never /tmp)
 HARNESS=".harness/harness.json"
+[ -f "$HARNESS" ] || HARNESS=".claude/harness.json"
 [ -f "$HARNESS" ] && jq '.layers.metabolism.completed_tasks += 1' "$HARNESS" > "${HARNESS}.tmp" && mv "${HARNESS}.tmp" "$HARNESS"
 ```
 
-If `jq` is not available or `.harness/harness.json` does not exist, note the missed increment in the friction log without blocking.
+If `jq` is not available or neither harness file exists, note the missed increment in the friction log without blocking.
 
-**Friction reminder:** After incrementing, print the current friction log size:
+**Friction reminder:** After incrementing, print the current friction log size.
+Substitute `tunables.friction_warn_threshold` for `THRESHOLD` before running:
 
 ```bash
-FRICTION_COUNT=$(wc -l < skills-meta/friction.jsonl 2>/dev/null || echo 0)
+# THRESHOLD = tunables.friction_warn_threshold (default 10)
+FRICTION_COUNT=$(awk 'END{print NR}' skills-meta/friction.jsonl 2>/dev/null || echo 0)
 echo "💡 Friction log: ${FRICTION_COUNT} entries."
-[ "$FRICTION_COUNT" -gt "${FRICTION_WARN_THRESHOLD:-10}" ] && echo "⚠️  Consider running /roster-skill-health to surface improvement proposals."
+[ "$FRICTION_COUNT" -gt "THRESHOLD" ] && echo "⚠️  Consider running /roster-skill-health to surface improvement proposals."
 ```
 
 ## When to Go Back
