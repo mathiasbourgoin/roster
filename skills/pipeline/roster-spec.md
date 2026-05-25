@@ -1,7 +1,7 @@
 ---
 name: roster-spec
-description: Adversarial spec phase — derives user stories, surfaces challenges, produces structured contract with runnable checks.
-version: 1.0.0
+description: Adversarial spec phase — derives user stories with concrete GWT scenarios, surfaces challenges, formalizes FR-NNN requirements, produces structured contract with runnable checks.
+version: 2.0.0
 domain: pipeline
 phase: spec
 preamble: true
@@ -10,6 +10,7 @@ allowed_tools: [Read, Write, Bash, Agent, AskUserQuestion, WebFetch]
 human_gate: after
 tunables:
   min_user_stories: 2
+  min_gwtscenarios_per_story: 3
   min_challenges_per_story: 1
   max_questions_to_user: 5
   require_runnable_checks: true
@@ -86,23 +87,69 @@ Brief:
 Read the research output. Use it to pre-populate the spec's context — do not re-investigate
 what the research covers.
 
-### 2. Story Generation
+### 2. Clarification Elicitor
 
-From the brief's Goal and research findings, derive 2–N user stories. Each story must be:
+Spawn a sub-agent with this prompt:
+
+```
+You are a requirements clarifier. You receive a task brief and codebase research.
+Your job: surface and resolve every material ambiguity before story drafting begins.
+
+For each ambiguity you find:
+1. State the question precisely.
+2. Answer it from the brief or research if the answer is already knowable.
+3. If NOT answerable from context, mark it [OPEN].
+
+Produce a Q&A table of 4–8 items. Cover:
+- Scope boundaries that are unclear (what is explicitly in vs out)
+- Behavioral edge cases the brief does not address
+- Naming or definition inconsistencies between the brief and existing code
+- Constraints implied by the architecture but not stated in the brief
+
+Format:
+| Q | A |
+|---|---|
+| <precise question> | <answer from context, or "[OPEN]"> |
+
+Brief:
+<full content of briefs/<task>-intake.md>
+
+Research:
+<research sub-agent output summary>
+```
+
+Collect the Q&A table. Any [OPEN] items become your first questions to the user
+(counted against `tunables.max_questions_to_user`). Resolve all [OPEN] items before
+proceeding to story generation — either by re-reading sources or asking the user.
+
+### 3. Story Generation
+
+From the brief's Goal, clarification Q&A, and research findings, derive 2–N user stories. Each story must be:
 - Independent: delivers value without requiring other stories in this brief
 - Specific: names the actor, the action, and the observable outcome
 - Falsifiable: there exists a test that could prove it works or fails
 
-For each story, also supply:
+For each story, supply:
 - **Priority** (P0 = must-have, P1 = important, P2 = nice-to-have) with justification
+- **Scope**: explicitly state what this story does NOT cover (1–2 sentences)
 - **Independent Test**: one sentence describing how this story can be tested in isolation
+- **Acceptance Scenarios**: at least `tunables.min_gwtscenarios_per_story` concrete Given/When/Then
+  scenarios. Each scenario must:
+  - Name a specific actor or system state (not "a user" — "a logged-in contributor", "an empty project directory")
+  - Specify a concrete action with real values where applicable
+  - Describe an observable outcome (visible output, file written, exit code, error message)
 
 Format:
 ```
 ### US-1: <Brief title> (Priority: P0|P1|P2)
 As a [role], I want [action] so that [outcome].
 **Why this priority**: ...
+**Scope**: This story does NOT cover [explicit exclusion].
 **Independent Test**: ...
+**Acceptance Scenarios**:
+1. **Given** [concrete state with real values], **When** [concrete action], **Then** [observable outcome]
+2. **Given** [concrete state with real values], **When** [concrete action], **Then** [observable outcome]
+3. **Given** [error / boundary state], **When** [concrete action], **Then** [observable outcome]
 ```
 
 If you cannot derive at least 2 independent user stories from the brief, write
@@ -111,7 +158,7 @@ If you cannot derive at least 2 independent user stories from the brief, write
 > The brief describes [what it describes]. Missing: [what would make it specifiable].
 Stop.
 
-### 3. Challenge Sub-Agent (adversarial)
+### 4. Challenge Sub-Agent (adversarial)
 
 Spawn a sub-agent with this prompt:
 
@@ -126,8 +173,13 @@ Rules:
 - Challenges must be specific: reference the story number and the exact ambiguity
 - At least 1 challenge per story
 
+After listing challenges, also produce an ## Edge Cases section:
+For each story, enumerate boundary conditions, error paths, and unexpected inputs
+that are NOT covered by the acceptance scenarios. Format:
+- EC-N [US-N]: [edge condition] → [expected behavior if known, or "behavior unspecified"]
+
 Stories:
-<list of US-N>
+<list of US-N with their acceptance scenarios>
 
 Research context:
 <summary of research sub-agent output>
@@ -135,11 +187,12 @@ Research context:
 Brief:
 <goal + scope boundary + architecture notes from intake brief>
 
-Produce: a numbered list of challenges (C-1, C-2, ...) each citing its story.
-No solutions. Only challenges.
+Produce:
+1. Numbered challenges: C-1, C-2, ... each citing its story. No solutions. Only challenges.
+2. ## Edge Cases: EC-1, EC-2, ... each citing its story.
 ```
 
-### 4. Adversarial Resolution (human gate)
+### 5. Adversarial Resolution (human gate)
 
 Review the challenges. Classify each:
 
@@ -156,7 +209,38 @@ If more than `max_questions_to_user` challenges remain unresolved after research
 Write `briefs/<task>-spec.md` with `**Status:** BOUNCED — unresolved challenges: [list]`.
 Stop.
 
-### 5. Cross-Spec Consistency Check
+### 6. Requirements Formalizer
+
+Spawn a sub-agent with this prompt:
+
+```
+You are a requirements formalizer. You receive resolved user stories, their acceptance
+scenarios, and the challenge resolution table.
+
+Your job: produce FR-NNN MUST/MUST NOT statements — one normative requirement per
+distinct behavioral obligation. Group by story. Each FR must:
+- Be normative (use MUST, MUST NOT, SHALL, SHALL NOT)
+- Be testable (maps to at least one acceptance scenario or runnable check)
+- Be specific (names the actor, trigger, and observable outcome)
+- Be marked [US-N] to show which story it belongs to
+
+Format:
+#### <Feature Area from US-N>
+- **FR-001** [US-1]: System MUST <normative statement>
+- **FR-002** [US-1]: <actor> MUST be able to <action> resulting in <observable>
+- **FR-003** [US-2]: System MUST NOT <prohibited behavior> when <condition>
+
+Do NOT include implementation details. Requirements are behavioral, not technical.
+Do NOT add FRs not traceable to an accepted story or resolved challenge.
+
+Stories + acceptance scenarios:
+<all US-N with their scenarios>
+
+Challenge resolutions:
+<challenge/resolution table>
+```
+
+### 7. Cross-Spec Consistency Check
 
 ```bash
 ls specs/*.md 2>/dev/null | head -20
@@ -170,7 +254,7 @@ appear in your draft entities. For each match, compare the definitions. If they 
 
 Ask user which definition is canonical. Update accordingly.
 
-### 6. Write Spec File
+### 8. Write Spec File
 
 Write `specs/<task-slug>.md`:
 
@@ -187,16 +271,30 @@ version: 1.0.0
 
 # Spec — <feature name>
 
+## Clarifications
+
+<!-- Q&A from the Clarification Elicitor step. Resolved [OPEN] items added here after user answers. -->
+| Q | A |
+|---|---|
+| <question> | <answer> |
+
 ## User Stories
 
-<!-- Each story: US-N title, narrative, why this priority, how to test it independently -->
+<!-- Each story includes GWT acceptance scenarios with concrete actors and values -->
 ### US-1: <Brief title> (Priority: P0|P1|P2)
 
 As a [role], I want [action] so that [outcome].
 
 **Why this priority**: <value justification — what breaks or degrades without this>
 
+**Scope**: This story does NOT cover [explicit exclusion].
+
 **Independent Test**: <how this story can be verified in isolation, without requiring other stories>
+
+**Acceptance Scenarios**:
+1. **Given** [concrete state with real values], **When** [concrete action], **Then** [observable outcome]
+2. **Given** [concrete state with real values], **When** [concrete action], **Then** [observable outcome]
+3. **Given** [error / boundary state], **When** [concrete action], **Then** [observable outcome]
 
 ### US-2: ...
 
@@ -207,6 +305,16 @@ As a [role], I want [action] so that [outcome].
 | C-1 | US-1 | <challenge description> | <how resolved> |
 | C-2 | US-2 | <challenge description> | <how resolved> |
 
+## Functional Requirements
+
+<!-- Derived from accepted stories + challenge resolutions by the Requirements Formalizer. -->
+#### <Feature Area from US-1>
+- **FR-001** [US-1]: System MUST <normative statement>
+- **FR-002** [US-1]: <actor> MUST be able to <action> resulting in <observable outcome>
+
+#### <Feature Area from US-2>
+- **FR-003** [US-2]: System MUST NOT <prohibited behavior> when <condition>
+
 ## Acceptance Criteria
 
 <!-- One AC per resolved challenge + one per story's happy path -->
@@ -216,9 +324,9 @@ As a [role], I want [action] so that [outcome].
 
 ## Edge Cases
 
-<!-- Explicitly scoped in or out -->
-- EC-1: [error path / auth boundary / concurrency scenario] → [expected behavior]
-- EC-2: [limit / rate / size constraint] → [expected behavior]
+<!-- From the Challenge sub-agent's EC-N output -->
+- EC-1 [US-1]: [error path / auth boundary / concurrency scenario] → [expected behavior]
+- EC-2 [US-2]: [limit / rate / size constraint] → [expected behavior]
 
 ## Runnable Checks
 
@@ -237,7 +345,7 @@ As a [role], I want [action] so that [outcome].
 If `tunables.require_runnable_checks` is true and no concrete checks can be written
 (e.g., feature is pure documentation): mark them as `CHECK-N: manual — <description>`.
 
-### 7. Write Completion Artifact
+### 9. Write Completion Artifact
 
 Write `briefs/<task>-spec.md`:
 
@@ -248,15 +356,17 @@ Write `briefs/<task>-spec.md`:
 **Status:** VALIDATED
 **Spec file:** specs/<task-slug>.md
 **User stories:** <count>
+**Clarifications:** <count Q&A pairs>
 **Challenges resolved:** <count>/<count total>
+**Functional requirements:** <count FR-NNN>
 **ACs:** <count>
 **Runnable checks:** <count>
 ```
 
-### 8. Announce
+### 10. Announce
 
-> "Spec complete for `<task-slug>`. [N] user stories, [N] challenges resolved, [N] ACs,
-> [N] runnable checks. Run `/roster-plan` to continue."
+> "Spec complete for `<task-slug>`. [N] user stories, [N] clarifications, [N] challenges resolved,
+> [N] FRs, [N] ACs, [N] runnable checks. Run `/roster-plan` to continue."
 
 ## Output Contract
 
