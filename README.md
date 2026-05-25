@@ -85,14 +85,14 @@ Every pipeline skill logs structured friction events to `skills-meta/friction.js
 {"date":"...","skill":"roster-plan","frictions":["decomp took 3 rounds"],"suggestion_type":"SKILL","suggestion":"roster-decomp-validator"}
 ```
 
-`/roster-skill-health` periodically reads the log, clusters patterns, and proposes concrete improvements:
+Run `/roster-skill-health` manually after every 5–10 pipeline cycles (or when the friction count reminder fires at the end of `/roster-ship`). It clusters patterns and proposes concrete improvements:
 
 - `[SKILL]` — a recurring workflow deserves its own reusable skill
 - `[TOOL]` — a deterministic check should replace an LLM step (e.g. a custom linter)
 - `[ADAPT]` — a tunable should change for this project's specific patterns
 - `[AGENT]` — a new specialist agent is warranted
 
-`/roster-skill-evolve` implements approved proposals. The pipeline improves from its own usage — it gets sharper the more you use it.
+`/roster-skill-evolve` implements approved proposals. After ≥2 proposals are approved, run `/improvement-loop-planner` to convert them into bounded improvement loops with measurable success signals and iteration budgets.
 
 ### Agent metabolism
 
@@ -101,7 +101,7 @@ The **recruiter** is not a one-time setup tool. It:
 - Searches roster + 6 external agent registries (`VoltAgent/awesome-claude-code-subagents`, `wshobson/agents`, and others) scored against your project's actual needs
 - Proposes the minimal team that covers the task surface — no bloat
 - Runs `/recruit update` to compare installed agent versions against the registry and propose upgrades
-- Can create new agents from scratch (Mode 4) when no existing agent fits
+- Creates new agents from scratch (**Mode 4**) when no existing agent fits — invoke with `/recruit create <description>`, e.g. `/recruit create "an agent that reviews OpenAPI specs for REST conventions"`
 
 The combination — a pipeline that logs its own friction + a recruiter that continuously rebalances the team — is what separates roster from a static prompt collection.
 
@@ -146,6 +146,8 @@ Bootstrap: `./scripts/init-harness.sh /path/to/project [profile]`
 Re-project after edits: `./scripts/sync-harness.sh /path/to/project`
 
 Profiles: `core` · `developer` · `security` · `full`
+
+Roster's own harness (`.harness/harness.json`) uses the `developer` profile — a live reference for what a minimal, working harness looks like.
 
 ## Development
 
