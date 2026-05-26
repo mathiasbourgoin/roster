@@ -16,7 +16,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.2.0
+version: 1.3.0
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -77,7 +77,8 @@ Known runtime tool names:
 |---------|-----------|
 | Claude Code | `AskUserQuestion` |
 | Copilot CLI | `ask_user` |
-| Others (OpenCode, Codex, …) | no dedicated tool — use plain text |
+| Codex | `request_user_input` |
+| Others (OpenCode, …) | no dedicated tool — use plain text |
 
 Rules:
 - One question at a time — never bundle multiple questions into one message
