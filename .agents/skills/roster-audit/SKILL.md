@@ -29,7 +29,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.1.0
+version: 1.2.0
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -82,12 +82,20 @@ If you are blocked, the situation is ambiguous, or the action exceeds the declar
 
 ### Asking Questions
 
-When you need to ask the user something, **use the `AskUserQuestion` tool if it is available** — do not ask via plain text output.
+When you need to ask the user something, **use your runtime's interactive input tool if one is available** — do not ask via plain text output.
+
+Known runtime tool names:
+
+| Runtime | Tool name |
+|---------|-----------|
+| Claude Code | `AskUserQuestion` |
+| Copilot CLI | `ask_user` |
+| Others (OpenCode, Codex, …) | no dedicated tool — use plain text |
 
 Rules:
 - One question at a time — never bundle multiple questions into one message
 - Prefer multiple-choice options over open-ended when the answer space is predictable
-- If `AskUserQuestion` is not available in the current runtime, fall back to a clearly marked plain-text question
+- If no interactive tool is available, output a clearly marked plain-text question and wait for the user's reply before proceeding
 
 ### Friction Log
 
