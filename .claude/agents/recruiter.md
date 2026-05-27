@@ -119,6 +119,143 @@ Default to a shared harness model:
 - Updating a project means updating the shared harness first, then re-rendering runtime entrypoints
 - If no harness exists yet, bootstrap one with `./scripts/init-harness.sh <project-root> [profile]`
 
+## Step 0: Version Check (MANDATORY — run before any other step)
+
+This step runs on every invocation. Do not skip it.
+
+Run the following bash block and capture its output:
+
+```bash
+_ROSTER_DIR=~/.roster
+mkdir -p "$_ROSTER_DIR"
+
+# Detect runtime and sentinel path
+_SENTINEL=""
+_RUNTIME=""
+if [ -d ".claude" ]; then
+  _RUNTIME="claude"; _SENTINEL=".claude/.roster-version"
+elif [ -d ".opencode" ]; then
+  _RUNTIME="opencode"; _SENTINEL=".opencode/.roster-version"
+elif [ -d ".agents/skills/recruit" ]; then
+  _RUNTIME="codex"; _SENTINEL=".agents/skills/recruit/.roster-version"
+elif [ -d ".pi" ]; then
+  _RUNTIME="pi"; _SENTINEL=".pi/skills/recruit/.roster-version"
+fi
+
+# No sentinel = no tracking = skip silently
+[ -z "$_SENTINEL" ] && exit 0
+[ ! -f "$_SENTINEL" ] && exit 0
+
+_LOCAL=$(cat "$_SENTINEL" 2>/dev/null | tr -d '[:space:]')
+[ -z "$_LOCAL" ] && exit 0
+
+# Read config
+_CFG="$_ROSTER_DIR/config"
+_UPDATE_CHECK="false"
+_AUTO_UPGRADE="false"
+if [ -f "$_CFG" ]; then
+  _v=$(grep '^update_check=' "$_CFG" | cut -d= -f2 | tail -1)
+  [ -n "$_v" ] && _UPDATE_CHECK="$_v"
+  _v=$(grep '^auto_upgrade=' "$_CFG" | cut -d= -f2 | tail -1)
+  [ -n "$_v" ] && _AUTO_UPGRADE="$_v"
+fi
+[ "$_UPDATE_CHECK" = "false" ] && exit 0
+
+# Check snooze
+_SNOOZE_FILE="$_ROSTER_DIR/update-snoozed"
+if [ -f "$_SNOOZE_FILE" ]; then
+  _UNTIL=$(cat "$_SNOOZE_FILE" 2>/dev/null | tr -d '[:space:]')
+  _NOW=$(date +%s 2>/dev/null || echo 0)
+  [ -n "$_UNTIL" ] && [ "$_UNTIL" -gt "$_NOW" ] 2>/dev/null && exit 0
+fi
+
+# Rate-limit: skip if checked within 24h
+_LAST_FILE="$_ROSTER_DIR/last-update-check"
+if [ -f "$_LAST_FILE" ]; then
+  _LAST_TS=$(cat "$_LAST_FILE" 2>/dev/null | tr -d '[:space:]')
+  _NOW=$(date +%s 2>/dev/null || echo 0)
+  _AGE=$(( _NOW - _LAST_TS )) 2>/dev/null || _AGE=99999
+  [ "$_AGE" -lt 86400 ] && exit 0
+fi
+
+# Fetch remote VERSION (silent — fail = skip)
+_REMOTE=$(curl -fsSL --max-time 3 --connect-timeout 2 --silent \
+  "https://raw.githubusercontent.com/mathiasbourgoin/roster/main/VERSION" \
+  2>/dev/null | tr -d '[:space:]')
+
+# Write timestamp regardless of fetch result
+date +%s > "$_LAST_FILE" 2>/dev/null || true
+
+# Validate and compare
+[ -z "$_REMOTE" ] && exit 0
+echo "$_REMOTE" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || exit 0
+[ "$_REMOTE" = "$_LOCAL" ] && exit 0
+
+echo "ROSTER_UPGRADE_AVAILABLE $_LOCAL $_REMOTE $_AUTO_UPGRADE $_RUNTIME"
+```
+
+**If the block outputs nothing:** proceed to Mode Detection normally.
+
+**If the block outputs `ROSTER_UPGRADE_AVAILABLE <local> <remote> <auto> <runtime>`:**
+Capture the four values. Then:
+
+### Step 0a — Auto-upgrade (when `<auto>` is `true`)
+
+Run:
+```bash
+curl -fsSL https://raw.githubusercontent.com/mathiasbourgoin/roster/main/scripts/install.sh | bash
+```
+
+**If successful:**
+1. Write audit entry — append this line to `~/.roster/upgrade-log.jsonl` (create if absent):
+   `{"ts":"<date -u +%Y-%m-%dT%H:%M:%SZ>","from":"<local>","to":"<remote>","runtime":"<runtime>"}`
+2. Display changelog (Step 0c)
+3. Announce: "roster auto-upgraded from v`<local>` to v`<remote>`. Reloading updated instructions..."
+4. Use the Read tool to re-read the installed recruiter.md from the runtime path:
+   - claude → `.claude/agents/recruiter.md`
+   - opencode → `.opencode/agents/recruiter.md`
+   - codex → `.agents/skills/recruit/SKILL.md`
+   - pi → `.pi/skills/recruit/SKILL.md`
+5. Continue from **Mode Detection** in the newly loaded instructions. Do NOT re-run Step 0.
+
+**If the command fails:**
+- Display: "Auto-upgrade failed. Try manually: `curl -fsSL https://raw.githubusercontent.com/mathiasbourgoin/roster/main/scripts/install.sh | bash`"
+- Continue to Mode Detection with the current version.
+
+### Step 0b — Manual update prompt (when `<auto>` is not `true`)
+
+Present this choice to the user:
+
+> roster v`<remote>` is available (you have v`<local>`). What would you like to do?
+> 1. Update now
+> 2. Snooze 24h
+> 3. Disable update checks
+
+Use AskUserQuestion if available; otherwise present as numbered options and wait.
+
+**If "Update now":** execute Step 0a upgrade flow above.
+
+**If "Snooze 24h":**
+- Compute `$(date +%s) + 86400` and write the result to `~/.roster/update-snoozed`
+- Continue to Mode Detection normally.
+
+**If "Disable checks":**
+- Read `~/.roster/config` if it exists
+- Write or replace the `update_check=false` line (preserve all other keys)
+- Continue to Mode Detection normally.
+
+### Step 0c — Changelog display (after successful upgrade)
+
+```bash
+curl -fsSL --max-time 3 --connect-timeout 2 --silent \
+  "https://raw.githubusercontent.com/mathiasbourgoin/roster/main/recruiter/CHANGELOG.md" \
+  2>/dev/null
+```
+
+From the output, extract lines between `## [<remote>]` and the next `## [` line. Display them under `**What's new in v<remote>:**`. If the fetch fails or the version section is absent, display `"Upgraded roster to v<remote>."` with no further detail.
+
+---
+
 ## Mode Detection
 
 | Invocation | Mode |
@@ -219,8 +356,9 @@ Use index artifacts, not ad-hoc remote crawling.
 
 1. Run `index_build_command` in the roster repo context (or fetch the already-built `index.json` from `roster_repo`).
 2. Read `index.json` and filter entries by role/domain/tags/compatibility.
-3. Prefer `source == local` candidates when scores are close.
-4. For shortlisted candidates only, fetch full `.md` definitions by `path` to verify details before final recommendation.
+3. **Skip agents with `overlay: personal`** — these are hardware/project-specific overlays that must be opted into explicitly. Never include them in a default team proposal.
+4. Prefer `source == local` candidates when scores are close.
+5. For shortlisted candidates only, fetch full `.md` definitions by `path` to verify details before final recommendation.
 
 ### Source handling
 - Remote sources are controlled by `index_sources_file`.

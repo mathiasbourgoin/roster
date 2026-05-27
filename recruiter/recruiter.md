@@ -151,7 +151,7 @@ _LOCAL=$(cat "$_SENTINEL" 2>/dev/null | tr -d '[:space:]')
 
 # Read config
 _CFG="$_ROSTER_DIR/config"
-_UPDATE_CHECK="true"
+_UPDATE_CHECK="false"
 _AUTO_UPGRADE="false"
 if [ -f "$_CFG" ]; then
   _v=$(grep '^update_check=' "$_CFG" | cut -d= -f2 | tail -1)
