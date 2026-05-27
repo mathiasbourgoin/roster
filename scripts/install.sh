@@ -19,6 +19,11 @@ REPO="mathiasbourgoin/roster"
 BRANCH="main"
 RAW="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 
+# Recruiter version written to sentinel files. Read from local VERSION file when available
+# (dev installs); hardcoded fallback used when running via curl|bash from GitHub.
+ROSTER_VERSION="$(cat "$(dirname "$0")/../VERSION" 2>/dev/null | tr -d '[:space:]')"
+ROSTER_VERSION="${ROSTER_VERSION:-2.5.2}"
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -109,12 +114,14 @@ install_claude() {
   mkdir -p .claude/agents .claude/commands
   fetch "${RAW}/recruiter/recruiter.md" ".claude/agents/recruiter.md"
   fetch "${RAW}/recruiter/recruiter.md" ".claude/commands/recruit.md"
+  echo "$ROSTER_VERSION" > .claude/.roster-version
   ok "Claude Code  →  .claude/agents/recruiter.md + .claude/commands/recruit.md"
 }
 
 install_opencode() {
   mkdir -p .opencode/agents
   fetch "${RAW}/.opencode/agents/recruiter.md" ".opencode/agents/recruiter.md"
+  echo "$ROSTER_VERSION" > .opencode/.roster-version
   ok "OpenCode     →  .opencode/agents/recruiter.md"
 }
 
@@ -122,6 +129,7 @@ install_codex() {
   mkdir -p .agents/skills/recruit
   fetch "${RAW}/recruiter/recruiter.md" ".agents/skills/recruit/SKILL.md"
   touch ".agents/skills/recruit/.roster-managed"
+  echo "$ROSTER_VERSION" > .agents/skills/recruit/.roster-version
   ok "Codex        →  .agents/skills/recruit/SKILL.md"
 }
 
@@ -130,6 +138,7 @@ install_codex_global() {
   mkdir -p "$dir"
   fetch "${RAW}/recruiter/recruiter.md" "$dir/SKILL.md"
   touch "$dir/.roster-managed"
+  echo "$ROSTER_VERSION" > "$dir/.roster-version"
   ok "Codex global →  $dir/SKILL.md"
 }
 
@@ -137,6 +146,7 @@ install_pi() {
   mkdir -p .pi/skills/recruit
   fetch "${RAW}/recruiter/recruiter.md" ".pi/skills/recruit/SKILL.md"
   touch ".pi/skills/recruit/.roster-managed"
+  echo "$ROSTER_VERSION" > .pi/skills/recruit/.roster-version
   ok "Pi           →  .pi/skills/recruit/SKILL.md"
 }
 
