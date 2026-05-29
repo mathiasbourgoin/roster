@@ -42,3 +42,8 @@ ocaml/
 
 # Index (rebuilt with npm run build:index)
 index.json
+
+# Per-install / scratch state (not source)
+.context/
+.gstack/
+**/.roster-version
