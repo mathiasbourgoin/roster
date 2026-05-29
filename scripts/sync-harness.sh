@@ -179,6 +179,27 @@ render_recruit_skill() {
     } > "$dest"
 }
 
+# Copy a skill's bundled reference resources (generic docs that ship WITH the
+# skill, loaded on demand) next to its projected form. Source resources live in
+# "<src-without-.md>.resources/". For dir-based runtimes (Codex/pi: <name>/SKILL.md)
+# they go inside "<out_dir>/<name>/"; for flat runtimes (Claude/OpenCode commands:
+# <name>.md) they go in a sibling "<out_dir>/<name>.resources/". No-op if absent.
+copy_skill_resources() {
+    local src="$1" name="$2" out_dir="$3" kind="$4"
+    # Resources bundle ONLY for dir-based runtimes (Codex/pi: <name>/SKILL.md),
+    # where a sibling .md is a passive resource. Flat command runtimes
+    # (Claude/OpenCode) scan subdirs and would register each resource as an
+    # invocable command, so we deliberately skip them there.
+    [ "$kind" = "dir" ] || return 0
+    local res_dir="${src%.md}.resources"
+    [ -d "$res_dir" ] || return 0
+    local target="$out_dir/$name"
+    mkdir -p "$target"
+    find "$res_dir" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' f; do
+        cp "$f" "$target/$(basename "$f")"
+    done
+}
+
 sync_skill_sources_to_claude() {
     local out_dir="$1"
     local preamble="$2"
@@ -194,6 +215,7 @@ sync_skill_sources_to_claude() {
             preamble|roster-preamble) continue ;;
         esac
         render_skill_source "$src" "$name" "$out_dir/$name.md" "$preamble"
+        copy_skill_resources "$src" "$name" "$out_dir" "flat"
     done
 }
 
@@ -220,6 +242,7 @@ sync_skill_sources_to_codex_dir() {
         esac
         render_skill_source "$src" "$name" "$out_dir/$name/SKILL.md" "$preamble"
         touch "$out_dir/$name/.roster-managed"
+        copy_skill_resources "$src" "$name" "$out_dir" "dir"
     done
 }
 
@@ -457,6 +480,7 @@ sync_skill_sources_to_opencode_commands() {
             preamble|roster-preamble) continue ;;
         esac
         render_skill_source "$src" "$name" "$out_dir/$name.md" "$preamble"
+        copy_skill_resources "$src" "$name" "$out_dir" "flat"
     done
 }
 
