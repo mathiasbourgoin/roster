@@ -1,7 +1,7 @@
 ---
 name: roster-investigate
 description: Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code.
-version: 1.1.0
+version: 1.2.0
 domain: pipeline
 phase: null
 preamble: true
@@ -62,6 +62,8 @@ Wait for confirmation before starting.
 
 If not reproducible → note and continue with static analysis.
 
+When the symptom involves state or accounting, anchor on **ground-truth state** (the authoritative store, DB, or service), not on logs or intermediate reports — those record what was *attempted*, not the durable result, and can disagree with reality. Before theorizing, find the **empirical discriminator**: the smallest observable that separates a failing case from a passing sibling. A reproduction that looks correct may be the *wrong scenario* (wrong trigger, missing setup), not the absence of the bug.
+
 ### 4. Formulate hypotheses
 
 Formulate up to `tunables.max_hypothesis` root cause hypotheses, ordered by probability.
@@ -88,7 +90,7 @@ git blame <file>
 grep -n "<pattern>" <file>
 ```
 
-Stop as soon as a hypothesis is confirmed with evidence.
+Distinguish **code-confirmed** (the code provably supports the hypothesis when read) from **observed** (the symptom reproduced live). If the symptom is reproducible, do not stop at code-confirmed — confirm by observation: code-reading can be right about the mechanism yet wrong about the runtime effect.
 
 ### 6. Identify the root cause
 
@@ -162,6 +164,8 @@ Present the report and ask:
 
 **If root cause identified:** suggested route to `/roster-intake` with the report as context.
 
+**Persist what was learned (if a KB exists).** Before considering the investigation closed, fold the durable facts into the KB (`/kb-update` or hand them to `kb-agent`): the confirmed root cause **and** the hypotheses that were ruled out — so the next investigator does not re-walk the same dead-ends. A refutation is knowledge worth keeping, not just a discarded branch.
+
 ## When to Go Back
 
 | Condition | Action |
@@ -197,3 +201,7 @@ Present the report and ask:
 - Every causal claim must cite the file and line
 - "Looks like" is not a root cause — confirm or refute
 - If reproducible: reproduce before analyzing statically
+- Code-confirmed is not observed: if the symptom is reproducible, confirm by observation, not by reading alone
+- Anchor causal claims on ground-truth state, not on logs or intermediate reports
+- Find the empirical discriminator before theorizing; a clean reproduction may be the wrong scenario, not the absence of the bug
+- An investigation is not closed until its result — including ruled-out hypotheses — is folded into the KB (when one exists)
