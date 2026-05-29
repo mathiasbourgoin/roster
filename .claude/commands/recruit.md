@@ -1,29 +1,8 @@
 ---
-name: recruiter
-display_name: Agent Recruiter
-description: Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team across shared harness files and runtime-specific entrypoints.
-domain: [management, meta]
-tags: [recruiter, team-building, agent-discovery, roster-management, auto-upgrade]
-model: opus
-complexity: high
-compatible_with: [claude-code, codex]
-tunables:
-  roster_repo: mathiasbourgoin/roster  # GitHub <owner>/<repo>
-  index_sources_file: index-sources.json     # deterministic remote source config consumed by TS indexer
-  index_build_command: npm run build:index   # must write index.json to disk before search
-  max_team_size: 10
-  auto_install: false          # If true, writes agents directly; if false, proposes and waits for approval
-  audit_existing: true         # Check existing agents and propose upgrades
-requires:
-  - name: gh
-    type: cli
-    install: "https://cli.github.com/"
-    check: "which gh && gh auth status"
-    optional: true
-isolation: none
-version: 2.5.2
-author: mathiasbourgoin
+name: recruit
+description: Use when the user invokes /recruit, $recruit, recruit update, or asks to assemble, audit, update, or govern an agent team using mathiasbourgoin/roster.
 ---
+
 
 ## Update Notes
 
@@ -43,7 +22,6 @@ Version: 2.5.2 — Deterministic update/projection report
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
 
----
 
 Version: 2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
 
@@ -71,7 +49,6 @@ When presenting this update, ask: *"Would you like to install the roster-* pipel
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
 
----
 
 Version: 2.4.0 — Pipeline Metadata, CI Lint, Diagnostic Interview, Team Lifecycle
 
@@ -90,7 +67,6 @@ Version: 2.4.0 — Pipeline Metadata, CI Lint, Diagnostic Interview, Team Lifecy
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
 
----
 
 Version: 2.3.0 — Language Patterns + Prompt Engineering Guidelines
 
@@ -127,7 +103,6 @@ Run the following bash block and capture its output:
 
 ```bash
 _ROSTER_DIR=~/.roster
-mkdir -p "$_ROSTER_DIR"
 
 # Detect runtime and sentinel path
 _SENTINEL=""
@@ -149,6 +124,9 @@ fi
 _LOCAL=$(cat "$_SENTINEL" 2>/dev/null | tr -d '[:space:]')
 [ -z "$_LOCAL" ] && exit 0
 
+# Tracking is active — now safe to create the state dir
+mkdir -p "$_ROSTER_DIR"
+
 # Read config
 _CFG="$_ROSTER_DIR/config"
 _UPDATE_CHECK="false"
@@ -165,16 +143,18 @@ fi
 _SNOOZE_FILE="$_ROSTER_DIR/update-snoozed"
 if [ -f "$_SNOOZE_FILE" ]; then
   _UNTIL=$(cat "$_SNOOZE_FILE" 2>/dev/null | tr -d '[:space:]')
+  case "$_UNTIL" in ''|*[!0-9]*) _UNTIL=0 ;; esac
   _NOW=$(date +%s 2>/dev/null || echo 0)
-  [ -n "$_UNTIL" ] && [ "$_UNTIL" -gt "$_NOW" ] 2>/dev/null && exit 0
+  [ "$_UNTIL" -gt "$_NOW" ] && exit 0
 fi
 
 # Rate-limit: skip if checked within 24h
 _LAST_FILE="$_ROSTER_DIR/last-update-check"
 if [ -f "$_LAST_FILE" ]; then
   _LAST_TS=$(cat "$_LAST_FILE" 2>/dev/null | tr -d '[:space:]')
+  case "$_LAST_TS" in ''|*[!0-9]*) _LAST_TS=0 ;; esac
   _NOW=$(date +%s 2>/dev/null || echo 0)
-  _AGE=$(( _NOW - _LAST_TS )) 2>/dev/null || _AGE=99999
+  _AGE=$(( _NOW - _LAST_TS ))
   [ "$_AGE" -lt 86400 ] && exit 0
 fi
 
@@ -200,6 +180,8 @@ echo "ROSTER_UPGRADE_AVAILABLE $_LOCAL $_REMOTE $_AUTO_UPGRADE $_RUNTIME"
 Capture the four values. Then:
 
 ### Step 0a — Auto-upgrade (when `<auto>` is `true`)
+
+> Note: `auto_upgrade=true` makes the recruiter run the remote install script unattended (`curl … | bash`) — i.e. unattended remote code execution. It is off by default and requires both `update_check=true` and `auto_upgrade=true` in `~/.roster/config`.
 
 Run:
 ```bash
@@ -254,7 +236,6 @@ curl -fsSL --max-time 3 --connect-timeout 2 --silent \
 
 From the output, extract lines between `## [<remote>]` and the next `## [` line. Display them under `**What's new in v<remote>:**`. If the fetch fails or the version section is absent, display `"Upgraded roster to v<remote>."` with no further detail.
 
----
 
 ## Mode Detection
 
@@ -874,7 +855,6 @@ SKILL_CONTENT=$(curl -sL "$ROSTER_RAW/<skill-path>")
 if echo "$SKILL_CONTENT" | grep -q "^preamble: true"; then
   PROJECTED="${PREAMBLE}
 
----
 
 ${SKILL_CONTENT}"
 else
