@@ -1,7 +1,7 @@
 ---
 name: roster-review
 description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
-version: 1.3.0
+version: 1.4.0
 domain: pipeline
 phase: review
 preamble: true
@@ -354,6 +354,7 @@ Status: GO ✅ / NO-GO ❌
 
 - Every coverage claim must cite the file and line — never "probably"
 - "Looks good" is not a finding — if it's good, don't mention it
+- A caught error or a rejected input is not automatically safe — check its blast radius: does the error abort a whole request, transaction, job, or batch rather than failing just the one operation? If so, flag it as a correctness/security finding
 - One single grouped AskUserQuestion — never multiple separate questions
 - Auto-fixes: verify quality gates after each fix
 - Specialists must produce JSON findings — do not accept free-form text as output
