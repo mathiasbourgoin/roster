@@ -11,7 +11,8 @@
     "check:kb-links": "node scripts/check-kb-links.js",
     "check:hooks": "node dist/scripts/check-hook-structure.js",
     "check:recruiter-sync": "node scripts/check-recruiter-sync.js",
-    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node --test dist/scripts/run-hook.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js && node dist/scripts/check-hook-structure.js && node scripts/check-kb-links.js && node scripts/check-recruiter-sync.js"
+    "check:harness-sync": "bash scripts/sync-harness.sh --check",
+    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node --test dist/scripts/run-hook.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js && node dist/scripts/check-hook-structure.js && node scripts/check-kb-links.js && node scripts/check-recruiter-sync.js && bash scripts/sync-harness.sh --check"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

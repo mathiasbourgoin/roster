@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
 # Sync canonical shared harness files from .harness/ into runtime-compatible files.
-# Usage: ./scripts/sync-harness.sh [project-root]
+# Usage: ./scripts/sync-harness.sh [project-root] [--check]
+#   --check : do not write. Regenerate projections into a sandbox and diff against the
+#             committed ones; exit nonzero on drift (stale or hand-edited projections).
 
 set -euo pipefail
 
-PROJECT_ROOT="${1:-$PWD}"
+CHECK=0
+PROJECT_ROOT=""
+for _arg in "$@"; do
+    case "$_arg" in
+        --check) CHECK=1 ;;
+        *) [ -z "$PROJECT_ROOT" ] && PROJECT_ROOT="$_arg" ;;
+    esac
+done
+PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
 HARNESS_DIR="$PROJECT_ROOT/.harness"
 CLAUDE_DIR="$PROJECT_ROOT/.claude"
 CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
@@ -24,6 +34,72 @@ need_cmd jq
 if [ ! -f "$MANIFEST" ]; then
     echo "Shared harness manifest not found at $MANIFEST" >&2
     exit 1
+fi
+
+# Fail loudly on a corrupt manifest. Otherwise runtime_enabled() swallows the jq
+# parse error inside its `if`, every runtime reads as disabled, and a sync (or a
+# --check regen) silently produces empty projections and "passes".
+if ! jq empty "$MANIFEST" 2>/dev/null; then
+    echo "Shared harness manifest is not valid JSON: $MANIFEST" >&2
+    exit 1
+fi
+
+# --check: regenerate into a sandbox and diff against the committed projections.
+# Single source of rendering truth = this same script (re-invoked in normal mode on a
+# copy). HOME/CODEX_HOME are redirected into the sandbox so absolute (~) entrypoints
+# never touch the real tree. Drift = a projection that is stale or was hand-edited.
+#
+# Limitation: detection is one-directional (generated→real), so a file that exists
+# only in the real tree is ignored (it may be legitimately unmanaged, e.g.
+# .claude/patterns). This catches stale, hand-edited, and missing projections, but NOT
+# files that should have been REMOVED — a deleted source's lingering projection, or a
+# runtime turned off while its projections stay committed. A normal `sync` cleans
+# those; run it after deleting sources or disabling a runtime.
+if [ "$CHECK" -eq 1 ]; then
+    need_cmd diff
+    _CK_TMP="$(mktemp -d)"
+    trap 'rm -rf "$_CK_TMP"' EXIT
+
+    cp -R "$HARNESS_DIR" "$_CK_TMP/.harness"
+    [ -d "$ROSTER_SKILLS_DIR" ] && cp -R "$ROSTER_SKILLS_DIR" "$_CK_TMP/skills"
+    [ -d "$PROJECT_ROOT/recruiter" ] && cp -R "$PROJECT_ROOT/recruiter" "$_CK_TMP/recruiter"
+
+    if ! HOME="$_CK_TMP" CODEX_HOME="$_CK_TMP/.codex" bash "$0" "$_CK_TMP" >"$_CK_TMP/.synclog" 2>&1; then
+        echo "✗ harness-sync: sandbox regeneration failed:" >&2
+        sed 's/^/    /' "$_CK_TMP/.synclog" >&2
+        exit 1
+    fi
+
+    _drift=0
+    # Compare each runtime entrypoint dir. Direction is gen→real: a file the sandbox
+    # produced that is missing or differs in the tree is drift; files that exist only
+    # in the real tree (non-managed, e.g. .github/workflows) are ignored.
+    for _rel in .claude .agents .opencode .pi .github; do
+        _gen="$_CK_TMP/$_rel"
+        _real="$PROJECT_ROOT/$_rel"
+        [ -d "$_gen" ] || continue
+        if [ ! -d "$_real" ]; then
+            echo "✗ harness-sync: $_rel was generated but is absent from the tree (unprojected)." >&2
+            _drift=1
+            continue
+        fi
+        _out="$( { LC_ALL=C diff -rq -x 'settings.local.json' -x '.roster-version' -x '.git' "$_gen" "$_real" 2>&1 || true; } \
+                 | { grep -v -- "Only in $_real" || true; } )"
+        if [ -n "$_out" ]; then
+            echo "✗ harness-sync: $_rel drifts from .harness source:" >&2
+            printf '%s\n' "$_out" | sed 's|'"$_CK_TMP"'|<regenerated>|g; s|^|    |' >&2
+            _drift=1
+        fi
+    done
+
+    if [ "$_drift" -eq 1 ]; then
+        echo "" >&2
+        echo "Projections are out of sync with .harness/. Edit the source under .harness/" >&2
+        echo "(never hand-edit a projected file), then run ./scripts/sync-harness.sh and commit." >&2
+        exit 1
+    fi
+    echo "✓ harness-sync: all runtime projections match the .harness source."
+    exit 0
 fi
 
 runtime_enabled() {
