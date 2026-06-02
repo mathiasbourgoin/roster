@@ -36,6 +36,40 @@ info() { printf "  %s\n" "$*"; }
 bold() { printf "${BOLD}%s${RESET}\n" "$*"; }
 err()  { printf "${RED}  ✗${RESET} %s\n" "$*" >&2; }
 
+# ── Prerequisites ───────────────────────────────────────────────────────────
+# This installer needs bash >= 4 (uses `mapfile`) and curl or wget. jq + git are
+# NOT used here but ARE required by /recruit (which runs sync-harness.sh) — warn
+# rather than fail so a missing jq doesn't surface only after a "successful" install.
+
+require_bash4() {
+  if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+    err "roster's installer requires bash 4 or newer (found ${BASH_VERSION:-unknown})."
+    err "macOS ships bash 3.2 by default — install a newer bash (e.g. 'brew install bash')"
+    err "and re-run, or invoke it explicitly: /opt/homebrew/bin/bash scripts/install.sh"
+    exit 1
+  fi
+}
+
+require_fetcher() {
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    err "Neither curl nor wget found — cannot download roster files. Install one and re-run."
+    exit 1
+  fi
+}
+
+warn_recruit_deps() {
+  local missing=()
+  command -v jq  >/dev/null 2>&1 || missing+=("jq")
+  command -v git >/dev/null 2>&1 || missing+=("git")
+  if [ "${#missing[@]}" -gt 0 ]; then
+    warn "Missing tools required by /recruit (not by this installer): ${missing[*]}"
+    warn "Install them before running /recruit — it calls sync-harness.sh, which needs jq + git."
+  fi
+}
+
+require_bash4
+require_fetcher
+
 # ── Argument parsing ──────────────────────────────────────────────────────────
 
 OPT_ALL=false
@@ -199,6 +233,7 @@ fi
 # ── Done ──────────────────────────────────────────────────────────────────────
 
 echo ""
+warn_recruit_deps
 bold "Done."
 echo ""
 info "Next: run /recruit (Claude / OpenCode) or \$recruit (Codex) to assemble your team."
