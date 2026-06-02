@@ -59,6 +59,18 @@ After install: run `/recruit` (Claude / OpenCode) or `$recruit` (Codex) to assem
 
 Roster ships as a set of slash-command skills. `/roster-run` is the entry point — it detects context and routes to the right phase automatically.
 
+### Three modes
+
+`/roster-run` classifies every task into one of three depths before routing. Review is **always** mandatory — what changes is the upfront discovery and downstream documentation.
+
+| Mode | When | Pipeline |
+|------|------|----------|
+| **Express** | No spec/KB impact — typo, rename, formatting, config tweak, dependency bump, doc fix, pure refactor | implement → review → ship |
+| **Fast** | Quick change with possible spec/KB impact — bug fix, small behaviour change, missing case, perf fix | implement → review → qa → ship |
+| **Full** | New capability, API change, design trade-offs, or "spec it first" | question → research → intake → spec → plan → implement → review → qa → ship |
+
+The classifier infers the mode from the task, but you can **force one** with a flag — `/roster-run --full <task>` (or `--fast` / `--express`). An explicit `--full` always wins; an explicit `--express`/`--fast` is honoured unless the task would skip a mandatory phase (e.g. a new public API), in which case `/roster-run` asks before downgrading.
+
 | Skill | Phase | What it does |
 |-------|-------|--------------|
 | `/roster-run` | Entry point | Detects context, routes to right phase |

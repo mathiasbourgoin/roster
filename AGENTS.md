@@ -106,7 +106,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Pipeline (14)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.5.0 | Pipeline entry point — detects context and routes to the right skill |
+| roster-run | 1.6.0 | Pipeline entry point — detects context and routes to the right skill |
 | roster-init | 1.2.0 | Bootstrap a new project or onboard an existing project into the roster ecosystem |
 | roster-intake | 1.1.0 | Intake phase — transforms a task into a contractual brief validated by the human |
 | roster-spec | 2.0.0 | Adversarial spec phase — derives user stories with GWT scenarios, formalizes FR-NNN requirements |

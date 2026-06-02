@@ -1,7 +1,7 @@
 ---
 name: roster-run
 description: Pipeline entry point — detects context and routes to the right skill.
-version: 1.5.0
+version: 1.6.0
 ---
 
 # Roster Run
@@ -108,6 +108,14 @@ For steps the runner returns in `pending_llm_steps` (prompt:, loop:, parallel:),
 ## Routing
 
 **Step 1 — classify the task (Express / Fast / Full).** Do this before checking briefs/.
+
+**Explicit mode override.** If the task text contains a mode flag — `--express`, `--fast`, or
+`--full` — or an explicit instruction to force a mode ("do this full", "spec it first"),
+honor it verbatim and skip inference. Strip the flag from the task before routing. An explicit
+`--full` always wins even on a task that looks trivial; an explicit `--express`/`--fast` is
+honored **unless** classification detects a Full signal that would skip a mandatory phase (a
+new public API, an unspecced design decision) — in that case, surface the conflict and ask
+before downgrading. Otherwise infer the mode from the signals below.
 
 **Step 1.5 — environment readiness pre-flight (before any code/test work).**
 The moment you are about to route to a phase that builds, tests, or edits code
