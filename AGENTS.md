@@ -115,11 +115,11 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-review | 1.3.0 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
 | roster-qa | 1.2.0 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
 | roster-ship | 1.2.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
-| roster-investigate | 1.1.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
+| roster-investigate | 1.3.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
 | roster-audit | 1.1.0 | Quality and compliance audit — combines code-quality and spec-compliance into one actionable report |
 | roster-doctor | 1.0.0 | Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment is runnable before work starts |
 | roster-question | 1.0.0 | Decompose a task into neutral research questions — blind research prep, task intent not revealed |
-| roster-research | 1.1.0 | Blind documentarian research — reads questions only, produces file:line grounded research |
+| roster-research | 1.2.0 | Blind documentarian research — reads questions only, produces file:line grounded research |
 
 ### Meta (2)
 | Skill | Version | Purpose |

@@ -1,12 +1,13 @@
 ---
 name: roster-investigate
 description: Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code.
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: null
 preamble: true
 friction_log: true
 allowed_tools: [Read, Bash, AskUserQuestion]
+isolation: fork
 human_gate: before
 tunables:
   auto_freeze_scope: true

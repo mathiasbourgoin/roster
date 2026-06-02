@@ -21,6 +21,12 @@ domain: <pipeline|operational|meta|shared>
 phase: <intake|plan|implement|review|qa|ship|null>
 tags: [tag1, tag2]
 allowed_tools: [Read, Write, Edit, Bash, Agent, AskUserQuestion, Skill]
+disallowed_tools: [AskUserQuestion]   # tools this skill must NOT use — e.g. block interactive
+                                      # prompts in blind, background, or hook-invoked runs that
+                                      # would otherwise hang waiting for input
+isolation: <fork|worktree>   # fork → run in an isolated sub-agent context (only the conclusion
+                             # returns to the parent); worktree → run in an isolated git worktree
+                             # (auto-cleaned if unchanged). Use for blind/read-only or parallel work.
 preamble: <bool>             # true → inject skills/shared/preamble.md content
 friction_log: <bool>         # true → skill appends to skills-meta/friction.jsonl at end of run
 tunables:
