@@ -101,9 +101,9 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
 | gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
-## Skills (30)
+## Skills (31)
 
-### Pipeline (13)
+### Pipeline (14)
 | Skill | Version | Purpose |
 |-------|---------|---------|
 | roster-run | 1.5.0 | Pipeline entry point — detects context and routes to the right skill |
@@ -117,6 +117,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-ship | 1.2.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
 | roster-investigate | 1.1.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
 | roster-audit | 1.1.0 | Quality and compliance audit — combines code-quality and spec-compliance into one actionable report |
+| roster-doctor | 1.0.0 | Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment is runnable before work starts |
 | roster-question | 1.0.0 | Decompose a task into neutral research questions — blind research prep, task intent not revealed |
 | roster-research | 1.1.0 | Blind documentarian research — reads questions only, produces file:line grounded research |
 

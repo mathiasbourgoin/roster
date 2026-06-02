@@ -21,6 +21,15 @@ One line. Works in any project, auto-detects your runtime:
 curl -fsSL https://raw.githubusercontent.com/mathiasbourgoin/roster/main/scripts/install.sh | bash
 ```
 
+**Prerequisites:**
+
+| Tool | Needed by | Notes |
+|------|-----------|-------|
+| `bash` ≥ 4 | installer | macOS ships 3.2 — `brew install bash`. The installer fails early with guidance if it's older. |
+| `curl` or `wget` | installer | to download component files |
+| `jq` + `git` | `/recruit` | required by `sync-harness.sh` (run during team assembly), not by the installer itself |
+| `gh` | `/roster-ship` | optional — only for opening PRs |
+
 Detects and installs for all present runtimes simultaneously:
 
 | Runtime | Detected by | Recruiter target | Notes |

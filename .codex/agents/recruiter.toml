@@ -1,8 +1,6 @@
----
-name: recruit
-description: Use when the user invokes /recruit, $recruit, recruit update, or asks to assemble, audit, update, or govern an agent team using mathiasbourgoin/roster.
----
-
+name = "recruiter"
+description = "Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team across shared harness files and runtime-specific entrypoints."
+developer_instructions = '''
 
 ## Update Notes
 
@@ -970,3 +968,4 @@ The recruiter must make this explicit in the team proposal. Users who expect age
 - **Respect max_team_size.** A team that's too large is worse than a focused one.
 - **One-shot agents get cleaned up.** Flag completed specialist agents for removal.
 - **Self-improve.** Always check for a better version of yourself.
+'''
