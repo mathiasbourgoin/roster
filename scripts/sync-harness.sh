@@ -74,7 +74,7 @@ if [ "$CHECK" -eq 1 ]; then
     # Compare each runtime entrypoint dir. Direction is gen→real: a file the sandbox
     # produced that is missing or differs in the tree is drift; files that exist only
     # in the real tree (non-managed, e.g. .github/workflows) are ignored.
-    for _rel in .claude .agents .opencode .pi .github; do
+    for _rel in .claude .agents .codex .opencode .pi .github; do
         _gen="$_CK_TMP/$_rel"
         _real="$PROJECT_ROOT/$_rel"
         [ -d "$_gen" ] || continue
@@ -494,8 +494,78 @@ if runtime_enabled "claude-code"; then
     mv "$TMP_SETTINGS" "$SETTINGS_LOCAL"
 fi
 
+# --- Codex agent projection ---
+# Codex exposes the agent team through TWO primitives (see
+# https://developers.openai.com/codex/subagents and /codex/skills):
+#   1. First-class custom agents — TOML at .codex/agents/<name>.toml (spawnable subagents,
+#      required fields name/description/developer_instructions). This is the analog of
+#      Claude's .claude/agents/ and OpenCode's mode:subagent.
+#   2. Invocable skills — .agents/skills/<name>/SKILL.md so the user can $name them and
+#      Codex can implicitly select them by description.
+# The recruiter is excluded from the agent-skill projection — it is already projected as
+# the dedicated `recruit` skill. `model:` is intentionally NOT emitted: roster's model
+# slugs (opus/sonnet/haiku) are Claude-specific; omitting it lets the Codex agent inherit
+# the session model.
+
+# Escape a value for use inside a TOML basic (double-quoted) string.
+toml_escape_basic() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+# Agents → .codex/agents/<name>.toml (Codex first-class custom-agent primitive).
+sync_agents_to_codex_toml() {
+    local out_dir="$1"
+    local src_dir="$2"
+    local tq="'''"
+    mkdir -p "$out_dir"
+    find "$out_dir" -maxdepth 1 -type f -name '*.toml' -delete
+    [ -d "$src_dir" ] || return 0
+    find "$src_dir" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
+        local name desc body
+        name="$(basename "$file" .md)"
+        desc="$(extract_frontmatter_field "$file" "description")"
+        body="$(strip_frontmatter "$file")"
+        # TOML multiline literal strings cannot contain the ''' delimiter. roster agent
+        # bodies are markdown and never do, but fail loud rather than emit invalid TOML.
+        if printf '%s' "$body" | grep -qF "$tq"; then
+            echo "sync_agents_to_codex_toml: $name body contains $tq — cannot encode as TOML literal; skipping" >&2
+            continue
+        fi
+        {
+            printf 'name = "%s"\n' "$(toml_escape_basic "$name")"
+            printf 'description = "%s"\n' "$(toml_escape_basic "${desc:-Roster agent $name}")"
+            printf 'developer_instructions = %s\n' "$tq"
+            printf '%s\n' "$body"
+            printf '%s\n' "$tq"
+        } > "$out_dir/$name.toml"
+    done
+}
+
+# Agents → .agents/skills/<name>/SKILL.md (also $name-invocable on Codex). Skips recruiter.
+sync_agents_to_codex_skills() {
+    local skills_dir="$1"
+    local src_dir="$2"
+    [ -d "$src_dir" ] || return 0
+    find "$src_dir" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
+        local name desc
+        name="$(basename "$file" .md)"
+        [ "$name" = "recruiter" ] && continue
+        desc="$(extract_frontmatter_field "$file" "description")"
+        mkdir -p "$skills_dir/$name"
+        {
+            printf '%s\n' '---'
+            printf 'name: %s\n' "$name"
+            printf 'description: %s\n' "${desc:-Roster agent $name}"
+            printf '%s\n\n' '---'
+            strip_frontmatter "$file"
+        } > "$skills_dir/$name/SKILL.md"
+        touch "$skills_dir/$name/.roster-managed"
+    done
+}
+
 if runtime_enabled "codex"; then
     CODEX_SKILLS_DIR="$(resolve_entrypoint "$(runtime_entrypoint "codex" ".agents/skills/")")"
+    CODEX_AGENTS_DIR="$PROJECT_ROOT/.codex/agents"
     mkdir -p "$CODEX_SKILLS_DIR"
     mapfile -d '' SKILL_SOURCES < <(collect_skill_sources)
     sync_skill_sources_to_codex_dir "$CODEX_SKILLS_DIR" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
@@ -505,6 +575,9 @@ if runtime_enabled "codex"; then
     else
         rm -rf "$CODEX_SKILLS_DIR/recruit"
     fi
+    # Project the agent team: spawnable TOML subagents + invocable skills.
+    sync_agents_to_codex_toml "$CODEX_AGENTS_DIR" "$HARNESS_DIR/agents"
+    sync_agents_to_codex_skills "$CODEX_SKILLS_DIR" "$HARNESS_DIR/agents"
 fi
 
 if runtime_enabled "codex-global"; then
