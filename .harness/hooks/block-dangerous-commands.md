@@ -72,7 +72,7 @@ fi
 # IGNORECASE dependency). Conservative: a bare "DELETE FROM" in a commit message / grep also
 # blocks (fail-safe — the documented best-effort trade-off). Statements separated only by a
 # newline (no ';') are treated as one record — an accepted limitation of a regex guard.
-DELETE_NO_WHERE=$(printf '%s' "$COMMAND" | tr '[:lower:]' '[:upper:]' | awk 'BEGIN{RS=";"; c=0} /DELETE[[:space:]]+FROM/ && !/WHERE/ {c++} END{print c+0}')
+DELETE_NO_WHERE=$(printf '%s' "$COMMAND" | tr '[:lower:]' '[:upper:]' | awk 'BEGIN{RS=";"; c=0} /DELETE[[:space:]]+FROM/ && !/(^|[^[:alnum:]_])WHERE([^[:alnum:]_]|$)/ {c++} END{print c+0}')
 if [ "${DELETE_NO_WHERE:-0}" -gt 0 ]; then
   echo "BLOCKED: a 'DELETE FROM' statement has no WHERE clause (removes all rows). Add WHERE or confirm explicitly."
   exit 1
