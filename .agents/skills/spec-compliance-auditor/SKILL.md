@@ -1,7 +1,7 @@
 ---
 name: spec-compliance-auditor
 description: Audit implementation against kb/spec.md — flag unimplemented spec items and behavioral divergence.
-when_to_use: Use to flag unimplemented spec items or behavioral divergence from kb/spec.md. Trigger: 'does the code match the spec'.
+when_to_use: "Use to flag unimplemented spec items or behavioral divergence from kb/spec.md. Trigger: 'does the code match the spec'."
 version: 1.0.0
 ---
 

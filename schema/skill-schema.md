@@ -26,7 +26,9 @@ like a label ("Intake phase") is weaker for auto-discovery than one that names t
 Optional `when_to_use` frontmatter can carry the explicit trigger phrasing separately:
 
 ```yaml
-when_to_use: <string>   # Trigger situations + example phrasings; drives auto-discovery
+when_to_use: "Use when …; e.g. '<phrase>'."   # Trigger situations + example phrasings.
+                                              # QUOTE the value if it contains ": " (a colon+
+                                              # space) — unquoted, YAML reads it as a nested map.
 ```
 
 > **Not** for internal pipeline-phase skills (`roster-plan`, `roster-implement`,
