@@ -64,6 +64,26 @@ test("run: default post → warn", async () => {
   assert.equal(r.outcome, "warn");
 });
 
+test("frontmatter on_error: warn overrides the pre-hook stop default", async () => {
+  // A pre-hook normally defaults failed steps to stop → abort. A hook-level
+  // `on_error: warn` must become the per-step default, so a failing step warns instead.
+  const content = `---
+name: test-hook
+version: 1.0.0
+event: pre
+skill: roster-implement
+on_error: warn
+---
+
+\`\`\`yaml
+steps:
+  - run: "exit 1"
+\`\`\`
+`;
+  const r = await runHook({ content, event: "pre", skill: "s" });
+  assert.equal(r.outcome, "warn");
+});
+
 test("timeout: enforced — slow command killed", { timeout: 5000 }, async () => {
   const r = await runHook({
     content: makeHook("pre", `  - timeout: 100\n  - run: "sleep 5"\n    on_error: stop`),

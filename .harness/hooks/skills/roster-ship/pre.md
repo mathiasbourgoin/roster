@@ -7,9 +7,10 @@ on_error: stop
 description: Abort ship unless review AND qa are GO, and the test suite passes.
 ---
 
-Blocks `roster-ship` unless both `briefs/<task>-review.json` (`status: GO`) and
-`briefs/<task>-qa.md` (`Status: GO`) are present and passing, then runs the
-project's pre-PR checks. Never ship on a NO-GO gate or a red test suite.
+Blocks `roster-ship` unless `briefs/<task>-review.json` is `status: GO`. For Fast/Full
+tasks it also requires `briefs/<task>-qa.md` to be GO; **Express** tasks legitimately skip
+QA (per roster-run's Express pipeline), so a missing qa brief is not a block in that mode.
+Never ship on a NO-GO gate.
 
 ```yaml
 steps:
@@ -27,11 +28,11 @@ steps:
       - log: "BLOCKED: review verdict is not GO — do not ship"
       - run: "exit 1"
 
-  - test: "[ -f \"briefs/${TASK}-qa.md\" ] && grep -qE '^\\*?\\*?Status:\\*?\\*? *GO' \"briefs/${TASK}-qa.md\""
+  - test: "[ \"$(jq -r '.mode // \"\"' \"briefs/${TASK}-review.json\" 2>/dev/null)\" = \"express\" ] || { [ -f \"briefs/${TASK}-qa.md\" ] && grep -qE '^\\*?\\*?Status:\\*?\\*? *GO' \"briefs/${TASK}-qa.md\"; }"
     on_true:
-      - log: "✓ qa is GO — review + qa both pass, clear to ship"
+      - log: "✓ clear to ship (express: review GO only; otherwise review + qa GO)"
     on_false:
-      - log: "BLOCKED: qa verdict is not GO (or qa brief missing) — do not ship"
+      - log: "BLOCKED: non-express task needs a qa GO verdict (or qa brief missing) — do not ship"
       - run: "exit 1"
 ```
 

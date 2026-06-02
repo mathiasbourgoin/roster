@@ -92,11 +92,13 @@ class HookExecutor {
   private stepsRun = 0;
   private pendingLlm: Step[] = [];
   private warnTriggered = false;
+  private hookOnError?: OnError;
 
-  constructor(steps: Step[], event: "pre" | "post", skill: string) {
+  constructor(steps: Step[], event: "pre" | "post", skill: string, hookOnError?: OnError) {
     this.steps = steps;
     this.event = event;
     this.skill = skill;
+    this.hookOnError = hookOnError;
   }
 
   private emit(msg: string): void {
@@ -105,7 +107,9 @@ class HookExecutor {
   }
 
   private defaultOnError(): OnError {
-    return this.event === "pre" ? "stop" : "warn";
+    // Hook-level frontmatter on_error is the default for every step; fall back to the
+    // event default (pre→stop, post→warn) only when the hook declares none.
+    return this.hookOnError ?? (this.event === "pre" ? "stop" : "warn");
   }
 
   private resolveOnError(step: Step): OnError {
@@ -378,7 +382,7 @@ export async function runHook(opts: RunHookOptions): Promise<HookResult> {
   }
 
   const parsed = parseHookFile(content);
-  const executor = new HookExecutor(parsed.steps, event, skill);
+  const executor = new HookExecutor(parsed.steps, event, skill, parsed.frontmatter.on_error);
 
   process.env.ROSTER_HOOK_RUNNING = "1";
   try {
