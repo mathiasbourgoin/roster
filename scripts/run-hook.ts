@@ -309,6 +309,11 @@ class HookExecutor {
         return null;
       case "ignore":
         return null;
+      default:
+        // Unknown on_error (e.g. a stale/invalid value the parser somehow let through):
+        // fail CLOSED — never silently pass a failing step.
+        this.emit(`[error] abort: ${reason} (unknown on_error "${String(onError)}" — failing closed)`);
+        return "abort";
     }
   }
 
