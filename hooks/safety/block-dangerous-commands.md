@@ -66,8 +66,10 @@ if echo "$COMMAND" | grep -qiE '(DROP[[:space:]]+TABLE|DROP[[:space:]]+DATABASE|
 fi
 
 # DELETE without a WHERE clause (removes all rows) — best-effort, PER STATEMENT.
-# Split on ';' AND newlines (heredoc/multi-line SQL uses newline separators); count DELETE
-# FROM statements lacking WHERE. A count avoids the line-global ".*WHERE" masking bypass.
+# Convert ';' to newlines and keep existing newlines (so each statement sits on its own
+# line, including heredoc/multi-line SQL), then count DELETE FROM lines lacking WHERE. The
+# count avoids the line-global ".*WHERE" masking bypass. Conservative: a bare "DELETE FROM"
+# in a commit message / grep also blocks (fail-safe — the documented best-effort trade-off).
 DELETE_NO_WHERE=$(echo "$COMMAND" | tr ';' '\n' | grep -iE 'DELETE[[:space:]]+FROM' | grep -ivcE 'WHERE')
 if [ "${DELETE_NO_WHERE:-0}" -gt 0 ]; then
   echo "BLOCKED: a 'DELETE FROM' statement has no WHERE clause (removes all rows). Add WHERE or confirm explicitly."
