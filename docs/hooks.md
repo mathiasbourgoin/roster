@@ -58,7 +58,7 @@ That is a complete, working pre-hook. When `roster-run` routes to `roster-spec`,
 | `version` | ✅ | bare semver `X.Y.Z` | — |
 | `event` | ✅ | `pre` \| `post` | — |
 | `skill` | ✅ | target skill `name:` field | — |
-| `on_error` | ✅ | `stop` \| `warn` \| `skip` \| `skip-step` \| `retry:N` \| `ignore` | `stop` (pre) / `warn` (post) |
+| `on_error` | ✅ | `stop` \| `warn` \| `skip` \| `ignore` | `stop` (pre) / `warn` (post) |
 | `description` | ⬜ | one-line summary | — |
 
 ### Discovery Path
@@ -125,9 +125,9 @@ Controls what happens when a step fails. Can be set at hook level (frontmatter) 
 | `stop` | Abort hook; for pre-hooks, cancel skill dispatch with user-visible message |
 | `warn` | Log the failure and continue |
 | `skip` | Skip the current step, continue |
-| `skip-step` | Alias for `skip` |
-| `retry:N` | Retry up to N times, then apply next level default |
 | `ignore` | Silently continue |
+
+> For a real retry loop, use the dedicated `retry:` step type (with optional `backoff:`) — see the step-type table — rather than an `on_error` value.
 
 **Defaults by phase:**
 - `pre` hooks: `stop`
@@ -530,7 +530,8 @@ These features require a binding mechanism that was not designed in time for v1.
 `scripts/run-hook.ts` is compiled to `dist/scripts/run-hook.js` via `npm run build:ts`. Invoke directly:
 
 ```bash
-npm run build:ts && node dist/scripts/run-hook.js .harness/hooks/skills/roster-spec/pre.md
+# CLI is: run-hook.js <pre|post> <skill-name>   (event + skill, NOT a file path)
+npm run build:ts && node dist/scripts/run-hook.js pre roster-spec
 ```
 
 It returns the following exit codes, consumed by `roster-run` to decide whether to dispatch the skill.

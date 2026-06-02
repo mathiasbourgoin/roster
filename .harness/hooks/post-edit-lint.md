@@ -21,8 +21,7 @@ Runs after every Edit or Write tool call. Detects the project's linter by checki
 | `pyproject.toml` (with `[tool.ruff]`) | Ruff | `ruff check <file>` |
 | `pyproject.toml` / `setup.cfg` (with flake8) | Flake8 | `flake8 <file>` |
 | `.ocamlformat` | OCaml fmt | `dune fmt 2>&1` |
-| `rustfmt.toml` / `.rustfmt.toml` | Rustfmt | `cargo fmt -- --check <file>` |
-| `Cargo.toml` | Clippy | `cargo clippy -- -W warnings 2>&1` |
+| `Cargo.toml` / `rustfmt.toml` | Rust (fmt + clippy) | `cargo fmt -- --check && cargo clippy --quiet -- -W warnings` |
 | `.golangci.yml` | golangci-lint | `golangci-lint run <file>` |
 | `biome.json` | Biome | `npx biome check <file>` |
 
@@ -93,8 +92,8 @@ fi
 
 # Rust — fmt + clippy
 if [ -z "$LINTER" ] && ([ -f "$PROJECT_ROOT/rustfmt.toml" ] || [ -f "$PROJECT_ROOT/.rustfmt.toml" ] || [ -f "$PROJECT_ROOT/Cargo.toml" ]); then
-  LINTER="cargo fmt"
-  LINT_CMD="cargo fmt -- --check 2>&1"
+  LINTER="cargo fmt + clippy"
+  LINT_CMD="cargo fmt -- --check 2>&1 && cargo clippy --quiet -- -W warnings 2>&1"
 fi
 
 # Go
@@ -133,7 +132,7 @@ exit 0
         "hooks": [
           {
             "type": "command",
-            "command": "#!/bin/bash\nINPUT=$(cat -)\nFILE=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // .tool_result.path // empty')\nif [ -z \"$FILE\" ] || [ ! -f \"$FILE\" ]; then exit 0; fi\nDIR=$(dirname \"$FILE\")\nPROJECT_ROOT=\"$DIR\"\nwhile [ \"$PROJECT_ROOT\" != \"/\" ]; do\n  if [ -f \"$PROJECT_ROOT/package.json\" ] || [ -f \"$PROJECT_ROOT/pyproject.toml\" ] || [ -f \"$PROJECT_ROOT/Cargo.toml\" ] || [ -f \"$PROJECT_ROOT/dune-project\" ] || [ -f \"$PROJECT_ROOT/go.mod\" ] || [ -f \"$PROJECT_ROOT/.git/HEAD\" ]; then break; fi\n  PROJECT_ROOT=$(dirname \"$PROJECT_ROOT\")\ndone\ncd \"$PROJECT_ROOT\" 2>/dev/null || cd \"$DIR\"\nLINTER=\"\"\nLINT_CMD=\"\"\nfor cfg in .eslintrc .eslintrc.js .eslintrc.json .eslintrc.yml eslint.config.js eslint.config.mjs eslint.config.ts; do\n  if [ -f \"$PROJECT_ROOT/$cfg\" ]; then LINTER=\"eslint\"; LINT_CMD=\"npx eslint --no-warn-ignored \\\"$FILE\\\" 2>&1\"; break; fi\ndone\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/biome.json\" ]; then LINTER=\"biome\"; LINT_CMD=\"npx biome check \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/pyproject.toml\" ] && grep -q '\\[tool\\.ruff\\]' \"$PROJECT_ROOT/pyproject.toml\" 2>/dev/null; then LINTER=\"ruff\"; LINT_CMD=\"ruff check \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ] && ([ -f \"$PROJECT_ROOT/.flake8\" ] || ([ -f \"$PROJECT_ROOT/setup.cfg\" ] && grep -q '\\[flake8\\]' \"$PROJECT_ROOT/setup.cfg\" 2>/dev/null)); then LINTER=\"flake8\"; LINT_CMD=\"flake8 \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/.ocamlformat\" ]; then LINTER=\"dune fmt\"; LINT_CMD=\"dune fmt 2>&1\"; fi\nif [ -z \"$LINTER\" ] && ([ -f \"$PROJECT_ROOT/rustfmt.toml\" ] || [ -f \"$PROJECT_ROOT/.rustfmt.toml\" ] || [ -f \"$PROJECT_ROOT/Cargo.toml\" ]); then LINTER=\"cargo fmt\"; LINT_CMD=\"cargo fmt -- --check 2>&1\"; fi\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/.golangci.yml\" ]; then LINTER=\"golangci-lint\"; LINT_CMD=\"golangci-lint run \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ]; then exit 0; fi\necho \"--- post-edit-lint: running $LINTER ---\"\nOUTPUT=$(eval \"$LINT_CMD\" 2>&1)\nEXIT_CODE=$?\nif [ $EXIT_CODE -ne 0 ] && [ -n \"$OUTPUT\" ]; then echo \"$OUTPUT\" | head -30; echo \"--- $LINTER found issues (informational) ---\"; else echo \"--- $LINTER: clean ---\"; fi\nexit 0",
+            "command": "#!/bin/bash\nINPUT=$(cat -)\nFILE=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // .tool_result.path // empty')\nif [ -z \"$FILE\" ] || [ ! -f \"$FILE\" ]; then exit 0; fi\nDIR=$(dirname \"$FILE\")\nPROJECT_ROOT=\"$DIR\"\nwhile [ \"$PROJECT_ROOT\" != \"/\" ]; do\n  if [ -f \"$PROJECT_ROOT/package.json\" ] || [ -f \"$PROJECT_ROOT/pyproject.toml\" ] || [ -f \"$PROJECT_ROOT/Cargo.toml\" ] || [ -f \"$PROJECT_ROOT/dune-project\" ] || [ -f \"$PROJECT_ROOT/go.mod\" ] || [ -f \"$PROJECT_ROOT/.git/HEAD\" ]; then break; fi\n  PROJECT_ROOT=$(dirname \"$PROJECT_ROOT\")\ndone\ncd \"$PROJECT_ROOT\" 2>/dev/null || cd \"$DIR\"\nLINTER=\"\"\nLINT_CMD=\"\"\nfor cfg in .eslintrc .eslintrc.js .eslintrc.json .eslintrc.yml eslint.config.js eslint.config.mjs eslint.config.ts; do\n  if [ -f \"$PROJECT_ROOT/$cfg\" ]; then LINTER=\"eslint\"; LINT_CMD=\"npx eslint --no-warn-ignored \\\"$FILE\\\" 2>&1\"; break; fi\ndone\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/biome.json\" ]; then LINTER=\"biome\"; LINT_CMD=\"npx biome check \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/pyproject.toml\" ] && grep -q '\\[tool\\.ruff\\]' \"$PROJECT_ROOT/pyproject.toml\" 2>/dev/null; then LINTER=\"ruff\"; LINT_CMD=\"ruff check \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ] && ([ -f \"$PROJECT_ROOT/.flake8\" ] || ([ -f \"$PROJECT_ROOT/setup.cfg\" ] && grep -q '\\[flake8\\]' \"$PROJECT_ROOT/setup.cfg\" 2>/dev/null)); then LINTER=\"flake8\"; LINT_CMD=\"flake8 \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/.ocamlformat\" ]; then LINTER=\"dune fmt\"; LINT_CMD=\"dune fmt 2>&1\"; fi\nif [ -z \"$LINTER\" ] && ([ -f \"$PROJECT_ROOT/rustfmt.toml\" ] || [ -f \"$PROJECT_ROOT/.rustfmt.toml\" ] || [ -f \"$PROJECT_ROOT/Cargo.toml\" ]); then LINTER=\"cargo fmt + clippy\"; LINT_CMD=\"cargo fmt -- --check 2>&1 && cargo clippy --quiet -- -W warnings 2>&1\"; fi\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/.golangci.yml\" ]; then LINTER=\"golangci-lint\"; LINT_CMD=\"golangci-lint run \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ]; then exit 0; fi\necho \"--- post-edit-lint: running $LINTER ---\"\nOUTPUT=$(eval \"$LINT_CMD\" 2>&1)\nEXIT_CODE=$?\nif [ $EXIT_CODE -ne 0 ] && [ -n \"$OUTPUT\" ]; then echo \"$OUTPUT\" | head -30; echo \"--- $LINTER found issues (informational) ---\"; else echo \"--- $LINTER: clean ---\"; fi\nexit 0",
             "description": "Auto-detect linter and run on edited files (informational)"
           }
         ]

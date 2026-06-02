@@ -70,6 +70,10 @@ const ALLOWED_OPERATORS = new Set([
   "parallel",
 ]);
 
+// Supported on_error values — must match what run-hook.ts actually implements.
+// (retry is a dedicated step type, not an on_error value.)
+const ON_ERROR_VALUES = new Set(["stop", "warn", "skip", "ignore"]);
+
 type Violation = { file: string; message: string };
 type Warning = { file: string; message: string };
 
@@ -181,6 +185,14 @@ async function checkHook(
     errors.push('frontmatter missing "skill" field');
   }
 
+  // 5b. on_error (frontmatter default), if present, must be a supported value
+  const fmOnError = fmField(fm.body, "on_error");
+  if (fmOnError && !ON_ERROR_VALUES.has(fmOnError)) {
+    errors.push(
+      `frontmatter "on_error" must be one of ${[...ON_ERROR_VALUES].join(", ")} — got: ${fmOnError}`
+    );
+  }
+
   // 6. steps: fenced block
   const stepsBlock = extractStepsBlock(content);
   if (!stepsBlock) {
@@ -254,6 +266,13 @@ async function checkHook(
     if (unknownOps.length > 0) {
       errors.push(
         `step ${i + 1} has unknown operator(s): ${unknownOps.map((k) => `"${k}"`).join(", ")} — allowed: ${[...ALLOWED_OPERATORS].join(", ")}`
+      );
+    }
+
+    // step-level on_error, if present, must be a supported value
+    if ("on_error" in s && !ON_ERROR_VALUES.has(String(s["on_error"]))) {
+      errors.push(
+        `step ${i + 1} has invalid on_error "${String(s["on_error"])}" — allowed: ${[...ON_ERROR_VALUES].join(", ")}`
       );
     }
 
