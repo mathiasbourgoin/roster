@@ -13,6 +13,27 @@ version: <semver>            # e.g. "1.0.0"
 
 Claude Code only reads `description` from skill frontmatter; all other fields are roster-internal metadata used by harness-builder, skill-health, and skill-evolve.
 
+### Description as a trigger, not a summary
+
+For skills a user (or the runtime) can **invoke directly or select automatically** — entry
+points (`roster-run`), bootstrap (`roster-init`), operational (`roster-doctor`,
+`roster-audit`, `roster-investigate`), and standalone KB/workflow/media skills — the
+`description` should say *when to reach for the skill*, not just what it is. State the
+triggering situations and, where helpful, example user phrasings. A description that reads
+like a label ("Intake phase") is weaker for auto-discovery than one that names the trigger
+("Use when turning a vague task into a validated, contractual brief before any planning").
+
+Optional `when_to_use` frontmatter can carry the explicit trigger phrasing separately:
+
+```yaml
+when_to_use: <string>   # Trigger situations + example phrasings; drives auto-discovery
+```
+
+> **Not** for internal pipeline-phase skills (`roster-plan`, `roster-implement`,
+> `roster-review`, `roster-qa`, `roster-ship`, `roster-spec`, `roster-question`,
+> `roster-research`): these are *routed* by `roster-run`, never auto-selected, so a concise
+> phase-label description is correct — adding trigger phrasing is noise.
+
 ## Optional Frontmatter
 
 ```yaml

@@ -1,6 +1,7 @@
 ---
 name: tdd-workflow
 description: Run TDD cycle — write failing test, implement, refactor, verify coverage.
+when_to_use: Use to drive a strict red-green-refactor cycle. Trigger: 'TDD', 'write the test first', test-driven implementation.
 version: 1.0.0
 ---
 
