@@ -109,6 +109,18 @@ For steps the runner returns in `pending_llm_steps` (prompt:, loop:, parallel:),
 
 **Step 1 — classify the task (Express / Fast / Full).** Do this before checking briefs/.
 
+**Step 1.5 — environment readiness pre-flight (before any code/test work).**
+The moment you are about to route to a phase that builds, tests, or edits code
+(`/roster-implement`, and any Full-mode route that leads there), first confirm the project's
+dev environment is actually runnable. Invoke `/roster-doctor preflight` (skip only for
+pure-doc Express tasks that touch no code, build, or tests).
+
+- If it returns `READY` → continue routing.
+- If it returns `NOT-READY: <reasons>` → **stop routing.** Surface the reasons and the
+  doctor's install/configure options to the user. Do not enter `/roster-implement` until the
+  environment is ready or the user explicitly accepts proceeding. Discovering a missing test
+  runner or linter here is far cheaper than failing at the quality gate mid-implementation.
+
 If **Express** mode: announce and route directly through **implement → review → ship**.
 
 If **Fast** mode: announce and route through **implement → review → qa → ship** in sequence. After QA, update KB/specs and friction log if impacted.

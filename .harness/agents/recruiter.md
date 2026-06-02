@@ -888,6 +888,7 @@ Skills to install:
 - `skills/pipeline/roster-ship.md`
 - `skills/pipeline/roster-investigate.md`
 - `skills/pipeline/roster-audit.md`
+- `skills/pipeline/roster-doctor.md`
 - `skills/meta/roster-skill-health.md`
 - `skills/meta/roster-skill-evolve.md`
 
