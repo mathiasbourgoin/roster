@@ -41,7 +41,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 ### Management (9)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| tech-lead | 1.9.0 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
+| tech-lead | 1.9.1 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
 | recruiter | 2.5.2 | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
 | governor | 2.1.0 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
