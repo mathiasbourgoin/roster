@@ -164,6 +164,7 @@ For each APPROVED proposal, in order A → B → C → D:
    bash scripts/sync-harness.sh 2>/dev/null || echo "manual sync required"
    ```
 
+---
 
 ### Proposal [TOOL] — Deterministic tool
 
@@ -195,6 +196,7 @@ For each APPROVED proposal, in order A → B → C → D:
 
 5. **Gate after**: show the script and the diff of the modified skill.
 
+---
 
 ### Proposal [ADAPT] — Adaptation of existing skill
 
@@ -221,6 +223,7 @@ For each APPROVED proposal, in order A → B → C → D:
    cp skills/<domain>/roster-<name>.md .claude/commands/roster-<name>.md
    ```
 
+---
 
 ### Proposal [AGENT] — New dedicated agent
 
@@ -265,6 +268,7 @@ If harness/KB is **present**:
 → If **Warnings only**: log to friction log; continue to next proposal.
 → If harness/KB is **absent**: skip silently.
 
+---
 
 ## Output Contract
 

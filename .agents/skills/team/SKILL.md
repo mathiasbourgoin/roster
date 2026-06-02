@@ -114,6 +114,7 @@ If `$ARGUMENTS` is empty or not one of the above, ask once:
 2. If mode is ambiguous, ask once — then execute the selected mode section below.
 3. Follow the steps in the matching mode section: **build**, **review**, or **run**.
 
+---
 
 ## Mode: build
 
@@ -152,6 +153,7 @@ An approved team proposal exists at <path-to-proposal>. Apply it:
 
 3. **Report** — after harness-builder completes, confirm what was installed and run `npm test` if in the roster repo.
 
+---
 
 ## Mode: review
 
@@ -194,6 +196,7 @@ Propose an upgrade set and run the validation quiz before making any changes.
 
 4. **Report** — summarize stale agents, gaps, and recommended next step (`team build` to apply, or no action needed).
 
+---
 
 ## Mode: run \<task\>
 

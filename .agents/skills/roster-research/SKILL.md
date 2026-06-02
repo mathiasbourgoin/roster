@@ -233,6 +233,7 @@ _Online research: enabled | disabled_
 - `path/to/file.ext:42` — <description>
 - `path/to/other.ext:17` — <description>
 
+---
 
 ## Question N: <question text>
 

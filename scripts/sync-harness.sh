@@ -146,7 +146,7 @@ has_frontmatter_name() {
     local file="$1"
     awk '
         BEGIN {in_fm=0; found=0}
-        /^---$/ {
+        /^---\r?$/ {
             if (in_fm) {
                 exit found ? 0 : 1
             }
@@ -160,9 +160,15 @@ has_frontmatter_name() {
 
 strip_frontmatter() {
     local file="$1"
+    # Consume ONLY the two frontmatter delimiters (the first two `---` lines). Body markdown
+    # horizontal rules (`---` after the closing delimiter) must survive into projections.
+    # If the file has NO frontmatter (line 1 is not `---`), emit it verbatim — never swallow
+    # a frontmatter-less file by waiting for a closing delimiter that never comes.
     awk '
-        BEGIN {seen=0}
-        /^---$/ {seen++; next}
+        BEGIN {seen=0; nofm=0}
+        NR==1 && $0 !~ /^---\r?$/ {nofm=1}
+        nofm {print; next}
+        seen < 2 && /^---\r?$/ {seen++; next}
         seen >= 2 {print}
     ' "$file"
 }
@@ -175,11 +181,11 @@ render_skill_source() {
     local adjusted
     adjusted="$(mktemp)"
 
-    if [ "$(head -n 1 "$src")" = "---" ]; then
+    if [ "$(head -n 1 "$src" | tr -d '\r')" = "---" ]; then
         if has_frontmatter_name "$src"; then
             awk -v name="$name" '
                 BEGIN {in_fm=0; replaced=0}
-                /^---$/ {
+                /^---\r?$/ {
                     print
                     if (!in_fm) {
                         in_fm=1
@@ -197,7 +203,7 @@ render_skill_source() {
             ' "$src" > "$adjusted"
         else
             awk -v name="$name" '
-                NR == 1 && $0 == "---" {
+                NR == 1 && $0 ~ /^---\r?$/ {
                     print
                     print "name: " name
                     next
@@ -218,9 +224,13 @@ render_skill_source() {
     mkdir -p "$(dirname "$dest")"
 
     if grep -q '^preamble: true' "$adjusted" && [ -n "$preamble" ] && [ -f "$preamble" ]; then
+        # Emit the frontmatter (through the closing delimiter), then the preamble, then the
+        # body. Both halves consume ONLY the two frontmatter delimiters so body markdown
+        # horizontal rules (`---`) survive — the body half reuses strip_frontmatter (single
+        # source of truth) rather than a parallel "strip every ---" awk.
         awk '
             {print}
-            /^---$/ {
+            /^---\r?$/ {
                 seen++
                 if (seen == 2) exit
             }
@@ -228,13 +238,7 @@ render_skill_source() {
         printf '\n' >> "$dest"
         cat "$preamble" >> "$dest"
         printf '\n' >> "$dest"
-        awk '
-            /^---$/ {
-                seen++
-                next
-            }
-            seen >= 2 {print}
-        ' "$adjusted" >> "$dest"
+        strip_frontmatter "$adjusted" >> "$dest"
     else
         cp "$adjusted" "$dest"
     fi

@@ -342,6 +342,7 @@ Ask user which definition is canonical. Update accordingly.
 Write `specs/<task-slug>.md`:
 
 ```markdown
+---
 name: roster-spec
 type: spec
 status: live
@@ -349,6 +350,7 @@ feature: <feature name from brief goal>
 brief: briefs/<task>-intake.md
 date: <ISO-8601>
 version: 1.0.0    # spec artifact version — not the roster-spec skill version
+---
 
 # Spec — <feature name>
 

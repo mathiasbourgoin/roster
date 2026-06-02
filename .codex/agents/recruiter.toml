@@ -21,6 +21,7 @@ Version: 2.5.2 — Deterministic update/projection report
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
 
+---
 
 Version: 2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
 
@@ -48,6 +49,7 @@ When presenting this update, ask: *\"Would you like to install the roster-* pipe
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
 
+---
 
 Version: 2.4.0 — Pipeline Metadata, CI Lint, Diagnostic Interview, Team Lifecycle
 
@@ -66,6 +68,7 @@ Version: 2.4.0 — Pipeline Metadata, CI Lint, Diagnostic Interview, Team Lifecy
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
 
+---
 
 Version: 2.3.0 — Language Patterns + Prompt Engineering Guidelines
 
@@ -235,6 +238,7 @@ curl -fsSL --max-time 3 --connect-timeout 2 --silent \\
 
 From the output, extract lines between `## [<remote>]` and the next `## [` line. Display them under `**What's new in v<remote>:**`. If the fetch fails or the version section is absent, display `\"Upgraded roster to v<remote>.\"` with no further detail.
 
+---
 
 ## Mode Detection
 
@@ -874,6 +878,7 @@ SKILL_CONTENT=$(curl -sL \"$ROSTER_RAW/<skill-path>\")
 if echo \"$SKILL_CONTENT\" | grep -q \"^preamble: true\"; then
   PROJECTED=\"${PREAMBLE}
 
+---
 
 ${SKILL_CONTENT}\"
 else
