@@ -59,14 +59,19 @@ if echo "$COMMAND" | grep -qiE '(DROP\s+TABLE|DROP\s+DATABASE|TRUNCATE)\b'; then
   exit 1
 fi
 
-# DELETE without a WHERE clause (removes all rows)
-if echo "$COMMAND" | grep -qiE 'DELETE\s+FROM\b' && ! echo "$COMMAND" | grep -qiE 'DELETE\s+FROM\b.*\bWHERE\b'; then
-  echo "BLOCKED: 'DELETE' without a WHERE clause removes all rows. Add a WHERE clause or confirm explicitly."
+# DELETE without a WHERE clause (removes all rows) — checked PER STATEMENT.
+# Flatten newlines, split on ';', count DELETE FROM statements that lack WHERE. A count
+# (not a `grep -q` pipeline) avoids the line-global ".*WHERE" bypass where one WHERE masks a
+# sibling full-table delete, and avoids -q/pipe exit-code surprises.
+DELETE_NO_WHERE=$(echo "$COMMAND" | tr '\n' ' ' | tr ';' '\n' | grep -iE 'DELETE[[:space:]]+FROM' | grep -ivcE 'WHERE')
+if [ "${DELETE_NO_WHERE:-0}" -gt 0 ]; then
+  echo "BLOCKED: a 'DELETE FROM' statement has no WHERE clause (removes all rows). Add WHERE or confirm explicitly."
   exit 1
 fi
 
-# git clean -f / --force (irreversibly deletes untracked files)
-if echo "$COMMAND" | grep -qE 'git\s+clean\b[^&|;]*(-[a-zA-Z]*f|--force)'; then
+# git clean -f / --force (irreversibly deletes untracked files). Allow global options
+# (e.g. 'git -C path clean -fd'); exempt dry-runs (-n / --dry-run, the suggested preview).
+if echo "$COMMAND" | grep -qE 'git\b[^&|;]*\bclean\b[^&|;]*(-[a-zA-Z]*f|--force)' && ! echo "$COMMAND" | grep -qE '\bclean\b[^&|;]*(-[a-zA-Z]*n|--dry-run)'; then
   echo "BLOCKED: 'git clean -f' permanently deletes untracked files. Preview with 'git clean -n' first, then confirm."
   exit 1
 fi
@@ -97,7 +102,7 @@ exit 0
         "hooks": [
           {
             "type": "command",
-            "command": "#!/bin/bash\nINPUT=$(cat -)\nCOMMAND=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty')\nif echo \"$COMMAND\" | grep -qE 'rm\\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\\s+(/|~|\\.)([\\s;|]|$)'; then\n  echo \"BLOCKED: rm -rf targeting /, ~, or . is not allowed.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE 'rm\\s+-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*\\s+(/|~|\\.)([\\s;|]|$)'; then\n  echo \"BLOCKED: rm -rf targeting /, ~, or . is not allowed.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE 'git\\s+push\\s+.*(-f|--force)' && echo \"$COMMAND\" | grep -qE '\\b(main|master)\\b'; then\n  echo \"BLOCKED: Force push to main/master is not allowed.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE 'git\\s+reset\\s+--hard'; then\n  echo \"BLOCKED: git reset --hard requires explicit user confirmation.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qiE '(DROP\\s+TABLE|DROP\\s+DATABASE|TRUNCATE)\\b'; then\n  echo \"BLOCKED: Destructive SQL detected.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qiE 'DELETE\\s+FROM\\b' && ! echo \"$COMMAND\" | grep -qiE 'DELETE\\s+FROM\\b.*\\bWHERE\\b'; then\n  echo \"BLOCKED: DELETE without WHERE removes all rows.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE 'git\\s+clean\\b[^&|;]*(-[a-zA-Z]*f|--force)'; then\n  echo \"BLOCKED: git clean -f deletes untracked files. Preview with git clean -n first.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE 'chmod\\s+777'; then\n  echo \"BLOCKED: chmod 777 is not allowed.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE '(curl|wget)\\s+.*\\|\\s*(ba)?sh'; then\n  echo \"BLOCKED: Piping remote content to shell is not allowed.\"\n  exit 1\nfi\nexit 0",
+            "command": "#!/bin/bash\nINPUT=$(cat -)\nCOMMAND=$(echo \"$INPUT\" | jq -r '.tool_input.command // empty')\nif echo \"$COMMAND\" | grep -qE 'rm\\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\\s+(/|~|\\.)([\\s;|]|$)'; then\n  echo \"BLOCKED: rm -rf targeting /, ~, or . is not allowed.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE 'rm\\s+-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*\\s+(/|~|\\.)([\\s;|]|$)'; then\n  echo \"BLOCKED: rm -rf targeting /, ~, or . is not allowed.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE 'git\\s+push\\s+.*(-f|--force)' && echo \"$COMMAND\" | grep -qE '\\b(main|master)\\b'; then\n  echo \"BLOCKED: Force push to main/master is not allowed.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE 'git\\s+reset\\s+--hard'; then\n  echo \"BLOCKED: git reset --hard requires explicit user confirmation.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qiE '(DROP\\s+TABLE|DROP\\s+DATABASE|TRUNCATE)\\b'; then\n  echo \"BLOCKED: Destructive SQL detected.\"\n  exit 1\nfi\nDELETE_NO_WHERE=$(echo \"$COMMAND\" | tr '\\n' ' ' | tr ';' '\\n' | grep -iE 'DELETE[[:space:]]+FROM' | grep -ivcE 'WHERE')\nif [ \"${DELETE_NO_WHERE:-0}\" -gt 0 ]; then\n  echo \"BLOCKED: a DELETE FROM statement has no WHERE clause (removes all rows).\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE 'git\\b[^&|;]*\\bclean\\b[^&|;]*(-[a-zA-Z]*f|--force)' && ! echo \"$COMMAND\" | grep -qE '\\bclean\\b[^&|;]*(-[a-zA-Z]*n|--dry-run)'; then\n  echo \"BLOCKED: git clean -f deletes untracked files. Preview with git clean -n first.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE 'chmod\\s+777'; then\n  echo \"BLOCKED: chmod 777 is not allowed.\"\n  exit 1\nfi\nif echo \"$COMMAND\" | grep -qE '(curl|wget)\\s+.*\\|\\s*(ba)?sh'; then\n  echo \"BLOCKED: Piping remote content to shell is not allowed.\"\n  exit 1\nfi\nexit 0",
             "description": "Block dangerous shell commands"
           }
         ]

@@ -29,12 +29,14 @@ steps:
 
   - test: "[ -f \"briefs/${TASK}-qa.md\" ] && grep -qE '^\\*?\\*?Status:\\*?\\*? *GO' \"briefs/${TASK}-qa.md\""
     on_true:
-      - log: "✓ qa is GO"
+      - log: "✓ qa is GO — review + qa both pass, clear to ship"
     on_false:
       - log: "BLOCKED: qa verdict is not GO (or qa brief missing) — do not ship"
       - run: "exit 1"
-
-  - log: "⏳ ship-gate: running pre-PR checks (npm test)..."
-  - run: "npm test"
-    on_error: stop
 ```
+
+> Note: this gate is intentionally **runtime-agnostic** — it does not run a test command.
+> The test/build/lint gates already ran in `roster-qa` (whose GO verdict this hook checks),
+> and hardcoding `npm test` here would both break non-Node projects and recursively re-enter
+> the hook runner. Per-project pre-PR commands belong in `roster-ship`'s `tunables.pre_pr_checks`,
+> executed by the skill, not in this deterministic artifact gate.

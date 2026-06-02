@@ -101,7 +101,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
 | gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
-## Skills (31)
+## Skills (32)
 
 ### Pipeline (14)
 | Skill | Version | Purpose |

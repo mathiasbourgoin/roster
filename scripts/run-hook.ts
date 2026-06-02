@@ -58,7 +58,14 @@ function execShell(cmd: string, timeoutMs: number): Promise<ExecResult> {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), timeoutMs);
 
-    execFile("sh", ["-c", cmd], { signal: ac.signal, timeout: timeoutMs }, (err, stdout, stderr) => {
+    // Do not leak the re-entrance guard into shell children. A `run:` step is a shell
+    // command, not a nested skill dispatch — if it (transitively) invokes the hook runner
+    // (e.g. `npm test` running run-hook.test.js), that nested run must execute normally,
+    // not short-circuit on ROSTER_HOOK_RUNNING.
+    const childEnv = { ...process.env };
+    delete childEnv.ROSTER_HOOK_RUNNING;
+
+    execFile("sh", ["-c", cmd], { signal: ac.signal, timeout: timeoutMs, env: childEnv }, (err, stdout, stderr) => {
       clearTimeout(timer);
       if (err) {
         const timedOut = (err as NodeJS.ErrnoException).code === "ABORT_ERR" || err.killed === true;

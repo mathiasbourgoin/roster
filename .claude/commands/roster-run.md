@@ -68,9 +68,8 @@ Before routing to a skill, check for skill hooks. Hooks are executed by you (the
    - Print: `Hook <hook-name> aborted at step <N> (on_error: stop) — skill dispatch cancelled. Hook output: <stdout>`
    - Do **not** dispatch the skill.
 5. If `on_error: warn` — log the failure and continue.
-6. If `on_error: skip` or `skip-step` — skip the current step, continue.
-7. If `on_error: retry:N` — retry up to N times before applying the next level default.
-8. If `on_error: ignore` — silently continue.
+6. If `on_error: skip` — suppress this step's failure and continue.
+7. If `on_error: ignore` — silently continue. (For a real retry loop use the dedicated `retry:` step type, not an `on_error` value.)
 
 ### Post-Hook Execution
 
