@@ -82,8 +82,13 @@ Before routing to a skill, check for skill hooks. Hooks are executed by you (the
 
 The hook executor (`scripts/run-hook.ts`, CLI: `node dist/scripts/run-hook.js <pre|post> <skill>`) enforces real execution for shell steps. Call it before routing for pre-hooks and after the skill completes for post-hooks.
 
+**Export `TASK=<task-slug>` when invoking** — pipeline hooks reference `${TASK}` to locate
+`briefs/<task>-*` artifacts (e.g. the spec/qa/ship gates). The runner inherits the
+environment, so set it on the same command; a hook that needs `$TASK` aborts with a clear
+message if it is unset.
+
 ```bash
-node dist/scripts/run-hook.js pre <skill-name>
+TASK=<task-slug> node dist/scripts/run-hook.js pre <skill-name>
 # exit 0=pass  1=abort (skip dispatch)  2=warn  3=pending_llm_steps  4=skip (no hook)
 ```
 

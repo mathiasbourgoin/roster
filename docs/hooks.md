@@ -531,7 +531,9 @@ These features require a binding mechanism that was not designed in time for v1.
 
 ```bash
 # CLI is: run-hook.js <pre|post> <skill-name>   (event + skill, NOT a file path)
-npm run build:ts && node dist/scripts/run-hook.js pre roster-spec
+# Export TASK=<task-slug> when the hook references ${TASK} (spec/qa/ship gates locate
+# briefs/<task>-* through it); the runner inherits the environment.
+npm run build:ts && TASK=my-feature node dist/scripts/run-hook.js pre roster-spec
 ```
 
 It returns the following exit codes, consumed by `roster-run` to decide whether to dispatch the skill.
