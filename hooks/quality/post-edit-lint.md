@@ -123,21 +123,7 @@ exit 0
 
 ## Installed As
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "#!/bin/bash\nINPUT=$(cat -)\nFILE=$(echo \"$INPUT\" | jq -r '.tool_input.file_path // .tool_result.path // empty')\nif [ -z \"$FILE\" ] || [ ! -f \"$FILE\" ]; then exit 0; fi\nDIR=$(dirname \"$FILE\")\nPROJECT_ROOT=\"$DIR\"\nwhile [ \"$PROJECT_ROOT\" != \"/\" ]; do\n  if [ -f \"$PROJECT_ROOT/package.json\" ] || [ -f \"$PROJECT_ROOT/pyproject.toml\" ] || [ -f \"$PROJECT_ROOT/Cargo.toml\" ] || [ -f \"$PROJECT_ROOT/dune-project\" ] || [ -f \"$PROJECT_ROOT/go.mod\" ] || [ -f \"$PROJECT_ROOT/.git/HEAD\" ]; then break; fi\n  PROJECT_ROOT=$(dirname \"$PROJECT_ROOT\")\ndone\ncd \"$PROJECT_ROOT\" 2>/dev/null || cd \"$DIR\"\nLINTER=\"\"\nLINT_CMD=\"\"\nfor cfg in .eslintrc .eslintrc.js .eslintrc.json .eslintrc.yml eslint.config.js eslint.config.mjs eslint.config.ts; do\n  if [ -f \"$PROJECT_ROOT/$cfg\" ]; then LINTER=\"eslint\"; LINT_CMD=\"npx eslint --no-warn-ignored \\\"$FILE\\\" 2>&1\"; break; fi\ndone\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/biome.json\" ]; then LINTER=\"biome\"; LINT_CMD=\"npx biome check \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/pyproject.toml\" ] && grep -q '\\[tool\\.ruff\\]' \"$PROJECT_ROOT/pyproject.toml\" 2>/dev/null; then LINTER=\"ruff\"; LINT_CMD=\"ruff check \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ] && ([ -f \"$PROJECT_ROOT/.flake8\" ] || ([ -f \"$PROJECT_ROOT/setup.cfg\" ] && grep -q '\\[flake8\\]' \"$PROJECT_ROOT/setup.cfg\" 2>/dev/null)); then LINTER=\"flake8\"; LINT_CMD=\"flake8 \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/.ocamlformat\" ]; then LINTER=\"dune fmt\"; LINT_CMD=\"dune fmt 2>&1\"; fi\nif [ -z \"$LINTER\" ] && ([ -f \"$PROJECT_ROOT/rustfmt.toml\" ] || [ -f \"$PROJECT_ROOT/.rustfmt.toml\" ] || [ -f \"$PROJECT_ROOT/Cargo.toml\" ]); then LINTER=\"cargo fmt + clippy\"; LINT_CMD=\"cargo fmt -- --check 2>&1 && cargo clippy --quiet -- -W warnings 2>&1\"; fi\nif [ -z \"$LINTER\" ] && [ -f \"$PROJECT_ROOT/.golangci.yml\" ]; then LINTER=\"golangci-lint\"; LINT_CMD=\"golangci-lint run \\\"$FILE\\\" 2>&1\"; fi\nif [ -z \"$LINTER\" ]; then exit 0; fi\necho \"--- post-edit-lint: running $LINTER ---\"\nOUTPUT=$(eval \"$LINT_CMD\" 2>&1)\nEXIT_CODE=$?\nif [ $EXIT_CODE -ne 0 ] && [ -n \"$OUTPUT\" ]; then echo \"$OUTPUT\" | head -30; echo \"--- $LINTER found issues (informational) ---\"; else echo \"--- $LINTER: clean ---\"; fi\nexit 0",
-            "description": "Auto-detect linter and run on edited files (informational)"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+The installed `settings.json` hook is **generated from the `## Command` block above** by
+`sync-harness.sh` (`build_hooks_json` → `extract_command_block`) — there is no second
+hand-maintained copy. The live result is written to `.claude/settings.local.json` under
+`hooks.PostToolUse` with `matcher: "Edit|Write"`.
