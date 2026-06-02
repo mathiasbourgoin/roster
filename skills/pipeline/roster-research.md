@@ -1,12 +1,14 @@
 ---
 name: roster-research
 description: Blind documentarian research — reads questions only, never the task. Produces file:line grounded research with optional online prior-art scan.
-version: 1.1.0
+version: 1.2.0
 domain: pipeline
 phase: research
 preamble: true
 friction_log: true
 allowed_tools: [Read, Write, Bash, Agent, Glob, Grep, WebFetch, WebSearch]
+disallowed_tools: [AskUserQuestion]
+isolation: fork
 human_gate: never
 tunables:
   depth: auto

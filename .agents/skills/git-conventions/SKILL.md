@@ -1,6 +1,7 @@
 ---
 name: git-conventions
 description: Apply git workflow conventions — commits, branches, PRs.
+when_to_use: "Use when committing, branching, or opening PRs to apply roster's git conventions. Trigger: 'commit this', 'open a PR'."
 version: 1.0.0
 ---
 

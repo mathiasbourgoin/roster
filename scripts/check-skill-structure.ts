@@ -23,6 +23,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import * as yaml from "js-yaml";
 
 const SKILLS_DIR = path.resolve(__dirname, "../../skills");
 const SKIP_FILES = new Set(["preamble.md"]);
@@ -97,6 +98,15 @@ function checkSkill(content: string): string[] {
   if (!fm) {
     errors.push("missing YAML frontmatter (expected --- ... --- block at top of file)");
     return errors; // remaining checks need frontmatter
+  }
+
+  // 1b. Frontmatter must be valid YAML. The other checks are regex-based and miss real YAML
+  // errors — e.g. an unquoted value containing ": " (a colon+space starts a nested mapping),
+  // which ships malformed frontmatter that strict runtime parsers reject.
+  try {
+    yaml.load(fm.body);
+  } catch (e) {
+    errors.push(`frontmatter is not valid YAML: ${(e as Error).message.split("\n")[0]}`);
   }
 
   // 2. name or description

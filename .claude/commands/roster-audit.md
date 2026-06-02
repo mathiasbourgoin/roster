@@ -1,6 +1,7 @@
 ---
 name: roster-audit
 description: Quality and compliance audit — combines code-quality and spec-compliance into one actionable report.
+when_to_use: "Use to assess existing code's quality + spec compliance with no specific change in flight. Trigger: 'audit this', 'is the code healthy'."
 version: 1.1.0
 domain: pipeline
 phase: null

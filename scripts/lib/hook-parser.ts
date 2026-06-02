@@ -120,6 +120,18 @@ export function parseHookFile(content: string): ParsedHook {
   if (!parsed?.steps || !Array.isArray(parsed.steps))
     throw new Error("steps: must be a non-empty array");
 
+  // Validate on_error against the values the executor actually implements. Reject malformed
+  // hooks at parse time (fail-closed) so an invalid value never silently passes a failing
+  // step at runtime — the linter checks this too, but run-hook must not trust that it ran.
+  const VALID_ON_ERROR = new Set(["stop", "warn", "skip", "ignore"]);
+  if (onError && !VALID_ON_ERROR.has(onError))
+    throw new Error(`Invalid frontmatter on_error "${onError}" — allowed: stop|warn|skip|ignore`);
+  parsed.steps.forEach((s, i) => {
+    const se = (s as unknown as Record<string, unknown>)["on_error"];
+    if (se != null && !VALID_ON_ERROR.has(String(se)))
+      throw new Error(`Invalid on_error "${String(se)}" in step ${i + 1} — allowed: stop|warn|skip|ignore`);
+  });
+
   return {
     frontmatter: { name, version, event, skill, ...(onError ? { on_error: onError } : {}) },
     steps: parsed.steps,

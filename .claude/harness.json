@@ -71,7 +71,7 @@
         "name": "planner",
         "source": "roster",
         "version": "1.2.0",
-        "role": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context \u2014 no research history.",
+        "role": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context — no research history.",
         "tunables": {}
       },
       {
@@ -127,6 +127,12 @@
         "source": "roster",
         "scope": "global",
         "category": "safety"
+      },
+      {
+        "name": "context-budget",
+        "source": "roster",
+        "scope": "global",
+        "category": "workflow"
       }
     ],
     "hooks": [

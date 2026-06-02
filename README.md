@@ -9,7 +9,7 @@ A pipeline framework for fast and correct software development with coordinated 
 
 Three principles:
 
-- **Platform constraint:** Claude Code and Codex do not support recursive agent spawning at runtime. Roster is designed around this: each skill invocation is a single-context operation, and multi-stage work requires the human to relay context between sessions. This is not a feature — it is an architectural reality we work within.
+- **Platform constraint:** Claude Code and Codex support only *bounded, single-level* subagent delegation at runtime — a skill or lead can spawn specialist sub-agents (Claude via the Task tool; Codex via `.codex/agents/*.toml`, explicit and depth-limited, `agents.max_depth` default 1), but those sub-agents cannot spawn further, and neither runtime offers unbounded recursive spawning. Roster is designed around this depth limit: orchestration is one level deep per skill, and deeper multi-stage work is relayed through artifacts and human gates between sessions. This is not a feature — it is an architectural reality we work within.
 - **The team is the unit, not the agent.** Adding an agent means wiring it into the pipeline: patching the lead, updating adjacent agents, validating the integration.
 - **Every plan needs a human who understood it.** A structured quiz runs before any execution batch begins. Passive approval is not validation.
 
@@ -58,6 +58,18 @@ After install: run `/recruit` (Claude / OpenCode) or `$recruit` (Codex) to assem
 ## The Pipeline
 
 Roster ships as a set of slash-command skills. `/roster-run` is the entry point — it detects context and routes to the right phase automatically.
+
+### Three modes
+
+`/roster-run` classifies every task into one of three depths before routing. Review is **always** mandatory — what changes is the upfront discovery and downstream documentation.
+
+| Mode | When | Pipeline |
+|------|------|----------|
+| **Express** | No spec/KB impact — typo, rename, formatting, config tweak, dependency bump, doc fix, pure refactor | implement → review → ship |
+| **Fast** | Quick change with possible spec/KB impact — bug fix, small behaviour change, missing case, perf fix | implement → review → qa → ship |
+| **Full** | New capability, API change, design trade-offs, or "spec it first" | question → research → intake → spec → plan → implement → review → qa → ship |
+
+The classifier infers the mode from the task, but you can **force one** with a flag — `/roster-run --full <task>` (or `--fast` / `--express`). An explicit `--full` always wins; an explicit `--express`/`--fast` is honoured unless the task would skip a mandatory phase (e.g. a new public API), in which case `/roster-run` asks before downgrading.
 
 | Skill | Phase | What it does |
 |-------|-------|--------------|

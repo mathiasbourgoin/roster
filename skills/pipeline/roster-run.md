@@ -1,7 +1,8 @@
 ---
 name: roster-run
 description: Pipeline entry point — detects context and routes to the right skill.
-version: 1.5.0
+when_to_use: "Default entry point for any task — classifies Express/Fast/Full and routes. Trigger: '/roster-run', 'work on X', or any task with no obvious phase."
+version: 1.6.0
 ---
 
 # Roster Run
@@ -67,9 +68,8 @@ Before routing to a skill, check for skill hooks. Hooks are executed by you (the
    - Print: `Hook <hook-name> aborted at step <N> (on_error: stop) — skill dispatch cancelled. Hook output: <stdout>`
    - Do **not** dispatch the skill.
 5. If `on_error: warn` — log the failure and continue.
-6. If `on_error: skip` or `skip-step` — skip the current step, continue.
-7. If `on_error: retry:N` — retry up to N times before applying the next level default.
-8. If `on_error: ignore` — silently continue.
+6. If `on_error: skip` — suppress this step's failure and continue.
+7. If `on_error: ignore` — silently continue. (For a real retry loop use the dedicated `retry:` step type, not an `on_error` value.)
 
 ### Post-Hook Execution
 
@@ -82,8 +82,13 @@ Before routing to a skill, check for skill hooks. Hooks are executed by you (the
 
 The hook executor (`scripts/run-hook.ts`, CLI: `node dist/scripts/run-hook.js <pre|post> <skill>`) enforces real execution for shell steps. Call it before routing for pre-hooks and after the skill completes for post-hooks.
 
+**Export `TASK=<task-slug>` when invoking** — pipeline hooks reference `${TASK}` to locate
+`briefs/<task>-*` artifacts (e.g. the spec/qa/ship gates). The runner inherits the
+environment, so set it on the same command; a hook that needs `$TASK` aborts with a clear
+message if it is unset.
+
 ```bash
-node dist/scripts/run-hook.js pre <skill-name>
+TASK=<task-slug> node dist/scripts/run-hook.js pre <skill-name>
 # exit 0=pass  1=abort (skip dispatch)  2=warn  3=pending_llm_steps  4=skip (no hook)
 ```
 
@@ -108,6 +113,14 @@ For steps the runner returns in `pending_llm_steps` (prompt:, loop:, parallel:),
 ## Routing
 
 **Step 1 — classify the task (Express / Fast / Full).** Do this before checking briefs/.
+
+**Explicit mode override.** If the task text contains a mode flag — `--express`, `--fast`, or
+`--full` — or an explicit instruction to force a mode ("do this full", "spec it first"),
+honor it verbatim and skip inference. Strip the flag from the task before routing. An explicit
+`--full` always wins even on a task that looks trivial; an explicit `--express`/`--fast` is
+honored **unless** classification detects a Full signal that would skip a mandatory phase (a
+new public API, an unspecced design decision) — in that case, surface the conflict and ask
+before downgrading. Otherwise infer the mode from the signals below.
 
 **Step 1.5 — environment readiness pre-flight (before any code/test work).**
 The moment you are about to route to a phase that builds, tests, or edits code

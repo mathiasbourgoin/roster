@@ -41,7 +41,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 ### Management (9)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| tech-lead | 1.9.0 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
+| tech-lead | 1.9.1 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
 | recruiter | 2.5.2 | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
 | governor | 2.1.0 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
@@ -101,25 +101,25 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
 | gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
-## Skills (31)
+## Skills (32)
 
 ### Pipeline (14)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.5.0 | Pipeline entry point — detects context and routes to the right skill |
+| roster-run | 1.6.0 | Pipeline entry point — detects context and routes to the right skill |
 | roster-init | 1.2.0 | Bootstrap a new project or onboard an existing project into the roster ecosystem |
 | roster-intake | 1.1.0 | Intake phase — transforms a task into a contractual brief validated by the human |
 | roster-spec | 2.0.0 | Adversarial spec phase — derives user stories with GWT scenarios, formalizes FR-NNN requirements |
 | roster-plan | 1.2.0 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
 | roster-implement | 1.4.0 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
-| roster-review | 1.3.0 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
-| roster-qa | 1.2.0 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
+| roster-review | 1.4.0 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
+| roster-qa | 1.3.1 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
 | roster-ship | 1.2.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
-| roster-investigate | 1.1.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
+| roster-investigate | 1.3.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
 | roster-audit | 1.1.0 | Quality and compliance audit — combines code-quality and spec-compliance into one actionable report |
 | roster-doctor | 1.0.0 | Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment is runnable before work starts |
 | roster-question | 1.0.0 | Decompose a task into neutral research questions — blind research prep, task intent not revealed |
-| roster-research | 1.1.0 | Blind documentarian research — reads questions only, produces file:line grounded research |
+| roster-research | 1.2.0 | Blind documentarian research — reads questions only, produces file:line grounded research |
 
 ### Meta (2)
 | Skill | Version | Purpose |
@@ -208,7 +208,7 @@ The **tech-lead** enforces the **Ralph Loop** during implementation:
 
 No agent provisions tools or creates skills without tech-lead approval.
 
-> **Platform constraint:** Claude Code and Codex do not support recursive agent spawning at runtime. Roster is designed around this: each skill invocation is a single-context operation, and multi-stage work requires the human to relay context between sessions. This is not a feature — it is an architectural reality we work within.
+> **Platform constraint:** Claude Code and Codex support only *bounded, single-level* subagent delegation at runtime — a skill or lead can spawn specialist sub-agents (Claude via the Task tool; Codex via `.codex/agents/*.toml`, explicit and depth-limited, `agents.max_depth` default 1), but those sub-agents cannot spawn further, and neither runtime offers unbounded recursive spawning. Roster is designed around this depth limit: orchestration is one level deep per skill, and deeper multi-stage work is relayed through artifacts and human gates between sessions. This is not a feature — it is an architectural reality we work within.
 
 When the installed harness changes, project-local agents should update canonical `.harness/` files first, then run `./scripts/sync-harness.sh <project-root>` to refresh Claude and Codex projections.
 

@@ -1,7 +1,7 @@
 ---
 name: roster-qa
 description: Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO.
-version: 1.2.0
+version: 1.3.1
 domain: pipeline
 phase: qa
 preamble: true
@@ -147,8 +147,10 @@ Run in order. Each gate must pass before the next.
 # Gate 2: Tests (full suite)
 <test command>
 
-# Gate 3: Format / Lint
-<format command>
+# Gate 3: Format / Lint — run the FULL linter here (the per-edit hook only fast-checks
+# formatting). For Rust this is where clippy belongs: cargo fmt -- --check && cargo clippy
+# -- -D warnings. Use the project's documented lint command.
+<format + full-lint command>
 
 # Gate 4: Project-specific tests (if documented in intake brief)
 <specific command>
@@ -199,6 +201,26 @@ Verify:
 ```bash
 tmux kill-session -t qa-check
 ```
+
+### 4.5 Cross-runtime QA re-verification (auto-on if a second runtime CLI is present)
+
+The runtime that implemented and reviewed should not be the only one verifying. Detect a
+**different** runtime CLI on `PATH`:
+
+```bash
+command -v codex >/dev/null 2>&1 && echo "codex available"
+command -v opencode >/dev/null 2>&1 && echo "opencode available"
+```
+
+If none is present (or the only one is the host runtime), **skip silently**. Otherwise shell
+out non-interactively (`codex exec` / `opencode run`, as in `skills/media/image-generation.md`)
+and have the second runtime **independently re-run the deterministic gates** (step 2's
+commands) and re-check the implementer's handoff claims — it does not see the primary QA
+result first. Record its outcome in the report under a `## Cross-runtime QA` section.
+
+**Block on discrepancy:** if the second runtime reports a gate FAIL or a disputed claim that
+the primary run passed (a CRITICAL/HIGH discrepancy), the verdict is **NO-GO** — a gate that
+only passes under one runtime is not a pass. Surface the exact divergence.
 
 ### 5. Write the QA report
 

@@ -2,9 +2,13 @@
 
 ## Prerequisites
 
-- Node 20 or later installed (`node --version` should print `v20.x.x` or higher)
-- TypeScript available globally or via npx (`npx tsc --version`)
-- Clone roster: `git clone https://github.com/your-org/roster && cd roster`
+This walkthrough drives roster's pipeline against the bundled fixture in this repo, so clone roster and open a Claude Code session in it:
+
+- A supported runtime session — Claude Code (`/recruit`), OpenCode, or Codex (`$recruit`)
+- `bash` ≥ 4, `jq`, and `git` (the runtime prerequisites — see the [README install table](../../README.md#install))
+- Clone roster: `git clone https://github.com/mathiasbourgoin/roster && cd roster`
+
+> Node 20+ and TypeScript are **not** needed to use roster or follow this walkthrough — they are build-only, required solely to rebuild the component index (`npm run build:index`) when adding or changing components.
 
 ## The Sample Project
 
