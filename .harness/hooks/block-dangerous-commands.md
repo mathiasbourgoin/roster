@@ -66,11 +66,13 @@ if echo "$COMMAND" | grep -qiE '(DROP[[:space:]]+TABLE|DROP[[:space:]]+DATABASE|
 fi
 
 # DELETE without a WHERE clause (removes all rows) — best-effort, PER STATEMENT.
-# Convert ';' to newlines and keep existing newlines (so each statement sits on its own
-# line, including heredoc/multi-line SQL), then count DELETE FROM lines lacking WHERE. The
-# count avoids the line-global ".*WHERE" masking bypass. Conservative: a bare "DELETE FROM"
-# in a commit message / grep also blocks (fail-safe — the documented best-effort trade-off).
-DELETE_NO_WHERE=$(echo "$COMMAND" | tr ';' '\n' | grep -iE 'DELETE[[:space:]]+FROM' | grep -ivcE 'WHERE')
+# Split on ';' (statement terminator) and flag any statement that has DELETE FROM but no
+# WHERE anywhere within it — WHERE may be on a following line, so the whole statement (incl.
+# newlines) is one awk record. Uppercased first for portable case-insensitivity (no gawk
+# IGNORECASE dependency). Conservative: a bare "DELETE FROM" in a commit message / grep also
+# blocks (fail-safe — the documented best-effort trade-off). Statements separated only by a
+# newline (no ';') are treated as one record — an accepted limitation of a regex guard.
+DELETE_NO_WHERE=$(printf '%s' "$COMMAND" | tr '[:lower:]' '[:upper:]' | awk 'BEGIN{RS=";"; c=0} /DELETE[[:space:]]+FROM/ && !/WHERE/ {c++} END{print c+0}')
 if [ "${DELETE_NO_WHERE:-0}" -gt 0 ]; then
   echo "BLOCKED: a 'DELETE FROM' statement has no WHERE clause (removes all rows). Add WHERE or confirm explicitly."
   exit 1
