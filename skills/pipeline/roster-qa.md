@@ -1,7 +1,7 @@
 ---
 name: roster-qa
 description: Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO.
-version: 1.3.0
+version: 1.3.1
 domain: pipeline
 phase: qa
 preamble: true
@@ -65,8 +65,10 @@ Run in order. Each gate must pass before the next.
 # Gate 2: Tests (full suite)
 <test command>
 
-# Gate 3: Format / Lint
-<format command>
+# Gate 3: Format / Lint — run the FULL linter here (the per-edit hook only fast-checks
+# formatting). For Rust this is where clippy belongs: cargo fmt -- --check && cargo clippy
+# -- -D warnings. Use the project's documented lint command.
+<format + full-lint command>
 
 # Gate 4: Project-specific tests (if documented in intake brief)
 <specific command>

@@ -21,7 +21,7 @@ Runs after every Edit or Write tool call. Detects the project's linter by checki
 | `pyproject.toml` (with `[tool.ruff]`) | Ruff | `ruff check <file>` |
 | `pyproject.toml` / `setup.cfg` (with flake8) | Flake8 | `flake8 <file>` |
 | `.ocamlformat` | OCaml fmt | `dune fmt 2>&1` |
-| `Cargo.toml` / `rustfmt.toml` | Rust (fmt + clippy) | `cargo fmt -- --check && cargo clippy --quiet -- -W warnings` |
+| `Cargo.toml` / `rustfmt.toml` | Rust fmt (clippy runs at QA, not per-edit) | `cargo fmt -- --check` |
 | `.golangci.yml` | golangci-lint | `golangci-lint run <file>` |
 | `biome.json` | Biome | `npx biome check <file>` |
 
@@ -90,10 +90,12 @@ if [ -z "$LINTER" ] && [ -f "$PROJECT_ROOT/.ocamlformat" ]; then
   LINT_CMD="dune fmt 2>&1"
 fi
 
-# Rust — fmt + clippy
+# Rust — fast format check only (clippy runs at QA, see roster-qa)
 if [ -z "$LINTER" ] && ([ -f "$PROJECT_ROOT/rustfmt.toml" ] || [ -f "$PROJECT_ROOT/.rustfmt.toml" ] || [ -f "$PROJECT_ROOT/Cargo.toml" ]); then
-  LINTER="cargo fmt + clippy"
-  LINT_CMD="cargo fmt -- --check 2>&1 && cargo clippy --quiet -- -W warnings 2>&1"
+  # Fast per-edit format check only. Clippy compiles the whole crate, so it runs at QA
+  # time (see roster-qa's lint gate), not synchronously on every keystroke.
+  LINTER="cargo fmt"
+  LINT_CMD="cargo fmt -- --check 2>&1"
 fi
 
 # Go
