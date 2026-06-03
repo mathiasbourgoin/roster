@@ -1,0 +1,15 @@
+{
+  "id": "reservations-v3",
+  "title": "Room reservations — interval-overlap correctness",
+  "contract_transport": "http-json",
+  "run_contract": "The produced project MUST include an executable `start.sh` at the repo root that launches the service IN THE FOREGROUND on the port from the PORT env var (PORT=0 = any free port), binds 127.0.0.1, and prints exactly `LISTENING <port>` once bound. HTTP with JSON bodies. The agent sees the per-stage prose + this contract only — never the conformance suite or invariant check.",
+  "named_invariant": {
+    "id": "no-overlap",
+    "statement": "On any room, no two ACTIVE reservations overlap. Intervals are half-open [start,end): two intervals [a,b) and [c,d) overlap iff a < d AND c < b (adjacent intervals sharing an endpoint do NOT overlap). Cancelled reservations free their interval.",
+    "stressed_in": "S1"
+  },
+  "notes": "Rung 3 of the discriminator hunt: interval-overlap is a classic source of subtle boundary bugs (<= vs <). A one-shot impl frequently mishandles adjacency or containment; the arm that writes+runs tests should catch it.",
+  "stages": [
+    { "id": "S1", "prompt": "stages/S1.md", "conformance": "conformance/s1.mjs", "invariant": "invariant/s1-invariant.mjs" }
+  ]
+}

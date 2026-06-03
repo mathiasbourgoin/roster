@@ -1,0 +1,18 @@
+{
+  "id": "ledger-service",
+  "title": "Ledger HTTP service (4-stage, compounding)",
+  "contract_transport": "http-json",
+  "run_contract": "The produced project MUST include an executable `start.sh` at the repo root that launches the service IN THE FOREGROUND on the port given by the PORT env var (PORT=0 means pick any free port), binds 127.0.0.1, and prints exactly `LISTENING <port>` to stdout once bound. The runner detects readiness and the assigned port from that line. The runner talks to the project ONLY over HTTP/JSON — no source is read. The agent (any arm) is shown this contract and the per-stage prose; it is NEVER shown the conformance suites or the invariant check.",
+  "named_invariant": {
+    "id": "balance-conservation",
+    "statement": "Transfers conserve the sum of all account balances (no money is created or destroyed) and no account balance is ever negative. A transfer that would violate either rule must fail atomically, leaving both accounts unchanged.",
+    "stressed_in": "S4"
+  },
+  "notes": "Stages compound: S3 (withdraw) mirrors S2 (deposit) and rewards a good S2 abstraction; S4 (transfer) is the error-prone change that stresses the invariant via atomicity + non-negativity. Conformance suites are CUMULATIVE — each stage's suite includes all prior stages' tests, so a later stage breaking an earlier contract surfaces as a cross-stage regression.",
+  "stages": [
+    { "id": "S1", "prompt": "stages/S1.md", "conformance": "conformance/s1.mjs" },
+    { "id": "S2", "prompt": "stages/S2.md", "conformance": "conformance/s2.mjs" },
+    { "id": "S3", "prompt": "stages/S3.md", "conformance": "conformance/s3.mjs" },
+    { "id": "S4", "prompt": "stages/S4.md", "conformance": "conformance/s4.mjs", "invariant": "invariant/s4-invariant.mjs" }
+  ]
+}

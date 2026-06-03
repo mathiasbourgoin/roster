@@ -1,0 +1,10 @@
+
+let normalize values =
+  match values with
+  | [] -> []
+  | _ ->
+    let lo = List.fold_left min Float.infinity values in
+    let hi = List.fold_left max Float.neg_infinity values in
+    let range = hi -. lo in
+    if range = 0. then List.map (fun _ -> 0.) values
+    else List.map (fun x -> (x -. lo) /. range) values

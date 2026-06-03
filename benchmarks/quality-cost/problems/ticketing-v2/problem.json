@@ -1,0 +1,15 @@
+{
+  "id": "ticketing-v2",
+  "title": "Ticketing service — interacting state machine + concurrency",
+  "contract_transport": "http-json",
+  "run_contract": "The produced project MUST include an executable `start.sh` at the repo root that launches the service IN THE FOREGROUND on the port from the PORT env var (PORT=0 = any free port), binds 127.0.0.1, and prints exactly `LISTENING <port>` once bound. HTTP with JSON bodies. The agent is shown the per-stage prose + this contract only — never the conformance suite or invariant check.",
+  "named_invariant": {
+    "id": "capacity-safety",
+    "statement": "For every event: held >= 0, confirmed >= 0, held + confirmed <= capacity, and available == capacity - held - confirmed >= 0 at all times. Hold state transitions are exactly held -> confirmed (terminal) or held -> cancelled (terminal); confirm/cancel are idempotent within the same terminal state and rejected across states. Under concurrent hold requests that together exceed capacity, the service must NEVER oversell (the sum of accepted held+confirmed seats stays <= capacity).",
+    "stressed_in": "S1"
+  },
+  "notes": "Probe stage for the discriminator hunt: a single rich stage with many interacting rules + a concurrent oversell burst. Expand to multiple stages only if it discriminates.",
+  "stages": [
+    { "id": "S1", "prompt": "stages/S1.md", "conformance": "conformance/s1.mjs", "invariant": "invariant/s1-invariant.mjs" }
+  ]
+}

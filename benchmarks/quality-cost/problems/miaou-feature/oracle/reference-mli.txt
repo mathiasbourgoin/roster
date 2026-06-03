@@ -1,0 +1,8 @@
+
+(** Normalize a list of floats to the [0., 1.] range using min-max scaling.
+    Each value [x] maps to [(x -. lo) /. (hi -. lo)] where [lo] and [hi] are the
+    minimum and maximum of the list.
+    - the empty list maps to the empty list
+    - if all values are equal ([hi = lo]), every value maps to [0.]
+    Order and length are preserved. *)
+val normalize : float list -> float list

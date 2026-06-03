@@ -1,0 +1,18 @@
+{
+  "id": "tracker-v4",
+  "title": "Task tracker — scale + compounding cross-cutting refactor + underspecified pagination",
+  "contract_transport": "http-json",
+  "run_contract": "The produced project MUST include an executable `start.sh` at the repo root that launches the service IN THE FOREGROUND on the port from the PORT env var (PORT=0 = any free port), binds 127.0.0.1, and prints exactly `LISTENING <port>` once bound. HTTP with JSON bodies. The agent sees the per-stage prose + this contract only — never the conformance suite or invariant check.",
+  "named_invariant": {
+    "id": "version-monotonic-and-idempotent",
+    "statement": "Each task's version is an integer that starts at 1 and increases by exactly 1 on every successful status change (never skips, never decreases). Repeating a create with the same Idempotency-Key never creates a duplicate task. Adding versioning/idempotency must NOT break any earlier-stage behavior (backward compatible).",
+    "stressed_in": "S4"
+  },
+  "notes": "Rung 4 of the discriminator hunt (compounding + scale + underspecification). S3 is deliberately under-specified (pagination defaults/edges); the hidden suite tests the edge cases a careful engineer infers. S4 is a BACKWARD-COMPATIBLE cross-cutting refactor touching create + status; the cumulative suite re-runs S1-S3 so a refactor that breaks earlier contracts shows as cross-stage regression.",
+  "stages": [
+    { "id": "S1", "prompt": "stages/S1.md", "conformance": "conformance/s1.mjs" },
+    { "id": "S2", "prompt": "stages/S2.md", "conformance": "conformance/s2.mjs" },
+    { "id": "S3", "prompt": "stages/S3.md", "conformance": "conformance/s3.mjs" },
+    { "id": "S4", "prompt": "stages/S4.md", "conformance": "conformance/s4.mjs", "invariant": "invariant/s4-invariant.mjs" }
+  ]
+}

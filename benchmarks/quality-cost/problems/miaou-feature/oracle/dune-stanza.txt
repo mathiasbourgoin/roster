@@ -1,0 +1,5 @@
+
+(test
+ (name test_chart_utils_normalize)
+ (modules test_chart_utils_normalize)
+ (libraries alcotest miaou-core.widgets.display))
