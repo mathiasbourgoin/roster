@@ -58,7 +58,14 @@ function execShell(cmd: string, timeoutMs: number): Promise<ExecResult> {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), timeoutMs);
 
-    execFile("sh", ["-c", cmd], { signal: ac.signal, timeout: timeoutMs }, (err, stdout, stderr) => {
+    // Do not leak the re-entrance guard into shell children. A `run:` step is a shell
+    // command, not a nested skill dispatch — if it (transitively) invokes the hook runner
+    // (e.g. `npm test` running run-hook.test.js), that nested run must execute normally,
+    // not short-circuit on ROSTER_HOOK_RUNNING.
+    const childEnv = { ...process.env };
+    delete childEnv.ROSTER_HOOK_RUNNING;
+
+    execFile("sh", ["-c", cmd], { signal: ac.signal, timeout: timeoutMs, env: childEnv }, (err, stdout, stderr) => {
       clearTimeout(timer);
       if (err) {
         const timedOut = (err as NodeJS.ErrnoException).code === "ABORT_ERR" || err.killed === true;
@@ -85,11 +92,13 @@ class HookExecutor {
   private stepsRun = 0;
   private pendingLlm: Step[] = [];
   private warnTriggered = false;
+  private hookOnError?: OnError;
 
-  constructor(steps: Step[], event: "pre" | "post", skill: string) {
+  constructor(steps: Step[], event: "pre" | "post", skill: string, hookOnError?: OnError) {
     this.steps = steps;
     this.event = event;
     this.skill = skill;
+    this.hookOnError = hookOnError;
   }
 
   private emit(msg: string): void {
@@ -98,7 +107,9 @@ class HookExecutor {
   }
 
   private defaultOnError(): OnError {
-    return this.event === "pre" ? "stop" : "warn";
+    // Hook-level frontmatter on_error is the default for every step; fall back to the
+    // event default (pre→stop, post→warn) only when the hook declares none.
+    return this.hookOnError ?? (this.event === "pre" ? "stop" : "warn");
   }
 
   private resolveOnError(step: Step): OnError {
@@ -298,6 +309,11 @@ class HookExecutor {
         return null;
       case "ignore":
         return null;
+      default:
+        // Unknown on_error (e.g. a stale/invalid value the parser somehow let through):
+        // fail CLOSED — never silently pass a failing step.
+        this.emit(`[error] abort: ${reason} (unknown on_error "${String(onError)}" — failing closed)`);
+        return "abort";
     }
   }
 
@@ -371,7 +387,7 @@ export async function runHook(opts: RunHookOptions): Promise<HookResult> {
   }
 
   const parsed = parseHookFile(content);
-  const executor = new HookExecutor(parsed.steps, event, skill);
+  const executor = new HookExecutor(parsed.steps, event, skill, parsed.frontmatter.on_error);
 
   process.env.ROSTER_HOOK_RUNNING = "1";
   try {

@@ -1,5 +1,5 @@
 ---
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Hook Definition Schema
@@ -150,7 +150,7 @@ name: <kebab-case>       # Unique identifier
 version: <semver>        # e.g., 1.0.0
 event: pre | post        # Hook phase
 skill: <skill-name>      # Target skill name (matches name: frontmatter field of the skill file)
-on_error: stop | warn | skip | skip-step | retry:N | ignore  # Hook-level default behavior
+on_error: stop | warn | skip | ignore  # Hook-level default behavior (retry is a dedicated step type, not an on_error value)
 ```
 
 **Optional:**
