@@ -1,7 +1,8 @@
 ---
 name: roster-init
 description: Bootstrap a new project or onboard an existing project into the roster ecosystem.
-version: 1.2.0
+when_to_use: "Use when starting a new project or onboarding an existing one into roster — bootstraps harness, KB, and pipeline. Trigger: 'set up roster here', greenfield/onboard."
+version: 1.2.1
 domain: pipeline
 phase: null
 preamble: true

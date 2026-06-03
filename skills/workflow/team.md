@@ -1,7 +1,8 @@
 ---
 name: team
 description: Manage the installed agent team — build (apply proposal), review (audit gaps), or run (execute a task through the pipeline).
-version: 1.0.0
+when_to_use: "Use to manage the installed agent team — build/review/run. Trigger: '/team', 'audit my team', 'apply the team proposal', 'run the team on X'."
+version: 1.0.1
 domain: workflow
 phase: null
 preamble: true

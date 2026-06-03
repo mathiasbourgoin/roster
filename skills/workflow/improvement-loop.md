@@ -1,7 +1,8 @@
 ---
 name: improvement-loop
 description: Run a bounded verification-first improvement loop from an approved loop spec.
-version: 1.1.0
+when_to_use: "Use to run a bounded, verification-first improvement loop from an approved loop spec. Trigger: 'run the improvement loop', execute an approved loop."
+version: 1.1.1
 domain: workflow
 phase: null
 preamble: true
