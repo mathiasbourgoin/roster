@@ -2,12 +2,15 @@
 // check-pipeline-install.js — CommonJS
 // Guards the install-path invariants that are otherwise only exercised by live LLM-prose
 // flows (the recruiter installing skills, Codex loading agent TOMLs) — the kind of drift
-// that silently broke the documented happy path before. Two checks:
+// that silently broke the documented happy path before. Four checks:
 //   1. The recruiter's "Skills to install" list is in EXACT sync with skills/pipeline +
 //      skills/meta on disk — no skill that exists would be skipped (drift), and no listed
 //      path is missing on disk (broken fetch at install time).
 //   2. Every roster-managed .codex/agents/*.toml carries the marker + the three required
 //      Codex custom-agent fields (name / description / developer_instructions).
+//   3. The .claude-plugin marketplace + plugin manifests are present and valid.
+//   4. The durable-state LEDGER_SCHEMA jq predicate is byte-identical in roster-run (resume)
+//      and roster-doctor (status) — so the two never disagree on which ledgers are valid.
 // Exits 0 if clean, 1 on any mismatch.
 //
 // Usage: node scripts/check-pipeline-install.js
@@ -128,6 +131,38 @@ if (fs.existsSync(marketplace)) {
   }
 } else {
   console.log("✓ pipeline-install: no .claude-plugin/marketplace.json — skipping plugin-manifest check.");
+}
+
+// ── Check 4: the durable-state LEDGER_SCHEMA jq predicate is identical in run + doctor ──
+// roster-run Step 1.4 (resume gate) and roster-doctor `status` mode must validate the ledger
+// with the EXACT same predicate, else a ledger one accepts the other rejects. The predicate is
+// LLM-prose bash (`LEDGER_SCHEMA='…'`), so guard byte-identity deterministically here.
+const extractSchema = (file) => {
+  const p = path.resolve(root, file);
+  if (!fs.existsSync(p)) return null;
+  // Capture the single-quoted heredoc value: LEDGER_SCHEMA='<...>'. No .trim() — the comparison
+  // is literal byte-identity (the schema body has no embedded single quote to truncate on).
+  const m = fs.readFileSync(p, "utf8").match(/LEDGER_SCHEMA='([\s\S]*?)'\n/);
+  return m ? m[1] : undefined; // undefined = marker missing
+};
+const runSchema = extractSchema("skills/pipeline/roster-run.md");
+const docSchema = extractSchema("skills/pipeline/roster-doctor.md");
+if (runSchema === null || docSchema === null) {
+  console.log("✓ pipeline-install: roster-run/roster-doctor source absent — skipping ledger-schema sync check.");
+} else if (runSchema === undefined || docSchema === undefined) {
+  errors.push(
+    "ledger-schema: LEDGER_SCHEMA block not found in " +
+      (runSchema === undefined ? "skills/pipeline/roster-run.md " : "") +
+      (docSchema === undefined ? "skills/pipeline/roster-doctor.md" : "")
+  );
+} else if (runSchema !== docSchema) {
+  errors.push(
+    "ledger-schema: the LEDGER_SCHEMA jq predicate differs between roster-run.md (Step 1.4) and " +
+      "roster-doctor.md (status mode). They must be byte-identical so resume and status agree on which " +
+      "ledgers are valid."
+  );
+} else {
+  console.log("✓ pipeline-install: durable-state LEDGER_SCHEMA is identical in roster-run + roster-doctor.");
 }
 
 if (errors.length) {

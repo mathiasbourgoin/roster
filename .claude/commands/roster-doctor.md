@@ -2,7 +2,7 @@
 name: roster-doctor
 description: Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment (build/test/lint/format) is actually runnable before work starts.
 when_to_use: "Use to check install health or as a pre-flight before work — tools, pipeline skills, projection drift, and whether build/test/lint actually run. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.0.0
+version: 1.1.0
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -12,13 +12,13 @@ friction_log: true
 human_gate: none
 pipeline_role:
   triggered_by: "user (/roster-doctor) or roster-run pre-flight before an implementation phase"
-  receives: "optional mode arg — full (default) | preflight (dev-env readiness only)"
-  produces: "a health report + READY/NOT-READY verdict; on NOT-READY, an install/configure escalation"
+  receives: "optional mode arg — full (default) | preflight (dev-env readiness only) | status [<task>] (pipeline timeline)"
+  produces: "a health report + READY/NOT-READY verdict; on NOT-READY, an install/configure escalation; or a per-task pipeline timeline in status mode"
 ---
 
 ---
 name: roster-preamble
-version: 1.4.0
+version: 1.5.0
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -97,6 +97,49 @@ At the end of each run, honestly record:
 This is not a performance review. It is cross-run memory.
 Format: see `skills-meta/friction.jsonl`.
 
+### Pipeline State
+
+If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
+pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
+event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
+`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
+is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
+context. Create the file if absent; preserve every prior `events` entry:
+
+```json
+{
+  "task": "<slug>",
+  "mode": "express|fast|full",
+  "current_phase": "implement",
+  "events": [
+    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
+  ]
+}
+```
+
+Rules for writing your event:
+
+- **`task` is the canonical slug**, derived once from the task description and reused identically
+  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
+  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
+  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
+  ledger will not be found. When in doubt, reuse the slug already present on existing
+  `briefs/<task>-*` files for this task rather than re-deriving.
+- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
+  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
+  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
+- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
+  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
+  `ship`: `COMPLETED`; `question`/`research`/`plan`/`implement`: `COMPLETED`. Do not invent other
+  values.
+- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
+  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
+  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
+- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
+  skill name (or `human-gate` for a gate decision).
+
 
 # Roster Doctor
 
@@ -111,8 +154,9 @@ exact remediation and, only with explicit consent, help install or configure it.
 |---|---|---|
 | `/roster-doctor` (full, default) | Section 1 + Section 2 + report | Human, on demand |
 | `/roster-doctor preflight` | Section 2 only → `READY` / `NOT-READY` verdict | `roster-run` before an implementation phase |
+| `/roster-doctor status [<task>]` | Section 4 only → pipeline progress timeline | Human, to see where a task stands |
 
-Read the argument: if it is `preflight`, skip Section 1.
+Read the argument: `preflight` runs Section 2 only; `status` runs Section 4 only; otherwise run the full check (Sections 1 + 2).
 
 ## Steps
 
@@ -194,10 +238,86 @@ modify environment config without consent — this is an escalation trigger.
 In **preflight** mode, return the single-line verdict to the caller and do not print the full
 report: `READY` or `NOT-READY: <comma-separated reasons>`.
 
+### 4. Pipeline status (status mode only)
+
+Render the durable, append-only state ledger each pipeline phase writes (see the preamble's
+*Pipeline State* section). This is read-only — it never writes or repairs the ledger.
+
+**Select the ledger(s).** If a task was named, target only its ledger; otherwise list all:
+
+```bash
+if [ -n "<task>" ]; then
+  [ -f "briefs/<task>-state.json" ] && echo "briefs/<task>-state.json" \
+    || echo "no ledger for <task> — it has not started, or predates state tracking (inspect briefs/<task>-* directly)"
+else
+  ls briefs/*-state.json 2>/dev/null || echo "no pipeline state recorded"
+fi
+```
+
+For each selected ledger, print the timeline in **recorded (append) order** — the order phases
+actually completed, which for a re-run after a NO-GO is e.g. `implement, review, implement,
+review` and is itself informative:
+
+Validate each ledger against the **byte-identical schema gate roster-run's Step 1.4 uses** (not
+just a JSON parse), so `status` flags exactly the ledgers a resume would reject — a
+valid-JSON-but-malformed ledger (empty `events`, bad `mode`, slug/`current_phase` mismatch,
+`current_phase` not in the mode's sequence, or an illegal last-event outcome) is a finding, not a
+clean render. The expected slug is the file's own basename (`briefs/<slug>-state.json`):
+
+```bash
+# LEDGER_SCHEMA is the SAME predicate as roster-run Step 1.4 — keep the two copies identical.
+LEDGER_SCHEMA='
+  {express:["implement","review","ship"],
+   fast:["implement","review","qa","ship"],
+   full:["question","research","intake","spec","plan","implement","review","qa","ship"]} as $seq
+  | {intake:["VALIDATED"],spec:["VALIDATED","SKIPPED","BOUNCED"],
+     review:["GO","NO-GO"],qa:["GO","NO-GO"],ship:["COMPLETED"],
+     question:["COMPLETED"],research:["COMPLETED"],plan:["COMPLETED"],implement:["COMPLETED"]} as $vocab
+  | .current_phase as $cp | .mode as $m | (.events[-1]) as $last
+  | (.task == $t)
+    and ($seq[$m] != null)
+    and ($cp|type=="string")
+    and (.events|type=="array") and ((.events|length)>0)
+    and ($last.phase == $cp)
+    and (($seq[$m]|index($cp)) != null)
+    and (($vocab[$last.phase] // []) | index($last.outcome) != null)
+'
+for f in <selected ledgers>; do
+  # The expected slug is the file's own basename (status scans whatever ledgers exist, so it
+  # derives `$t` from the filename — unlike roster-run, which knows the task slug from its arg).
+  slug="${f#briefs/}"; slug="${slug%-state.json}"
+  if jq -e --arg t "$slug" "$LEDGER_SCHEMA" "$f" >/dev/null 2>&1; then
+    jq -r '
+      "Task: \(.task)  [\(.mode) mode]  — last completed: \(.current_phase)",
+      (.events[] | "  \(.phase): \(.outcome)\(if .at then "  (\(.at))" else "" end)\(if .by then "  ·\(.by)" else "" end)")
+    ' "$f"
+  else
+    echo "  ⚠ $f is invalid JSON or fails the ledger schema — corrupt; report it, do not rewrite it. Skipping next-phase computation."
+  fi
+done
+```
+
+Compute the next phase (below) only for ledgers that passed the schema gate.
+
+Then state the **next phase** roster-run would resume into, computed from `current_phase` **in
+the recorded `mode`'s sequence** (express: implement→review→ship; fast: implement→review→qa→ship;
+full: question→research→intake→spec→plan→implement→review→qa→ship):
+
+- If `current_phase` is the last in its mode's sequence (`ship`), print `next: complete`.
+- If `current_phase` is an outcome-bearing phase (`intake`/`spec`/`review`/`qa`), note that the
+  actual route is verdict-dependent (read the brief's VALIDATED/SKIPPED/BOUNCED or GO/NO-GO) —
+  don't assert a positional successor.
+- Otherwise print the positional successor in that mode's sequence.
+
+A malformed ledger is reported as a finding (above) — never crash, never rewrite it; a corrupt
+ledger is something the human resolves.
+
 ## Output Contract
 
-A health report (full mode) or a one-line `READY` / `NOT-READY: …` verdict (preflight mode).
-No source files modified. Tool installation happens only after explicit human approval.
+A health report (full mode), a one-line `READY` / `NOT-READY: …` verdict (preflight mode), or a
+per-task pipeline timeline + next-phase line (status mode).
+No source files modified — including the state ledger, which is read-only here.
+Tool installation happens only after explicit human approval.
 
 ## When to Go Back
 

@@ -2,7 +2,7 @@
 name: roster-run
 description: Pipeline entry point — detects context and routes to the right skill.
 when_to_use: "Default entry point for any task — classifies Express/Fast/Full and routes. Trigger: '/roster-run', 'work on X', or any task with no obvious phase."
-version: 1.6.0
+version: 1.7.0
 ---
 
 # Roster Run
@@ -122,6 +122,94 @@ honored **unless** classification detects a Full signal that would skip a mandat
 new public API, an unspecced design decision) — in that case, surface the conflict and ask
 before downgrading. Otherwise infer the mode from the signals below.
 
+**Step 1.4 — resume from durable state (all modes, before per-mode routing).**
+If this task has already run one or more phases, the append-only ledger `briefs/<task>-state.json`
+is the authoritative position — read it **here**, before the per-mode routing below, so Express
+and Fast tasks resume too (not only Full). Split existence from parse-and-schema validity so a
+corrupt or malformed ledger never silently degrades to a stale resume:
+
+```bash
+# Canonical ledger-schema gate — IDENTICAL in roster-doctor `status` mode. Keep them in sync.
+LEDGER_SCHEMA='
+  {express:["implement","review","ship"],
+   fast:["implement","review","qa","ship"],
+   full:["question","research","intake","spec","plan","implement","review","qa","ship"]} as $seq
+  | {intake:["VALIDATED"],spec:["VALIDATED","SKIPPED","BOUNCED"],
+     review:["GO","NO-GO"],qa:["GO","NO-GO"],ship:["COMPLETED"],
+     question:["COMPLETED"],research:["COMPLETED"],plan:["COMPLETED"],implement:["COMPLETED"]} as $vocab
+  | .current_phase as $cp | .mode as $m | (.events[-1]) as $last
+  | (.task == $t)
+    and ($seq[$m] != null)
+    and ($cp|type=="string")
+    and (.events|type=="array") and ((.events|length)>0)
+    and ($last.phase == $cp)
+    and (($seq[$m]|index($cp)) != null)
+    and (($vocab[$last.phase] // []) | index($last.outcome) != null)
+'
+if [ -f briefs/<task>-state.json ]; then
+  if jq -e --arg t "<task>" "$LEDGER_SCHEMA" briefs/<task>-state.json >/dev/null 2>&1; then
+    jq -r '"phase=\(.current_phase) mode=\(.mode)"' briefs/<task>-state.json
+  else
+    echo "CORRUPT: briefs/<task>-state.json is invalid JSON or fails the ledger schema"
+  fi
+else
+  echo "no state"
+fi
+```
+
+The `jq` gate validates the **complete** ledger schema in one predicate: valid JSON; `.task`
+equals this task's slug (a copied/misnamed ledger must not authoritatively resume another task);
+`.mode ∈ {express,fast,full}`; `.current_phase` is a string **and a member of that mode's
+sequence** (an express ledger claiming `spec` is corrupt, not resumable); `.events` is a non-empty
+array; the last event's `phase` equals `current_phase`; and the last event's `outcome` is legal
+for its phase per the preamble vocabulary (a `ship`/`NO-GO` ledger is corrupt). Nothing downstream
+re-checks membership — the gate is authoritative.
+
+- **`CORRUPT`** → **stop.** Do not fall back to brief-file detection or classification — the
+  authoritative position is untrustworthy. Report it; tell the user to run
+  `/roster-doctor status <task>` or repair/delete the ledger. Resuming from stale briefs risks
+  re-running or skipping a phase.
+- **`no state`** → fresh task (or one predating state tracking). Skip this step; use the Step 1
+  classification and route per the per-mode rules below (Full uses the Detection brief-file table).
+- **A `phase=… mode=…` line** → **resume.** The recorded `mode` is authoritative — it overrides
+  Step 1 classification (the task already committed to a mode):
+  - **express:** `implement → review → ship`
+  - **fast:** `implement → review → qa → ship`
+  - **full:** `question → research → intake → spec → plan → implement → review → qa → ship`
+
+  (Membership of `current_phase` in this sequence is already enforced by the schema gate above —
+  a ledger that fails it never reaches here; it was reported `CORRUPT` and stopped.)
+
+  **If the user passed an explicit `--mode` flag on this resume invocation that *differs* from the
+  recorded mode**, do not silently mix a new mode with an old ledger — surface the conflict and
+  ask (via the interactive question tool) whether to continue under the recorded mode or restart
+  the task under the new mode. The ledger's mode wins unless the user explicitly elects to restart.
+
+  Compute the route from `current_phase` **within that mode's sequence**:
+
+  1. **Terminal.** If `current_phase` is the last phase of its mode's sequence (`ship`), the task
+     is **complete** — report done, do not invent a next phase; start a new cycle only if asked.
+  2. **Outcome-bearing phases are verdict-aware, not positional.** `intake`, `spec`, `review`, and
+     `qa` can complete with a non-success outcome, so do not advance on ledger position alone —
+     read that phase's brief and route by its verdict, scoped to the recorded mode. **The verdict
+     artifact must exist and carry a recognized verdict** (`briefs/<task>-intake.md` status,
+     `briefs/<task>-spec.md` status, `briefs/<task>-review.json` `.status`, `briefs/<task>-qa.md`
+     status); if it is absent or unreadable, **stop** with `BLOCKED: missing verdict artifact for
+     <phase>` rather than guessing a route.
+     - `intake` VALIDATED → next phase in sequence (intake has no other terminal status)
+     - `spec` VALIDATED **or** SKIPPED → next phase in sequence (`plan`); `spec` BOUNCED → `/roster-intake`
+     - `review` GO → next phase in *this mode's* sequence (express → `ship`; fast/full → `qa`);
+       `review` NO-GO with `no_go_reason.type == "spec-ac-failure"` → `/roster-spec` (full only —
+       express/fast have no spec phase, so their NO-GO always routes to implement);
+       `review` NO-GO (any other reason) → `/roster-implement`
+     - `qa` GO → next phase (`ship`); `qa` NO-GO → `/roster-implement`
+  3. **Otherwise** (`question`, `research`, `plan`, `implement` — always `COMPLETED`) → the
+     positional successor in the mode's sequence.
+
+  Then run **Step 1.5** before re-entering `/roster-implement`. Announce:
+  `→ resuming <task> after <current_phase> (<mode> mode)`. roster-run never writes the ledger —
+  each phase appends its own event (preamble *Pipeline State*); roster-run only reads it.
+
 **Step 1.5 — environment readiness pre-flight (before any code/test work).**
 The moment you are about to route to a phase that builds, tests, or edits code
 (`/roster-implement`, and any Full-mode route that leads there), first confirm the project's
@@ -161,6 +249,11 @@ If Full mode: check briefs/ state and use the routing table below.
 
 ### Detection
 
+This is the **fresh-task** path for Full mode (no durable ledger — a resumable task is handled
+earlier and authoritatively by **Step 1.4** when `briefs/<task>-state.json` exists). It is also
+the brief-file source of truth that Step 1.4 reads when routing an outcome-bearing phase
+(intake/spec/review/qa) by verdict.
+
 1. Check for the existence of `briefs/` artifacts with explicit bash commands:
    ```bash
    ls briefs/ 2>/dev/null || echo "briefs/ absent"
@@ -181,7 +274,7 @@ If Full mode: check briefs/ state and use the routing table below.
 ### Announce
 
 Before routing, announce in one line:
-> "→ [FAST|FULL] mode: <route> because <reason in 5 words max>"
+> "→ [EXPRESS|FAST|FULL] mode: <route> because <reason in 5 words max>"
 
 ## When to Go Back
 
