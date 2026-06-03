@@ -11,12 +11,19 @@
 # Flags:
 #   --all                Install for all supported runtimes (creates dirs)
 #   --runtime <list>     Comma-separated runtimes: claude,opencode,codex,codex-global,pi
+#   --channel <c>        Release channel: stable (default → main) | next (edge branch)
+#   --branch <ref>       Install from an arbitrary git ref (overrides --channel)
 #   --team               Append the install one-liner to AGENTS.md for teammates
 
 set -euo pipefail
 
 REPO="mathiasbourgoin/roster"
+# Release channel → git ref. `stable` (default) tracks main; `next` tracks the edge branch.
+# --branch <ref> is the low-level escape hatch and overrides the channel's ref. RAW is resolved
+# AFTER argument parsing (see "Resolve channel → ref" below) so flags can change it.
+CHANNEL="stable"
 BRANCH="main"
+BRANCH_OVERRIDE=""
 RAW="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 
 # Recruiter version written to sentinel files. Read from local VERSION file when available
@@ -87,14 +94,24 @@ while [[ $# -gt 0 ]]; do
       [[ $# -gt 1 ]] || { warn "--runtime requires a value (e.g. --runtime claude,opencode)"; exit 1; }
       OPT_RUNTIMES="$2"; shift ;;
     --runtime=*)     OPT_RUNTIMES="${1#--runtime=}" ;;
+    --channel)
+      [[ $# -gt 1 ]] || { err "--channel requires a value (stable|next)"; exit 1; }
+      CHANNEL="$2"; shift ;;
+    --channel=*)     CHANNEL="${1#--channel=}" ;;
+    --branch)
+      [[ $# -gt 1 ]] || { err "--branch requires a value (a git ref)"; exit 1; }
+      BRANCH_OVERRIDE="$2"; shift ;;
+    --branch=*)      BRANCH_OVERRIDE="${1#--branch=}" ;;
     -h|--help)
       cat <<'USAGE'
 roster installer — install agents and recruiter skill into your AI runtime(s)
 
-Usage: bash scripts/install.sh [--all] [--runtime <list>] [--team] [-h]
+Usage: bash scripts/install.sh [--all] [--runtime <list>] [--channel <c>] [--team] [-h]
 
   --all                Install into all detected runtimes
   --runtime <list>     Comma-separated runtimes: claude,opencode,codex,codex-global
+  --channel <c>        Release channel: stable (default, tracks main) | next (edge branch)
+  --branch <ref>       Install from an arbitrary git ref (overrides --channel)
   --team               Append the install one-liner to AGENTS.md for teammates
   -h, --help           Show this help
 
@@ -108,6 +125,20 @@ USAGE
   esac
   shift
 done
+
+# ── Resolve channel → ref ─────────────────────────────────────────────────────
+case "$CHANNEL" in
+  stable) BRANCH="main" ;;
+  next)   BRANCH="next" ;;
+  *) err "Unknown channel: '$CHANNEL' (expected: stable | next). Use --branch <ref> for an arbitrary ref."; exit 1 ;;
+esac
+# --branch is the explicit escape hatch; it overrides the channel's ref but the channel label
+# (stable/next) is still what gets recorded, unless an override is given — then we record the ref.
+if [ -n "$BRANCH_OVERRIDE" ]; then
+  BRANCH="$BRANCH_OVERRIDE"
+  CHANNEL="branch:$BRANCH_OVERRIDE"
+fi
+RAW="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 
 # ── Runtime detection ─────────────────────────────────────────────────────────
 
@@ -147,13 +178,21 @@ fetch() {
   fi
 }
 
+# Write the per-runtime sentinel markers: version (for /recruit update checks) + channel
+# (so the project — and /roster-doctor — remembers which release channel it was installed from).
+stamp_markers() {
+  local dir="$1"
+  echo "$ROSTER_VERSION" > "$dir/.roster-version"
+  echo "$CHANNEL"        > "$dir/.roster-channel"
+}
+
 install_claude() {
   mkdir -p .claude/agents .claude/commands
   fetch "${RAW}/recruiter/recruiter.md" ".claude/agents/recruiter.md"
   # The slash-command must be the RENDERED projection (name: recruit), not the raw agent
   # (name: recruiter) — otherwise the documented /recruit trigger is wrong.
   fetch "${RAW}/.claude/commands/recruit.md" ".claude/commands/recruit.md"
-  echo "$ROSTER_VERSION" > .claude/.roster-version
+  stamp_markers .claude
   ok "Claude Code  →  .claude/agents/recruiter.md + .claude/commands/recruit.md"
 }
 
@@ -165,7 +204,7 @@ install_opencode() {
   mkdir -p .opencode/skills/recruit
   fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".opencode/skills/recruit/SKILL.md"
   touch ".opencode/skills/recruit/.roster-managed"   # match sync-harness + Codex install
-  echo "$ROSTER_VERSION" > .opencode/.roster-version
+  stamp_markers .opencode
   ok "OpenCode     →  .opencode/skills/recruit/SKILL.md (native skill discovery)"
 }
 
@@ -175,7 +214,7 @@ install_codex() {
   # must be the RENDERED projection (name: recruit), not the raw agent (name: recruiter).
   fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".agents/skills/recruit/SKILL.md"
   touch ".agents/skills/recruit/.roster-managed"
-  echo "$ROSTER_VERSION" > .agents/skills/recruit/.roster-version
+  stamp_markers .agents/skills/recruit
   ok "Codex        →  .agents/skills/recruit/SKILL.md"
 }
 
@@ -184,7 +223,7 @@ install_codex_global() {
   mkdir -p "$dir"
   fetch "${RAW}/.agents/skills/recruit/SKILL.md" "$dir/SKILL.md"
   touch "$dir/.roster-managed"
-  echo "$ROSTER_VERSION" > "$dir/.roster-version"
+  stamp_markers "$dir"
   ok "Codex global →  $dir/SKILL.md"
 }
 
@@ -193,7 +232,7 @@ install_pi() {
   # Pi uses the SKILL.md skill format too — reuse the rendered projection (name: recruit).
   fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".pi/skills/recruit/SKILL.md"
   touch ".pi/skills/recruit/.roster-managed"
-  echo "$ROSTER_VERSION" > .pi/skills/recruit/.roster-version
+  stamp_markers .pi/skills/recruit
   ok "Pi           →  .pi/skills/recruit/SKILL.md"
 }
 
