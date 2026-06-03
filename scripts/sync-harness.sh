@@ -137,7 +137,11 @@ sync_markdown_dir() {
 
     if [ -d "$src" ]; then
         find "$src" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
-            cp "$file" "$dst/$(basename "$file")"
+            local base; base="$(basename "$file")"
+            # Full-basename passthrough copy (agent/rule .md): block traversal tokens but allow any
+            # legitimate filename — kebab validation would wrongly reject a consumer's odd filename.
+            reject_traversal "$base"
+            cp "$file" "$dst/$base"
         done
     fi
 }
@@ -171,6 +175,30 @@ strip_frontmatter() {
         seen < 2 && /^---\r?$/ {seen++; next}
         seen >= 2 {print}
     ' "$file"
+}
+
+# A skill/agent name becomes a path component (.../<name>/SKILL.md, .../<name>.md). Reject anything
+# that isn't a strict lowercase slug BEFORE it is used in a path, so a crafted/malformed `name:`
+# frontmatter can't traverse out of the projection dir. Sources are roster-controlled, so this is
+# defense-in-depth — it fails closed rather than trusting the input.
+require_safe_name() {
+    case "$1" in
+        ""|-*|*[!a-z0-9-]*)
+            echo "sync-harness: refusing unsafe name as a path component (must match ^[a-z0-9][a-z0-9-]*\$): '$1'" >&2
+            exit 1 ;;
+    esac
+}
+
+# For copies that preserve a file's FULL basename (resources, raw .md passthroughs) the name is
+# arbitrary (any extension/case) so kebab validation would wrongly reject legitimate files. A real
+# file's basename can never be '.'/'..'/contain '/', so this only needs to block the traversal
+# tokens — defense-in-depth that never false-positives on a normal filename.
+reject_traversal() {
+    case "$1" in
+        ""|.|..|*/*)
+            echo "sync-harness: refusing path-unsafe filename as a path component: '$1'" >&2
+            exit 1 ;;
+    esac
 }
 
 render_skill_source() {
@@ -276,7 +304,9 @@ copy_skill_resources() {
     local target="$out_dir/$name"
     mkdir -p "$target"
     find "$res_dir" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' f; do
-        cp "$f" "$target/$(basename "$f")"
+        local rbase; rbase="$(basename "$f")"
+        reject_traversal "$rbase"
+        cp "$f" "$target/$rbase"
     done
 }
 
@@ -294,12 +324,13 @@ sync_skill_sources_to_claude() {
         case "$name" in
             preamble|roster-preamble) continue ;;
         esac
+        require_safe_name "$name"
         render_skill_source "$src" "$name" "$out_dir/$name.md" "$preamble"
         copy_skill_resources "$src" "$name" "$out_dir" "flat"
     done
 }
 
-sync_skill_sources_to_codex_dir() {
+sync_skill_sources_to_skill_dir() {
     local out_dir="$1"
     local preamble="$2"
     shift 2
@@ -320,6 +351,7 @@ sync_skill_sources_to_codex_dir() {
         case "$name" in
             preamble|roster-preamble) continue ;;
         esac
+        require_safe_name "$name"
         render_skill_source "$src" "$name" "$out_dir/$name/SKILL.md" "$preamble"
         touch "$out_dir/$name/.roster-managed"
         copy_skill_resources "$src" "$name" "$out_dir" "dir"
@@ -329,7 +361,7 @@ sync_skill_sources_to_codex_dir() {
 sync_skill_sources_to_codex_global() {
     local preamble="$1"
     shift
-    sync_skill_sources_to_codex_dir "$CODEX_GLOBAL_SKILLS_DIR" "$preamble" "$@"
+    sync_skill_sources_to_skill_dir "$CODEX_GLOBAL_SKILLS_DIR" "$preamble" "$@"
 }
 
 collect_skill_sources() {
@@ -535,6 +567,7 @@ sync_agents_to_codex_toml() {
     find "$src_dir" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
         local name desc body esc_body
         name="$(basename "$file" .md)"
+        require_safe_name "$name"   # basename can yield '.'/'..' (e.g. a file named '...md') — fail closed
         desc="$(extract_frontmatter_field "$file" "description")"
         body="$(strip_frontmatter "$file")"
         # Encode the body as a TOML BASIC multiline string ("""), escaping backslash then
@@ -560,6 +593,7 @@ sync_agents_to_codex_skills() {
     find "$src_dir" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
         local name desc
         name="$(basename "$file" .md)"
+        require_safe_name "$name"   # basename can yield '.'/'..' (e.g. a file named '...md') — fail closed
         [ "$name" = "recruiter" ] && continue
         desc="$(extract_frontmatter_field "$file" "description")"
         mkdir -p "$skills_dir/$name"
@@ -579,7 +613,7 @@ if runtime_enabled "codex"; then
     CODEX_AGENTS_DIR="$PROJECT_ROOT/.codex/agents"
     mkdir -p "$CODEX_SKILLS_DIR"
     mapfile -d '' SKILL_SOURCES < <(collect_skill_sources)
-    sync_skill_sources_to_codex_dir "$CODEX_SKILLS_DIR" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
+    sync_skill_sources_to_skill_dir "$CODEX_SKILLS_DIR" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
         render_recruit_skill "$HARNESS_DIR/agents/recruiter.md" "$CODEX_SKILLS_DIR/recruit/SKILL.md"
         touch "$CODEX_SKILLS_DIR/recruit/.roster-managed"
@@ -604,7 +638,7 @@ fi
 
 # --- OpenCode ---
 # Agents → .opencode/agents/<name>.md (flat, mode: subagent frontmatter)
-# Skills → .opencode/commands/<name>.md (flat, same as Claude commands)
+# Skills → .opencode/skills/<name>/SKILL.md (dir form, same as Codex — OpenCode native discovery)
 sync_agents_to_opencode() {
     local out_dir="$1"
     local src_dir="$2"
@@ -614,6 +648,7 @@ sync_agents_to_opencode() {
     find "$src_dir" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
         local name desc
         name="$(basename "$file" .md)"
+        require_safe_name "$name"   # basename can yield '.'/'..' (e.g. a file named '...md') — fail closed
         desc="$(extract_frontmatter_field "$file" "description")"
         {
             printf '%s\n' '---'
@@ -625,32 +660,34 @@ sync_agents_to_opencode() {
     done
 }
 
-sync_skill_sources_to_opencode_commands() {
-    local out_dir="$1"
-    local preamble="$2"
-    shift 2
-    mkdir -p "$out_dir"
-    find "$out_dir" -maxdepth 1 -type f -name '*.md' -delete
-    local src name
-    for src in "$@"; do
-        [ -f "$src" ] || continue
-        name="$(extract_frontmatter_field "$src" "name")"
-        [ -n "$name" ] || name="$(basename "$src" .md)"
-        case "$name" in
-            preamble|roster-preamble) continue ;;
-        esac
-        render_skill_source "$src" "$name" "$out_dir/$name.md" "$preamble"
-        copy_skill_resources "$src" "$name" "$out_dir" "flat"
-    done
-}
-
 if runtime_enabled "opencode"; then
     OPENCODE_DIR="$(resolve_entrypoint "$(runtime_entrypoint "opencode" ".opencode")")"
     mapfile -d '' SKILL_SOURCES < <(collect_skill_sources)
     sync_agents_to_opencode "$OPENCODE_DIR/agents" "$HARNESS_DIR/agents"
-    sync_skill_sources_to_opencode_commands "$OPENCODE_DIR/commands" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
+    # OpenCode natively discovers Agent Skills at .opencode/skills/<name>/SKILL.md (verified) —
+    # the SAME shape Codex uses and that install.sh writes. Emit skills there, NOT to
+    # .opencode/commands/ (OpenCode does not read that path as skills).
+    sync_skill_sources_to_skill_dir "$OPENCODE_DIR/skills" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
+    # Migrate away from the obsolete .opencode/commands/ projection a PRIOR roster sync may have
+    # written. Remove ONLY the command files roster itself generated (one per CURRENT skill name,
+    # plus recruit) — never `rm -rf` the dir, which could hold the user's own files or, with a
+    # custom absolute entrypoint, point outside the project. Drop the dir only if it ends up empty.
+    # Known limitation: a command file for a skill that was later REMOVED/RENAMED is not matched
+    # here and lingers — that is inert (OpenCode reads skills/, not commands/) and deleting
+    # unmatched files would risk the user's own; remove them by hand if desired.
+    if [ -d "$OPENCODE_DIR/commands" ]; then
+        for _src in "${SKILL_SOURCES[@]}"; do
+            [ -f "$_src" ] || continue
+            _nm="$(extract_frontmatter_field "$_src" "name")"; [ -n "$_nm" ] || _nm="$(basename "$_src" .md)"
+            require_safe_name "$_nm"
+            rm -f "$OPENCODE_DIR/commands/$_nm.md"
+        done
+        rm -f "$OPENCODE_DIR/commands/recruit.md"
+        rmdir "$OPENCODE_DIR/commands" 2>/dev/null || true
+    fi
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
-        render_recruit_skill "$HARNESS_DIR/agents/recruiter.md" "$OPENCODE_DIR/commands/recruit.md"
+        render_recruit_skill "$HARNESS_DIR/agents/recruiter.md" "$OPENCODE_DIR/skills/recruit/SKILL.md"
+        touch "$OPENCODE_DIR/skills/recruit/.roster-managed"
         # Also install recruiter as an agent for @recruiter invocation
         local_desc="$(extract_frontmatter_field "$HARNESS_DIR/agents/recruiter.md" "description")"
         {
@@ -664,11 +701,11 @@ if runtime_enabled "opencode"; then
 fi
 
 # --- Pi (pi.dev) ---
-# Same SKILL.md directory structure as Codex — reuse sync_skill_sources_to_codex_dir
+# Same SKILL.md directory structure as Codex — reuse sync_skill_sources_to_skill_dir
 if runtime_enabled "pi"; then
     PI_SKILLS_DIR="$(resolve_entrypoint "$(runtime_entrypoint "pi" ".pi/skills")")"
     mapfile -d '' SKILL_SOURCES < <(collect_skill_sources)
-    sync_skill_sources_to_codex_dir "$PI_SKILLS_DIR" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
+    sync_skill_sources_to_skill_dir "$PI_SKILLS_DIR" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
         render_recruit_skill "$HARNESS_DIR/agents/recruiter.md" "$PI_SKILLS_DIR/recruit/SKILL.md"
         touch "$PI_SKILLS_DIR/recruit/.roster-managed"
@@ -703,6 +740,7 @@ generate_copilot_instructions() {
         find "$HARNESS_DIR/agents" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
             local name
             name="$(basename "$file" .md)"
+            require_safe_name "$name"   # basename can yield '.'/'..' (e.g. a file named '...md') — fail closed
             {
                 printf '%s\n' '---'
                 printf 'applyTo: "**"\n'

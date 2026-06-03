@@ -810,7 +810,7 @@ For runtime projections, do not assume all runtimes use the same layout:
 - Claude Code: `.claude/agents/*.md`, `.claude/commands/*.md`, `.claude/rules/*.md`, `.claude/harness.json`.
 - Codex project-local: `.agents/skills/<skill-name>/SKILL.md`.
 - Codex global: `$CODEX_HOME/skills/<skill-name>/SKILL.md`, only if runtime `codex-global` is enabled.
-- OpenCode: `.opencode/agents/*.md`, `.opencode/commands/*.md`, `opencode.json` when generated.
+- OpenCode: `.opencode/agents/*.md`, `.opencode/skills/<skill-name>/SKILL.md`, `opencode.json` when generated.
 - Pi: `.pi/skills/<skill-name>/SKILL.md`.
 - Copilot: `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md`; Copilot has no dynamic skill loader.
 

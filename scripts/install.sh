@@ -161,6 +161,7 @@ install_opencode() {
   # so it is also what Codex (.agents/skills) and Copilot discover — one artifact, three runtimes.
   mkdir -p .opencode/skills/recruit
   fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".opencode/skills/recruit/SKILL.md"
+  touch ".opencode/skills/recruit/.roster-managed"   # match sync-harness + Codex install
   echo "$ROSTER_VERSION" > .opencode/.roster-version
   ok "OpenCode     →  .opencode/skills/recruit/SKILL.md (native skill discovery)"
 }
