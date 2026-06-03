@@ -1,7 +1,7 @@
 ---
 name: roster-implement
 description: Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief.
-version: 1.4.0
+version: 1.5.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -157,19 +157,28 @@ You implement the sub-brief you have been assigned. Follow the plan — do not r
 
 ## Input Contract
 
-Read `briefs/<task>-implementer.md` in full before touching any code.
-Verify that quality gates are documented — escalate if not.
+**Mode-aware** — how you start depends on the mode `/roster-run` routed you in. Determine it from
+the task context (and `briefs/<task>-impl.md`'s `mode:` on a loop-back, if present).
 
-Pre-flight: verify both required sub-briefs exist:
+**Full mode** — read `briefs/<task>-implementer.md` in full before touching any code, and verify
+both sub-briefs exist:
 
 ```bash
 [ -f briefs/<task>-implementer.md ] && echo "implementer: ✅" || echo "implementer: ❌"
 [ -f briefs/<task>-reviewer.md ]    && echo "reviewer: ✅"    || echo "reviewer: ❌"
 ```
 
-If either is absent:
+If either is absent **in Full mode**:
 > ⛔ Sub-brief missing: `briefs/<task>-implementer.md` and/or `briefs/<task>-reviewer.md` not found.
 > Re-run `/roster-plan` to produce both sub-briefs before starting implementation.
+
+**Express / Fast mode** — there is **no `/roster-plan` phase**, so the sub-briefs do not exist by
+design. Do **not** block on them. Implement directly from the task description (and, on a NO-GO
+loop-back, from `briefs/<task>-review.json`). Establish the quality gates yourself from the project
+(detect the build/test/lint commands, or read `tunables`/harness) and record them in the impl brief.
+
+In all modes, verify the quality gates are known before changing code — escalate if you cannot
+determine them.
 
 **KB invariants (conditional):**
 
@@ -285,7 +294,7 @@ Produce `briefs/<task>-impl.md`:
 
 | Condition | Action |
 |---|---|
-| `briefs/<task>-implementer.md` or `briefs/<task>-reviewer.md` absent | Stop — re-run `/roster-plan` to produce both sub-briefs |
+| `briefs/<task>-implementer.md` or `briefs/<task>-reviewer.md` absent **in Full mode** | Stop — re-run `/roster-plan` to produce both sub-briefs (in Express/Fast they are absent by design — proceed from the task) |
 | A plan step cannot be implemented as described | Stop — re-run `/roster-plan` with the blocker as input |
 | Quality gates are broken at baseline before any change | Stop — report to human, do not proceed |
 | Implementation reveals the brief was fundamentally wrong | Stop — re-run `/roster-intake` with the new information |
