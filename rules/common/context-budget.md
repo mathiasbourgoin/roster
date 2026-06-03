@@ -39,3 +39,16 @@ produces worse work than a fresh one. Treat the context window as a budget, not 
 
 If a phase's working context is approaching the dumb zone, **stop and checkpoint to an
 artifact before continuing** — do not push a degraded context through a quality gate.
+
+## Enforcement (recommended config)
+
+This threshold is currently *described*, not *configured*. Back it with runtime config so the
+discipline fires automatically rather than depending on the agent noticing (recommendation —
+apply per project):
+
+- Set `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` (1–100) to trigger autocompaction earlier than the default
+  (~83%). Setting it near this rule's 40% degradation threshold makes the stop-and-compact reflex
+  fire automatically — but you must **still checkpoint to artifacts** per the Rule above
+  (autocompact summarizes in place; it does not perform the handoff). Note: the knob can only
+  *lower* the trigger, never raise it above the default — which is exactly what we want here. (Verified against Claude Code docs
+  2026-06-03.)

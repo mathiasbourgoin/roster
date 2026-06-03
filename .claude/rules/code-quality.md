@@ -27,6 +27,14 @@ version: 1.0.0
 
 ## Dead Code
 
-- No dead code. If code is commented out, delete it. Version control exists for a reason.
+Scope dead-code removal to **your change**. Distinguish orphans you created from dead code that
+was already there — deleting code you did not touch is an out-of-scope change (see `escalation.md`).
+
+- **Your orphans → clean up.** Unused variables, imports, functions, or commented-out code that
+  *your change* introduced or left behind must be removed before you finish. Version control exists.
+- **Pre-existing dead code outside your task scope → flag, do not delete.** Note it (in the
+  Friction Log, or a one-line note in your handoff/summary if you have no friction-log phase) so it
+  can be handled deliberately; silently deleting it erases context you may not have and exceeds
+  your task's scope.
 - No TODO comments older than the current PR. File an issue instead and reference the issue number if needed.
-- No unreachable code paths. If a branch can never execute, remove it.
+- No unreachable code paths **introduced by your change**. If a branch you added can never execute, remove it.
