@@ -61,8 +61,10 @@ curl -fsSL .../install.sh | bash -s -- --runtime claude,opencode
 curl -fsSL .../install.sh | bash -s -- --team
 ```
 
-After install: run `/recruit` (Claude) or invoke the discovered `recruit` skill (OpenCode / Codex /
-Copilot — they read the same `SKILL.md` Agent-Skills standard) to assemble your team.
+After install: run `/recruit` (Claude) or invoke the discovered `recruit` skill (OpenCode / Codex,
+via native Agent-Skills discovery) to assemble your team. The installed `SKILL.md` follows the open
+Agent-Skills standard, so it is also readable by other skill-aware tools (e.g. GitHub Copilot) that
+scan a compatible skills path — roster does not yet install to a Copilot-specific location.
 
 ## The Pipeline
 
