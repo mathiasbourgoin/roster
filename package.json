@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.1.0",
   "type": "commonjs",
+  "bin": {
+    "roster": "scripts/install.sh"
+  },
   "scripts": {
     "build:index": "node scripts/run-build-index.js",
     "build:ts": "tsc -p tsconfig.json",

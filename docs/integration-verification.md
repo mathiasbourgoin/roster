@@ -36,5 +36,11 @@ install path, Codex projection, preflight, or cross-runtime review:
    With a second runtime CLI on `PATH` (`codex` or `opencode`), run `/roster-review` and
    confirm it shells out and appends a `cross_runtime_findings` array to `review.json` without
    editing the primary `findings`.
+5. **Plugin marketplace install.** In Claude Code: `/plugin marketplace add mathiasbourgoin/roster`
+   then `/plugin install roster@roster`; confirm `/roster:recruit` (and the `/roster:roster-*`
+   commands) appear. The plugin sources from `./.claude`; `.claude-plugin/marketplace.json` +
+   `.claude/.claude-plugin/plugin.json` are JSON-validated in CI but the live load is not.
+6. **npx-from-git install.** `npx github:mathiasbourgoin/roster --runtime claude` in a throwaway
+   project installs the recruiter (the `bin` runs `scripts/install.sh`). Needs the branch pushed.
 
 > When any manual item is verified for a release, note the runtime + version here.

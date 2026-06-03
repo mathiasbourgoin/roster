@@ -15,9 +15,17 @@ Three principles:
 
 ## Install
 
-One line. Works in any project, auto-detects your runtime:
+Pick a channel — all install the recruiter, then `/recruit` assembles the team and offers to install the pipeline skills:
 
 ```bash
+# Claude Code plugin marketplace (Claude Code)
+/plugin marketplace add mathiasbourgoin/roster
+/plugin install roster@roster
+
+# npx, no clone/publish (any project with Node)
+npx github:mathiasbourgoin/roster --runtime claude,opencode,codex
+
+# curl | bash — universal, auto-detects your runtime
 curl -fsSL https://raw.githubusercontent.com/mathiasbourgoin/roster/main/scripts/install.sh | bash
 ```
 

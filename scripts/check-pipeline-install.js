@@ -90,6 +90,46 @@ if (fs.existsSync(codexDir)) {
   console.log("✓ pipeline-install: no .codex/agents/ — skipping Codex TOML check.");
 }
 
+// ── Check 3: plugin marketplace + plugin manifests are valid ────────────────
+const marketplace = path.resolve(root, ".claude-plugin/marketplace.json");
+if (fs.existsSync(marketplace)) {
+  try {
+    const mk = JSON.parse(fs.readFileSync(marketplace, "utf8"));
+    if (!mk.name) errors.push(".claude-plugin/marketplace.json missing required field: name");
+    if (!mk.owner || !mk.owner.name) errors.push(".claude-plugin/marketplace.json missing required field: owner.name");
+    if (!Array.isArray(mk.plugins) || mk.plugins.length === 0) {
+      errors.push(".claude-plugin/marketplace.json: plugins must be a non-empty array");
+    } else {
+      mk.plugins.forEach((p, i) => {
+        if (!p.name || !p.source) errors.push(`.claude-plugin/marketplace.json plugins[${i}] missing name or source`);
+        // Relative same-repo source must exist on disk.
+        if (typeof p.source === "string" && p.source.startsWith(".") && !fs.existsSync(path.resolve(root, p.source))) {
+          errors.push(`.claude-plugin/marketplace.json plugins[${i}].source "${p.source}" does not exist`);
+        }
+      });
+    }
+    // Each relative plugin source dir should carry a plugin.json with a name.
+    for (const p of mk.plugins || []) {
+      if (typeof p.source !== "string" || !p.source.startsWith(".")) continue;
+      const pj = path.resolve(root, p.source, ".claude-plugin/plugin.json");
+      if (fs.existsSync(pj)) {
+        try {
+          if (!JSON.parse(fs.readFileSync(pj, "utf8")).name) errors.push(`${path.relative(root, pj)} missing required field: name`);
+        } catch (e) {
+          errors.push(`${path.relative(root, pj)} is not valid JSON: ${(e).message}`);
+        }
+      }
+    }
+    if (!errors.some((e) => e.includes(".claude-plugin/"))) {
+      console.log("✓ pipeline-install: plugin marketplace + plugin manifests are valid.");
+    }
+  } catch (e) {
+    errors.push(`.claude-plugin/marketplace.json is not valid JSON: ${(e).message}`);
+  }
+} else {
+  console.log("✓ pipeline-install: no .claude-plugin/marketplace.json — skipping plugin-manifest check.");
+}
+
 if (errors.length) {
   console.error(`\n✗ pipeline-install: ${errors.length} issue(s):`);
   for (const e of errors) console.error(`    - ${e}`);

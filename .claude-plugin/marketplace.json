@@ -1,0 +1,13 @@
+{
+  "name": "roster",
+  "owner": {
+    "name": "mathiasbourgoin"
+  },
+  "plugins": [
+    {
+      "name": "roster",
+      "source": "./.claude",
+      "description": "Pipeline framework for fast, correct software development with coordinated agent teams: the recruiter, the roster-* pipeline (question→spec→plan→implement→review→qa→ship), and governance rules."
+    }
+  ]
+}
