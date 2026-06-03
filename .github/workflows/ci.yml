@@ -1,0 +1,28 @@
+name: CI
+
+# Enforce the harness guards on every push/PR. `npm test` chains: TypeScript build,
+# node:test suites (build-index, run-hook), check-agents / check-skill-structure /
+# check-hook-structure / check-kb-links / check-recruiter-sync / check-pipeline-install,
+# and `sync-harness.sh --check` (source↔projection drift). A red check blocks the merge —
+# this is what makes "deterministic and guarded" true rather than aspirational.
+
+on:
+  push:
+    branches: [main, next]
+  pull_request:
+    branches: [main, next]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify guard prerequisites (jq + bash>=4)
+        run: |
+          jq --version
+          bash --version | head -1
+      - run: npm ci
+      - run: npm test
