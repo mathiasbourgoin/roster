@@ -1,6 +1,29 @@
 # Changes
 
-## v2.6.0 — Skill-Level Hooks, Pre-Launch Cleanup
+## v2.6.0 — Durable State, Install Hardening, Skill-Level Hooks
+
+### Durable, Resumable Pipeline State
+
+- Append-only per-task ledger `briefs/<task>-state.json`; every pipeline phase records one event
+  on completion (via a shared preamble convention with pinned phase tokens + per-phase outcome vocab).
+- `/roster-run` resumes from the ledger before per-mode routing (all modes), mode-scoped and
+  verdict-aware; malformed or foreign ledgers stop rather than degrade to a stale resume.
+- `/roster-doctor status [<task>]` renders the timeline read-only.
+- One `LEDGER_SCHEMA` jq predicate validates the ledger identically in run + doctor, drift-guarded by CI.
+
+### Install Hardening + Multi-Runtime
+
+- Three install channels: Claude plugin marketplace, `npx`-from-git, and `curl | bash`.
+- Installer checks prerequisites up front (`bash≥4`, curl/wget, jq/git warning).
+- Recruiter installs the pipeline skills on first-run team assembly.
+- `install.sh` installs the **rendered** recruit projection (`name: recruit`) for every runtime;
+  OpenCode now gets a discoverable `SKILL.md` (native Agent Skills), which Codex and Copilot also read.
+- `/roster-doctor` + dev-env readiness pre-flight halts a broken toolchain before implementation.
+
+### Cross-Runtime Adversarial Review
+
+- `/roster-review` and `/roster-qa` can shell out to a second runtime (Codex / OpenCode) to
+  augment findings with an independent model, appended without rewriting the primary verdict.
 
 ### Skill-Level Hook System
 

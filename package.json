@@ -1,8 +1,11 @@
 {
   "name": "roster",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "commonjs",
+  "bin": {
+    "roster": "scripts/install.sh"
+  },
   "scripts": {
     "build:index": "node scripts/run-build-index.js",
     "build:ts": "tsc -p tsconfig.json",
@@ -11,8 +14,9 @@
     "check:kb-links": "node scripts/check-kb-links.js",
     "check:hooks": "node dist/scripts/check-hook-structure.js",
     "check:recruiter-sync": "node scripts/check-recruiter-sync.js",
+    "check:pipeline-install": "node scripts/check-pipeline-install.js",
     "check:harness-sync": "bash scripts/sync-harness.sh --check",
-    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node --test dist/scripts/run-hook.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js && node dist/scripts/check-hook-structure.js && node scripts/check-kb-links.js && node scripts/check-recruiter-sync.js && bash scripts/sync-harness.sh --check"
+    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node --test dist/scripts/run-hook.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js && node dist/scripts/check-hook-structure.js && node scripts/check-kb-links.js && node scripts/check-recruiter-sync.js && node scripts/check-pipeline-install.js && bash scripts/sync-harness.sh --check"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
