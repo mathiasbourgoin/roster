@@ -1,7 +1,7 @@
 ---
 name: roster-ship
 description: Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go.
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -35,13 +35,15 @@ You carry the implementation branch through to merge. Conventional commits, reba
 ## Input Contract
 
 Before any action, read:
-- `briefs/<task>-review.json` — **BLOCK** if status is `NO-GO`
-- `briefs/<task>-qa.md` — **BLOCK** if status is `NO-GO`
+- `briefs/<task>-review.json` — **BLOCK** if status is `NO-GO`; read its `mode` field
 - `briefs/<task>-impl.md` — for commit messages
+- `briefs/<task>-qa.md` — **required for `fast`/`full` mode** (BLOCK if NO-GO or absent).
+  **Express mode skips QA** (its pipeline is implement → review → ship), so a missing
+  `qa.md` is expected and **not** a block when `review.json.mode == "express"`.
 
-If either is NO-GO or absent:
-> ⛔ BLOCKED: `<file>` is NO-GO or missing.
-> Resolve the reported issues before shipping.
+Block conditions:
+> ⛔ BLOCKED: review.json is NO-GO or absent → resolve before shipping.
+> ⛔ BLOCKED: qa.md is NO-GO, or absent on a non-express task → run /roster-qa first.
 
 ## Steps
 
@@ -209,6 +211,6 @@ echo "💡 Friction log: ${FRICTION_COUNT} entries."
 
 - Never a merge commit — rebase-merge only
 - Never push without an explicit human gate
-- Never ship if review.json or qa.md is NO-GO or absent
+- Never ship if review.json is NO-GO or absent, or if qa.md is NO-GO; qa.md may be absent **only** in express mode (which skips QA)
 - Never commit files outside the task scope
 - If CI fails after push → do not merge, report
