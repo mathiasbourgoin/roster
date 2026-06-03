@@ -1,7 +1,8 @@
 ---
 name: code-quality-auditor
 description: Audit code quality against KB-defined properties, invariants, and naming conventions.
-version: 1.0.0
+when_to_use: "Use to check code against KB-defined properties, invariants, and naming. Trigger: 'check code quality', property/invariant audit."
+version: 1.0.1
 ---
 
 # Code Quality Auditor

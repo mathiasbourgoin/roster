@@ -1,7 +1,8 @@
 ---
 name: image-generation
 description: Generate or edit images via Codex CLI — with prompt refinement, vision validation, retry loop, and error handling.
-version: 1.0.0
+when_to_use: "Use to generate or edit images via the Codex CLI. Trigger: 'generate an image', 'create an icon/asset'."
+version: 1.0.1
 tags: [image-generation, assets, media, codex, vision]
 domain: [frontend, content, media, documentation]
 ---

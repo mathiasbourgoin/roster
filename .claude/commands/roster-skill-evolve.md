@@ -23,7 +23,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.4.0
+version: 1.5.0
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -102,6 +102,49 @@ At the end of each run, honestly record:
 This is not a performance review. It is cross-run memory.
 Format: see `skills-meta/friction.jsonl`.
 
+### Pipeline State
+
+If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
+pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
+event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
+`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
+is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
+context. Create the file if absent; preserve every prior `events` entry:
+
+```json
+{
+  "task": "<slug>",
+  "mode": "express|fast|full",
+  "current_phase": "implement",
+  "events": [
+    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
+  ]
+}
+```
+
+Rules for writing your event:
+
+- **`task` is the canonical slug**, derived once from the task description and reused identically
+  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
+  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
+  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
+  ledger will not be found. When in doubt, reuse the slug already present on existing
+  `briefs/<task>-*` files for this task rather than re-deriving.
+- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
+  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
+  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
+- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
+  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
+  `ship`: `COMPLETED`; `question`/`research`/`plan`/`implement`: `COMPLETED`. Do not invent other
+  values.
+- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
+  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
+  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
+- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
+  skill name (or `human-gate` for a gate decision).
+
 
 # Roster Skill Evolve
 
@@ -164,6 +207,7 @@ For each APPROVED proposal, in order A → B → C → D:
    bash scripts/sync-harness.sh 2>/dev/null || echo "manual sync required"
    ```
 
+---
 
 ### Proposal [TOOL] — Deterministic tool
 
@@ -195,6 +239,7 @@ For each APPROVED proposal, in order A → B → C → D:
 
 5. **Gate after**: show the script and the diff of the modified skill.
 
+---
 
 ### Proposal [ADAPT] — Adaptation of existing skill
 
@@ -221,6 +266,7 @@ For each APPROVED proposal, in order A → B → C → D:
    cp skills/<domain>/roster-<name>.md .claude/commands/roster-<name>.md
    ```
 
+---
 
 ### Proposal [AGENT] — New dedicated agent
 
@@ -265,6 +311,7 @@ If harness/KB is **present**:
 → If **Warnings only**: log to friction log; continue to next proposal.
 → If harness/KB is **absent**: skip silently.
 
+---
 
 ## Output Contract
 

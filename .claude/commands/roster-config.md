@@ -1,7 +1,8 @@
 ---
 name: roster-config
 description: Discover, inspect, and interactively set tunables across installed roster agents — with guided dependency installation for optional features.
-version: 1.0.0
+when_to_use: "Use to discover, inspect, or set tunables across installed agents, with guided dependency install. Trigger: 'configure roster', 'change a tunable', 'enable optional feature'."
+version: 1.0.1
 ---
 
 # Roster Config

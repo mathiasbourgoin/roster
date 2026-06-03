@@ -1,7 +1,8 @@
 ---
 name: team
 description: Manage the installed agent team — build (apply proposal), review (audit gaps), or run (execute a task through the pipeline).
-version: 1.0.0
+when_to_use: "Use to manage the installed agent team — build/review/run. Trigger: '/team', 'audit my team', 'apply the team proposal', 'run the team on X'."
+version: 1.0.1
 domain: workflow
 phase: null
 preamble: true
@@ -15,7 +16,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.4.0
+version: 1.5.0
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -94,6 +95,49 @@ At the end of each run, honestly record:
 This is not a performance review. It is cross-run memory.
 Format: see `skills-meta/friction.jsonl`.
 
+### Pipeline State
+
+If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
+pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
+event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
+`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
+is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
+context. Create the file if absent; preserve every prior `events` entry:
+
+```json
+{
+  "task": "<slug>",
+  "mode": "express|fast|full",
+  "current_phase": "implement",
+  "events": [
+    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
+  ]
+}
+```
+
+Rules for writing your event:
+
+- **`task` is the canonical slug**, derived once from the task description and reused identically
+  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
+  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
+  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
+  ledger will not be found. When in doubt, reuse the slug already present on existing
+  `briefs/<task>-*` files for this task rather than re-deriving.
+- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
+  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
+  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
+- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
+  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
+  `ship`: `COMPLETED`; `question`/`research`/`plan`/`implement`: `COMPLETED`. Do not invent other
+  values.
+- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
+  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
+  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
+- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
+  skill name (or `human-gate` for a gate decision).
+
 
 # Team
 
@@ -113,6 +157,7 @@ If `$ARGUMENTS` is empty or not one of the above, ask once:
 2. If mode is ambiguous, ask once — then execute the selected mode section below.
 3. Follow the steps in the matching mode section: **build**, **review**, or **run**.
 
+---
 
 ## Mode: build
 
@@ -151,6 +196,7 @@ An approved team proposal exists at <path-to-proposal>. Apply it:
 
 3. **Report** — after harness-builder completes, confirm what was installed and run `npm test` if in the roster repo.
 
+---
 
 ## Mode: review
 
@@ -193,6 +239,7 @@ Propose an upgrade set and run the validation quiz before making any changes.
 
 4. **Report** — summarize stale agents, gaps, and recommended next step (`team build` to apply, or no action needed).
 
+---
 
 ## Mode: run \<task\>
 

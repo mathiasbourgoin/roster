@@ -1,7 +1,7 @@
 ---
 name: roster-review
 description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
-version: 1.4.0
+version: 1.5.0
 domain: pipeline
 phase: review
 preamble: true
@@ -26,7 +26,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.4.0
+version: 1.5.0
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -104,6 +104,49 @@ At the end of each run, honestly record:
 
 This is not a performance review. It is cross-run memory.
 Format: see `skills-meta/friction.jsonl`.
+
+### Pipeline State
+
+If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
+pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
+event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
+`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
+is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
+context. Create the file if absent; preserve every prior `events` entry:
+
+```json
+{
+  "task": "<slug>",
+  "mode": "express|fast|full",
+  "current_phase": "implement",
+  "events": [
+    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
+  ]
+}
+```
+
+Rules for writing your event:
+
+- **`task` is the canonical slug**, derived once from the task description and reused identically
+  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
+  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
+  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
+  ledger will not be found. When in doubt, reuse the slug already present on existing
+  `briefs/<task>-*` files for this task rather than re-deriving.
+- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
+  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
+  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
+- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
+  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
+  `ship`: `COMPLETED`; `question`/`research`/`plan`/`implement`: `COMPLETED`. Do not invent other
+  values.
+- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
+  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
+  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
+- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
+  skill name (or `human-gate` for a gate decision).
 
 
 # Roster Review
@@ -191,6 +234,34 @@ Spawn specialists based on scope. Each specialist receives:
 | `architect` | Medium or large blast radius (>3 files modified or public module) | `.claude/agents/architect.md` |
 | `terminal-ux-reviewer` | TUI scope detected in diff or brief | `.claude/agents/terminal-ux-reviewer.md` |
 | `reviewer` (agent) | Always | `.claude/agents/reviewer.md` |
+| `cross-runtime-reviewer` | A runtime CLI other than the host is on `PATH` (`codex` or `opencode`) | See **Cross-Runtime Review** below — an independent second-model pass |
+
+### Cross-Runtime Review
+
+The same model reviewing its own implementation is a blind spot. When a **different** runtime
+CLI is available, run an independent adversarial pass with it. Detection (auto-on, no config):
+
+```bash
+command -v codex >/dev/null 2>&1 && echo "codex available"
+command -v opencode >/dev/null 2>&1 && echo "opencode available"
+```
+
+If neither is present (or the only one present is the host runtime itself), **skip this
+specialist silently** — single-runtime projects are unaffected.
+
+Otherwise, shell out to the second runtime non-interactively (e.g. `codex exec "<prompt>"`
+or `opencode run "<prompt>"`, mirroring how `skills/media/image-generation.md` invokes the
+Codex CLI). Pass it the diff (`git diff main...HEAD`) and the primary `briefs/<task>-review.json`,
+and instruct it to return **only findings the primary review missed**, as JSON objects in the
+standard finding schema with `specialist: "<runtime>-xruntime"`.
+
+**Augment, never rewrite.** Append the returned objects to a `cross_runtime_findings` array
+in `briefs/<task>-review.json`. Do **not** edit or remove any primary `findings` entry — the
+second runtime adds perspective, it does not overrule the primary review's wording.
+
+**GO authority:** if any `cross_runtime_findings` entry is CRITICAL or HIGH (and OPEN), set the
+verdict `status` to `NO-GO` with `no_go_reason.type = "cross-runtime-finding"`. This is the one
+case where the second runtime blocks the gate.
 
 **KB-conditional check:**
 
@@ -276,6 +347,21 @@ Produce `briefs/<task>-review.json`:
       "status": "OPEN|RESOLVED|ACCEPTED"
     }
   ],
+  "cross_runtime_findings": [
+    {
+      "severity": "HIGH",
+      "confidence": 4,
+      "path": "file.ml",
+      "line": 42,
+      "category": "correctness",
+      "summary": "...",
+      "evidence": "...",
+      "fix": "...",
+      "fingerprint": "file.ml:42:correctness",
+      "specialist": "codex-xruntime",
+      "status": "OPEN"
+    }
+  ],
   "summary": {
     "critical": 0,
     "high": 0,
@@ -290,13 +376,14 @@ Produce `briefs/<task>-review.json`:
   "mode": "express|fast|full",
   "escalation_needed": false,
   "escalation_reason": null
-  // type values: null | "spec-ac-failure" | "code-plan-failure"
+  // type values: null | "spec-ac-failure" | "code-plan-failure" | "cross-runtime-finding"
   // escalation_reason: null | "new-public-api" | "implicit-design-decision" | "spec-update-needed" | "behaviour-change"
+  // cross_runtime_findings: appended by the cross-runtime reviewer (augment-only); omit the key entirely if no second runtime ran
 }
 ```
 
-**GO status if:** no CRITICAL or HIGH OPEN finding.
-**NO-GO status if:** at least one CRITICAL or HIGH OPEN finding not resolved or explicitly accepted.
+**GO status if:** no CRITICAL or HIGH OPEN finding **in either `findings` or `cross_runtime_findings`**.
+**NO-GO status if:** at least one CRITICAL or HIGH OPEN finding (primary or cross-runtime) not resolved or explicitly accepted. A cross-runtime CRITICAL/HIGH sets `no_go_reason.type = "cross-runtime-finding"`.
 
 ### 7. Human gate
 

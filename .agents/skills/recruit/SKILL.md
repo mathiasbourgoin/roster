@@ -6,6 +6,15 @@ description: Use when the user invokes /recruit, $recruit, recruit update, or as
 
 ## Update Notes
 
+Version: 2.6.0 — First-run pipeline-skill installation
+
+**What changed:**
+
+- **Mode 1 (team assembly) now offers to install the roster-* pipeline skills on first run.**
+  After assembling the team, the recruiter installs the full pipeline skill set (intake → spec →
+  plan → implement → review → qa → ship + meta) so `/roster-run` and the rest exist immediately,
+  instead of leaving a half-installed setup that only has the recruiter.
+
 Version: 2.5.2 — Deterministic update/projection report
 
 **What changed:**
@@ -22,6 +31,7 @@ Version: 2.5.2 — Deterministic update/projection report
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
 
+---
 
 Version: 2.5.0 — Skill-First Pipeline, Skill Metabolism, Roster Init
 
@@ -49,6 +59,7 @@ When presenting this update, ask: *"Would you like to install the roster-* pipel
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
 
+---
 
 Version: 2.4.0 — Pipeline Metadata, CI Lint, Diagnostic Interview, Team Lifecycle
 
@@ -67,6 +78,7 @@ Version: 2.4.0 — Pipeline Metadata, CI Lint, Diagnostic Interview, Team Lifecy
 - After presenting and applying these notes during self-update, remove this section from the installed recruiter copy.
 - Durable release history belongs in `CHANGES.md`.
 
+---
 
 Version: 2.3.0 — Language Patterns + Prompt Engineering Guidelines
 
@@ -236,6 +248,7 @@ curl -fsSL --max-time 3 --connect-timeout 2 --silent \
 
 From the output, extract lines between `## [<remote>]` and the next `## [` line. Display them under `**What's new in v<remote>:**`. If the fetch fails or the version section is absent, display `"Upgraded roster to v<remote>."` with no further detail.
 
+---
 
 ## Mode Detection
 
@@ -475,6 +488,22 @@ Use index artifacts, not ad-hoc remote crawling.
    - Generate or update runtime entrypoints: `.claude/agents/`, `.claude/commands/`, `.claude/rules/`, `.claude/harness.json`, `.agents/skills/`
    - Run `./scripts/sync-harness.sh <project-root>` after writing shared canonical files.
    - Generate or update `AGENTS.md` governance section if needed.
+
+7. **Install the roster pipeline skills (first-run — do not skip).**
+
+   A fresh install ships only the recruiter: none of the `roster-*` pipeline skills exist
+   yet, so `/roster-run` and the rest of the pipeline are not callable. Initial assembly is
+   the moment to install them — otherwise the documented `/recruit` → `/roster-run <task>`
+   flow fails for every new user. After the team is written, offer:
+
+   > Install the roster pipeline skills? They add `/roster-run` (entry point) and
+   > intake→spec→plan→implement→review→qa→ship as slash commands, plus `/roster-init`
+   > for bootstrapping and `/roster-skill-health` for self-improvement. [Y/n]
+
+   On approval (default yes), run the **New Skill Discovery** install procedure in the
+   Self-Update section to fetch and write every pipeline skill to the project's runtime
+   entrypoints, then re-run `./scripts/sync-harness.sh <project-root>`. Skip absent runtime
+   directories — do not fail.
 
 ### Mode 2: Team Audit & Upgrade (existing harness found)
 
@@ -836,7 +865,10 @@ PREAMBLE=$(curl -sL "$ROSTER_RAW/skills/shared/preamble.md")
 Skills to install:
 - `skills/pipeline/roster-run.md`
 - `skills/pipeline/roster-init.md`
+- `skills/pipeline/roster-question.md`
+- `skills/pipeline/roster-research.md`
 - `skills/pipeline/roster-intake.md`
+- `skills/pipeline/roster-spec.md`
 - `skills/pipeline/roster-plan.md`
 - `skills/pipeline/roster-implement.md`
 - `skills/pipeline/roster-review.md`
@@ -844,6 +876,7 @@ Skills to install:
 - `skills/pipeline/roster-ship.md`
 - `skills/pipeline/roster-investigate.md`
 - `skills/pipeline/roster-audit.md`
+- `skills/pipeline/roster-doctor.md`
 - `skills/meta/roster-skill-health.md`
 - `skills/meta/roster-skill-evolve.md`
 
@@ -855,6 +888,7 @@ SKILL_CONTENT=$(curl -sL "$ROSTER_RAW/<skill-path>")
 if echo "$SKILL_CONTENT" | grep -q "^preamble: true"; then
   PROJECTED="${PREAMBLE}
 
+---
 
 ${SKILL_CONTENT}"
 else

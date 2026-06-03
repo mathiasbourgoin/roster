@@ -1,7 +1,7 @@
 ---
 name: roster-ship
 description: Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go.
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -28,7 +28,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.4.0
+version: 1.5.0
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -107,6 +107,49 @@ At the end of each run, honestly record:
 This is not a performance review. It is cross-run memory.
 Format: see `skills-meta/friction.jsonl`.
 
+### Pipeline State
+
+If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
+pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
+event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
+`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
+is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
+context. Create the file if absent; preserve every prior `events` entry:
+
+```json
+{
+  "task": "<slug>",
+  "mode": "express|fast|full",
+  "current_phase": "implement",
+  "events": [
+    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
+  ]
+}
+```
+
+Rules for writing your event:
+
+- **`task` is the canonical slug**, derived once from the task description and reused identically
+  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
+  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
+  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
+  ledger will not be found. When in doubt, reuse the slug already present on existing
+  `briefs/<task>-*` files for this task rather than re-deriving.
+- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
+  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
+  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
+- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
+  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
+  `ship`: `COMPLETED`; `question`/`research`/`plan`/`implement`: `COMPLETED`. Do not invent other
+  values.
+- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
+  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
+  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
+- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
+  skill name (or `human-gate` for a gate decision).
+
 
 # Roster Ship
 
@@ -117,13 +160,15 @@ You carry the implementation branch through to merge. Conventional commits, reba
 ## Input Contract
 
 Before any action, read:
-- `briefs/<task>-review.json` — **BLOCK** if status is `NO-GO`
-- `briefs/<task>-qa.md` — **BLOCK** if status is `NO-GO`
+- `briefs/<task>-review.json` — **BLOCK** if status is `NO-GO`; read its `mode` field
 - `briefs/<task>-impl.md` — for commit messages
+- `briefs/<task>-qa.md` — **required for `fast`/`full` mode** (BLOCK if NO-GO or absent).
+  **Express mode skips QA** (its pipeline is implement → review → ship), so a missing
+  `qa.md` is expected and **not** a block when `review.json.mode == "express"`.
 
-If either is NO-GO or absent:
-> ⛔ BLOCKED: `<file>` is NO-GO or missing.
-> Resolve the reported issues before shipping.
+Block conditions:
+> ⛔ BLOCKED: review.json is NO-GO or absent → resolve before shipping.
+> ⛔ BLOCKED: qa.md is NO-GO, or absent on a non-express task → run /roster-qa first.
 
 ## Steps
 
@@ -291,6 +336,6 @@ echo "💡 Friction log: ${FRICTION_COUNT} entries."
 
 - Never a merge commit — rebase-merge only
 - Never push without an explicit human gate
-- Never ship if review.json or qa.md is NO-GO or absent
+- Never ship if review.json is NO-GO or absent, or if qa.md is NO-GO; qa.md may be absent **only** in express mode (which skips QA)
 - Never commit files outside the task scope
 - If CI fails after push → do not merge, report

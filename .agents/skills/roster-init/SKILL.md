@@ -1,7 +1,8 @@
 ---
 name: roster-init
 description: Bootstrap a new project or onboard an existing project into the roster ecosystem.
-version: 1.2.0
+when_to_use: "Use when starting a new project or onboarding an existing one into roster — bootstraps harness, KB, and pipeline. Trigger: 'set up roster here', greenfield/onboard."
+version: 1.2.1
 domain: pipeline
 phase: null
 preamble: true
@@ -31,7 +32,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.4.0
+version: 1.5.0
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -110,6 +111,49 @@ At the end of each run, honestly record:
 This is not a performance review. It is cross-run memory.
 Format: see `skills-meta/friction.jsonl`.
 
+### Pipeline State
+
+If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
+pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
+event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
+`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
+is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
+context. Create the file if absent; preserve every prior `events` entry:
+
+```json
+{
+  "task": "<slug>",
+  "mode": "express|fast|full",
+  "current_phase": "implement",
+  "events": [
+    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
+  ]
+}
+```
+
+Rules for writing your event:
+
+- **`task` is the canonical slug**, derived once from the task description and reused identically
+  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
+  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
+  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
+  ledger will not be found. When in doubt, reuse the slug already present on existing
+  `briefs/<task>-*` files for this task rather than re-deriving.
+- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
+  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
+  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
+- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
+  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
+  `ship`: `COMPLETED`; `question`/`research`/`plan`/`implement`: `COMPLETED`. Do not invent other
+  values.
+- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
+  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
+  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
+- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
+  skill name (or `human-gate` for a gate decision).
+
 
 # Roster Init
 
@@ -118,6 +162,7 @@ You bootstrap a project into the roster ecosystem. Two modes depending on contex
 **Token discipline:** questions one at a time. No list of questions all at once.
 Do not start writing before the final human gate.
 
+---
 
 ## Steps
 
@@ -132,6 +177,7 @@ Before any question:
 | Existing code, no roster harness | **B — Onboard** |
 | Harness already present | Redirect to `/roster-skill-health` for team audit |
 
+---
 
 ## Mode A — Greenfield
 
@@ -151,6 +197,7 @@ Challenge weak answers (max 1 follow-up per question).
 *If the answer is vague ("doesn't matter"):*
 > "That is not a usable answer. Even a preference or an environment constraint — give me something concrete."
 
+---
 
 **Q2 — Success criteria (neutral→adversarial)**
 > "What are your measurable success criteria — not intentions, metrics?"
@@ -159,6 +206,7 @@ Challenge weak answers (max 1 follow-up per question).
 > "That is not measurable. Give me a number, a threshold, an observable behavior.
 > Without that, we will never know if it's done or if it failed."
 
+---
 
 **Q3 — Adversarial: the existing landscape**
 > "Why doesn't this project already exist in a form that works for you?
@@ -173,6 +221,7 @@ Challenge weak answers (max 1 follow-up per question).
 *If the answer shows serious research and a genuine reason to build:*
 > Validate and continue.
 
+---
 
 **Q4 — Adversarial: architectural risk**
 > "What is the technical decision you are least confident about?
@@ -192,6 +241,7 @@ Challenge weak answers (max 1 follow-up per question).
 *If an answer identifies a real risk:*
 > Good. This risk goes into `kb/risks.md` and will be visible at every `/roster-review` and `/roster-plan`.
 
+---
 
 **Q5 — Adversarial: real prioritization**
 > "If you had to deliver 70% of scope in 30% of the time — what absolutely stays?
@@ -204,6 +254,7 @@ Challenge weak answers (max 1 follow-up per question).
 *If the answer reveals a real core:*
 > Record it — this core becomes the main section of `kb/spec.md`.
 
+---
 
 **Q6 — Quality policy (semi-adversarial)**
 > "What is your testing policy? Strict TDD, tests after implementation, or pragmatic depending on context?
@@ -270,6 +321,7 @@ Human gate: wait for explicit validation.
 10. Create `briefs/project-intake.md` ready for the first `/roster-run`
 11. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
 
+---
 
 ## Mode B — Onboard (existing project)
 
@@ -303,6 +355,7 @@ If problems were found (broken tests, TODOs, lint errors):
 If nothing problematic was found:
 > "The project is in a clean state — green tests, no visible debt. Good signal."
 
+---
 
 **Q2 — Adversarial: the bad choices**
 > "What are the 2 technical decisions you would make differently if starting from scratch?
@@ -312,6 +365,7 @@ If nothing problematic was found:
 > "That is not credible on a real project. I am looking for fragile areas to better protect them,
 > not to criticize them."
 
+---
 
 **Q3 — Adversarial: the critical behavior**
 > "What is the most critical behavior of this project — the one whose regression would be catastrophic?
@@ -326,6 +380,7 @@ If nothing problematic was found:
 > B. Continue — I note in kb/risks.md: "critical behavior not tested"
 > C. Rephrase — perhaps I misidentified what is critical
 
+---
 
 **Q4 — Adversarial: readability**
 > "Can someone other than you pick up this project and understand where everything is in 30 minutes?
@@ -335,6 +390,7 @@ If nothing problematic was found:
 > "Then bootstrapping the KB has the explicit goal of making that possible.
 > We will document the entry points, critical modules, and non-obvious decisions."
 
+---
 
 **Q5 — Neutral: the onboarding objective**
 > "What do you want to do with roster on this project?
@@ -342,6 +398,7 @@ If nothing problematic was found:
 
 → Orients the install and the first `/roster-run`.
 
+---
 
 **Q6 — Perimeter safety**
 > "What parts of the project should I not touch?
@@ -394,6 +451,7 @@ Human gate: wait for explicit validation.
 7. Create `briefs/project-intake.md` with project state and first objective
 8. Project the harness to runtimes
 
+---
 
 ## Brainstorming protocol
 
@@ -407,6 +465,7 @@ Triggered when an adversarial question reveals a fundamental problem and the use
    - `kb/spec.md` if it is a scope clarification
 5. Resume the interview flow where it was left off
 
+---
 
 ## When to Go Back
 
