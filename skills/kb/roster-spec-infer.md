@@ -2,7 +2,7 @@
 name: roster-spec-infer
 description: Reverse-engineer what existing code actually does into a structured, evidence-tiered inferred spec artifact (specs/<slug>-inferred.md). Mines tests, code, documentation, and git history. Labels every claim [E1]/[E2]/[E3] by evidence strength. Produces GWT scenarios, FR-NNN requirements, and surfaces doc-drift conflicts.
 when_to_use: "Use to reverse-engineer what existing code actually does into an evidence-tiered inferred spec. Trigger: 'what does this code do', 'infer the spec', undocumented legacy code."
-version: 1.0.0
+version: 1.0.1
 tunables:
   include_git_history: true
   conflict_policy: surface

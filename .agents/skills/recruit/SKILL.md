@@ -6,6 +6,15 @@ description: Use when the user invokes /recruit, $recruit, recruit update, or as
 
 ## Update Notes
 
+Version: 2.6.0 — First-run pipeline-skill installation
+
+**What changed:**
+
+- **Mode 1 (team assembly) now offers to install the roster-* pipeline skills on first run.**
+  After assembling the team, the recruiter installs the full pipeline skill set (intake → spec →
+  plan → implement → review → qa → ship + meta) so `/roster-run` and the rest exist immediately,
+  instead of leaving a half-installed setup that only has the recruiter.
+
 Version: 2.5.2 — Deterministic update/projection report
 
 **What changed:**

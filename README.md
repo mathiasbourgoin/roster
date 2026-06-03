@@ -43,7 +43,7 @@ Detects and installs for all present runtimes simultaneously:
 | Runtime | Detected by | Recruiter target | Notes |
 |---------|-------------|-----------------|-------|
 | Claude Code | `.claude/` | `.claude/agents/recruiter.md` + `.claude/commands/recruit.md` | |
-| OpenCode | `.opencode/` | `.opencode/agents/recruiter.md` | |
+| OpenCode | `.opencode/` | `.opencode/skills/recruit/SKILL.md` | native Agent-Skills discovery |
 | Codex (project) | `.agents/` | `.agents/skills/recruit/SKILL.md` | |
 | Codex (global) | `~/.codex/skills/` | `~/.codex/skills/recruit/SKILL.md` | |
 | Pi | `.pi/` | `.pi/skills/recruit/SKILL.md` | ⚠️ untested |
@@ -61,7 +61,8 @@ curl -fsSL .../install.sh | bash -s -- --runtime claude,opencode
 curl -fsSL .../install.sh | bash -s -- --team
 ```
 
-After install: run `/recruit` (Claude / OpenCode) or `$recruit` (Codex) to assemble your team.
+After install: run `/recruit` (Claude) or invoke the discovered `recruit` skill (OpenCode / Codex /
+Copilot — they read the same `SKILL.md` Agent-Skills standard) to assemble your team.
 
 ## The Pipeline
 

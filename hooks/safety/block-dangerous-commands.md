@@ -3,7 +3,7 @@ name: block-dangerous-commands
 description: Block destructive shell commands — rm -rf root/home, force push to main, SQL drops, chmod 777, pipe to shell.
 event: PreToolUse
 matcher: Bash
-version: 1.0.0
+version: 1.1.0
 timeout: 5000
 ---
 

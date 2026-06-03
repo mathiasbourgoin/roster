@@ -147,21 +147,29 @@ fetch() {
 install_claude() {
   mkdir -p .claude/agents .claude/commands
   fetch "${RAW}/recruiter/recruiter.md" ".claude/agents/recruiter.md"
-  fetch "${RAW}/recruiter/recruiter.md" ".claude/commands/recruit.md"
+  # The slash-command must be the RENDERED projection (name: recruit), not the raw agent
+  # (name: recruiter) — otherwise the documented /recruit trigger is wrong.
+  fetch "${RAW}/.claude/commands/recruit.md" ".claude/commands/recruit.md"
   echo "$ROSTER_VERSION" > .claude/.roster-version
   ok "Claude Code  →  .claude/agents/recruiter.md + .claude/commands/recruit.md"
 }
 
 install_opencode() {
-  mkdir -p .opencode/agents
-  fetch "${RAW}/.opencode/agents/recruiter.md" ".opencode/agents/recruiter.md"
+  # OpenCode natively discovers Agent Skills (SKILL.md) — incl. its own .opencode/skills/ path.
+  # Install recruit as a discovered skill (name: recruit) rather than a Claude-style command,
+  # which OpenCode does NOT read. The same rendered SKILL.md is the open Agent Skills standard,
+  # so it is also what Codex (.agents/skills) and Copilot discover — one artifact, three runtimes.
+  mkdir -p .opencode/skills/recruit
+  fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".opencode/skills/recruit/SKILL.md"
   echo "$ROSTER_VERSION" > .opencode/.roster-version
-  ok "OpenCode     →  .opencode/agents/recruiter.md"
+  ok "OpenCode     →  .opencode/skills/recruit/SKILL.md (native skill discovery)"
 }
 
 install_codex() {
   mkdir -p .agents/skills/recruit
-  fetch "${RAW}/recruiter/recruiter.md" ".agents/skills/recruit/SKILL.md"
+  # Native skill discovery (Codex/OpenCode) keys on the SKILL.md frontmatter `name:`, so this
+  # must be the RENDERED projection (name: recruit), not the raw agent (name: recruiter).
+  fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".agents/skills/recruit/SKILL.md"
   touch ".agents/skills/recruit/.roster-managed"
   echo "$ROSTER_VERSION" > .agents/skills/recruit/.roster-version
   ok "Codex        →  .agents/skills/recruit/SKILL.md"
@@ -170,7 +178,7 @@ install_codex() {
 install_codex_global() {
   local dir="${CODEX_HOME:-$HOME/.codex}/skills/recruit"
   mkdir -p "$dir"
-  fetch "${RAW}/recruiter/recruiter.md" "$dir/SKILL.md"
+  fetch "${RAW}/.agents/skills/recruit/SKILL.md" "$dir/SKILL.md"
   touch "$dir/.roster-managed"
   echo "$ROSTER_VERSION" > "$dir/.roster-version"
   ok "Codex global →  $dir/SKILL.md"
@@ -178,7 +186,8 @@ install_codex_global() {
 
 install_pi() {
   mkdir -p .pi/skills/recruit
-  fetch "${RAW}/recruiter/recruiter.md" ".pi/skills/recruit/SKILL.md"
+  # Pi uses the SKILL.md skill format too — reuse the rendered projection (name: recruit).
+  fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".pi/skills/recruit/SKILL.md"
   touch ".pi/skills/recruit/.roster-managed"
   echo "$ROSTER_VERSION" > .pi/skills/recruit/.roster-version
   ok "Pi           →  .pi/skills/recruit/SKILL.md"

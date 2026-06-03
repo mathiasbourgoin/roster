@@ -1,7 +1,7 @@
 ---
 name: roster-ship
 description: Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go.
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: ship
 preamble: true

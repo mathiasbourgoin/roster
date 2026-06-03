@@ -165,6 +165,46 @@ if (runSchema === null || docSchema === null) {
   console.log("✓ pipeline-install: durable-state LEDGER_SCHEMA is identical in roster-run + roster-doctor.");
 }
 
+// ── Check 5: install.sh installs the RENDERED recruit skill/command, not the raw agent ──────
+// Native skill discovery (OpenCode/Codex) keys on SKILL.md frontmatter `name:`, and the /recruit
+// slash-command must be the rendered command (name: recruit). The raw recruiter/recruiter.md
+// (name: recruiter) may ONLY feed an *agent* slot — never a recruit skill/command — else a fresh
+// install diverges from the generated projection and the documented $recruit / /recruit trigger.
+const installSh = path.resolve(root, "scripts/install.sh");
+if (fs.existsSync(installSh)) {
+  const text = fs.readFileSync(installSh, "utf8");
+  // Every: fetch "${RAW}/<src>" "<dest>"
+  const fetchRe = /fetch\s+"\$\{RAW\}\/([^"]+)"\s+"([^"]+)"/g;
+  let m;
+  const isRecruitSkillOrCommand = (dest) =>
+    /(^|\/)commands\/recruit\.md$/.test(dest) ||
+    /skills\/recruit\/SKILL\.md$/.test(dest) ||
+    /\$dir\/SKILL\.md$/.test(dest); // codex-global: dir ends in skills/recruit
+  while ((m = fetchRe.exec(text)) !== null) {
+    const [, src, dest] = m;
+    if (isRecruitSkillOrCommand(dest) && src === "recruiter/recruiter.md") {
+      errors.push(
+        `install.sh fetches the raw recruiter/recruiter.md into a recruit skill/command slot ("${dest}") — ` +
+          `it must fetch the rendered projection (name: recruit) instead.`
+      );
+    }
+  }
+  // The rendered sources the installer relies on must exist and declare name: recruit.
+  for (const rel of [".claude/commands/recruit.md", ".agents/skills/recruit/SKILL.md"]) {
+    const p = path.resolve(root, rel);
+    if (!fs.existsSync(p)) {
+      errors.push(`install.sh sources ${rel} but it does not exist (install-time fetch would 404).`);
+    } else if (!/^name:\s*recruit\s*$/m.test(fs.readFileSync(p, "utf8"))) {
+      errors.push(`${rel} must declare \`name: recruit\` (native skill discovery / the /recruit trigger keys on it).`);
+    }
+  }
+  if (!errors.some((e) => e.includes("install.sh") || e.includes("recruit.md") || e.includes("SKILL.md"))) {
+    console.log("✓ pipeline-install: install.sh installs the rendered recruit skill/command (name: recruit).");
+  }
+} else {
+  console.log("✓ pipeline-install: no scripts/install.sh — skipping installer recruit-source check.");
+}
+
 if (errors.length) {
   console.error(`\n✗ pipeline-install: ${errors.length} issue(s):`);
   for (const e of errors) console.error(`    - ${e}`);

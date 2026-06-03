@@ -6,6 +6,24 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.0] — 2026-06-03
+
+### Added
+
+- **`bin` entry + npx-from-git install** — `npx github:mathiasbourgoin/roster` runs the installer.
+- **`check:pipeline-install`** guard (wired into `npm test`): recruiter install-list ↔ disk,
+  Codex agent-TOML schema, plugin manifests, durable-state `LEDGER_SCHEMA` run/doctor identity,
+  and that `install.sh` installs the rendered recruit skill/command (`name: recruit`).
+- **`bench:quality-cost:test`** added to the test chain.
+
+### Fixed
+
+- `sync-harness.sh` `strip_frontmatter` now preserves body `---` rules in all projections.
+- `install.sh` installs the rendered recruit projection (`name: recruit`) for every runtime
+  instead of the raw agent (`name: recruiter`); OpenCode now gets a discoverable SKILL.md.
+
+---
+
 ## [1.1.0] — 2026-05-25
 
 ### Added

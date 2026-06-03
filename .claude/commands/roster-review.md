@@ -1,7 +1,7 @@
 ---
 name: roster-review
 description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
-version: 1.4.0
+version: 1.5.0
 domain: pipeline
 phase: review
 preamble: true

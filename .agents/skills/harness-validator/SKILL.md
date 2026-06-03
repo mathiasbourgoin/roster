@@ -2,7 +2,7 @@
 name: harness-validator
 description: Meta-auditor — validate the KB harness itself (structure, auditors, rules coherence, feedback loops).
 when_to_use: "Use to validate the KB harness itself — structure, auditors, rules coherence, feedback loops. Trigger: 'check the harness', meta-audit."
-version: 1.0.0
+version: 1.0.1
 ---
 
 # Harness Validator
