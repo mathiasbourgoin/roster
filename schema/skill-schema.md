@@ -134,7 +134,6 @@ The canonical installer should place the skill in the shared harness and then ge
 - Codex project-local: render to `.agents/skills/<name>/SKILL.md`
 - Codex global/session-discovered: render to `$CODEX_HOME/skills/<name>/SKILL.md` only when an explicit `codex-global` runtime is enabled
 - OpenCode: render to `.opencode/agents/<name>.md` (agents) and `.opencode/skills/<name>/SKILL.md` (skills — native Agent-Skills discovery)
-- Pi (pi.dev): render to `.pi/skills/<name>/SKILL.md` — Pi uses the same SKILL.md directory structure as Codex
 - GitHub Copilot: render to `.github/copilot-instructions.md` (global) and `.github/instructions/<name>.instructions.md` (per-agent)
 
 Runtime wrappers should stay thin and mechanically regenerable from the shared source.

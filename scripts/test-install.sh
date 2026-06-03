@@ -79,14 +79,7 @@ run_install "$dir" > /dev/null
   && pass "old sentinel name NOT used (rename clean)"  || fail "old .agent-roster-managed still present"
 
 # ─────────────────────────────────────────────────────────────────────────────
-section "5. Pi only"
-dir=$(fresh "pi-only" ".pi")
-run_install "$dir" > /dev/null
-[ -f "$dir/.pi/skills/recruit/SKILL.md" ]        && pass ".pi SKILL.md created"      || fail "pi SKILL.md missing"
-[ -f "$dir/.pi/skills/recruit/.roster-managed" ] && pass ".pi .roster-managed"        || fail "pi sentinel missing"
-
-# ─────────────────────────────────────────────────────────────────────────────
-section "6. Codex global"
+section "5. Codex global"
 dir=$(fresh "codex-global")
 mkdir -p "$FAKE_CODEX_HOME/skills"
 run_install "$dir" > /dev/null
@@ -108,7 +101,6 @@ run_install "$dir" --all > /dev/null
 [ -f "$dir/.claude/agents/recruiter.md" ]     && pass "--all claude"   || fail "--all claude missing"
 [ -f "$dir/.opencode/agents/recruiter.md" ]   && pass "--all opencode" || fail "--all opencode missing"
 [ -f "$dir/.agents/skills/recruit/SKILL.md" ] && pass "--all codex"    || fail "--all codex missing"
-[ -f "$dir/.pi/skills/recruit/SKILL.md" ]     && pass "--all pi"       || fail "--all pi missing"
 
 # ─────────────────────────────────────────────────────────────────────────────
 section "9. --runtime flag (explicit, comma-separated)"

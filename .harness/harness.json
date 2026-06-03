@@ -20,13 +20,8 @@
     },
     {
       "name": "opencode",
-      "enabled": false,
+      "enabled": true,
       "entrypoint": ".opencode"
-    },
-    {
-      "name": "pi",
-      "enabled": false,
-      "entrypoint": ".pi/skills"
     },
     {
       "name": "copilot",

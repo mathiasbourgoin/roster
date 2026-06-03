@@ -170,7 +170,7 @@ printf 'bash: %s\n' "${BASH_VERSION:-unknown}"; [ "${BASH_VERSINFO[0]:-0}" -ge 4
 for t in jq git gh curl; do command -v "$t" >/dev/null 2>&1 && echo "$t ✓" || echo "$t ✗"; done
 # Release channel the project was installed from (sentinel written by install.sh). Default
 # "stable" when no marker exists (installs predating channels, or an explicit stable install).
-ch="$(cat .claude/.roster-channel .opencode/.roster-channel .agents/skills/recruit/.roster-channel .pi/skills/recruit/.roster-channel 2>/dev/null | head -1)"
+ch="$(cat .claude/.roster-channel .opencode/.roster-channel .agents/skills/recruit/.roster-channel 2>/dev/null | head -1)"
 echo "channel: ${ch:-stable (default — no .roster-channel marker)}"
 # Harness manifest valid
 [ -f .harness/harness.json ] && { jq empty .harness/harness.json 2>/dev/null && echo "harness.json ✓ valid" || echo "harness.json ✗ invalid JSON"; } || echo "harness.json — absent"

@@ -126,8 +126,7 @@ auditors: [<string>]                 # Agent names that audit the KB
     { "name": "claude-code", "enabled": true, "entrypoint": ".claude/" },
     { "name": "codex", "enabled": true, "entrypoint": ".agents/skills/" },
     { "name": "codex-global", "enabled": false, "entrypoint": "~/.codex/skills/" },
-    { "name": "opencode", "enabled": false, "entrypoint": ".opencode" },
-    { "name": "pi", "enabled": false, "entrypoint": ".pi/skills" },
+    { "name": "opencode", "enabled": true, "entrypoint": ".opencode" },
     { "name": "copilot", "enabled": false, "entrypoint": ".github" }
   ],
   "project": {
