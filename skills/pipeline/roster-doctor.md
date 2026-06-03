@@ -2,7 +2,7 @@
 name: roster-doctor
 description: Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment (build/test/lint/format) is actually runnable before work starts.
 when_to_use: "Use to check install health or as a pre-flight before work — tools, pipeline skills, projection drift, and whether build/test/lint actually run. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.1.0
+version: 1.2.0
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -43,6 +43,10 @@ Run and tabulate. Never fail the whole check on one miss — collect all finding
 # Tooling
 printf 'bash: %s\n' "${BASH_VERSION:-unknown}"; [ "${BASH_VERSINFO[0]:-0}" -ge 4 ] && echo "  bash>=4 ✓" || echo "  bash<4 ✗ (installer needs >=4)"
 for t in jq git gh curl; do command -v "$t" >/dev/null 2>&1 && echo "$t ✓" || echo "$t ✗"; done
+# Release channel the project was installed from (sentinel written by install.sh). Default
+# "stable" when no marker exists (installs predating channels, or an explicit stable install).
+ch="$(cat .claude/.roster-channel .opencode/.roster-channel .agents/skills/recruit/.roster-channel .pi/skills/recruit/.roster-channel 2>/dev/null | head -1)"
+echo "channel: ${ch:-stable (default — no .roster-channel marker)}"
 # Harness manifest valid
 [ -f .harness/harness.json ] && { jq empty .harness/harness.json 2>/dev/null && echo "harness.json ✓ valid" || echo "harness.json ✗ invalid JSON"; } || echo "harness.json — absent"
 # Pipeline skills present (at least the entry point), per runtime

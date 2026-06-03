@@ -59,7 +59,15 @@ curl -fsSL .../install.sh | bash -s -- --runtime claude,opencode
 
 # Team mode: appends one-liner to AGENTS.md so teammates get it automatically
 curl -fsSL .../install.sh | bash -s -- --team
+
+# Release channel: stable (default, tracks main) or next (the edge branch)
+curl -fsSL .../install.sh | bash -s -- --channel next
+# Arbitrary git ref (overrides --channel)
+curl -fsSL .../install.sh | bash -s -- --branch <ref>
 ```
+
+The installer records the channel in a per-runtime `.roster-channel` marker; `/roster-doctor`
+reports the active channel. `stable` is the default — omitting `--channel` reproduces prior behavior.
 
 After install: run `/recruit` (Claude) or invoke the discovered `recruit` skill (OpenCode / Codex,
 via native Agent-Skills discovery) to assemble your team. The installed `SKILL.md` follows the open
