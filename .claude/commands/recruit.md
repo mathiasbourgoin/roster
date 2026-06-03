@@ -6,6 +6,9 @@ description: Use when the user invokes /recruit, $recruit, recruit update, or as
 
 ## Update Notes
 
+Version: 2.6.1 — OpenCode recruit installs as a discovered skill (`.opencode/skills/recruit/SKILL.md`),
+matching `sync-harness`; install-targets doc corrected.
+
 Version: 2.6.0 — First-run pipeline-skill installation
 
 **What changed:**

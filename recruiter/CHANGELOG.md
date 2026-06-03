@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.6.1] — 2026-06-03
+
+### Fixed
+
+- OpenCode recruit now installs as a discovered Agent Skill at `.opencode/skills/recruit/SKILL.md`
+  (matching `sync-harness` and native OpenCode discovery) instead of a path OpenCode does not read;
+  install-targets documentation corrected.
+
+---
+
 ## [2.6.0] — 2026-06-03
 
 ### Added

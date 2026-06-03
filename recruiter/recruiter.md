@@ -21,11 +21,14 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.6.0
+version: 2.6.1
 author: mathiasbourgoin
 ---
 
 ## Update Notes
+
+Version: 2.6.1 — OpenCode recruit installs as a discovered skill (`.opencode/skills/recruit/SKILL.md`),
+matching `sync-harness`; install-targets doc corrected.
 
 Version: 2.6.0 — First-run pipeline-skill installation
 

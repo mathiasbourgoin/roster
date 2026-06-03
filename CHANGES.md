@@ -1,5 +1,15 @@
 # Changes
 
+## v2.6.1 — Bugfixes
+
+- **OpenCode skill projection aligned with the installer.** `sync-harness` emitted OpenCode skills
+  to `.opencode/commands/` (a path OpenCode does not read as skills) while `install.sh` used
+  `.opencode/skills/<name>/SKILL.md`. Both now use the native skills path; the recruiter-sync guard
+  was updated (it had silently gone dead), and every skill/agent name→path-component site is now
+  validated (`require_safe_name` / `reject_traversal`) against path traversal.
+- **Fast/Express implement unblocked.** `roster-implement`'s input contract no longer hard-requires
+  the `/roster-plan` sub-briefs in Express/Fast mode (which skip planning by design).
+
 ## v2.6.0 — Durable State, Install Hardening, Skill-Level Hooks
 
 ### Durable, Resumable Pipeline State
