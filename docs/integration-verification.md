@@ -44,3 +44,14 @@ install path, Codex projection, preflight, or cross-runtime review:
    project installs the recruiter (the `bin` runs `scripts/install.sh`). Needs the branch pushed.
 
 > When any manual item is verified for a release, note the runtime + version here.
+
+## Verified
+
+- **OpenCode native skill discovery** — OpenCode `1.15.13`, 2026-06-03 (branch `next`).
+  `install.sh --runtime opencode` writes `.opencode/skills/recruit/SKILL.md` (`name: recruit`);
+  `opencode debug skill` lists `recruit` among discovered skills. Confirms OpenCode reads the
+  installed Agent-Skills `SKILL.md` natively — no Claude-style command projection needed.
+- **Release channel install** — OpenCode `1.15.13`, 2026-06-03 (branch `next`).
+  `install.sh --channel next` resolves the `next` ref, fetches the rendered recruit skill, and
+  writes `.roster-channel=next`; `--branch <ref>` records `branch:<ref>`; an unknown channel is
+  rejected.
