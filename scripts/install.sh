@@ -10,7 +10,7 @@
 #
 # Flags:
 #   --all                Install for all supported runtimes (creates dirs)
-#   --runtime <list>     Comma-separated runtimes: claude,opencode,codex,codex-global,pi
+#   --runtime <list>     Comma-separated runtimes: claude,opencode,codex,codex-global
 #   --channel <c>        Release channel: stable (default → main) | next (edge branch)
 #   --branch <ref>       Install from an arbitrary git ref (overrides --channel)
 #   --team               Append the install one-liner to AGENTS.md for teammates
@@ -116,7 +116,7 @@ Usage: bash scripts/install.sh [--all] [--runtime <list>] [--channel <c>] [--tea
   -h, --help           Show this help
 
 Auto-detected runtimes: Claude Code (.claude/), OpenCode (.opencode/),
-  Codex project (.agents/), Codex global (~/.codex/skills), Pi (.pi/).
+  Codex project (.agents/), Codex global (~/.codex/skills).
 
 Run with no flags to install into auto-detected runtimes interactively.
 USAGE
@@ -148,11 +148,10 @@ detect_runtimes() {
   [ -d ".opencode" ] && found+=("opencode")
   [ -d ".agents" ]   && found+=("codex")
   [ -d "${CODEX_HOME:-$HOME/.codex}/skills" ] && found+=("codex-global")
-  [ -d ".pi" ]       && found+=("pi")
   printf '%s\n' "${found[@]:-}"
 }
 
-ALL_RUNTIMES="claude opencode codex codex-global pi"
+ALL_RUNTIMES="claude opencode codex codex-global"
 
 if [ -n "$OPT_RUNTIMES" ]; then
   RUNTIMES_TO_INSTALL="${OPT_RUNTIMES//,/ }"
@@ -227,15 +226,6 @@ install_codex_global() {
   ok "Codex global →  $dir/SKILL.md"
 }
 
-install_pi() {
-  mkdir -p .pi/skills/recruit
-  # Pi uses the SKILL.md skill format too — reuse the rendered projection (name: recruit).
-  fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".pi/skills/recruit/SKILL.md"
-  touch ".pi/skills/recruit/.roster-managed"
-  stamp_markers .pi/skills/recruit
-  ok "Pi           →  .pi/skills/recruit/SKILL.md"
-}
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 echo ""
@@ -244,7 +234,7 @@ echo ""
 
 if [ -z "${RUNTIMES_TO_INSTALL:-}" ]; then
   warn "No runtimes detected. Use --all to install for all, or --runtime <list>."
-  info "Supported: claude, opencode, codex, codex-global, pi"
+  info "Supported: claude, opencode, codex, codex-global"
   echo ""
   info "Example: bash scripts/install.sh --runtime claude,opencode"
   exit 0
@@ -259,7 +249,6 @@ for runtime in $RUNTIMES_TO_INSTALL; do
     opencode)      install_opencode ;;
     codex)         install_codex ;;
     codex-global)  install_codex_global ;;
-    pi)            install_pi ;;
     copilot)       warn "GitHub Copilot runtime requires manual setup — see README." ;;
     *)             warn "Unknown runtime: $runtime (skipping)" ;;
   esac

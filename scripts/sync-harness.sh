@@ -74,7 +74,7 @@ if [ "$CHECK" -eq 1 ]; then
     # Compare each runtime entrypoint dir. Direction is gen→real: a file the sandbox
     # produced that is missing or differs in the tree is drift; files that exist only
     # in the real tree (non-managed, e.g. .github/workflows) are ignored.
-    for _rel in .claude .agents .codex .opencode .pi .github; do
+    for _rel in .claude .agents .codex .opencode .github; do
         _gen="$_CK_TMP/$_rel"
         _real="$PROJECT_ROOT/$_rel"
         [ -d "$_gen" ] || continue
@@ -289,15 +289,15 @@ render_recruit_skill() {
 
 # Copy a skill's bundled reference resources (generic docs that ship WITH the
 # skill, loaded on demand) next to its projected form. Source resources live in
-# "<src-without-.md>.resources/". For dir-based runtimes (Codex/pi: <name>/SKILL.md)
-# they go inside "<out_dir>/<name>/"; for flat runtimes (Claude/OpenCode commands:
-# <name>.md) they go in a sibling "<out_dir>/<name>.resources/". No-op if absent.
+# "<src-without-.md>.resources/". For dir-based runtimes (Codex/OpenCode: <name>/SKILL.md)
+# they go inside "<out_dir>/<name>/"; for the flat Claude command form (<name>.md) they go
+# in a sibling "<out_dir>/<name>.resources/". No-op if absent.
 copy_skill_resources() {
     local src="$1" name="$2" out_dir="$3" kind="$4"
-    # Resources bundle ONLY for dir-based runtimes (Codex/pi: <name>/SKILL.md),
-    # where a sibling .md is a passive resource. Flat command runtimes
-    # (Claude/OpenCode) scan subdirs and would register each resource as an
-    # invocable command, so we deliberately skip them there.
+    # Resources bundle ONLY for dir-based runtimes (Codex/OpenCode: <name>/SKILL.md),
+    # where a sibling .md is a passive resource. The flat Claude command form
+    # scans subdirs and would register each resource as an invocable command, so
+    # we deliberately skip resources there.
     [ "$kind" = "dir" ] || return 0
     local res_dir="${src%.md}.resources"
     [ -d "$res_dir" ] || return 0
@@ -697,18 +697,6 @@ if runtime_enabled "opencode"; then
             printf '%s\n\n' '---'
             strip_frontmatter "$HARNESS_DIR/agents/recruiter.md"
         } > "$OPENCODE_DIR/agents/recruiter.md"
-    fi
-fi
-
-# --- Pi (pi.dev) ---
-# Same SKILL.md directory structure as Codex — reuse sync_skill_sources_to_skill_dir
-if runtime_enabled "pi"; then
-    PI_SKILLS_DIR="$(resolve_entrypoint "$(runtime_entrypoint "pi" ".pi/skills")")"
-    mapfile -d '' SKILL_SOURCES < <(collect_skill_sources)
-    sync_skill_sources_to_skill_dir "$PI_SKILLS_DIR" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
-    if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
-        render_recruit_skill "$HARNESS_DIR/agents/recruiter.md" "$PI_SKILLS_DIR/recruit/SKILL.md"
-        touch "$PI_SKILLS_DIR/recruit/.roster-managed"
     fi
 fi
 

@@ -46,7 +46,6 @@ Detects and installs for all present runtimes simultaneously:
 | OpenCode | `.opencode/` | `.opencode/skills/recruit/SKILL.md` | native Agent-Skills discovery |
 | Codex (project) | `.agents/` | `.agents/skills/recruit/SKILL.md` | |
 | Codex (global) | `~/.codex/skills/` | `~/.codex/skills/recruit/SKILL.md` | |
-| Pi | `.pi/` | `.pi/skills/recruit/SKILL.md` | ⚠️ untested |
 
 **Options:**
 

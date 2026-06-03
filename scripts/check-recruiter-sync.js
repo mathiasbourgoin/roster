@@ -38,7 +38,6 @@ const PROJECTIONS = [
   ".agents/skills/recruit/SKILL.md",
   ".claude/commands/recruit.md",
   ".opencode/skills/recruit/SKILL.md",
-  ".pi/skills/recruit/SKILL.md",
 ];
 const MARKER = "Step 0: Version Check";
 

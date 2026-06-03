@@ -130,8 +130,6 @@ elif [ -d \".opencode\" ]; then
   _RUNTIME=\"opencode\"; _SENTINEL=\".opencode/.roster-version\"
 elif [ -d \".agents/skills/recruit\" ]; then
   _RUNTIME=\"codex\"; _SENTINEL=\".agents/skills/recruit/.roster-version\"
-elif [ -d \".pi\" ]; then
-  _RUNTIME=\"pi\"; _SENTINEL=\".pi/skills/recruit/.roster-version\"
 fi
 
 # No sentinel = no tracking = skip silently
@@ -212,9 +210,8 @@ curl -fsSL https://raw.githubusercontent.com/mathiasbourgoin/roster/main/scripts
 3. Announce: \"roster auto-upgraded from v`<local>` to v`<remote>`. Reloading updated instructions...\"
 4. Use the Read tool to re-read the installed recruiter.md from the runtime path:
    - claude → `.claude/agents/recruiter.md`
-   - opencode → `.opencode/agents/recruiter.md`
+   - opencode → `.opencode/skills/recruit/SKILL.md`
    - codex → `.agents/skills/recruit/SKILL.md`
-   - pi → `.pi/skills/recruit/SKILL.md`
 5. Continue from **Mode Detection** in the newly loaded instructions. Do NOT re-run Step 0.
 
 **If the command fails:**
@@ -792,7 +789,6 @@ Runtime projections:
   codex: <enabled/disabled> <paths written or none>
   codex-global: <enabled/disabled> <paths written or none>
   opencode: <enabled/disabled> <paths written or none>
-  pi: <enabled/disabled> <paths written or none>
   copilot: <enabled/disabled> <paths written or none>
 
 Codex visibility:
@@ -816,7 +812,6 @@ For runtime projections, do not assume all runtimes use the same layout:
 - Codex project-local: `.agents/skills/<skill-name>/SKILL.md`.
 - Codex global: `$CODEX_HOME/skills/<skill-name>/SKILL.md`, only if runtime `codex-global` is enabled.
 - OpenCode: `.opencode/agents/*.md`, `.opencode/skills/<skill-name>/SKILL.md`, `opencode.json` when generated.
-- Pi: `.pi/skills/<skill-name>/SKILL.md`.
 - Copilot: `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md`; Copilot has no dynamic skill loader.
 
 ### New Agent Discovery
