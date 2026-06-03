@@ -359,19 +359,36 @@ platform constraint** (README: Claude Code / Codex offer only "bounded, single-l
 subagent delegation … neither runtime offers unbounded recursive spawning"). A
 LangGraph-style engine assumes an orchestrator process roster deliberately does *not* assume
 — roster relays through "artifacts and human gates between sessions" precisely because it
-can't run a long-lived orchestrator inside these runtimes. So a full engine is partly
-fighting the platform.
+can't run a long-lived orchestrator inside these runtimes — **but only if the engine runs
+*inside* the runtime.** An **external** engine that the runtime merely *calls* (JSON-RPC / MCP),
+with the LLM as a *called backend* rather than the orchestrator, sidesteps the platform
+constraint entirely. That is not hypothetical here — it is the sibling project épure (below).
 
 **Drift removed.** *All* control-flow drift — the §1.1 class, permanently, because the FSM
 is executed not interpreted. **Drift left.** In-node prose (correctly).
 
-**Verdict. Aspirational; adopt the cheap half now.** The full engine fights the platform
-constraint and is a large bet. But its *cheap half is identical to Alternative A*: extract
-the FSM to data. The expensive half (a long-lived orchestrator executing it) waits for the
-platform to allow it, or for the prior research's W0 (per-target CI/hooks) to provide the
-deterministic runner — note W0's agent-runtime-hooks layer is already a partial
-"deterministic engine the LLM can't bypass" (PreToolUse blocks). **F and the prior W0
-converge**: W0 is where a deterministic execution layer can actually live today.
+**In-house instance — épure is the realized Alternative F.** roster's sibling project
+`~/dev/epure` is exactly this architecture, already built (OCaml, shipping): a **headless
+server** whose **Session Manager *is* a phase state machine** (DISCOVER→…→PRODUCE; story
+lifecycle `draft→challenged→accepted→implemented→validated`) held in **SQLite** (Story +
+Constraint DBs) — the typed state of record roster encodes as the prose `LEDGER_SCHEMA`. Its
+**Agentic Backend Layer** invokes Claude Code / Codex / OpenCode with engine-authored task
+specs (the LLM is a *called node*, never deciding the path), and an **MCP server** exposes the
+deterministic knowledge base to those backends. Its design doc §1.2 **"Deterministic Tools
+Principle"** *is this report's thesis, already codified*: LLM for understanding/decision/
+planning, **deterministic tools for execution** ("same input → same output … tools can be unit
+tested; LLM outputs cannot"). épure also refutes this alternative's own platform caveat — it is
+*external*, so the runtime's no-long-lived-orchestrator limit doesn't apply.
+
+**Verdict. Aspirational *inside* roster; already real *beside* it (épure).** A full engine
+*inside* a Claude/Codex session fights the platform; an external one (épure) does not, and exists.
+So the strategic choice is not "build an engine vs not" but **division of labour**: keep roster
+the lightweight, in-runtime *prose harness* (hardened by Stages 0–2) and let épure be the
+deterministic engine when a workload needs F — or converge roster toward it. Either way, roster's
+**Stage 0 (extract the FSM/install-list/hook-bodies to typed data) is the first step along épure's
+axis**, and the prior research's **W0** (agent-runtime hooks — a "deterministic engine the LLM
+can't bypass," PreToolUse blocks) is where a deterministic execution layer can live *inside* the
+runtime today. (See the in-house `~/dev/epure-agent-roster-gstack-comparison` for the head-to-head.)
 
 ---
 
@@ -409,11 +426,18 @@ human-readable, platform-constrained design.
   Cheap win on malformed JSON; explicitly *not* a fix for the substrate problem.
 
 **Explicitly not now:** the full DSPy rewrite (E — incompatible with human-readable,
-multi-runtime, no-labeled-data) and the full deterministic orchestration engine (F —
-fights the platform constraint). Their *philosophy* — typed contracts at boundaries,
-control flow as data — is already captured by Stages 0–1. Revisit F only via the prior
-research's **W0** (per-target hooks/CI), which is the one place a deterministic execution
-layer can live inside today's runtimes.
+multi-runtime, no-labeled-data) and a full deterministic orchestration engine *inside* roster
+(F — fights the in-runtime platform constraint). Their *philosophy* — typed contracts at
+boundaries, control flow as data — is already captured by Stages 0–1, and inside today's runtimes
+a deterministic execution layer can only live via the prior research's **W0** (per-target hooks/CI).
+
+**The one strategic decision this report can't make for you:** F *as an external engine already
+exists in-house* — that is épure (`~/dev/epure`): an OCaml headless server whose Session Manager is
+the phase state machine, with the LLM as a called backend. So the question isn't "engine or not,"
+it's **division of labour** — keep roster the lightweight, in-runtime prose harness (Stages 0–2)
+and route engine-grade, fully-deterministic workloads to épure; or deliberately converge roster
+toward épure. Stage 0 is the first step along that axis regardless. The `~/dev/epure-agent-roster-gstack-comparison`
+repo is where that call should be settled.
 
 **Through-line:** the substrate problem and the prior verdict-trust problem are the same
 principle at two altitudes. Prior work: *don't trust an agent's self-reported verdict —
