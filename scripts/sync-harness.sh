@@ -53,8 +53,10 @@ fi
 # only in the real tree is ignored (it may be legitimately unmanaged, e.g.
 # .claude/patterns). This catches stale, hand-edited, and missing projections, but NOT
 # files that should have been REMOVED — a deleted source's lingering projection, or a
-# runtime turned off while its projections stay committed. A normal `sync` cleans
-# those; run it after deleting sources or disabling a runtime.
+# runtime turned off while its projections stay committed. A normal `sync` cleans those for the
+# MARKER-PRUNED dirs (Codex `.agents/skills`, `.codex/agents`) — but NOT for the overwrite-only
+# dirs (`.claude/agents`, `.claude/rules`, `.opencode/agents`), which preserve user files and so
+# leave a removed source's projection behind until it is deleted by hand.
 if [ "$CHECK" -eq 1 ]; then
     need_cmd diff
     _CK_TMP="$(mktemp -d)"
@@ -133,8 +135,12 @@ sync_markdown_dir() {
     local dst="$2"
 
     mkdir -p "$dst"
-    find "$dst" -maxdepth 1 -type f -name '*.md' -delete
-
+    # Overwrite roster's projected files in place; do NOT blanket-delete *.md here — this dir
+    # (.claude/agents, .claude/rules, .opencode/agents) may also hold the USER's own files, and a
+    # blanket delete would wipe them. A roster file removed from source lingers here and stays
+    # loadable (e.g. a stale agent the runtime still dispatches) until deleted by hand — not inert,
+    # but far preferable to wiping user data. (Codex's projection prunes safely via markers; these
+    # overwrite-only dirs do not yet — see the --check limitation note above.)
     if [ -d "$src" ]; then
         find "$src" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
             local base; base="$(basename "$file")"
@@ -643,7 +649,10 @@ sync_agents_to_opencode() {
     local out_dir="$1"
     local src_dir="$2"
     mkdir -p "$out_dir"
-    find "$out_dir" -maxdepth 1 -type f -name '*.md' -delete
+    # Overwrite in place; do NOT blanket-delete *.md — .opencode/agents may hold the user's own
+    # agents and a blanket delete would wipe them (the Codex projection is already marker-safe).
+    # A roster agent removed from source lingers and stays loadable until deleted by hand — not
+    # inert, but preferable to wiping a user's own agents. (Converge on marker-based prune later.)
     [ -d "$src_dir" ] || return 0
     find "$src_dir" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' file; do
         local name desc
