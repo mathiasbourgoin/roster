@@ -36,6 +36,40 @@ info() { printf "  %s\n" "$*"; }
 bold() { printf "${BOLD}%s${RESET}\n" "$*"; }
 err()  { printf "${RED}  ✗${RESET} %s\n" "$*" >&2; }
 
+# ── Prerequisites ───────────────────────────────────────────────────────────
+# This installer needs bash >= 4 (uses `mapfile`) and curl or wget. jq + git are
+# NOT used here but ARE required by /recruit (which runs sync-harness.sh) — warn
+# rather than fail so a missing jq doesn't surface only after a "successful" install.
+
+require_bash4() {
+  if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
+    err "roster's installer requires bash 4 or newer (found ${BASH_VERSION:-unknown})."
+    err "macOS ships bash 3.2 by default — install a newer bash (e.g. 'brew install bash')"
+    err "and re-run, or invoke it explicitly: /opt/homebrew/bin/bash scripts/install.sh"
+    exit 1
+  fi
+}
+
+require_fetcher() {
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    err "Neither curl nor wget found — cannot download roster files. Install one and re-run."
+    exit 1
+  fi
+}
+
+warn_recruit_deps() {
+  local missing=()
+  command -v jq  >/dev/null 2>&1 || missing+=("jq")
+  command -v git >/dev/null 2>&1 || missing+=("git")
+  if [ "${#missing[@]}" -gt 0 ]; then
+    warn "Missing tools required by /recruit (not by this installer): ${missing[*]}"
+    warn "Install them before running /recruit — it calls sync-harness.sh, which needs jq + git."
+  fi
+}
+
+require_bash4
+require_fetcher
+
 # ── Argument parsing ──────────────────────────────────────────────────────────
 
 OPT_ALL=false
@@ -113,21 +147,29 @@ fetch() {
 install_claude() {
   mkdir -p .claude/agents .claude/commands
   fetch "${RAW}/recruiter/recruiter.md" ".claude/agents/recruiter.md"
-  fetch "${RAW}/recruiter/recruiter.md" ".claude/commands/recruit.md"
+  # The slash-command must be the RENDERED projection (name: recruit), not the raw agent
+  # (name: recruiter) — otherwise the documented /recruit trigger is wrong.
+  fetch "${RAW}/.claude/commands/recruit.md" ".claude/commands/recruit.md"
   echo "$ROSTER_VERSION" > .claude/.roster-version
   ok "Claude Code  →  .claude/agents/recruiter.md + .claude/commands/recruit.md"
 }
 
 install_opencode() {
-  mkdir -p .opencode/agents
-  fetch "${RAW}/.opencode/agents/recruiter.md" ".opencode/agents/recruiter.md"
+  # OpenCode natively discovers Agent Skills (SKILL.md) — incl. its own .opencode/skills/ path.
+  # Install recruit as a discovered skill (name: recruit) rather than a Claude-style command,
+  # which OpenCode does NOT read. The same rendered SKILL.md is the open Agent Skills standard,
+  # so it is also what Codex (.agents/skills) and Copilot discover — one artifact, three runtimes.
+  mkdir -p .opencode/skills/recruit
+  fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".opencode/skills/recruit/SKILL.md"
   echo "$ROSTER_VERSION" > .opencode/.roster-version
-  ok "OpenCode     →  .opencode/agents/recruiter.md"
+  ok "OpenCode     →  .opencode/skills/recruit/SKILL.md (native skill discovery)"
 }
 
 install_codex() {
   mkdir -p .agents/skills/recruit
-  fetch "${RAW}/recruiter/recruiter.md" ".agents/skills/recruit/SKILL.md"
+  # Native skill discovery (Codex/OpenCode) keys on the SKILL.md frontmatter `name:`, so this
+  # must be the RENDERED projection (name: recruit), not the raw agent (name: recruiter).
+  fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".agents/skills/recruit/SKILL.md"
   touch ".agents/skills/recruit/.roster-managed"
   echo "$ROSTER_VERSION" > .agents/skills/recruit/.roster-version
   ok "Codex        →  .agents/skills/recruit/SKILL.md"
@@ -136,7 +178,7 @@ install_codex() {
 install_codex_global() {
   local dir="${CODEX_HOME:-$HOME/.codex}/skills/recruit"
   mkdir -p "$dir"
-  fetch "${RAW}/recruiter/recruiter.md" "$dir/SKILL.md"
+  fetch "${RAW}/.agents/skills/recruit/SKILL.md" "$dir/SKILL.md"
   touch "$dir/.roster-managed"
   echo "$ROSTER_VERSION" > "$dir/.roster-version"
   ok "Codex global →  $dir/SKILL.md"
@@ -144,7 +186,8 @@ install_codex_global() {
 
 install_pi() {
   mkdir -p .pi/skills/recruit
-  fetch "${RAW}/recruiter/recruiter.md" ".pi/skills/recruit/SKILL.md"
+  # Pi uses the SKILL.md skill format too — reuse the rendered projection (name: recruit).
+  fetch "${RAW}/.agents/skills/recruit/SKILL.md" ".pi/skills/recruit/SKILL.md"
   touch ".pi/skills/recruit/.roster-managed"
   echo "$ROSTER_VERSION" > .pi/skills/recruit/.roster-version
   ok "Pi           →  .pi/skills/recruit/SKILL.md"
@@ -199,7 +242,10 @@ fi
 # ── Done ──────────────────────────────────────────────────────────────────────
 
 echo ""
+warn_recruit_deps
 bold "Done."
 echo ""
 info "Next: run /recruit (Claude / OpenCode) or \$recruit (Codex) to assemble your team."
+info "      It will also offer to install the roster-* pipeline skills (/roster-run, etc.)."
+info "Then: /roster-run <task> to drive the pipeline."
 echo ""

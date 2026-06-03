@@ -21,11 +21,20 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.5.2
+version: 2.6.0
 author: mathiasbourgoin
 ---
 
 ## Update Notes
+
+Version: 2.6.0 — First-run pipeline-skill installation
+
+**What changed:**
+
+- **Mode 1 (team assembly) now offers to install the roster-* pipeline skills on first run.**
+  After assembling the team, the recruiter installs the full pipeline skill set (intake → spec →
+  plan → implement → review → qa → ship + meta) so `/roster-run` and the rest exist immediately,
+  instead of leaving a half-installed setup that only has the recruiter.
 
 Version: 2.5.2 — Deterministic update/projection report
 
@@ -501,6 +510,22 @@ Use index artifacts, not ad-hoc remote crawling.
    - Run `./scripts/sync-harness.sh <project-root>` after writing shared canonical files.
    - Generate or update `AGENTS.md` governance section if needed.
 
+7. **Install the roster pipeline skills (first-run — do not skip).**
+
+   A fresh install ships only the recruiter: none of the `roster-*` pipeline skills exist
+   yet, so `/roster-run` and the rest of the pipeline are not callable. Initial assembly is
+   the moment to install them — otherwise the documented `/recruit` → `/roster-run <task>`
+   flow fails for every new user. After the team is written, offer:
+
+   > Install the roster pipeline skills? They add `/roster-run` (entry point) and
+   > intake→spec→plan→implement→review→qa→ship as slash commands, plus `/roster-init`
+   > for bootstrapping and `/roster-skill-health` for self-improvement. [Y/n]
+
+   On approval (default yes), run the **New Skill Discovery** install procedure in the
+   Self-Update section to fetch and write every pipeline skill to the project's runtime
+   entrypoints, then re-run `./scripts/sync-harness.sh <project-root>`. Skip absent runtime
+   directories — do not fail.
+
 ### Mode 2: Team Audit & Upgrade (existing harness found)
 
 1. **Read the canonical shared harness** in `.harness/` first. If it does not exist, fall back to runtime-specific installs and propose migrating them into `.harness/`.
@@ -861,7 +886,10 @@ PREAMBLE=$(curl -sL "$ROSTER_RAW/skills/shared/preamble.md")
 Skills to install:
 - `skills/pipeline/roster-run.md`
 - `skills/pipeline/roster-init.md`
+- `skills/pipeline/roster-question.md`
+- `skills/pipeline/roster-research.md`
 - `skills/pipeline/roster-intake.md`
+- `skills/pipeline/roster-spec.md`
 - `skills/pipeline/roster-plan.md`
 - `skills/pipeline/roster-implement.md`
 - `skills/pipeline/roster-review.md`
@@ -869,6 +897,7 @@ Skills to install:
 - `skills/pipeline/roster-ship.md`
 - `skills/pipeline/roster-investigate.md`
 - `skills/pipeline/roster-audit.md`
+- `skills/pipeline/roster-doctor.md`
 - `skills/meta/roster-skill-health.md`
 - `skills/meta/roster-skill-evolve.md`
 

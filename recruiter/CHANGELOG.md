@@ -5,6 +5,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.6.0] — 2026-06-03
+
+### Added
+
+- **First-run pipeline-skill installation.** On team assembly (Mode 1), the recruiter now offers
+  to install the full roster-* pipeline skill set (intake → spec → plan → implement → review →
+  qa → ship, plus the meta skills), so `/roster-run` and the rest of the pipeline exist
+  immediately instead of leaving a recruiter-only, half-installed setup.
+
+---
+
 ## [2.5.2] — 2026-05-27
 
 ### Added

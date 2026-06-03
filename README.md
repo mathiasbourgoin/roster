@@ -9,24 +9,41 @@ A pipeline framework for fast and correct software development with coordinated 
 
 Three principles:
 
-- **Platform constraint:** Claude Code and Codex do not support recursive agent spawning at runtime. Roster is designed around this: each skill invocation is a single-context operation, and multi-stage work requires the human to relay context between sessions. This is not a feature — it is an architectural reality we work within.
+- **Platform constraint:** Claude Code and Codex support only *bounded, single-level* subagent delegation at runtime — a skill or lead can spawn specialist sub-agents (Claude via the Task tool; Codex via `.codex/agents/*.toml`, explicit and depth-limited, `agents.max_depth` default 1), but those sub-agents cannot spawn further, and neither runtime offers unbounded recursive spawning. Roster is designed around this depth limit: orchestration is one level deep per skill, and deeper multi-stage work is relayed through artifacts and human gates between sessions. This is not a feature — it is an architectural reality we work within.
 - **The team is the unit, not the agent.** Adding an agent means wiring it into the pipeline: patching the lead, updating adjacent agents, validating the integration.
 - **Every plan needs a human who understood it.** A structured quiz runs before any execution batch begins. Passive approval is not validation.
 
 ## Install
 
-One line. Works in any project, auto-detects your runtime:
+Pick a channel — all install the recruiter, then `/recruit` assembles the team and offers to install the pipeline skills:
 
 ```bash
+# Claude Code plugin marketplace (Claude Code)
+/plugin marketplace add mathiasbourgoin/roster
+/plugin install roster@roster
+
+# npx, no clone/publish (any project with Node)
+npx github:mathiasbourgoin/roster --runtime claude,opencode,codex
+
+# curl | bash — universal, auto-detects your runtime
 curl -fsSL https://raw.githubusercontent.com/mathiasbourgoin/roster/main/scripts/install.sh | bash
 ```
+
+**Prerequisites:**
+
+| Tool | Needed by | Notes |
+|------|-----------|-------|
+| `bash` ≥ 4 | installer | macOS ships 3.2 — `brew install bash`. The installer fails early with guidance if it's older. |
+| `curl` or `wget` | installer | to download component files |
+| `jq` + `git` | `/recruit` | required by `sync-harness.sh` (run during team assembly), not by the installer itself |
+| `gh` | `/roster-ship` | optional — only for opening PRs |
 
 Detects and installs for all present runtimes simultaneously:
 
 | Runtime | Detected by | Recruiter target | Notes |
 |---------|-------------|-----------------|-------|
 | Claude Code | `.claude/` | `.claude/agents/recruiter.md` + `.claude/commands/recruit.md` | |
-| OpenCode | `.opencode/` | `.opencode/agents/recruiter.md` | |
+| OpenCode | `.opencode/` | `.opencode/skills/recruit/SKILL.md` | native Agent-Skills discovery |
 | Codex (project) | `.agents/` | `.agents/skills/recruit/SKILL.md` | |
 | Codex (global) | `~/.codex/skills/` | `~/.codex/skills/recruit/SKILL.md` | |
 | Pi | `.pi/` | `.pi/skills/recruit/SKILL.md` | ⚠️ untested |
@@ -44,11 +61,26 @@ curl -fsSL .../install.sh | bash -s -- --runtime claude,opencode
 curl -fsSL .../install.sh | bash -s -- --team
 ```
 
-After install: run `/recruit` (Claude / OpenCode) or `$recruit` (Codex) to assemble your team.
+After install: run `/recruit` (Claude) or invoke the discovered `recruit` skill (OpenCode / Codex,
+via native Agent-Skills discovery) to assemble your team. The installed `SKILL.md` follows the open
+Agent-Skills standard, so it is also readable by other skill-aware tools (e.g. GitHub Copilot) that
+scan a compatible skills path — roster does not yet install to a Copilot-specific location.
 
 ## The Pipeline
 
 Roster ships as a set of slash-command skills. `/roster-run` is the entry point — it detects context and routes to the right phase automatically.
+
+### Three modes
+
+`/roster-run` classifies every task into one of three depths before routing. Review is **always** mandatory — what changes is the upfront discovery and downstream documentation.
+
+| Mode | When | Pipeline |
+|------|------|----------|
+| **Express** | No spec/KB impact — typo, rename, formatting, config tweak, dependency bump, doc fix, pure refactor | implement → review → ship |
+| **Fast** | Quick change with possible spec/KB impact — bug fix, small behaviour change, missing case, perf fix | implement → review → qa → ship |
+| **Full** | New capability, API change, design trade-offs, or "spec it first" | question → research → intake → spec → plan → implement → review → qa → ship |
+
+The classifier infers the mode from the task, but you can **force one** with a flag — `/roster-run --full <task>` (or `--fast` / `--express`). An explicit `--full` always wins; an explicit `--express`/`--fast` is honoured unless the task would skip a mandatory phase (e.g. a new public API), in which case `/roster-run` asks before downgrading.
 
 | Skill | Phase | What it does |
 |-------|-------|--------------|
