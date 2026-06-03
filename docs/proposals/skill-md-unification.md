@@ -1,8 +1,51 @@
 # Proposal: unify pipeline skills onto one `SKILL.md` set
 
-**Status:** proposal / direction-of-travel — needs a dedicated Full-pipeline run (question → research
-→ intake → spec → plan) before any implementation. Do **not** bundle into a feature PR.
-**Branch:** captured on `next`. **Date:** 2026-06-03.
+**Status:** **RE-SCOPED after a Full-pipeline run (2026-06-03, `next`).** The grand "one output path
+discovered by every runtime" goal was found to rest on a **false premise** and was rejected; a
+smaller safe win shipped instead. See *Outcome* below before reading the original proposal.
+**Branch:** `next`.
+
+## Outcome (Full-pipeline run, externally reviewed)
+
+Research (`briefs/skill-unification-research.md`) + an adversarial spec review
+(opencode/gpt-5.5, GO) established:
+
+- **The source is already unified** — all skills flow through one transform (`render_skill_source`
+  in `sync-harness.sh`). The multiplicity is only at the *output shape*, which the runtimes require.
+- **Claude Code and Codex do NOT cross-read skill dirs** — Claude scans `.claude/skills/` (+ legacy
+  `.claude/commands/`), Codex scans `.agents/skills/`. Neither reads the other's default path
+  (Claude `--add-dir` only adds another `.claude/` root). So "one shared output path for every
+  runtime" is **unsupported by defaults** — achievable only via committed symlinks, which are **not
+  robust enough for roster's `curl|bash` / npx / Windows install matrix**. The parallel projections
+  are therefore *required*, not redundant. **The original "discovered by every runtime" claim below
+  is wrong** and is kept only for the record.
+- **What actually shipped this run:** only this grounded write-up (FR-003). The grand collapse is
+  rejected; the two adjacent code wins were attempted and one was bounced — see below.
+- **FR-001 (bidirectional `--check` orphan detection) — ATTEMPTED, then BOUNCED by adversarial
+  review.** It was implemented (drop the `grep -v "Only in real"`, add `-x` excludes) and passed a
+  Claude review, but a second external review (opencode/gpt-5.5) returned NO-GO with a
+  **reproducible false positive**: `install.sh` writes `.opencode/skills/recruit/SKILL.md` while
+  `sync-harness` emits `.opencode/commands/recruit.md` — so enabling OpenCode + the installer
+  bootstrap makes the new bidirectional check fail with `Only in .opencode: skills`. Reviewers also
+  flagged that `diff -x 'patterns'`/`'.claude-plugin'` are *basename* matches (a real orphan named
+  `patterns` is silently missed) and that the disabled-runtime dir is skipped entirely (so the
+  change does NOT catch the very `.opencode` stale case partly motivating it). Net: the orphan check
+  is more entangled than its value justifies — it exposes a pre-existing **install-vs-sync
+  `.opencode` path disagreement** that must be reconciled first. Reverted. Re-attempt needs:
+  path-anchored excludes (not basename), a rule for installer-bootstrap artifacts, and the
+  install/sync OpenCode recruit path reconciled.
+- **FR-002 (clean stale committed `.opencode/` projections) — DEFERRED, escalated.** Deleting
+  committed runtime artifacts interacts with how the maintainer uses OpenCode; needs a human
+  decision (delete vs regenerate by enabling the runtime). Note: a plain `sync` does **not** clean a
+  *disabled* runtime's projections (its generate+cleanup block is skipped) — they must be removed
+  manually or by re-enabling → sync → disabling.
+- **Still genuinely open (future opt-in):** emitting `.claude/skills/<name>/SKILL.md` so Claude
+  *also* discovers non-pipeline skills by description — additive (more files), and must exclude the
+  explicit pipeline phases to avoid out-of-sequence model auto-loading. Not pursued here.
+
+---
+
+## Original proposal (superseded — retained for the record)
 
 ## Why
 
