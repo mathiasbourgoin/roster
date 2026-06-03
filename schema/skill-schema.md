@@ -13,6 +13,29 @@ version: <semver>            # e.g. "1.0.0"
 
 Claude Code only reads `description` from skill frontmatter; all other fields are roster-internal metadata used by harness-builder, skill-health, and skill-evolve.
 
+### Description as a trigger, not a summary
+
+For skills a user (or the runtime) can **invoke directly or select automatically** — entry
+points (`roster-run`), bootstrap (`roster-init`), operational (`roster-doctor`,
+`roster-audit`, `roster-investigate`), and standalone KB/workflow/media skills — the
+`description` should say *when to reach for the skill*, not just what it is. State the
+triggering situations and, where helpful, example user phrasings. A description that reads
+like a label ("Intake phase") is weaker for auto-discovery than one that names the trigger
+("Use when turning a vague task into a validated, contractual brief before any planning").
+
+Optional `when_to_use` frontmatter can carry the explicit trigger phrasing separately:
+
+```yaml
+when_to_use: "Use when …; e.g. '<phrase>'."   # Trigger situations + example phrasings.
+                                              # QUOTE the value if it contains ": " (a colon+
+                                              # space) — unquoted, YAML reads it as a nested map.
+```
+
+> **Not** for internal pipeline-phase skills (`roster-plan`, `roster-implement`,
+> `roster-review`, `roster-qa`, `roster-ship`, `roster-spec`, `roster-question`,
+> `roster-research`): these are *routed* by `roster-run`, never auto-selected, so a concise
+> phase-label description is correct — adding trigger phrasing is noise.
+
 ## Optional Frontmatter
 
 ```yaml
@@ -21,6 +44,12 @@ domain: <pipeline|operational|meta|shared>
 phase: <intake|plan|implement|review|qa|ship|null>
 tags: [tag1, tag2]
 allowed_tools: [Read, Write, Edit, Bash, Agent, AskUserQuestion, Skill]
+disallowed_tools: [AskUserQuestion]   # tools this skill must NOT use — e.g. block interactive
+                                      # prompts in blind, background, or hook-invoked runs that
+                                      # would otherwise hang waiting for input
+isolation: <fork|worktree>   # fork → run in an isolated sub-agent context (only the conclusion
+                             # returns to the parent); worktree → run in an isolated git worktree
+                             # (auto-cleaned if unchanged). Use for blind/read-only or parallel work.
 preamble: <bool>             # true → inject skills/shared/preamble.md content
 friction_log: <bool>         # true → skill appends to skills-meta/friction.jsonl at end of run
 tunables:
