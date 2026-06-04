@@ -24,6 +24,10 @@ mkdir -p "$MOCK_ROOT/recruiter" "$MOCK_ROOT/.claude/commands" "$MOCK_ROOT/.agent
 echo "# mock recruiter"       > "$MOCK_ROOT/recruiter/recruiter.md"          # → .claude/agents/recruiter.md
 echo "# mock recruit command" > "$MOCK_ROOT/.claude/commands/recruit.md"     # → .claude/commands/recruit.md
 echo "# mock recruit skill"   > "$MOCK_ROOT/.agents/skills/recruit/SKILL.md" # → opencode/codex SKILL.md
+# VERSION served at the mock RAW root. The patched install lives in /tmp with no adjacent VERSION,
+# so it exercises the curl|bash path: resolve_version() must FETCH this and stamp it (not fall back).
+MOCK_VERSION="9.9.9-mock"
+echo "$MOCK_VERSION" > "$MOCK_ROOT/VERSION"                                   # → ${RAW}/VERSION
 
 # Patched install.sh: override RAW + always use fake CODEX_HOME
 PATCHED_SH="/tmp/install-patched.sh"
@@ -111,6 +115,18 @@ mkdir -p "$FAKE_CODEX_HOME/skills"
 expect_install_ok "codex-global" "$dir"
 [ -f "$FAKE_CODEX_HOME/skills/recruit/SKILL.md" ]        && pass "codex-global SKILL.md" || fail "codex-global SKILL.md missing"
 [ -f "$FAKE_CODEX_HOME/skills/recruit/.roster-managed" ] && pass "codex-global sentinel" || fail "codex-global sentinel missing"
+
+# ─────────────────────────────────────────────────────────────────────────────
+section "6. VERSION resolution via \${RAW}/VERSION (curl|bash path)"
+# The patched installer has no adjacent VERSION (it lives in /tmp), so resolve_version() must fetch
+# ${RAW}/VERSION from the mock and stamp THAT — proving the stamped version tracks the install ref
+# instead of silently using the hardcoded fallback.
+dir=$(fresh "version-fetch" ".claude")
+expect_install_ok "version-fetch" "$dir"
+stamped="$(tr -d '[:space:]' < "$dir/.claude/.roster-version" 2>/dev/null || true)"
+[ "$stamped" = "$MOCK_VERSION" ] \
+  && pass ".roster-version fetched from \${RAW}/VERSION ($stamped)" \
+  || fail ".roster-version is '$stamped', expected '$MOCK_VERSION' (fell back instead of fetching?)"
 
 # ─────────────────────────────────────────────────────────────────────────────
 section "7. Multi-runtime (claude + opencode + codex)"

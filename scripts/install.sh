@@ -26,13 +26,30 @@ BRANCH="main"
 BRANCH_OVERRIDE=""
 RAW="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 
-# Recruiter version written to sentinel files. Read from local VERSION file when available
-# (dev installs); hardcoded fallback used when running via curl|bash from GitHub, where there is
-# no checkout ($0 is "bash", so "$(dirname "$0")/../VERSION" does not resolve to a real file).
-# The `|| true` is load-bearing: without it, a missing VERSION makes the cat|tr pipeline fail
-# under `set -euo pipefail` and the whole installer dies silently before printing anything.
-ROSTER_VERSION="$(cat "$(dirname "$0")/../VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
-ROSTER_VERSION="${ROSTER_VERSION:-2.6.2}"
+# Recruiter version stamped into sentinel files (.roster-version). Finalized by resolve_version()
+# AFTER the channel/ref is resolved (it needs $RAW), with three sources in priority order:
+#   1. local VERSION file   — dev checkout (scripts/../VERSION)
+#   2. ${RAW}/VERSION        — curl|bash install: fetched from the exact ref being installed, so the
+#                              stamped version can never drift from the source it was installed from
+#   3. hardcoded fallback    — last resort only: no checkout AND the network fetch failed
+# Every read is guarded with `|| true`: under `set -euo pipefail` an unguarded failing cat|tr would
+# kill the whole installer silently before it prints anything (the original curl|bash bug).
+ROSTER_VERSION_FALLBACK="2.6.2"
+ROSTER_VERSION="$ROSTER_VERSION_FALLBACK"   # provisional; resolve_version() finalizes it after $RAW
+
+resolve_version() {
+  local local_file v
+  local_file="$(dirname "$0")/../VERSION"
+  v=""
+  if [ -f "$local_file" ]; then
+    v="$(tr -d '[:space:]' < "$local_file" 2>/dev/null || true)"
+  elif command -v curl >/dev/null 2>&1; then
+    v="$(curl -fsSL "${RAW}/VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+  else
+    v="$(wget -qO- "${RAW}/VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+  fi
+  ROSTER_VERSION="${v:-$ROSTER_VERSION_FALLBACK}"
+}
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -139,6 +156,9 @@ if [ -n "$BRANCH_OVERRIDE" ]; then
   CHANNEL="branch:$BRANCH_OVERRIDE"
 fi
 RAW="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
+
+# Now that the ref ($RAW) is known, resolve the version (local file → ${RAW}/VERSION → fallback).
+resolve_version
 
 # ── Runtime detection ─────────────────────────────────────────────────────────
 
