@@ -2,7 +2,7 @@
 name: improvement-loop-planner
 description: Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals.
 when_to_use: "Use to turn KB/code/test/CI signals into bounded improvement loops with success criteria. Trigger: 'plan an improvement loop', after >=2 skill-health proposals."
-version: 1.1.1
+version: 1.2.0
 domain: workflow
 phase: null
 preamble: true
@@ -206,6 +206,15 @@ Bad loop targets include:
 - unbounded refactors
 - subjective UI polish with no acceptance criteria
 - changes that require irreversible side effects
+
+**Guardrail — never use model consensus as the completion signal.** A loop's success/exit
+signal must come from an **external, mechanical verification** (tests pass, a metric crosses a
+threshold, a check exits 0) — *not* from an LLM (or N copies of one model) judging its own work
+"done." Agreement among same-model passes is **circular**: they converge on a confidently-wrong
+"finished" with no outside ground truth. (Adversarial review by a *different* model is fine as a
+*finding* generator; it is not a completion oracle. The done-condition stays mechanical.) This is
+the one durable lesson from "until-done" autonomous loops — bound the loop by a verifiable signal,
+never by self-assessed consensus.
 
 ## Proposal Format
 
