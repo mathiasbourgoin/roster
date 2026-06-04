@@ -16,9 +16,14 @@ fail() { echo -e "${RED}  FAIL${RESET} $*"; FAIL=$((FAIL+1)); }
 section() { echo -e "\n${BOLD}── $* ──${RESET}"; }
 
 # ── Mock RAW server (file://) ──────────────────────────────────────────────────
-rm -rf "$MOCK_ROOT" && mkdir -p "$MOCK_ROOT/recruiter" "$MOCK_ROOT/.opencode/agents"
-echo "# mock recruiter"          > "$MOCK_ROOT/recruiter/recruiter.md"
-echo "# mock opencode recruiter" > "$MOCK_ROOT/.opencode/agents/recruiter.md"
+# Mirror exactly the paths install.sh fetches from ${RAW}: the Claude agent + command, and the
+# single rendered SKILL.md that OpenCode, Codex, and Codex-global all install. A stale mock that
+# omits a fetched path makes the patched install fail (curl -f) — keep this in sync with install.sh.
+rm -rf "$MOCK_ROOT"
+mkdir -p "$MOCK_ROOT/recruiter" "$MOCK_ROOT/.claude/commands" "$MOCK_ROOT/.agents/skills/recruit"
+echo "# mock recruiter"       > "$MOCK_ROOT/recruiter/recruiter.md"          # → .claude/agents/recruiter.md
+echo "# mock recruit command" > "$MOCK_ROOT/.claude/commands/recruit.md"     # → .claude/commands/recruit.md
+echo "# mock recruit skill"   > "$MOCK_ROOT/.agents/skills/recruit/SKILL.md" # → opencode/codex SKILL.md
 
 # Patched install.sh: override RAW + always use fake CODEX_HOME
 PATCHED_SH="/tmp/install-patched.sh"
@@ -34,6 +39,19 @@ run_install() {
   (cd "$dir" && CODEX_HOME="$FAKE_CODEX_HOME" bash "$PATCHED_SH" "$@" 2>&1)
 }
 
+# Run an install that is expected to SUCCEED, and assert the installer's EXIT CODE is 0 — not just
+# that files landed. The silent-exit bug this suite guards (install.sh dying under set -e before
+# printing) is precisely a non-zero exit; file-existence checks alone would miss an installer that
+# writes files and *then* errors. Since the test body runs under `set +e`, we capture status here.
+# Usage: expect_install_ok "<label>" "<dir>" [install flags...]
+expect_install_ok() {
+  local label="$1"; shift
+  local output status
+  output=$(run_install "$@" 2>&1); status=$?
+  [ "$status" -eq 0 ] && pass "$label: install exited 0" \
+    || fail "$label: install exited $status (expected 0)\n    output: $output"
+}
+
 fresh() {
   local name="$1"; shift
   local dir="$WORK_DIR/$name"
@@ -43,6 +61,11 @@ fresh() {
   rm -rf "$FAKE_CODEX_HOME"
   echo "$dir"
 }
+
+# Setup is done. A QA harness must run EVERY check and tally pass/fail — not abort on the first
+# failing assertion (that was the original "aborts early" behavior). Drop -e for the test body;
+# keep -u and pipefail. Each check reports via pass/fail and the suite always reaches the summary.
+set +e
 
 # ─────────────────────────────────────────────────────────────────────────────
 section "1. No runtimes detected"
@@ -55,7 +78,7 @@ echo "$output" | grep -q "No runtimes detected" \
 # ─────────────────────────────────────────────────────────────────────────────
 section "2. Claude Code only"
 dir=$(fresh "claude-only" ".claude")
-run_install "$dir" > /dev/null
+expect_install_ok "claude-only" "$dir"
 [ -f "$dir/.claude/agents/recruiter.md" ]  && pass ".claude/agents/recruiter.md created"  || fail ".claude/agents/recruiter.md missing"
 [ -f "$dir/.claude/commands/recruit.md" ]  && pass ".claude/commands/recruit.md created"  || fail ".claude/commands/recruit.md missing"
 grep -q "mock recruiter" "$dir/.claude/agents/recruiter.md" \
@@ -63,16 +86,19 @@ grep -q "mock recruiter" "$dir/.claude/agents/recruiter.md" \
 
 # ─────────────────────────────────────────────────────────────────────────────
 section "3. OpenCode only"
+# OpenCode installs the rendered SKILL.md via native skill discovery (.opencode/skills/recruit/),
+# NOT a Claude-style agent file — see install_opencode() in install.sh.
 dir=$(fresh "opencode-only" ".opencode")
-run_install "$dir" > /dev/null
-[ -f "$dir/.opencode/agents/recruiter.md" ] && pass ".opencode/agents/recruiter.md created" || fail "missing"
-grep -q "mock opencode recruiter" "$dir/.opencode/agents/recruiter.md" \
+expect_install_ok "opencode-only" "$dir"
+[ -f "$dir/.opencode/skills/recruit/SKILL.md" ]        && pass ".opencode/skills/recruit/SKILL.md created" || fail "missing"
+[ -f "$dir/.opencode/skills/recruit/.roster-managed" ] && pass ".roster-managed sentinel"                  || fail ".roster-managed missing"
+grep -q "mock recruit skill" "$dir/.opencode/skills/recruit/SKILL.md" \
   && pass "opencode content correct" || fail "opencode content wrong"
 
 # ─────────────────────────────────────────────────────────────────────────────
 section "4. Codex (project-local) only"
 dir=$(fresh "codex-only" ".agents")
-run_install "$dir" > /dev/null
+expect_install_ok "codex-only" "$dir"
 [ -f "$dir/.agents/skills/recruit/SKILL.md" ]         && pass "SKILL.md created"            || fail "SKILL.md missing"
 [ -f "$dir/.agents/skills/recruit/.roster-managed" ]  && pass ".roster-managed sentinel"    || fail ".roster-managed missing"
 [ ! -f "$dir/.agents/skills/recruit/.agent-roster-managed" ] \
@@ -82,39 +108,39 @@ run_install "$dir" > /dev/null
 section "5. Codex global"
 dir=$(fresh "codex-global")
 mkdir -p "$FAKE_CODEX_HOME/skills"
-run_install "$dir" > /dev/null
+expect_install_ok "codex-global" "$dir"
 [ -f "$FAKE_CODEX_HOME/skills/recruit/SKILL.md" ]        && pass "codex-global SKILL.md" || fail "codex-global SKILL.md missing"
 [ -f "$FAKE_CODEX_HOME/skills/recruit/.roster-managed" ] && pass "codex-global sentinel" || fail "codex-global sentinel missing"
 
 # ─────────────────────────────────────────────────────────────────────────────
 section "7. Multi-runtime (claude + opencode + codex)"
 dir=$(fresh "multi" ".claude" ".opencode" ".agents")
-run_install "$dir" > /dev/null
-[ -f "$dir/.claude/agents/recruiter.md" ]     && pass "claude"   || fail "claude missing"
-[ -f "$dir/.opencode/agents/recruiter.md" ]   && pass "opencode" || fail "opencode missing"
-[ -f "$dir/.agents/skills/recruit/SKILL.md" ] && pass "codex"    || fail "codex missing"
+expect_install_ok "multi" "$dir"
+[ -f "$dir/.claude/agents/recruiter.md" ]       && pass "claude"   || fail "claude missing"
+[ -f "$dir/.opencode/skills/recruit/SKILL.md" ] && pass "opencode" || fail "opencode missing"
+[ -f "$dir/.agents/skills/recruit/SKILL.md" ]   && pass "codex"    || fail "codex missing"
 
 # ─────────────────────────────────────────────────────────────────────────────
 section "8. --all flag (creates dirs from scratch)"
 dir=$(fresh "all-flag")
-run_install "$dir" --all > /dev/null
-[ -f "$dir/.claude/agents/recruiter.md" ]     && pass "--all claude"   || fail "--all claude missing"
-[ -f "$dir/.opencode/agents/recruiter.md" ]   && pass "--all opencode" || fail "--all opencode missing"
-[ -f "$dir/.agents/skills/recruit/SKILL.md" ] && pass "--all codex"    || fail "--all codex missing"
+expect_install_ok "--all" "$dir" --all
+[ -f "$dir/.claude/agents/recruiter.md" ]       && pass "--all claude"   || fail "--all claude missing"
+[ -f "$dir/.opencode/skills/recruit/SKILL.md" ] && pass "--all opencode" || fail "--all opencode missing"
+[ -f "$dir/.agents/skills/recruit/SKILL.md" ]   && pass "--all codex"    || fail "--all codex missing"
 
 # ─────────────────────────────────────────────────────────────────────────────
 section "9. --runtime flag (explicit, comma-separated)"
 dir=$(fresh "runtime-flag")
-run_install "$dir" --runtime claude,opencode > /dev/null
+expect_install_ok "--runtime" "$dir" --runtime claude,opencode
 [ -f "$dir/.claude/agents/recruiter.md" ]         && pass "--runtime claude installed"   || fail "claude missing"
-[ -f "$dir/.opencode/agents/recruiter.md" ]        && pass "--runtime opencode installed" || fail "opencode missing"
+[ -f "$dir/.opencode/skills/recruit/SKILL.md" ]   && pass "--runtime opencode installed" || fail "opencode missing"
 [ ! -f "$dir/.agents/skills/recruit/SKILL.md" ]   && pass "codex correctly skipped"      || fail "codex wrongly installed"
 
 # ─────────────────────────────────────────────────────────────────────────────
 section "10. --team appends to AGENTS.md"
 dir=$(fresh "team" ".claude")
 echo "# AGENTS.md" > "$dir/AGENTS.md"
-run_install "$dir" --team > /dev/null
+expect_install_ok "--team" "$dir" --team
 grep -q "roster"       "$dir/AGENTS.md" && pass "roster section added"        || fail "roster section missing"
 grep -q "install.sh"   "$dir/AGENTS.md" && pass "install one-liner present"   || fail "one-liner missing"
 grep -q "/recruit"     "$dir/AGENTS.md" && pass "/recruit instruction present" || fail "/recruit missing"
@@ -131,8 +157,11 @@ echo "$output" | grep -qi "not found\|skip" \
 # ─────────────────────────────────────────────────────────────────────────────
 section "12. Unknown runtime warns, doesn't crash"
 dir=$(fresh "unknown")
-output=$(run_install "$dir" --runtime "martianruntime" 2>&1 || true)
-[ $? -eq 0 ] || true  # may exit 0 or non-zero, just must not segfault
+output=$(run_install "$dir" --runtime "martianruntime" 2>&1); status=$?
+# An unknown runtime must warn-and-continue, exiting 0 — not abort. (The old `[ $? -eq 0 ] || true`
+# here was dead: it ran after a `|| true` assignment, so it always observed 0.)
+[ "$status" -eq 0 ] && pass "unknown runtime exits 0 (no crash)" \
+  || fail "unknown runtime exited $status (expected 0)\n    got: $output"
 echo "$output" | grep -qi "unknown\|skipping" \
   && pass "unknown runtime warned" \
   || fail "unknown runtime not handled\n    got: $output"
@@ -148,9 +177,9 @@ echo "$output" | grep -qi "copilot\|manual" \
 # ─────────────────────────────────────────────────────────────────────────────
 section "14. Idempotency (reinstall over existing files)"
 dir=$(fresh "idempotent" ".claude")
-run_install "$dir" > /dev/null
+expect_install_ok "idempotent first install" "$dir"
 echo "# stale content" > "$dir/.claude/agents/recruiter.md"
-run_install "$dir" > /dev/null
+expect_install_ok "idempotent reinstall" "$dir"
 grep -q "mock recruiter" "$dir/.claude/agents/recruiter.md" \
   && pass "file correctly overwritten on reinstall" \
   || fail "file not updated on reinstall"
@@ -181,10 +210,14 @@ fi
 section "18. --runtime with spaces (robustness)"
 dir=$(fresh "runtime-spaces")
 output=$(run_install "$dir" --runtime "claude, opencode" 2>&1 || true)
-# Comma+space separated — may or may not work, just shouldn't crash
-echo "$output" | grep -qv "unbound\|syntax error" \
-  && pass "space in --runtime doesn't crash" \
-  || fail "space in --runtime caused crash"
+# Comma+space separated — may or may not install anything, but must not shell-crash. Assert the
+# ABSENCE of crash markers in the whole output. (The old `grep -qv` was a false-pass: it succeeds
+# whenever ANY single line lacks the pattern — the banner alone satisfied it even on a real crash.)
+if echo "$output" | grep -qi "unbound\|syntax error"; then
+  fail "space in --runtime caused crash\n    got: $output"
+else
+  pass "space in --runtime doesn't crash"
+fi
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 rm -rf "$WORK_DIR" "$MOCK_ROOT" "$PATCHED_SH" "$FAKE_CODEX_HOME"
