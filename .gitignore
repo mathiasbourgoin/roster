@@ -47,3 +47,6 @@ index.json
 .context/
 .gstack/
 **/.roster-version
+
+# Local session handoff (working notes, not history)
+/NEXT-SESSION.md
