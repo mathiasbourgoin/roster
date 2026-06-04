@@ -1,7 +1,7 @@
 ---
 name: roster-plan
 description: Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs.
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: plan
 preamble: true
@@ -195,6 +195,14 @@ Extract:
 ### 2. Dual-voice: two independent analyses
 
 Run **sequentially** two independent analyses of the plan.
+
+**Decomposition shape — prefer vertical slices.** Each step/deliverable should be a thin
+*end-to-end* slice that delivers one capability through every layer it touches (e.g. data → logic
+→ interface), **not** a horizontal layer ("all the schema", then "all the endpoints", then "all the
+UI"). A vertical slice is independently demoable and testable the moment it lands; a horizontal
+layer is not finished until every other layer catches up, so it hides integration risk until the
+end. This is about the *shape* of the work, not its size — slice by capability, sequence by
+dependency. Both voices below should decompose this way and flag a plan that is layered instead.
 
 #### Voice 1 — Claude sub-agent (fresh context)
 
