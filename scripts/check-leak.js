@@ -57,12 +57,13 @@ const HIGH = [
   { name: "jwt", re: /\beyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\b/ },
   { name: "azure-account-key", re: /AccountKey=[A-Za-z0-9+/]{40,}={0,2}/ },
   { name: "credential-in-url", re: /\b[a-z][a-z0-9+.\-]*:\/\/[^\/\s:@]+:[^\/\s:@]+@/i },
-  { name: "credential-in-query", re: /[?&](?:token|key|sig|secret|password|passwd|api[_-]?key|access[_-]?token|auth)=[^&\s"'<>]{12,}/i },
+  { name: "credential-in-query", re: /[?&](?:token|key|sig|secret|password|passwd|pwd|cred(?:ential)?s?|api[_-]?key|access[_-]?token|auth)=[^&\s"'<>]{12,}/i },
+  { name: "bearer-token", re: /\bBearer\s+[A-Za-z0-9_\-.=]{16,}\b/ },
   // secret-name (optionally prefixed: DB_PASSWORD, STRIPE_SECRET_KEY) = real-looking value.
   // Value charset includes "." so JWTs/dotted tokens are not truncated. Placeholders excluded below.
   {
     name: "secret-assignment",
-    re: /(?:^|[^A-Za-z0-9])(?:[A-Za-z0-9]+[_-])*(?:api[_-]?key|api[_-]?secret|secret(?:[_-]?key)?|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|private[_-]?key)\s*[:=]\s*["']?([A-Za-z0-9/+_.\-]{16,})["']?/i,
+    re: /(?:^|[^A-Za-z0-9])(?:[A-Za-z0-9]+[_-])*(?:api[_-]?key|api[_-]?secret|secret(?:[_-]?(?:key|id))?|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|pwd|credentials?|creds|private[_-]?key)\s*[:=]\s*["']?([A-Za-z0-9/+_.\-]{16,})["']?/i,
     valueGroup: 1,
   },
 ];
