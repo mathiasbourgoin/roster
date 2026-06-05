@@ -105,8 +105,11 @@ skip the quiz.
 
 A proposal lands only if **both** pass:
 
-1. **Generic roster gate** — frontmatter well-formedness, the skill contract, and generic PII/leak
-   patterns (`node scripts/check-skill-structure.js` + a generic secret/PII scan).
+1. **Generic roster gate** — frontmatter well-formedness, the skill contract, and generic
+   secret/PII/credential patterns. Run **both**: `node scripts/check-skill-structure.js` (contract)
+   **and** `node scripts/check-leak.js <edited-file>...` (the generic leak scanner — exit 1 on any
+   high-confidence secret/credential; PII surfaces as `WARN` and feeds the low-assurance flag). A
+   non-zero exit from either kills the proposal.
 2. **The target's own validator** — discovered in this order:
    - `validate_command` tunable in the target's `.harness/harness.json` (preferred — portable);
    - else the `scripts/validate.sh` convention at the target root;
