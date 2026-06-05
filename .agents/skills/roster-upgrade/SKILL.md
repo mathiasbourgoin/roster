@@ -1,6 +1,6 @@
 ---
 name: roster-upgrade
-description: Generic, propose-only upgrader for any roster-contract skill or pack. Mines evidence-graded signal, routes each change at its natural altitude, and gates it behind a generic roster gate, the target's own validator, and the human-validation quiz. Lands nothing without an active human answer. Maintainer-invoked only — never auto-discovered.
+description: Generic, propose-only upgrader for any roster-contract skill or pack. Mines evidence-graded signal and emits each change as a Full roster-run task gated by a generic leak scan, the target's own validator, and the plan-phase human-validation quiz. Propose-only — lands nothing; a human reviews and merges the diff. Maintainer-invoked only — never auto-discovered.
 version: 0.1.0
 domain: meta
 phase: null
@@ -210,43 +210,50 @@ Mine recurring frictions, repeated manual steps, and generally-useful techniques
   reject. Be honest: for prose-heavy packs the **quiz**, not a benchmark, is usually the operative
   gate — determinism is the bar for new detectors/tools, the floor (`validate.sh`) for prose.
 
-### 3. Promote each candidate at its NATURAL altitude (never blanket-FULL)
+### 3. Promote each candidate as a `roster-run --full` task (until the quiz is decoupled)
 
-Classify each surviving candidate with roster's own Express/Fast/Full rule and route through
-`roster-run` so the classifier picks the mode:
+Emit each surviving candidate as a **Full** task (question→…→plan→…→ship). **This is mandatory, not
+the natural-altitude optimization** an earlier draft assumed.
 
-- A methodology **prose** tweak ("improve *how*, not *what*") → **Fast**.
-- A **new capability / contract change** (a new `allowed_tools`, a new skill, structural change) →
-  **Full**.
+> ⚠ **Why Full and not Fast (verified by review):** the human-validation quiz — pillar 3 of this
+> skill's safety — is implemented **only in the `plan` phase** (`skills/pipeline/roster-plan.md`),
+> and Fast/Express pipelines have **no `plan` phase** (`skills/pipeline/roster-run.md`). So a
+> candidate routed Fast would **silently skip the quiz**. The general rule (`human-validation.md`)
+> calls the quiz a protocol, but in *this* repo it is plan-phase-only. Until the quiz is refactored
+> into a phase-independent gate that `roster-implement`/`roster-review` invoke for
+> `source: roster-upgrade` tasks, **every candidate runs Full** so the quiz actually fires.
+> Decoupling the quiz (to re-enable natural-altitude routing) is tracked as required follow-up.
 
-The **human-validation quiz is a protocol** (triggered by spec/plan/irreversible-change decisions),
-**not** a FULL-mode-exclusive gate — so it is required on **every** candidate regardless of altitude,
-while the 9-phase pipeline is paid only when the change warrants it. Governance rigor is decoupled
-from pipeline depth: a loop too heavy to run captures nothing, which is the failure this skill exists
-to prevent. Batch coherent candidates into one task; never pay a 9-phase pipeline for a typo, never
-skip the quiz.
+Batch coherent candidates into one Full task to control cost; the funnel triage (§2) is what keeps
+Full-per-proposal affordable — promote only evidence-backed, check-bearing candidates.
 
 ### 4. Two gates inside review/QA — fail closed
 
 A proposal lands only if **both** pass:
 
-1. **Generic roster gate** — frontmatter well-formedness, the skill contract, and generic
-   secret/PII/credential patterns. Run **both**: `node scripts/check-skill-structure.js` (contract)
-   **and** `node scripts/check-leak.js <edited-file>...` (the generic leak scanner — exit 1 on any
-   high-confidence secret/credential; PII surfaces as `WARN` and feeds the low-assurance flag). A
-   non-zero exit from either kills the proposal.
+1. **Generic gate.** Two checks:
+   - **Leak scan (mechanical, generic, per-file):** `node scripts/check-leak.js <every-edited-file>`.
+     Exit 1 (HIGH secret/credential) kills the proposal; `WARN` (PII/blobs) feeds the low-assurance
+     flag. ⚠ Pass **every file the diff touches**, derived from `git diff --name-only` — *not* a
+     hand-picked list (a missed file is an unscanned file). This catches only **literal** leaks, not
+     semantic over-fit (that is a human-judgment + quiz concern — see Enforcement status).
+   - **Contract check:** `npm run build:ts && node dist/scripts/check-skill-structure.js` (the
+     runnable is under `dist/`, after the TS build — `scripts/check-skill-structure.js` does not
+     exist). ⚠ This guard is **roster-repo-scoped** (it scans roster's `skills/`), so it validates
+     roster *self*-edits but does **not** validate an external pack's contract. A generic per-target
+     contract validator is a known gap (follow-up).
 2. **The target's own validator** — discovered in this order (resolve once, at the target root):
 
    ```bash
    GATE="$(jq -r '.project.validate_command // empty' "$TARGET/.harness/harness.json" 2>/dev/null)"
    [ -z "$GATE" ] && [ -f "$TARGET/scripts/validate.sh" ] && GATE="bash scripts/validate.sh"
-   # $GATE empty → no per-target validator: run generic-gate-only and FLAG low-assurance.
    ```
 
    - `project.validate_command` in the target's `.harness/harness.json` (preferred — portable;
      see schema/harness-schema.md);
    - else the `scripts/validate.sh` convention at the target root;
-   - else **none** → generic-gate-only + **flag the proposal low-assurance** in the report.
+   - else **none → STOP and report.** Do **not** "flag low-assurance and proceed": a proposal whose
+     only per-target backstop is a sentence in a report is not fail-closed. No validator → no land.
 
    For bounty-skills this resolves to `scripts/validate.sh` (its leak gate); for a roster project it
    resolves to `validate_command` (e.g. `npm test`). The upgrader is generic; the **gate is
@@ -269,7 +276,8 @@ propose *N* (small default); the human picks.
 | A candidate only helps the current target | Reject here → route to `/specialize` (overlay), not a skill edit |
 | No citation, or neither a check nor the manual-judgment flag | Reject the candidate — never propose ungrounded |
 | Either gate is red (generic or per-target validator) | Kill that proposal; do not land |
-| Target exposes no validator | Generic-gate-only + **flag low-assurance**; let the human decide |
+| Target exposes no validator (no `validate_command`, no `scripts/validate.sh`) | **STOP — do not land.** Generic-gate-only is not enough; report and ask the human to declare a validator |
+| Editing `/roster-upgrade`'s OWN Rules/gates (self-upgrade) | Full only; require explicit human review of the **Rules/gate diff** specifically (see Enforcement status C3) |
 | Maintainer fails the quiz on a proposal | Do not land — surface the ambiguity (the proposal or its evidence is unclear) |
 
 ## What Next
@@ -282,6 +290,23 @@ propose *N* (small default); the human picks.
 
 > 💡 `/roster-upgrade` rides roster FULL-mode governance and reuses `improvement-loop-planner` →
 > `improvement-loop` for the bounded, verification-first funnel. It does not invent its own governance.
+
+## Enforcement status — what is mechanical vs. what relies on this skill being followed
+
+An internal adversarial review (2026-06-05) established that **the real backstop is propose-only +
+human review of the diff before merge** — most of the "gates" are instructions to the running agent,
+not code that blocks. Be honest about which is which; do not present aspirational controls as enforced.
+
+| Safety claim | Status |
+|---|---|
+| Leak scan (literal secrets/credentials) | **Mechanical** — `check-leak.js`, fail-closed exit code, adversarially tested. |
+| "Scan every edited file" / "non-zero exit kills the proposal" | **Not yet enforced** — depends on the agent passing the right files and honoring the exit. Real enforcement = a CI/pre-land hook that derives files from `git diff` and blocks the merge (rules/escalation.md "Enforcement"). **Required follow-up.** |
+| The wall (no target data up) | **Mechanical only for literal leaks.** Semantic over-fit (a target invariant generalized with names filed off) is **human-judgment + quiz**, not gated. |
+| Quiz on every proposal | Fires **only in Full** (plan phase). Mitigated by forcing Full (§3). True "always" needs the quiz decoupled into a phase-independent gate. **Required follow-up.** |
+| Evidence + check/flag per candidate | **Prose** — no script verifies a citation or flag exists. Human checks at the quiz. |
+| Self-upgrade can't weaken its own gates (C3) | **Not enforced.** A self-edit weakening the Rules passes leak+contract+`npm test` and, if it reached Fast, the quiz. Mitigated by §3 (Full) + the self-edit row in *When to Go Back*; a CI meta-test asserting this skill still names both gates + the wall + propose-only is a **required follow-up**. |
+
+Treat this table as the spec for the remaining hardening work, not as resolved.
 
 ## Friction Log
 
@@ -301,8 +326,8 @@ propose *N* (small default); the human picks.
 - **Propose only — never land.** A human merges through the quiz. No auto-merge, ever.
 - **The wall holds.** Target-specific → `/specialize` overlay (down). Generic → here (up). Never merge the two.
 - **No ungrounded change.** Every candidate cites a verifiable signal and carries a deterministic check or the explicit manual-judgment flag.
-- **Both gates, fail closed.** Generic roster gate AND the target's own validator must pass; a target without a validator is flagged low-assurance.
-- **Natural altitude, always quiz.** Route each candidate at its real mode; require the quiz regardless of mode.
+- **Both gates, fail closed.** Generic leak scan AND the target's own validator must pass. **No per-target validator → STOP, do not land** (not "flag and proceed").
+- **Full per candidate (for now).** The quiz fires only in the `plan` phase, which only Full runs; route everything Full until the quiz is decoupled. Do not route roster-upgrade candidates Fast/Express.
 - **Competition is inspiration, not a diff.** Re-derive ideas; never port another pack's content. `source: competition` → mandatory human originality review.
 - **Maintainer-invoked only.** Not auto-discovered; runs on an explicit cadence.
 - **Self-application under the same rigor.** Upgrading `/roster-upgrade` itself uses the identical contract and both gates.
