@@ -34,7 +34,7 @@ RAW="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 #   3. hardcoded fallback    — last resort only: no checkout AND the network fetch failed
 # Every read is guarded with `|| true`: under `set -euo pipefail` an unguarded failing cat|tr would
 # kill the whole installer silently before it prints anything (the original curl|bash bug).
-ROSTER_VERSION_FALLBACK="2.6.2"
+ROSTER_VERSION_FALLBACK="2.7.0"
 ROSTER_VERSION="$ROSTER_VERSION_FALLBACK"   # provisional; resolve_version() finalizes it after $RAW
 
 resolve_version() {

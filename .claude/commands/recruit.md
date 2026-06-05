@@ -6,8 +6,14 @@ description: Use when the user invokes /recruit, $recruit, recruit update, or as
 
 ## Update Notes
 
-Version: 2.6.2 — Installer no longer dies silently on the `curl | bash` path when the VERSION file
-is absent; the version read is guarded under `set -euo pipefail`.
+Version: 2.7.0 — Release channels + drift-proof versioning (edge line; supersedes the stable-only
+2.6.2 patch, whose curl|bash silent-death fix this already includes).
+
+- Installer: `--channel stable|next` and `--branch <ref>`; the active channel is recorded in a
+  per-runtime `.roster-channel` marker and reported by `/roster-doctor`. The version stamped into
+  `.roster-version` is fetched from `${RAW}/VERSION` on the installed ref, so it can no longer drift.
+- Pi runtime removed; OpenCode is a first-class runtime.
+- CI enforces the VERSION ↔ recruiter-frontmatter version mirror.
 
 Version: 2.6.1 — OpenCode recruit installs as a discovered skill (`.opencode/skills/recruit/SKILL.md`),
 matching `sync-harness`; install-targets doc corrected.

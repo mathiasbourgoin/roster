@@ -5,16 +5,28 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [2.6.2] — 2026-06-05
+## [2.7.0] — 2026-06-05
+
+Edge (`next`) release line. Skips the stable-only `2.6.2` patch — the `curl | bash` silent-death
+fix that shipped is included here via the installer's `resolve_version` refactor.
+
+### Added
+
+- Release channels: `install.sh --channel stable|next` and `--branch <ref>`. The active channel is
+  recorded in a per-runtime `.roster-channel` marker and surfaced by `/roster-doctor`.
+- The version stamped into `.roster-version` is fetched from `${RAW}/VERSION` on the installed ref,
+  eliminating drift between the installed recruiter and its recorded version.
+- CI guard: `check-recruiter-sync.js` enforces that the root `VERSION` mirrors the recruiter
+  frontmatter `version:`.
+
+### Changed
+
+- OpenCode is now a first-class runtime; the Pi runtime was removed.
 
 ### Fixed
 
-- Installer no longer exits silently when the `VERSION` file is absent. The version read ran
-  `cat .../VERSION | tr ...` under `set -euo pipefail`; a missing file failed the pipeline and
-  killed the installer before any output. This broke the documented `curl | bash` install path,
-  where `$0` is `bash` so `$(dirname "$0")/../VERSION` resolves relative to the user's working
-  directory and almost never exists. The read is now guarded (`|| true`) so a missing VERSION
-  falls through to the hardcoded fallback, which is bumped to `2.6.2` to match this release.
+- Installer no longer dies silently under `set -euo pipefail` when the VERSION file is absent (the
+  `curl | bash` path). Shipped to the stable channel as `2.6.2`.
 
 ---
 
