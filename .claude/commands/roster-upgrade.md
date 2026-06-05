@@ -235,13 +235,22 @@ A proposal lands only if **both** pass:
    **and** `node scripts/check-leak.js <edited-file>...` (the generic leak scanner — exit 1 on any
    high-confidence secret/credential; PII surfaces as `WARN` and feeds the low-assurance flag). A
    non-zero exit from either kills the proposal.
-2. **The target's own validator** — discovered in this order:
-   - `validate_command` tunable in the target's `.harness/harness.json` (preferred — portable);
-   - else the `scripts/validate.sh` convention at the target root;
-   - else **none** → run generic-gate-only and **flag the proposal low-assurance** in the report.
+2. **The target's own validator** — discovered in this order (resolve once, at the target root):
 
-   For bounty-skills this is `scripts/validate.sh` (its leak gate), so a target's own rules stay in
-   force. The upgrader is generic; the **gate is per-target**.
+   ```bash
+   GATE="$(jq -r '.project.validate_command // empty' "$TARGET/.harness/harness.json" 2>/dev/null)"
+   [ -z "$GATE" ] && [ -f "$TARGET/scripts/validate.sh" ] && GATE="bash scripts/validate.sh"
+   # $GATE empty → no per-target validator: run generic-gate-only and FLAG low-assurance.
+   ```
+
+   - `project.validate_command` in the target's `.harness/harness.json` (preferred — portable;
+     see schema/harness-schema.md);
+   - else the `scripts/validate.sh` convention at the target root;
+   - else **none** → generic-gate-only + **flag the proposal low-assurance** in the report.
+
+   For bounty-skills this resolves to `scripts/validate.sh` (its leak gate); for a roster project it
+   resolves to `validate_command` (e.g. `npm test`). The upgrader is generic; the **gate is
+   per-target**, so each target keeps its own rules in force.
 
 Run both. A red gate kills the proposal — no green, no land.
 

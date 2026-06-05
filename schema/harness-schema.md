@@ -26,6 +26,11 @@ project:
   frameworks: [<string>]     # Detected frameworks (e.g., ["react", "dune"])
   ci: <string|null>          # CI system if detected (github-actions, gitlab-ci, etc.)
   issue_tracker: <string|null>  # Issue tracker URL or type
+  validate_command: <string|null>  # Optional. The project's own quality/leak gate, run as the
+                             # PER-TARGET gate by /roster-upgrade (e.g. "npm test",
+                             # "bash scripts/validate.sh"). Discovery order when absent:
+                             # scripts/validate.sh convention → none (generic-gate-only,
+                             # flagged low-assurance). See skills/meta/roster-upgrade.md.
 ```
 
 ## Layers
@@ -134,7 +139,8 @@ auditors: [<string>]                 # Agent names that audit the KB
     "languages": ["ocaml"],
     "frameworks": ["dune"],
     "ci": "github-actions",
-    "issue_tracker": "https://github.com/org/repo/issues"
+    "issue_tracker": "https://github.com/org/repo/issues",
+    "validate_command": "dune build @runtest"
   },
   "layers": {
     "agents": [

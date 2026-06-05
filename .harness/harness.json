@@ -37,7 +37,8 @@
     ],
     "frameworks": [],
     "ci": null,
-    "issue_tracker": "github"
+    "issue_tracker": "github",
+    "validate_command": "npm test"
   },
   "layers": {
     "agents": [
