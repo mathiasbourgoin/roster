@@ -20,9 +20,12 @@ BRANCH="main"
 RAW="https://raw.githubusercontent.com/${REPO}/${BRANCH}"
 
 # Recruiter version written to sentinel files. Read from local VERSION file when available
-# (dev installs); hardcoded fallback used when running via curl|bash from GitHub.
-ROSTER_VERSION="$(cat "$(dirname "$0")/../VERSION" 2>/dev/null | tr -d '[:space:]')"
-ROSTER_VERSION="${ROSTER_VERSION:-2.5.2}"
+# (dev installs); hardcoded fallback used when running via curl|bash from GitHub, where there is
+# no checkout ($0 is "bash", so "$(dirname "$0")/../VERSION" does not resolve to a real file).
+# The `|| true` is load-bearing: without it, a missing VERSION makes the cat|tr pipeline fail
+# under `set -euo pipefail` and the whole installer dies silently before printing anything.
+ROSTER_VERSION="$(cat "$(dirname "$0")/../VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+ROSTER_VERSION="${ROSTER_VERSION:-2.6.2}"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
