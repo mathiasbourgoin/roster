@@ -19,10 +19,16 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 SCANNER="scripts/check-leak.js"
 
-# Resolve a usable base ref.
+# Resolve a usable base ref. Skip any candidate that resolves to HEAD itself — diffing HEAD against
+# HEAD yields an empty set and would silently scan nothing (a false green, e.g. push-to-main when
+# `before` is unresolvable and origin/main == HEAD). Fall through to the actual parent (HEAD~1).
 base=""
+head_sha="$(git rev-parse HEAD 2>/dev/null || echo HEAD)"
 for c in "${1:-}" origin/main main HEAD~1; do
-  if [ -n "$c" ] && git rev-parse --verify --quiet "$c^{commit}" >/dev/null 2>&1; then base="$c"; break; fi
+  [ -n "$c" ] || continue
+  git rev-parse --verify --quiet "$c^{commit}" >/dev/null 2>&1 || continue
+  [ "$(git rev-parse "$c^{commit}")" = "$head_sha" ] && continue
+  base="$c"; break
 done
 if [ -z "$base" ]; then
   echo "check-leak-diff: no base ref resolved — scanning nothing (first commit / shallow clone)."

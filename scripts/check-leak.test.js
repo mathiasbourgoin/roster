@@ -50,6 +50,13 @@ test("BYPASS CORPUS — previously missed, must now fail closed", () => {
   // placeholder-prefixed REAL value (M1) — must NOT be excused
   assert.ok(high("api_key = testKEYa1b2c3d4e5f6g7h8i9j0").includes("secret-assignment"), "test-prefixed");
   assert.ok(high("api_key = xxxa1b2c3d4e5f6g7h8i9j0klmn").includes("secret-assignment"), "xxx-prefixed");
+  // round-2 verifier finds: synonym/abbreviated keyword classes + Bearer + custom query param
+  assert.ok(high("pwd=" + T.pw).includes("secret-assignment"), "pwd");
+  assert.ok(high("credentials=" + T.pw).includes("secret-assignment"), "credentials");
+  assert.ok(high("creds: " + T.pw).includes("secret-assignment"), "creds");
+  assert.ok(high("secret_id=" + T.pw).includes("secret-assignment"), "secret_id");
+  assert.ok(high("Authorization: Bearer " + "A".repeat(24)).includes("bearer-token"), "bearer");
+  assert.ok(high("https://h/?cred=abcdef123456ghijkl").includes("credential-in-query"), "cred query");
 });
 
 test("leak-ok is a strict token, not a substring (C1 hardening)", () => {
