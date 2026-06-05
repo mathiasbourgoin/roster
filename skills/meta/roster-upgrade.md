@@ -109,11 +109,12 @@ A proposal lands only if **both** pass:
      `WARN` (PII/blobs) feeds the low-assurance flag. This is the same script roster's CI runs on
      every PR; for an external target, wire it into THAT target's CI/pre-land hook. Catches only
      **literal** leaks, not semantic over-fit (human-judgment + quiz concern — see Enforcement status).
-   - **Contract check:** `npm run build:ts && node dist/scripts/check-skill-structure.js` (the
-     runnable is under `dist/`, after the TS build — `scripts/check-skill-structure.js` does not
-     exist). ⚠ This guard is **roster-repo-scoped** (it scans roster's `skills/`), so it validates
-     roster *self*-edits but does **not** validate an external pack's contract. A generic per-target
-     contract validator is a known gap (follow-up).
+   - **Contract check (generic, per-file):** `node scripts/check-skill-contract.js <edited-skill>...`
+     — buildless and dependency-free, it validates the roster skill contract (frontmatter `name`/
+     `description`/semver `version`, `## Steps`, and the meta sections + `jsonl` friction log) on ANY
+     target's `SKILL.md`, not just roster's own. Exit 1 kills the proposal. (Roster's repo-wide
+     `check-skill-structure` still guards roster's own `skills/` in CI; this is the portable per-file
+     version for external targets.)
 2. **The target's own validator** — discovered in this order (resolve once, at the target root):
 
    ```bash
@@ -188,9 +189,13 @@ not code that blocks. Be honest about which is which; do not present aspirationa
 | The wall (no target data up) | **Mechanical only for literal leaks.** Semantic over-fit (a target invariant generalized with names filed off) is **human-judgment + quiz**, not gated. |
 | Quiz on every proposal | **Decoupled (fixed).** Step 5 runs the `human-validation.md` quiz directly against the proposal, so it fires for every candidate regardless of altitude (no longer dependent on the Full-only `plan` phase). Includes the mandated consistency-check (addresses M1). Still relies on the agent running step 5 honestly — the quiz itself is human-in-the-loop by construction. |
 | Evidence + check/flag per candidate | **Prose** — no script verifies a citation or flag exists. Human checks at the quiz. |
-| Self-upgrade can't weaken its own gates (C3) | **Not enforced.** A self-edit weakening the Rules passes leak+contract+`npm test` and, if it reached Fast, the quiz. Mitigated by §3 (Full) + the self-edit row in *When to Go Back*; a CI meta-test asserting this skill still names both gates + the wall + propose-only is a **required follow-up**. |
+| Self-upgrade can't weaken its own gates (C3) | **Enforced.** `scripts/check-roster-upgrade-invariants.test.js` (in `npm test`/CI) fails if this skill stops naming propose-only, both gates, the wall, the quiz, or maintainer-only — so a weakening self-edit can't land green. Plus the self-edit row in *When to Go Back* (Full + human Rules-diff review). |
+| Generic per-target contract check | **Enforced (generic).** `scripts/check-skill-contract.js` validates the contract on any target's `SKILL.md` (buildless, per-file) — no longer roster-repo-scoped. |
 
-Treat this table as the spec for the remaining hardening work, not as resolved.
+Most pillars are now mechanically backed (2026-06-05 hardening #1–#4). The residual honest caveat:
+the **wall's semantic half** (over-fit with names filed off) and **evidence/flag presence** remain
+human-judgment at the quiz — they are not, and likely cannot be, fully mechanized. The backstop for
+those is the quiz (now altitude-independent) + propose-only.
 
 ## Friction Log
 
