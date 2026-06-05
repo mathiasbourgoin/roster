@@ -6,6 +6,9 @@ description: Use when the user invokes /recruit, $recruit, recruit update, or as
 
 ## Update Notes
 
+Version: 2.6.2 — Installer no longer dies silently on the `curl | bash` path when the VERSION file
+is absent; the version read is guarded under `set -euo pipefail`.
+
 Version: 2.6.1 — OpenCode recruit installs as a discovered skill (`.opencode/skills/recruit/SKILL.md`),
 matching `sync-harness`; install-targets doc corrected.
 
