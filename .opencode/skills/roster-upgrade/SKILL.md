@@ -232,11 +232,12 @@ Full-per-proposal affordable — promote only evidence-backed, check-bearing can
 A proposal lands only if **both** pass:
 
 1. **Generic gate.** Two checks:
-   - **Leak scan (mechanical, generic, per-file):** `node scripts/check-leak.js <every-edited-file>`.
-     Exit 1 (HIGH secret/credential) kills the proposal; `WARN` (PII/blobs) feeds the low-assurance
-     flag. ⚠ Pass **every file the diff touches**, derived from `git diff --name-only` — *not* a
-     hand-picked list (a missed file is an unscanned file). This catches only **literal** leaks, not
-     semantic over-fit (that is a human-judgment + quiz concern — see Enforcement status).
+   - **Leak scan (mechanical, generic):** run `bash scripts/check-leak-diff.sh <base-ref>` — it
+     derives the file set from `git diff` (NOT a hand-picked argv) and runs `check-leak.js` over it,
+     so a proposal cannot narrow the scan by omitting a file. Exit 1 (HIGH secret/credential) blocks;
+     `WARN` (PII/blobs) feeds the low-assurance flag. This is the same script roster's CI runs on
+     every PR; for an external target, wire it into THAT target's CI/pre-land hook. Catches only
+     **literal** leaks, not semantic over-fit (human-judgment + quiz concern — see Enforcement status).
    - **Contract check:** `npm run build:ts && node dist/scripts/check-skill-structure.js` (the
      runnable is under `dist/`, after the TS build — `scripts/check-skill-structure.js` does not
      exist). ⚠ This guard is **roster-repo-scoped** (it scans roster's `skills/`), so it validates
@@ -300,7 +301,7 @@ not code that blocks. Be honest about which is which; do not present aspirationa
 | Safety claim | Status |
 |---|---|
 | Leak scan (literal secrets/credentials) | **Mechanical** — `check-leak.js`, fail-closed exit code, adversarially tested. |
-| "Scan every edited file" / "non-zero exit kills the proposal" | **Not yet enforced** — depends on the agent passing the right files and honoring the exit. Real enforcement = a CI/pre-land hook that derives files from `git diff` and blocks the merge (rules/escalation.md "Enforcement"). **Required follow-up.** |
+| "Scan every edited file" / "non-zero exit kills the proposal" | **Enforced for roster** — `scripts/check-leak-diff.sh` derives the file set from `git diff` and roster's CI runs it on every push/PR (`.github/workflows/ci.yml`), blocking the merge. For an EXTERNAL target, the same script must be wired into that target's CI/pre-land hook (the upgrader can't enforce a gate in a repo it doesn't control). |
 | The wall (no target data up) | **Mechanical only for literal leaks.** Semantic over-fit (a target invariant generalized with names filed off) is **human-judgment + quiz**, not gated. |
 | Quiz on every proposal | Fires **only in Full** (plan phase). Mitigated by forcing Full (§3). True "always" needs the quiz decoupled into a phase-independent gate. **Required follow-up.** |
 | Evidence + check/flag per candidate | **Prose** — no script verifies a citation or flag exists. Human checks at the quiz. |

@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history so check-leak-diff can diff against the base ref
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -26,3 +28,11 @@ jobs:
           bash --version | head -1
       - run: npm ci
       - run: npm test
+      - name: Leak scan changed files (enforce check-leak via git diff, not agent-supplied)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            bash scripts/check-leak-diff.sh "origin/${{ github.base_ref }}"
+          else
+            bash scripts/check-leak-diff.sh "${{ github.event.before }}"
+          fi
