@@ -1,6 +1,6 @@
 ---
 name: roster-upgrade
-description: Generic, propose-only upgrader for any roster-contract skill or pack. Mines evidence-graded signal and emits each change as a Full roster-run task gated by a generic leak scan, the target's own validator, and the plan-phase human-validation quiz. Propose-only — lands nothing; a human reviews and merges the diff. Maintainer-invoked only — never auto-discovered.
+description: Generic, propose-only upgrader for any roster-contract skill or pack. Mines evidence-graded signal, routes each change at its natural altitude, and gates it with a git-diff-enforced leak scan, the target's own validator, and a human-validation quiz the skill runs itself (altitude-independent). Propose-only — lands nothing; a human reviews and merges the diff. Maintainer-invoked only — never auto-discovered.
 version: 0.1.0
 domain: meta
 phase: null
@@ -85,22 +85,18 @@ Mine recurring frictions, repeated manual steps, and generally-useful techniques
   reject. Be honest: for prose-heavy packs the **quiz**, not a benchmark, is usually the operative
   gate — determinism is the bar for new detectors/tools, the floor (`validate.sh`) for prose.
 
-### 3. Promote each candidate as a `roster-run --full` task (until the quiz is decoupled)
+### 3. Promote each candidate at its natural altitude
 
-Emit each surviving candidate as a **Full** task (question→…→plan→…→ship). **This is mandatory, not
-the natural-altitude optimization** an earlier draft assumed.
+Classify each surviving candidate with roster's own Express/Fast/Full rule and route via `roster-run`:
 
-> ⚠ **Why Full and not Fast (verified by review):** the human-validation quiz — pillar 3 of this
-> skill's safety — is implemented **only in the `plan` phase** (`skills/pipeline/roster-plan.md`),
-> and Fast/Express pipelines have **no `plan` phase** (`skills/pipeline/roster-run.md`). So a
-> candidate routed Fast would **silently skip the quiz**. The general rule (`human-validation.md`)
-> calls the quiz a protocol, but in *this* repo it is plan-phase-only. Until the quiz is refactored
-> into a phase-independent gate that `roster-implement`/`roster-review` invoke for
-> `source: roster-upgrade` tasks, **every candidate runs Full** so the quiz actually fires.
-> Decoupling the quiz (to re-enable natural-altitude routing) is tracked as required follow-up.
+- a methodology **prose** tweak ("improve *how*, not *what*") → **Fast**;
+- a **new capability / contract change** (new `allowed_tools`, a new skill, structural change) → **Full**.
 
-Batch coherent candidates into one Full task to control cost; the funnel triage (§2) is what keeps
-Full-per-proposal affordable — promote only evidence-backed, check-bearing candidates.
+**Altitude controls pipeline depth/cost only — never whether the quiz fires.** The quiz is run by
+**step 5 of this skill directly** (not left to the pipeline's `plan` phase, which is Full-only — that
+plan-phase dependency was the C1 finding). So a Fast candidate is just as quiz-gated as a Full one.
+Batch coherent candidates; the §2 funnel (promote only evidence-backed, check-bearing candidates)
+keeps cost down without skipping the quiz.
 
 ### 4. Two gates inside review/QA — fail closed
 
@@ -137,12 +133,24 @@ A proposal lands only if **both** pass:
 
 Run both. A red gate kills the proposal — no green, no land.
 
-### 5. Human lands
+### 5. Human lands — run the quiz HERE (altitude-independent)
 
-Emit the diff on a branch + a rationale citing each candidate's evidence, check (or manual flag),
-gate results, and `source:` tag. Run the **quiz** (active human answer, not passive approval). On
-land: bump the edited skill's `version` + the target's `CHANGELOG`. **Never auto-merge.** Bounded:
-propose *N* (small default); the human picks.
+The quiz is run **by this step**, not delegated to the pipeline's `plan` phase (which only Full runs).
+Running it here is what makes pillar 3 hold for every candidate regardless of mode — the fix for the
+C1 review finding. Follow `rules/governance/human-validation.md`:
+
+1. **Write the proposal to a file** — `docs/plans/roster-upgrade-<slug>-<date>.md`: the diff + a
+   rationale citing each candidate's evidence, its deterministic check or manual-judgment flag, both
+   gate results, and its `source:` tag. Tell the human the path.
+2. **tl;dr** — 3-5 bullets that orient, not substitute for reading the file.
+3. **Quiz** — 3-5 questions the human must *actively answer*. Exactly **one** is a consistency-check:
+   a plausible-but-wrong option that contradicts the proposal, aimed at its highest-risk change.
+   Format it **identically** to the others and **never label it** as a check/trap in any
+   user-visible text. Gate on correct answers; a triggered consistency-check is explained, then
+   re-asked, before proceeding.
+4. **Only on a passed quiz:** hand the branch to the human to merge; bump the edited skill's
+   `version` + the target's `CHANGELOG`. **Never auto-merge.** Bounded: propose *N* (small default);
+   the human picks what lands.
 
 ## When to Go Back
 
@@ -178,7 +186,7 @@ not code that blocks. Be honest about which is which; do not present aspirationa
 | Leak scan (literal secrets/credentials) | **Mechanical** — `check-leak.js`, fail-closed exit code, adversarially tested. |
 | "Scan every edited file" / "non-zero exit kills the proposal" | **Enforced for roster** — `scripts/check-leak-diff.sh` derives the file set from `git diff` and roster's CI runs it on every push/PR (`.github/workflows/ci.yml`), blocking the merge. For an EXTERNAL target, the same script must be wired into that target's CI/pre-land hook (the upgrader can't enforce a gate in a repo it doesn't control). |
 | The wall (no target data up) | **Mechanical only for literal leaks.** Semantic over-fit (a target invariant generalized with names filed off) is **human-judgment + quiz**, not gated. |
-| Quiz on every proposal | Fires **only in Full** (plan phase). Mitigated by forcing Full (§3). True "always" needs the quiz decoupled into a phase-independent gate. **Required follow-up.** |
+| Quiz on every proposal | **Decoupled (fixed).** Step 5 runs the `human-validation.md` quiz directly against the proposal, so it fires for every candidate regardless of altitude (no longer dependent on the Full-only `plan` phase). Includes the mandated consistency-check (addresses M1). Still relies on the agent running step 5 honestly — the quiz itself is human-in-the-loop by construction. |
 | Evidence + check/flag per candidate | **Prose** — no script verifies a citation or flag exists. Human checks at the quiz. |
 | Self-upgrade can't weaken its own gates (C3) | **Not enforced.** A self-edit weakening the Rules passes leak+contract+`npm test` and, if it reached Fast, the quiz. Mitigated by §3 (Full) + the self-edit row in *When to Go Back*; a CI meta-test asserting this skill still names both gates + the wall + propose-only is a **required follow-up**. |
 
@@ -203,7 +211,7 @@ Treat this table as the spec for the remaining hardening work, not as resolved.
 - **The wall holds.** Target-specific → `/specialize` overlay (down). Generic → here (up). Never merge the two.
 - **No ungrounded change.** Every candidate cites a verifiable signal and carries a deterministic check or the explicit manual-judgment flag.
 - **Both gates, fail closed.** Generic leak scan AND the target's own validator must pass. **No per-target validator → STOP, do not land** (not "flag and proceed").
-- **Full per candidate (for now).** The quiz fires only in the `plan` phase, which only Full runs; route everything Full until the quiz is decoupled. Do not route roster-upgrade candidates Fast/Express.
+- **Natural altitude, quiz always.** Route each candidate at its real mode (Fast for prose, Full for new capability); the quiz fires from step 5 regardless of mode, so altitude never skips it.
 - **Competition is inspiration, not a diff.** Re-derive ideas; never port another pack's content. `source: competition` → mandatory human originality review.
 - **Maintainer-invoked only.** Not auto-discovered; runs on an explicit cadence.
 - **Self-application under the same rigor.** Upgrading `/roster-upgrade` itself uses the identical contract and both gates.
