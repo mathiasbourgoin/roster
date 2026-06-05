@@ -907,6 +907,7 @@ Skills to install:
 - `skills/pipeline/roster-doctor.md`
 - `skills/meta/roster-skill-health.md`
 - `skills/meta/roster-skill-evolve.md`
+- `skills/meta/roster-upgrade.md`
 
 For each skill at path `<skill-path>` with filename `<name>.md`:
 ```bash
