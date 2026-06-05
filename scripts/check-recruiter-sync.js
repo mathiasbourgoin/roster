@@ -12,7 +12,11 @@
 // stale copy — which is exactly how the v2.5.2 auto-update feature got dropped from the
 // Codex projection. This check makes that invariant explicit and CI-enforced.
 //
-// Exits 0 if identical, exits 1 on divergence with a remediation hint.
+// It ALSO enforces a second invariant (specs/roster-auto-update.md Q-1): the root VERSION file
+// mirrors the recruiter frontmatter `version:`. The v2.6.2 release bumped VERSION but not the
+// recruiter version and shipped green precisely because nothing enforced this — now something does.
+//
+// Exits 0 if all invariants hold, exits 1 on any divergence with a remediation hint.
 //
 // Usage: node scripts/check-recruiter-sync.js
 
@@ -56,6 +60,43 @@ function checkProjections(canonicalText) {
   console.log(`✓ recruiter-sync: all present recruit projections carry "${MARKER}".`);
 }
 
+// Extract the `version:` value from a markdown file's leading YAML frontmatter block.
+function frontmatterVersion(text, label) {
+  const block = text.match(/^---\n([\s\S]*?)\n---/);
+  if (!block) {
+    console.error(`✗ recruiter-sync: ${label} has no YAML frontmatter block.`);
+    process.exit(1);
+  }
+  const field = block[1].match(/^version:\s*(.+?)\s*$/m);
+  if (!field) {
+    console.error(`✗ recruiter-sync: ${label} frontmatter has no 'version:' field.`);
+    process.exit(1);
+  }
+  return field[1].trim();
+}
+
+// Enforce the release invariant from specs/roster-auto-update.md (Q-1): the root VERSION file
+// mirrors the recruiter frontmatter version. A release that bumps one but not the other (as the
+// v2.6.2 release did) is internally inconsistent — install.sh stamps VERSION, but the recruiter's
+// own declared version is the documented source of truth. canonical === legacy is already enforced
+// above, so checking canonical's frontmatter covers both recruiter copies.
+function checkVersionMirror(canonicalText) {
+  const versionFile = path.resolve(root, "VERSION");
+  if (!fs.existsSync(versionFile)) return; // no VERSION file → nothing to mirror
+  const fileVersion = fs.readFileSync(versionFile, "utf8").trim();
+  const frontVersion = frontmatterVersion(canonicalText, ".harness/agents/recruiter.md");
+  if (fileVersion !== frontVersion) {
+    console.error("✗ recruiter-sync: VERSION↔recruiter frontmatter mirror broken.");
+    console.error(`    VERSION file:                 ${JSON.stringify(fileVersion)}`);
+    console.error(`    .harness/agents/recruiter.md: version: ${JSON.stringify(frontVersion)}`);
+    console.error("    These MUST match (specs/roster-auto-update.md Q-1). A release bumps VERSION,");
+    console.error("    both recruiter copies' frontmatter, the Update Notes, recruiter/CHANGELOG.md,");
+    console.error("    and the install.sh fallback — then re-run scripts/sync-harness.sh.");
+    process.exit(1);
+  }
+  console.log(`✓ recruiter-sync: VERSION mirrors recruiter frontmatter (${fileVersion}).`);
+}
+
 function readOrFail(file) {
   if (!fs.existsSync(file)) {
     console.error(`✗ recruiter-sync: expected file not found: ${path.relative(root, file)}`);
@@ -70,6 +111,7 @@ const canonical = readOrFail(CANONICAL);
 if (legacy === canonical) {
   console.log("✓ recruiter-sync: recruiter/recruiter.md and .harness/agents/recruiter.md are identical.");
   checkProjections(canonical);
+  checkVersionMirror(canonical);
   process.exit(0);
 }
 
