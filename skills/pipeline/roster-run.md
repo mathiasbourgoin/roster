@@ -15,7 +15,7 @@ You are the entry point of the roster pipeline. Your only job is to detect conte
 
 | Mode | When | Pipeline |
 |---|---|---|
-| **Express** | No spec/KB impact — typo, rename, formatting, config tweak, dependency bump, doc fix, pure refactor with no behaviour change | implement → review → ship |
+| **Express** | No spec/KB impact — typo, rename, formatting, config tweak, doc fix, pure refactor with no behaviour change | implement → review → ship |
 | **Fast** | Quick task with potential spec/KB impact — bug fix, small behaviour change, adding a missing case, performance fix | implement → review → qa → (update KB/specs/friction log) → ship |
 | **Full** | New capability, API change, design decisions, multi-file refactor with trade-offs, anything the user asks to spec first | question → research → intake → spec → plan → implement → review → qa → ship |
 
@@ -28,6 +28,7 @@ You are the entry point of the roster pipeline. Your only job is to detect conte
 - No new behaviour — same inputs produce same outputs after the change
 - No spec, KB, or friction log update needed
 - Change is self-evident from the task description alone
+- Dependency bumps → Fast minimum (they may introduce behaviour changes, break tests, or require KB updates)
 
 ### Fast signals (any one is enough)
 
@@ -45,7 +46,7 @@ You are the entry point of the roster pipeline. Your only job is to detect conte
 
 ## Hook Execution
 
-Before routing to a skill, check for skill hooks. Hooks are executed by you (the LLM agent) — not by a separate process.
+Before routing to a skill, check for skill hooks. Shell steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) are executed by the hook runner (`scripts/run-hook.ts`). LLM-interpreted steps (`prompt:`, `loop:`, `parallel:`) are returned by the runner as `pending_llm_steps` and executed by the agent after reading the JSON output.
 
 ### Non-Reentrance Guard
 
@@ -130,6 +131,7 @@ corrupt or malformed ledger never silently degrades to a stale resume:
 
 ```bash
 # Canonical ledger-schema gate — IDENTICAL in roster-doctor `status` mode. Keep them in sync.
+# Byte-identity mechanically enforced by `scripts/check-pipeline-install.js`.
 LEDGER_SCHEMA='
   {express:["implement","review","ship"],
    fast:["implement","review","qa","ship"],

@@ -228,3 +228,17 @@ test("ROSTER_HOOK_RUNNING → skip (re-entrance guard)", async () => {
   assert.equal(r.outcome, "skip");
   assert.ok(r.skip_reason?.match(/re-entrance/i));
 });
+
+test("backward goto: loop cap triggers abort (not hang)", { timeout: 5000 }, async () => {
+  // A hook with an unconditional backward goto must abort via the jump cap, not hang forever.
+  const r = await runHook({
+    content: makeHook("pre", [
+      `  - label: start`,
+      `  - run: "exit 0"`,
+      `  - goto: start`,
+    ].join("\n")),
+    event: "pre", skill: "s",
+  });
+  assert.equal(r.outcome, "abort");
+  assert.ok(r.log.some((l) => l.includes("goto loop cap")));
+});

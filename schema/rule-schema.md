@@ -9,7 +9,7 @@ Rules are markdown files that define behavioral constraints for assistant sessio
 name: <string>               # Unique identifier (kebab-case)
 description: <string>        # One-line summary of what this rule enforces
 scope: <global|path:glob>    # Where the rule applies
-category: <safety|style|workflow|language>  # Classification
+category: <safety|style|workflow|language|governance|common>  # Classification
 ---
 ```
 
@@ -22,12 +22,23 @@ applies_to: [<string>]       # Languages or frameworks this rule targets (e.g., 
 
 ## Categories
 
-| Category   | Purpose                                          |
-|------------|--------------------------------------------------|
-| `safety`   | Prevents harmful or irreversible actions         |
-| `style`    | Code style, formatting, naming conventions       |
-| `workflow` | Process rules (commit style, PR flow, etc.)      |
-| `language` | Language-specific idioms and best practices       |
+| Category     | Purpose                                          |
+|--------------|--------------------------------------------------|
+| `safety`     | Prevents harmful or irreversible actions         |
+| `style`      | Code style, formatting, naming conventions       |
+| `workflow`   | Process rules (commit style, PR flow, etc.)      |
+| `language`   | Language-specific idioms and best practices       |
+| `governance` | Human-gate, approval, and escalation rules       |
+| `common`     | Shared rules not fitting other categories        |
+
+## Directory Layout
+
+```
+rules/
+  common/      # Cross-cutting rules
+  governance/  # Approval, human-gate, escalation rules
+  safety/      # Destructive-action guards
+```
 
 ## Scope
 

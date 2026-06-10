@@ -68,7 +68,7 @@ Produce: a numbered list of 3–7 neutral research questions only.
 No introduction, no conclusion, no mention of what is being built.
 ```
 
-### 4. Create output directory and write questions.md
+### 4. Create output directory and write questions.md + task.md
 
 ```bash
 mkdir -p roster/<task-slug>
@@ -89,6 +89,14 @@ _DO NOT include the task description in this file or share it with the researche
 ```
 
 **Do not include the task description in this file.**
+
+Write `roster/<task-slug>/task.md` with the full task description (this is the durable record downstream phases read to recover the goal if context is lost):
+
+```markdown
+# Task — <task-slug>
+
+<full task description, verbatim from the user>
+```
 
 ### 5. Human review gate
 

@@ -4,7 +4,7 @@
 
 Skill hooks are declarative automation files that run **before** (`pre`) or **after** (`post`) a skill is dispatched by `roster-run`. They let you add guard checks, post-run cleanup, or agentic feedback loops to any skill — without modifying the skill itself.
 
-Skill hooks are distinct from **tool-level hooks** (which intercept Bash/Edit/Write tool calls in `settings.json`). Skill hooks operate at the pipeline level: they are executed by the LLM agent reading a `.md` file and interpreting its `steps:` YAML block. There is no separate process runner.
+Skill hooks are distinct from **tool-level hooks** (which intercept Bash/Edit/Write tool calls in `settings.json`). Skill hooks operate at the pipeline level. Shell-level steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) are executed by `run-hook.ts` (CLI: `node dist/scripts/run-hook.js`) as real processes with enforced exit-code semantics. Steps requiring LLM interpretation (`prompt:+agent:`, `loop:`, `parallel:`) are returned in `pending_llm_steps` for the agent to handle after the runner completes.
 
 **Typical use cases:**
 

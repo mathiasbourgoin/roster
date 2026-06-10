@@ -222,7 +222,7 @@ To add or update components:
 
 **Version numbers:** `package.json` tracks the npm build tooling (`1.x`). The recruiter skill has its own independent version (`2.x`) declared in `recruiter/recruiter.md` frontmatter and mirrored in the `VERSION` file at repo root. These are separate semver tracks.
 
-`index.json` is the published component index (tracked, ~1.3 MB). Run `npm run build:index` when adding or updating components; commit the updated file in the same PR. Only rebuild on actual component changes — not on every edit.
+`index.json` is gitignored and not published to the repo. Build locally with `npm run build:index` before running searches. It is not required for install.
 
 ### Language Patterns
 

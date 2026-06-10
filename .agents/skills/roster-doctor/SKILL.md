@@ -270,6 +270,7 @@ clean render. The expected slug is the file's own basename (`briefs/<slug>-state
 
 ```bash
 # LEDGER_SCHEMA is the SAME predicate as roster-run Step 1.4 — keep the two copies identical.
+# Byte-identity mechanically enforced by `scripts/check-pipeline-install.js`.
 LEDGER_SCHEMA='
   {express:["implement","review","ship"],
    fast:["implement","review","qa","ship"],

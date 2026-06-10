@@ -132,6 +132,8 @@ class HookExecutor {
 
     let i = 0;
     let lastRunStep: { cmd: string; stepIndex: number } | null = null;
+    let jumpCount = 0;
+    const jumpCap = Math.max(500, 10 * steps.length);
 
     while (i < steps.length) {
       const step = steps[i];
@@ -157,6 +159,13 @@ class HookExecutor {
           const target = (step as { goto: string }).goto;
           const targetIdx = labelIndex.get(target);
           if (targetIdx !== undefined) {
+            if (targetIdx < i) {
+              jumpCount++;
+              if (jumpCount > jumpCap) {
+                this.emit(`[error] goto loop cap exceeded (${jumpCount} backward jumps) — aborting`);
+                return "abort";
+              }
+            }
             this.emit(`[goto] → label:${target} (step ${targetIdx + 1})`);
             i = targetIdx;
           } else {

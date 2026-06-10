@@ -1,9 +1,9 @@
 ---
 name: block-dangerous-commands
-description: Block destructive shell commands — rm -rf root/home, force push to main, SQL drops, chmod 777, pipe to shell.
+description: Block destructive shell commands — rm -rf, force push to any branch, SQL drops, chmod 777, pipe to shell, destructive HTTP mutations.
 event: PreToolUse
 matcher: Bash
-version: 1.1.0
+version: 1.2.0
 timeout: 5000
 ---
 
@@ -11,18 +11,25 @@ timeout: 5000
 
 Intercepts Bash tool calls and rejects commands matching known destructive patterns. A non-zero exit blocks the tool call and shows the reason to the model.
 
+`permissions.deny` in `.claude/settings.json` is the primary enforcement layer for
+Claude Code; this hook is defense-in-depth for patterns that require shell parsing logic.
+
+> Note: MCP tool calls (e.g. direct API mutations via MCP servers) are invisible to Bash hooks.
+> The deny rules in `.claude/settings.json` and human escalation are the controls there.
+
 ## Blocked Patterns
 
 | Pattern | Reason |
 |---------|--------|
-| `rm -rf /`, `rm -rf ~`, `rm -rf .` | Catastrophic recursive deletion of root, home, or working directory |
-| `git push --force` / `git push -f` to main/master | Rewrites shared history on protected branches |
+| `rm -rf <any-path>` | Recursive deletion with force flag — confirm path before running |
+| `git push --force` / `git push -f` to any branch | Rewrites shared history (not just main/master) — use `--force-with-lease` instead |
 | `git reset --hard` | Discards uncommitted work irreversibly |
 | `DROP TABLE`, `DROP DATABASE`, `TRUNCATE` | Destructive SQL — data loss |
 | `DELETE FROM ...` without `WHERE` | Deletes all rows — data loss |
 | `git clean -f` / `--force` | Irreversibly deletes untracked files |
 | `chmod 777` | Removes all permission restrictions — security violation |
 | `curl ... \| sh`, `wget ... \| sh` | Arbitrary remote code execution |
+| `curl -X POST/PUT/DELETE/PATCH` | Destructive HTTP mutations — confirm endpoint before running |
 
 ## Command
 
@@ -34,22 +41,27 @@ COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 # Best-effort, defense-in-depth against ACCIDENTAL destructive commands — NOT a security
 # boundary. Regex cannot fully parse shell+SQL; deliberate obfuscation (encoding, variable
 # indirection, eval, comments/quoting) can evade it. The escalation rules + human gate are
-# the real protection. Patterns use POSIX [[:space:]] (not \s) so the guards also fire under
-# BSD/macOS grep.
+# the real protection. `permissions.deny` in `.claude/settings.json` is the primary layer;
+# this hook covers patterns requiring shell parsing. Patterns use POSIX [[:space:]] (not \s)
+# so the guards also fire under BSD/macOS grep.
 
-# rm -rf targeting root, home, or cwd
-if echo "$COMMAND" | grep -qE 'rm[[:space:]]+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*[[:space:]]+(/|~|\.)([[:space:]]|$|;|\|)'; then
-  echo "BLOCKED: 'rm -rf' targeting /, ~, or . is not allowed. Use a specific path."
+# rm -rf targeting any non-whitespace path (not just root/home/cwd)
+if echo "$COMMAND" | grep -qE 'rm[[:space:]]+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*[[:space:]]+[^[:space:]]'; then
+  echo "BLOCKED: 'rm -rf' requires confirmation. Verify the target path before proceeding."
   exit 1
 fi
-if echo "$COMMAND" | grep -qE 'rm[[:space:]]+-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*[[:space:]]+(/|~|\.)([[:space:]]|$|;|\|)'; then
-  echo "BLOCKED: 'rm -rf' targeting /, ~, or . is not allowed. Use a specific path."
+if echo "$COMMAND" | grep -qE 'rm[[:space:]]+-[a-zA-Z]*f[a-zA-Z]*r[a-zA-Z]*[[:space:]]+[^[:space:]]'; then
+  echo "BLOCKED: 'rm -rf' requires confirmation. Verify the target path before proceeding."
   exit 1
 fi
 
-# git push --force / -f to main or master
-if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]+.*(-f|--force)' && echo "$COMMAND" | grep -qE '\b(main|master)\b'; then
-  echo "BLOCKED: Force push to main/master is not allowed. Push to a feature branch instead."
+# git push --force / -f to any branch (--force-with-lease is permitted — it is a safe alternative)
+if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]+.*--force([[:space:]]|$)' && ! echo "$COMMAND" | grep -q 'force-with-lease'; then
+  echo "BLOCKED: Force push to any branch is not allowed. Use --force-with-lease instead."
+  exit 1
+fi
+if echo "$COMMAND" | grep -qE 'git[[:space:]]+push[[:space:]]+.*[[:space:]]-f([[:space:]]|$)'; then
+  echo "BLOCKED: Force push (-f) to any branch is not allowed. Use --force-with-lease instead."
   exit 1
 fi
 
@@ -98,6 +110,12 @@ fi
 # Piping remote content to shell
 if echo "$COMMAND" | grep -qE '(curl|wget)[[:space:]]+.*\|[[:space:]]*(ba)?sh'; then
   echo "BLOCKED: Piping remote content to shell is arbitrary code execution. Download and inspect first."
+  exit 1
+fi
+
+# curl/wget with destructive HTTP methods (POST/PUT/DELETE/PATCH) to prevent accidental mutations
+if echo "$COMMAND" | grep -qiE '(curl|wget)[[:space:]].*-X[[:space:]]+(POST|PUT|DELETE|PATCH)\b'; then
+  echo "BLOCKED: curl/wget with a destructive HTTP method (POST/PUT/DELETE/PATCH) requires confirmation. Verify the endpoint and payload first."
   exit 1
 fi
 

@@ -187,10 +187,13 @@ fi
 fetch() {
   local url="$1" dest="$2"
   mkdir -p "$(dirname "$dest")"
+  # Atomic write: download to a temp file first, then rename into place.
+  # This avoids leaving a truncated file if the download is interrupted.
+  [ -f "$dest" ] && cp "$dest" "${dest}.bak" 2>/dev/null || true
   if command -v curl &>/dev/null; then
-    curl -fsSL "$url" -o "$dest"
+    curl -fsSL "$url" -o "${dest}.tmp" && mv "${dest}.tmp" "$dest"
   elif command -v wget &>/dev/null; then
-    wget -qO "$dest" "$url"
+    wget -qO "${dest}.tmp" "$url" && mv "${dest}.tmp" "$dest"
   else
     err "Neither curl nor wget found — cannot download files."
     exit 1
@@ -206,13 +209,17 @@ stamp_markers() {
 }
 
 install_claude() {
-  mkdir -p .claude/agents .claude/commands
+  mkdir -p .claude/agents .claude/commands .claude/agents/recruiter-ops
   fetch "${RAW}/recruiter/recruiter.md" ".claude/agents/recruiter.md"
   # The slash-command must be the RENDERED projection (name: recruit), not the raw agent
   # (name: recruiter) — otherwise the documented /recruit trigger is wrong.
   fetch "${RAW}/.claude/commands/recruit.md" ".claude/commands/recruit.md"
+  # Companion ops files referenced by the recruiter agent
+  fetch "${RAW}/recruiter/ops/version-check.sh"    ".claude/agents/recruiter-ops/version-check.sh"
+  fetch "${RAW}/recruiter/ops/update-mechanism.md" ".claude/agents/recruiter-ops/update-mechanism.md"
+  fetch "${RAW}/recruiter/ops/runtime-paths.md"    ".claude/agents/recruiter-ops/runtime-paths.md"
   stamp_markers .claude
-  ok "Claude Code  →  .claude/agents/recruiter.md + .claude/commands/recruit.md"
+  ok "Claude Code  →  .claude/agents/recruiter.md + .claude/commands/recruit.md + recruiter-ops/"
 }
 
 install_opencode() {
@@ -269,7 +276,7 @@ for runtime in $RUNTIMES_TO_INSTALL; do
     opencode)      install_opencode ;;
     codex)         install_codex ;;
     codex-global)  install_codex_global ;;
-    copilot)       warn "GitHub Copilot runtime requires manual setup — see README." ;;
+    copilot)       warn "Copilot runtime is not currently supported. Copy \`.claude/commands/\` to your Copilot skills directory manually." ;;
     *)             warn "Unknown runtime: $runtime (skipping)" ;;
   esac
 done

@@ -25,8 +25,12 @@ const errors = [];
 
 // ── Check 1: recruiter install-list ↔ disk ──────────────────────────────────
 const recruiter = path.resolve(root, "recruiter/recruiter.md");
-if (fs.existsSync(recruiter)) {
-  const text = fs.readFileSync(recruiter, "utf8");
+const opsFile   = path.resolve(root, "recruiter/ops/update-mechanism.md");
+if (fs.existsSync(recruiter) || fs.existsSync(opsFile)) {
+  // The "Skills to install:" list may live in recruiter.md or in the companion ops file.
+  const recruiterText = fs.existsSync(recruiter) ? fs.readFileSync(recruiter, "utf8") : "";
+  const opsText       = fs.existsSync(opsFile)   ? fs.readFileSync(opsFile,   "utf8") : "";
+  const text = recruiterText + "\n" + opsText;
   // Scope to the "Skills to install:" list only (up to the next blank line) — a skill path
   // mentioned elsewhere in prose must not mask a missing list entry, nor cause a false fail.
   const section = (text.match(/Skills to install:\s*\n([\s\S]*?)(?:\n\s*\n|\s*$)/) || [, ""])[1];
@@ -60,7 +64,7 @@ if (fs.existsSync(recruiter)) {
     console.log(`✓ pipeline-install: recruiter install-list matches ${onDisk.size} skill(s) on disk.`);
   }
 } else {
-  console.log("✓ pipeline-install: no recruiter/recruiter.md — skipping install-list check.");
+  console.log("✓ pipeline-install: no recruiter/recruiter.md or recruiter/ops/update-mechanism.md — skipping install-list check.");
 }
 
 // ── Check 2: roster-managed Codex agent TOMLs carry required fields ──────────

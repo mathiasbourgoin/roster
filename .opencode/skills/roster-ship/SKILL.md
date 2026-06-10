@@ -166,6 +166,10 @@ Before any action, read:
   **Express mode skips QA** (its pipeline is implement → review → ship), so a missing
   `qa.md` is expected and **not** a block when `review.json.mode == "express"`.
 
+If `review.json.mode` is absent and the impl brief has no `Mode:` line, **require human
+confirmation before treating a missing `qa.md` as expected** — the mode cannot be safely
+inferred without an authoritative source.
+
 Block conditions:
 > ⛔ BLOCKED: review.json is NO-GO or absent → resolve before shipping.
 > ⛔ BLOCKED: qa.md is NO-GO, or absent on a non-express task → run /roster-qa first.
@@ -213,6 +217,8 @@ If conflicts → resolve within the task scope only. If conflict is out of scope
 
 ### 4. Human gate — before push
 
+Write the ship summary to `briefs/<task>-ship-gate.md`, then present the quiz per the human-validation.md protocol (at minimum 1 comprehension + 1 clarification + 1 consistency-check question). All questions uniform format — do not label by type.
+
 Present:
 ```
 Commits prepared:
@@ -225,7 +231,7 @@ Target: main
 Push and open PR?
 ```
 
-Wait for confirmation.
+Wait for explicit human confirmation after the quiz passes.
 
 ### 5. Push and PR
 
@@ -268,6 +274,7 @@ If KB is **present**:
   - Surface as WARNING in the ship log — **do not attempt to revert the merge**.
   - Open a follow-up task: "KB amendment — `<task-slug>`" (describe the contradiction).
 → If KB updated cleanly:
+  Wait for human confirmation before pushing KB changes to main. Then:
   ```bash
   git add kb/
   git commit -m "docs(kb): sync KB with <task-slug> changes"

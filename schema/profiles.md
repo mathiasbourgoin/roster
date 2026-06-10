@@ -6,9 +6,9 @@ Profiles define which harness layers are installed. The **tech-lead** agent sele
 
 | Profile     | Agents                                                        | Rules                                  | Hooks                        | Skills                                  | KB               |
 |-------------|---------------------------------------------------------------|----------------------------------------|------------------------------|-----------------------------------------|------------------|
-| `core`      | tech-lead, reviewer                                           | sycophancy, escalation, agent-scope    | block-dangerous              | —                                       | —                |
+| `core`      | tech-lead, reviewer                                           | sycophancy, escalation                 | block-dangerous-commands     | —                                       | —                |
 | `developer` | core + implementer, qa, architect, kb-agent                   | core + detected language rules         | core + post-edit-lint        | tdd-workflow, kb-update, git-conventions | bootstrap proposed |
-| `security`  | developer + mcp-vetter                                        | developer + security-audit             | developer + secret-scan      | security-review                         | + security auditor |
+| `security`  | developer + mcp-vetter                                        | developer + security-audit             | developer (secret-scan: not yet available) | (security-review: not yet available) | + security auditor |
 | `full`      | all applicable                                                | all applicable                         | all                          | all                                     | bootstrap + all auditors |
 
 Profiles are additive — each tier includes everything from the tier below it.

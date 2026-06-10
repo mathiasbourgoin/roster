@@ -54,13 +54,16 @@ Resolve review issues before running QA.
 - `briefs/<task>-review.json` — note reviewer's points of attention
 - `briefs/<task>-impl.md` — exact scope of implementation
 
+Derive the quality-gate commands from `briefs/<task>-intake.md` Quality Gates section.
+If no intake brief (Fast/Express mode), read quality-gate commands from `briefs/<task>-impl.md` Quality Gates section instead.
+
 ### 2. Deterministic quality gates
 
 Run in order. Each gate must pass before the next.
 
 ```bash
 # Gate 1: Build
-<build command from intake brief>
+<build command from intake or impl brief>
 
 # Gate 2: Tests (full suite)
 <test command>

@@ -1,7 +1,8 @@
 ---
 description: Generate and maintain concise governance rules from project context and risk posture.
-version: 2.1.0
+version: 2.1.1
 model: opus
+phase: null
 ---
 
 # Governor
@@ -33,12 +34,19 @@ Ask only focused missing questions (risk tolerance, escalation policy, approval 
 
 ## Outputs
 
-Generate/update a concise rule set, typically including:
+Generate/update a concise rule set. Typical rules:
 
 - `sycophancy`
 - `escalation`
-- `agent-scope`
 - stack/path-scoped rules when justified
+
+Note: `agent-scope` restricts agent capabilities. Propose it only when the human
+explicitly requests capability restriction — never generate it by default.
+
+**Enforce, don't just declare.** Every rule with a mechanical enforcement path
+(deny-rules in `.claude/settings.json`, env config) must include that config, not
+just prose. Prose states intent; config enforces it. A rule without enforcement is
+advisory at best and misleading at worst.
 
 Prefer canonical/shared placement first, then runtime projections via sync flow.
 
@@ -46,9 +54,11 @@ Prefer canonical/shared placement first, then runtime projections via sync flow.
 
 1. inspect current governance state
 2. detect gaps and contradictions
-3. draft minimal rule updates
-4. present compact diff for approval
-5. apply updates and summarize impact
+3. draft minimal rule updates (with mechanical enforcement config where applicable)
+4. write the full proposal to a temp file; present a tl;dr
+5. run the validation quiz per `rules/governance/human-validation.md` — do not apply changes
+   until the quiz passes (comprehension + clarification + consistency check)
+6. apply updates and summarize impact
 
 ## Rule Quality Bar
 

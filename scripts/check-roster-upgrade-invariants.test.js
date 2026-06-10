@@ -18,20 +18,21 @@ const path = require("path");
 const SKILL = path.resolve(__dirname, "../skills/meta/roster-upgrade.md");
 const text = fs.readFileSync(SKILL, "utf8");
 
-// Each invariant: a human-readable name + a predicate. If you are removing one of these, you are
-// removing a safety pillar — do it deliberately, in Full, with explicit human review of the diff.
+// Each invariant: a human-readable name + a predicate factory (receives the text to test).
+// Using a factory (t) => bool instead of a closure over `text` lets the negative test reuse
+// the SAME predicate array against a different fixture — no hand-written duplicate predicates.
 const INVARIANTS = [
-  ["propose-only (never auto-merge/land)", () => /propose[- ]only/i.test(text) && /never\s+(?:auto-merge|land)/i.test(text)],
-  ["generic gate names the leak scanner", () => /check-leak/.test(text)],
-  ["per-target gate discovery (validate_command)", () => /validate_command/.test(text)],
-  ["the wall routes target-specific down to /specialize", () => /the wall/i.test(text) && /\/specialize/.test(text)],
-  ["human-validation quiz with a consistency-check", () => /human-validation/i.test(text) && /consistency-check/i.test(text)],
-  ["maintainer-invoked only (not auto-discovered)", () => /disable-model-invocation\s*:\s*true/.test(text)],
-  ["two fail-closed gates", () => /two[- ]gate|both\s+(?:gates|pass)|fail[- ]closed/i.test(text)],
+  ["propose-only (never auto-merge/land)", (t) => /propose[- ]only/i.test(t) && /never\s+(?:auto-merge|land)/i.test(t)],
+  ["generic gate names the leak scanner", (t) => /check-leak/.test(t)],
+  ["per-target gate discovery (validate_command)", (t) => /validate_command/.test(t)],
+  ["the wall routes target-specific down to /specialize", (t) => /the wall/i.test(t) && /\/specialize/.test(t)],
+  ["human-validation quiz with a consistency-check", (t) => /human-validation/i.test(t) && /consistency-check/i.test(t)],
+  ["maintainer-invoked only (not auto-discovered)", (t) => /disable-model-invocation\s*:\s*true/.test(t)],
+  ["two fail-closed gates", (t) => /two[- ]gate|both\s+(?:gates|pass)|fail[- ]closed/i.test(t)],
 ];
 
 test("roster-upgrade.md retains its load-bearing safety invariants (C3 self-upgrade guard)", () => {
-  const missing = INVARIANTS.filter(([, ok]) => !ok()).map(([name]) => name);
+  const missing = INVARIANTS.filter(([, ok]) => !ok(text)).map(([name]) => name);
   assert.deepStrictEqual(
     missing,
     [],
@@ -45,4 +46,32 @@ test("roster-upgrade.md retains its load-bearing safety invariants (C3 self-upgr
 
 test("the skill file exists at the canonical path", () => {
   assert.ok(fs.existsSync(SKILL), `expected canonical skill at ${SKILL}`);
+});
+
+test("invariant test rejects a weakened fixture (mechanism prose stripped)", () => {
+  // A fixture that keeps high-level framing but strips critical mechanism prose.
+  // Specifically: drops `disable-model-invocation: true`, `validate_command`, `the wall /specialize`,
+  // and `two-gate` / `fail-closed`. The invariants MUST fail on this — proving CI would catch a
+  // self-edit that deletes safety clauses while keeping surface-level wording.
+  const weakened = [
+    "---",
+    "name: roster-upgrade",
+    "version: 1.0.0",
+    "---",
+    "# Roster Upgrade",
+    "This skill is propose-only — it never auto-merges or lands changes directly.",
+    "It runs check-leak as a safety scan.",
+    "A human-validation quiz includes a consistency-check question.",
+    "Framing mentions safety but strips concrete mechanism identifiers.",
+  ].join("\n");
+
+  // Reuse the real INVARIANTS array — if INVARIANTS changes, this test automatically
+  // validates against the updated predicates without needing a manual duplicate update.
+  const failing = INVARIANTS.filter(([, ok]) => !ok(weakened)).map(([name]) => name);
+  assert.ok(
+    failing.length > 0,
+    "Weakened fixture should fail at least one invariant — if all pass, the guard is keyword-only " +
+      "and cannot detect a real weakening. Tighten the invariant predicates so stripped mechanism prose " +
+      "is caught."
+  );
 });

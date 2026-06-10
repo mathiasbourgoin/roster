@@ -33,6 +33,7 @@ You transform a task into a contractual brief. This brief is the single source o
 ## Input Contract
 
 - `$ARGUMENTS`: task description or task slug (if coming from `/roster-research`)
+- If invoked with a slug (from research), read `roster/<task-slug>/task.md` as the Goal source before anything else. If absent, fall back to `$ARGUMENTS` directly.
 - `roster/<task-slug>/research.md` — read if present; use as enrichment context, not as a replacement for your own analysis
 - KB if it exists (`kb/spec.md`, `kb/properties.md`, `kb/risks.md`)
 - `AGENTS.md`, `README.md` for project context
@@ -166,7 +167,8 @@ Wait for explicit validation. Apply corrections if requested, then set `**Status
 
 ## What Next
 
-**Primary path:** `/roster-plan`
+**Primary path (feature/api-change tasks):** `/roster-spec` → then `/roster-plan`
+**Primary path (fix/chore/docs/refactor tasks):** `/roster-plan`
 **Alternatives:**
 - `/roster-investigate` — if the root cause of a bug is still unclear before planning
 

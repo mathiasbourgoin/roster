@@ -76,6 +76,8 @@ if [ "$CHECK" -eq 1 ]; then
     # Compare each runtime entrypoint dir. Direction is gen→real: a file the sandbox
     # produced that is missing or differs in the tree is drift; files that exist only
     # in the real tree (non-managed, e.g. .github/workflows) are ignored.
+    # Exception: settings.local.json is excluded from drift detection by design — it is
+    # gitignored and user-local, never managed by sync-harness.
     for _rel in .claude .agents .codex .opencode .github; do
         _gen="$_CK_TMP/$_rel"
         _real="$PROJECT_ROOT/$_rel"
@@ -85,11 +87,28 @@ if [ "$CHECK" -eq 1 ]; then
             _drift=1
             continue
         fi
-        _out="$( { LC_ALL=C diff -rq -x 'settings.local.json' -x '.roster-version' -x '.git' "$_gen" "$_real" 2>&1 || true; } \
-                 | { grep -v -- "Only in $_real" || true; } )"
+        _all_diff="$( { LC_ALL=C diff -rq -x 'settings.local.json' -x '.roster-version' -x '.git' "$_gen" "$_real" 2>&1 || true; } )"
+        _out=""
+        _stale=""
+        if [ -n "$_all_diff" ]; then
+            _out="$(printf '%s\n' "$_all_diff" | { grep -v -- "Only in $_real" || true; })"
+            # Stale projection detection: files that exist in the real tree but NOT in the generated
+            # tree are lingering projections from deleted or renamed sources. Report them with a
+            # cleanup command so they can be removed deliberately.
+            _stale="$(printf '%s\n' "$_all_diff" \
+                | { grep -- "Only in $_real" || true; } \
+                | sed "s|Only in ${_real}/\(.*\): \(.*\)|\1/\2|" \
+                | { grep '\.md$' || true; })"
+        fi
         if [ -n "$_out" ]; then
             echo "✗ harness-sync: $_rel drifts from .harness source:" >&2
             printf '%s\n' "$_out" | sed 's|'"$_CK_TMP"'|<regenerated>|g; s|^|    |' >&2
+            _drift=1
+        fi
+        if [ -n "$_stale" ]; then
+            echo "✗ harness-sync: stale projection(s) in $_rel (source deleted, projection still present):" >&2
+            printf '%s\n' "$_stale" | sed "s|^|    ${_rel}/|" >&2
+            echo "  To clean up: $(printf '%s\n' "$_stale" | sed "s|^|${_real}/|" | tr '\n' ' ' | xargs echo rm -f)" >&2
             _drift=1
         fi
     done
@@ -100,6 +119,31 @@ if [ "$CHECK" -eq 1 ]; then
         echo "(never hand-edit a projected file), then run ./scripts/sync-harness.sh and commit." >&2
         exit 1
     fi
+
+    # Validate harness.json layers.skills: every entry must point to an existing skill source file.
+    _skills_invalid=0
+    if [ -f "$MANIFEST" ] && command -v jq >/dev/null 2>&1; then
+        while IFS= read -r _entry; do
+            _sname=$(echo "$_entry" | jq -r '.name')
+            _sdomain=$(echo "$_entry" | jq -r '.domain // empty')
+            _sfile=$(echo "$_entry" | jq -r '.file // .name')
+            if [ -z "$_sdomain" ]; then
+                echo "✗ harness-sync: layers.skills entry '${_sname}' is missing the 'domain' field." >&2
+                _skills_invalid=1
+                continue
+            fi
+            _src="${HARNESS_DIR%/.harness}/skills/${_sdomain}/${_sfile}.md"
+            if [ ! -f "$_src" ]; then
+                echo "✗ harness-sync: layers.skills entry '${_sname}' (domain: ${_sdomain}) has no source file at skills/${_sdomain}/${_sname}.md" >&2
+                _skills_invalid=1
+            fi
+        done < <(jq -c '.layers.skills // [] | .[]' "$MANIFEST" 2>/dev/null)
+    fi
+    if [ "$_skills_invalid" -eq 1 ]; then
+        echo "harness.json layers.skills validation failed — remove stale entries or add the missing skill files." >&2
+        exit 1
+    fi
+
     echo "✓ harness-sync: all runtime projections match the .harness source."
     exit 0
 fi

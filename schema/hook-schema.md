@@ -35,7 +35,6 @@ version: <semver>            # Version for tracking updates (e.g., 1.0.0)
 | `SessionStart`       | When an assistant session begins               |
 | `Stop`               | When the runtime finishes its turn             |
 | `SessionEnd`         | When a session is terminated                   |
-| `PostToolUseFailure` | After a tool call fails                        |
 
 ## Body
 

@@ -1,7 +1,7 @@
 # Spec — roster-auto-update
 
 **Date:** 2026-05-27
-**Status:** DRAFT
+**Status:** LIVE
 **Intake brief:** briefs/roster-auto-update-intake.md
 
 ---
@@ -10,7 +10,7 @@
 
 | # | Question | Resolution |
 |---|---|---|
-| Q-1 | Which version number does the update track? | Recruiter version from `recruiter.md` frontmatter (`version: 2.5.2`), NOT `package.json`. VERSION file at repo root mirrors the recruiter frontmatter version. |
+| Q-1 | Which version number does the update track? | Recruiter version from `recruiter.md` frontmatter (`version: 2.7.0`), NOT `package.json`. VERSION file at repo root mirrors the recruiter frontmatter version. |
 | Q-2 | Is `raw.githubusercontent.com` rate-limited? | No — raw content requests are not subject to the 60 req/hr API rate limit. |
 | Q-3 | How does update avoid blocking? | `curl --max-time 3 --connect-timeout 2 --silent --fail` — fails in under 3 s; failure = silent skip. |
 | Q-4 | Where does the AI enforce Step 0 execution? | Moved from detached preamble to explicit `## Step 0: Version Check` in the recruiter's main flow, with "MANDATORY — run before any other step" instruction. |
@@ -38,11 +38,11 @@ the recruiter outputs the upgrade notification message before doing anything els
 
 **Acceptance Scenarios**:
 
-1. **Given** `.claude/.roster-version` contains `2.5.0` and GitHub `VERSION` returns `2.5.2`,
+1. **Given** `.claude/.roster-version` contains `2.6.0` and GitHub `VERSION` returns `2.7.0`,
    **When** the user runs `/recruit`,
-   **Then** the recruiter's first visible output is a notification: "roster v2.5.2 available (you have v2.5.0). Update? [Update now / Snooze 24h / Disable checks]"
+   **Then** the recruiter's first visible output is a notification: "roster v2.7.0 available (you have v2.6.0). Update? [Update now / Snooze 24h / Disable checks]"
 
-2. **Given** `.claude/.roster-version` contains `2.5.2` and GitHub `VERSION` returns `2.5.2`,
+2. **Given** `.claude/.roster-version` contains `2.7.0` and GitHub `VERSION` returns `2.7.0`,
    **When** the user runs `/recruit`,
    **Then** no update notification appears — the recruiter proceeds normally.
 
@@ -127,7 +127,7 @@ upgrade runs without prompting, audit log is written, and recruiter announces up
 
 3. **Given** `auto_upgrade=true` and the upgrade succeeds,
    **When** inspecting `~/.roster/upgrade-log.jsonl`,
-   **Then** a new line exists: `{"ts":"<ISO-8601>","from":"2.5.0","to":"2.5.2","runtime":"claude"}`.
+   **Then** a new line exists: `{"ts":"<ISO-8601>","from":"2.6.0","to":"2.7.0","runtime":"claude"}`.
 
 ---
 
@@ -149,7 +149,7 @@ correct version string.
 **Acceptance Scenarios**:
 
 1. **Given** a project with `.claude/` present, **When** `install.sh` runs,
-   **Then** `.claude/.roster-version` is created containing exactly the recruiter version string (e.g., `2.5.2`), no trailing whitespace or extra lines.
+   **Then** `.claude/.roster-version` is created containing exactly the recruiter version string (e.g., `2.7.0`), no trailing whitespace or extra lines.
 
 2. **Given** a project with `.opencode/` present, **When** `install.sh` runs,
    **Then** `.opencode/.roster-version` is created with the same version string.
@@ -184,19 +184,19 @@ appears in the recruiter's response.
 
 **Acceptance Scenarios**:
 
-1. **Given** CHANGELOG.md on GitHub main has a `## [2.5.2] - 2026-05-27` section,
-   **When** an upgrade to v2.5.2 completes,
+1. **Given** CHANGELOG.md on GitHub main has a `## [2.7.0] - 2026-05-27` section,
+   **When** an upgrade to v2.7.0 completes,
    **Then** the recruiter displays the content of that section (stripped of markdown headers)
-   under a "What's new in v2.5.2:" label.
+   under a "What's new in v2.7.0:" label.
 
 2. **Given** CHANGELOG.md is absent or unreachable,
    **When** an upgrade completes,
-   **Then** the recruiter displays "Upgraded roster to v2.5.2." with no changelog content.
+   **Then** the recruiter displays "Upgraded roster to v2.7.0." with no changelog content.
    No error is shown.
 
 3. **Given** CHANGELOG.md exists but has no entry for the new version,
    **When** an upgrade completes,
-   **Then** fallback: "Upgraded roster to v2.5.2." No error shown.
+   **Then** fallback: "Upgraded roster to v2.7.0." No error shown.
 
 ---
 
@@ -207,7 +207,7 @@ appears in the recruiter's response.
 | C-1 | US-1 | RESOLVED | Network calls in preamble may be unavailable | curl --max-time 3 --silent --fail; failure = skip. gstack precedent. |
 | C-2 | US-1 | RESOLVED | GitHub rate limits | raw.githubusercontent.com is not rate-limited |
 | C-3 | US-1 | RESOLVED | Slow network blocks skill | --max-time 3 --connect-timeout 2; skip on timeout |
-| C-4 | US-1 | RESOLVED | No VERSION file baseline | Create VERSION at repo root with `2.5.2` |
+| C-4 | US-1 | RESOLVED | No VERSION file baseline | Create VERSION at repo root with `2.7.0` |
 | C-5 | US-1 | RESOLVED | Which GitHub endpoint | Plain VERSION file at raw GitHub URL |
 | C-6 | US-2 | RESOLVED | Persistent state across sessions | ~/.roster/ directory (cross-runtime, same machine) |
 | C-7 | US-2 | RESOLVED | install.sh not local post-install | Fetch install.sh fresh via curl, not from local path |
