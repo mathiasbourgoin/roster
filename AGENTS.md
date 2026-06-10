@@ -42,7 +42,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | tech-lead | 1.9.1 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
-| recruiter | 2.5.2 | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
+| recruiter | 2.7.0 | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
 | governor | 2.1.0 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
 | kb-agent | 2.4.0 | opus | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
@@ -101,59 +101,60 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
 | gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
-## Skills (32)
+## Skills (34)
 
 ### Pipeline (14)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.6.0 | Pipeline entry point — detects context and routes to the right skill |
-| roster-init | 1.2.0 | Bootstrap a new project or onboard an existing project into the roster ecosystem |
+| roster-run | 1.7.0 | Pipeline entry point — detects context and routes to the right skill |
+| roster-init | 1.2.1 | Bootstrap a new project or onboard an existing project into the roster ecosystem |
 | roster-intake | 1.1.0 | Intake phase — transforms a task into a contractual brief validated by the human |
 | roster-spec | 2.0.0 | Adversarial spec phase — derives user stories with GWT scenarios, formalizes FR-NNN requirements |
-| roster-plan | 1.2.0 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
-| roster-implement | 1.4.0 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
-| roster-review | 1.4.0 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
+| roster-plan | 1.3.0 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
+| roster-implement | 1.5.0 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
+| roster-review | 1.5.0 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
 | roster-qa | 1.3.1 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
-| roster-ship | 1.2.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
+| roster-ship | 1.3.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
 | roster-investigate | 1.3.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
-| roster-audit | 1.1.0 | Quality and compliance audit — combines code-quality and spec-compliance into one actionable report |
-| roster-doctor | 1.0.0 | Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment is runnable before work starts |
+| roster-audit | 1.1.1 | Quality and compliance audit — combines code-quality and spec-compliance into one actionable report |
+| roster-doctor | 1.2.0 | Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment is runnable before work starts |
 | roster-question | 1.0.0 | Decompose a task into neutral research questions — blind research prep, task intent not revealed |
 | roster-research | 1.2.0 | Blind documentarian research — reads questions only, produces file:line grounded research |
 
-### Meta (2)
+### Meta (3)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-skill-health | 1.2.0 | Periodic friction analysis — proposes new skills, deterministic tools, and adaptations |
+| roster-skill-health | 1.2.1 | Periodic friction analysis — proposes new skills, deterministic tools, and adaptations |
 | roster-skill-evolve | 1.3.0 | Implements skill-health approved improvements — skills, tools, adaptations, agents |
+| roster-upgrade | 0.1.0 | Propose-only self-upgrade for any roster-contract skill — two-gate CI check, maintainer-invoked only |
 
 ### KB/Audit (9)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| kb-update | 1.1.0 | Update knowledge base — sync KB files with recent code changes without weakening specs |
-| ambiguity-auditor | 1.0.0 | Audit KB for ambiguity — undefined terms, vague requirements, contradictions, stale content |
-| code-quality-auditor | 1.0.0 | Audit code quality against KB-defined properties, invariants, and naming conventions |
-| spec-compliance-auditor | 1.0.0 | Audit implementation against kb/spec.md — flag unimplemented spec items and behavioral divergence |
-| harness-validator | 1.0.0 | Meta-auditor — validate the KB harness itself (structure, auditors, rules coherence, feedback loops) |
-| roster-spec-infer | 1.0.0 | Reverse-engineer existing code into a structured, evidence-tiered inferred spec (specs/\<slug\>-inferred.md) |
-| kb-migrate | 1.0.0 | Audit, clean, reorg, and migrate an existing KB to the current schema — idempotent, human-gated |
+| kb-update | 1.1.1 | Update knowledge base — sync KB files with recent code changes without weakening specs |
+| ambiguity-auditor | 1.0.1 | Audit KB for ambiguity — undefined terms, vague requirements, contradictions, stale content |
+| code-quality-auditor | 1.0.1 | Audit code quality against KB-defined properties, invariants, and naming conventions |
+| spec-compliance-auditor | 1.0.1 | Audit implementation against kb/spec.md — flag unimplemented spec items and behavioral divergence |
+| harness-validator | 1.0.1 | Meta-auditor — validate the KB harness itself (structure, auditors, rules coherence, feedback loops) |
+| roster-spec-infer | 1.0.1 | Reverse-engineer existing code into a structured, evidence-tiered inferred spec (specs/\<slug\>-inferred.md) |
+| kb-migrate | 1.0.1 | Audit, clean, reorg, and migrate an existing KB to the current schema — idempotent, human-gated |
 | kb-reindex | 1.0.0 | ⚠️ Experimental — requires LanceDB. Build or update a vector index over kb/ — opt-in, cold-start or incremental |
 | kb-search | 1.0.0 | ⚠️ Experimental — requires LanceDB. Hybrid semantic+keyword search over the KB index |
 
 ### Workflow (6)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| git-conventions | 1.0.0 | Apply git workflow conventions — commits, branches, PRs |
-| improvement-loop | 1.1.0 | Run a bounded verification-first improvement loop from an approved loop spec |
-| improvement-loop-planner | 1.1.0 | Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals — pairs with improvement-loop |
-| roster-config | 1.0.0 | Discover, inspect, and interactively set tunables across installed roster agents |
-| team | 1.0.0 | Manage the installed agent team — `build` (apply proposal), `review` (audit gaps), `run <task>` (execute pipeline) |
-| tdd-workflow | 1.0.0 | Run TDD cycle — write failing test, implement, refactor, verify coverage |
+| git-conventions | 1.0.1 | Apply git workflow conventions — commits, branches, PRs |
+| improvement-loop | 1.1.1 | Run a bounded verification-first improvement loop from an approved loop spec |
+| improvement-loop-planner | 1.2.0 | Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals — pairs with improvement-loop |
+| roster-config | 1.0.1 | Discover, inspect, and interactively set tunables across installed roster agents |
+| team | 1.0.1 | Manage the installed agent team — `build` (apply proposal), `review` (audit gaps), `run <task>` (execute pipeline) |
+| tdd-workflow | 1.0.1 | Run TDD cycle — write failing test, implement, refactor, verify coverage |
 
 ### Media (1, experimental)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| image-generation | 1.0.0 | Generate or edit images via Codex CLI — with prompt refinement, vision validation, retry loop |
+| image-generation | 1.0.1 | Generate or edit images via Codex CLI — with prompt refinement, vision validation, retry loop |
 
 ## Rules (5)
 
@@ -182,6 +183,8 @@ Fire on runtime tool events (`PreToolUse` / `PostToolUse`). Shell commands only.
 
 Fire before/after a named roster skill runs. Full declarative DSL. Defined in `.harness/hooks/skills/<skill-name>/pre.md` and `post.md`. Interpreted by the LLM agent — no separate process.
 
+**Execution model:** `run-hook.ts` (CLI: `node dist/scripts/run-hook.js`) executes shell-level steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) as real processes. Steps requiring LLM interpretation (`prompt:+agent:`, `loop:`, `parallel:`) are returned in `pending_llm_steps` for the agent to execute after the runner completes.
+
 **Supported step types:** `run:` (shell) · `prompt:+agent:` (agentic) · `test:` (conditional) · `loop:` · `goto:+label:` · `retry:+backoff:` · `timeout:` (advisory) · `log:` · `include:` (build-time inlined) · `output:` · `parallel:` (prose-parallelism hint)
 
 **Discovery:** `roster-run` auto-discovers `.harness/hooks/skills/<name>/pre.md` and `post.md` before/after every skill dispatch — zero config required.
@@ -189,6 +192,10 @@ Fire before/after a named roster skill runs. Full declarative DSL. Defined in `.
 **Linter:** `npm run check:hooks` validates hook file structure (included in `npm test`).
 
 → **[Full hooks tutorial and DSL reference](docs/hooks.md)**
+
+## Pipeline Priority
+
+Pipeline skills (`roster-*`) are the primary orchestration unit for task execution. The agent team (tech-lead, planner, implementer, etc.) operates in support/advisory mode. When both are installed, defer to the pipeline skill chain for task decomposition and review.
 
 ## Pipeline & Governance
 

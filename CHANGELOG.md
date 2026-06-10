@@ -14,7 +14,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 - **`check:pipeline-install`** guard (wired into `npm test`): recruiter install-list ↔ disk,
   Codex agent-TOML schema, plugin manifests, durable-state `LEDGER_SCHEMA` run/doctor identity,
   and that `install.sh` installs the rendered recruit skill/command (`name: recruit`).
-- **`bench:quality-cost:test`** added to the test chain.
+- ~~**`bench:quality-cost:test`** added to the test chain.~~ _(Note: benchmark wiring was moved to wip/benchmarks and not released in 1.2.0.)_
 
 ### Fixed
 

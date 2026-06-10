@@ -72,12 +72,12 @@ test("still does NOT flag genuine placeholders or clean prose", () => {
   assert.deepStrictEqual(high("Run the hunt skill, then prove the finding with an oracle."), []);
 });
 
-test("PII/blobs are WARN, not HIGH; example domains ignored", () => {
+test("PII is WARN; high-entropy-blob is HIGH (exits 1); example domains ignored", () => {
   assert.deepStrictEqual(high("contact real.person@company.com"), []);
   assert.ok(warn("contact real.person@company.com").includes("email"));
   assert.deepStrictEqual(warn("see user@example.com for the demo"), []);
   assert.ok(warn("target host 10.0.4.17 internal").includes("private-ipv4"));
-  assert.ok(warn("blob " + "Zm9vYmFy".repeat(10)).includes("high-entropy-blob"));
+  assert.ok(high("blob " + "Zm9vYmFy".repeat(10)).includes("high-entropy-blob"));
 });
 
 test("main() exit codes: clean=0, high-secret=1, usage=3", () => {

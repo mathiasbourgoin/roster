@@ -2,9 +2,11 @@
  * Lint all agent markdown files for required metadata and structural conventions.
  *
  * Checks enforced:
- *   1. pipeline_role block present with all four sub-fields
+ *   1. Eight required frontmatter fields: name, display_name, description, domain, tags,
+ *      model, complexity, compatible_with
+ *   2. pipeline_role block present with all four sub-fields
  *      (triggered_by, receives, produces, human_gate)
- *   2. ## Output Contract section contains a **Next:** line
+ *   3. ## Output Contract section contains a **Next:** line
  *      (anywhere before the next ## section or end of file)
  *
  * Exit 0 = clean. Exit 1 = violations found.
@@ -15,9 +17,29 @@ import path from "node:path";
 
 const AGENTS_DIR = path.resolve(__dirname, "../../agents");
 
+const REQUIRED_FM_FIELDS = [
+  "name",
+  "display_name",
+  "description",
+  "domain",
+  "tags",
+  "model",
+  "complexity",
+  "compatible_with",
+] as const;
+
 const PIPELINE_ROLE_SUBFIELDS = ["triggered_by", "receives", "produces", "human_gate"] as const;
 
 type Violation = { file: string; message: string };
+
+function checkRequiredFields(content: string): string[] {
+  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fmMatch) return ["no YAML frontmatter found"];
+  const fm = fmMatch[1];
+  return REQUIRED_FM_FIELDS.filter((f) => !new RegExp(`^${f}\\s*:`, "m").test(fm)).map(
+    (f) => `missing required frontmatter field: ${f}`
+  );
+}
 
 function checkPipelineRole(content: string): string[] {
   const errors: string[] = [];
@@ -84,6 +106,9 @@ async function main(): Promise<void> {
     const content = await fs.readFile(file, "utf-8");
     const rel = path.relative(path.resolve(__dirname, "../.."), file);
 
+    for (const msg of checkRequiredFields(content)) {
+      violations.push({ file: rel, message: msg });
+    }
     for (const msg of checkPipelineRole(content)) {
       violations.push({ file: rel, message: msg });
     }

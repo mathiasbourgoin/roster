@@ -6,6 +6,7 @@ Skills are reusable workflow prompts. Each skill lives in `skills/<domain>/<name
 
 ```yaml
 ---
+name: <string>               # Kebab-case identifier; used by harness and skill-health
 description: <string>        # One-liner shown in Claude Code /help output
 version: <semver>            # e.g. "1.0.0"
 ---
@@ -40,7 +41,7 @@ when_to_use: "Use when …; e.g. '<phrase>'."   # Trigger situations + example p
 
 ```yaml
 ---
-domain: <pipeline|operational|meta|shared>
+domain: <kb|media|meta|pipeline|shared|testing|workflow>
 phase: <intake|plan|implement|review|qa|ship|null>
 tags: [tag1, tag2]
 allowed_tools: [Read, Write, Edit, Bash, Agent, AskUserQuestion, Skill]
@@ -95,11 +96,11 @@ If `preamble: true`, the contents of `skills/shared/preamble.md` are injected at
 ## Naming Convention
 
 - File: `skills/<domain>/<name>.md`
-- Names must start with `roster-` (e.g., `roster-run`, `roster-init`, `roster-review`)
+- File: `skills/<domain>/<name>.md` where `<name>` is the kebab-case skill identifier
+- Names must be kebab-case, unique across all skills (no mandatory `roster-` prefix)
 - Canonical shared location after install: `.harness/skills/<name>.md`
 - Claude compatibility location: `.claude/commands/<name>.md`
-- Name must be kebab-case, unique across all skills
-- Domain groups skills by function: `pipeline`, `operational`, `meta`, `shared`
+- Domain groups skills by function: `kb`, `media`, `meta`, `pipeline`, `shared`, `testing`, `workflow`
 
 ## Example
 

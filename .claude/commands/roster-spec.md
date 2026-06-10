@@ -471,9 +471,17 @@ As a [role], I want [action] so that [outcome].
 If `tunables.require_runnable_checks` is true and no concrete checks can be written
 (e.g., feature is pure documentation): mark them as `CHECK-N: manual — <description>`.
 
-### 9. Write Completion Artifact
+### 9. Human validation
 
-Write `briefs/<task>-spec.md`:
+Present the assembled spec (`specs/<task-slug>.md`) to the human and run the quiz per the human-validation.md protocol (at minimum 1 comprehension question + 1 consistency-check question). Do not write `Status: VALIDATED` until explicit approval is received.
+
+Wait for explicit human approval before proceeding to Step 10.
+
+If the human requests changes: apply them, then re-ask the quiz before writing VALIDATED.
+
+### 10. Write Completion Artifact
+
+Write `briefs/<task>-spec.md` **only after Step 9 approval**:
 
 ```markdown
 # Spec Brief — <task-slug>
@@ -489,7 +497,7 @@ Write `briefs/<task>-spec.md`:
 **Runnable checks:** <count>
 ```
 
-### 10. Announce
+### 11. Announce
 
 > "Spec complete for `<task-slug>`. [N] user stories, [N] clarifications, [N] challenges resolved,
 > [N] FRs, [N] ACs, [N] runnable checks. Run `/roster-plan` to continue."

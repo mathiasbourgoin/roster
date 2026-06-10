@@ -63,6 +63,8 @@ Read in order:
 If `briefs/<task>-impl.md` is absent:
 > ⛔ Impl brief missing. Review cannot start without knowing the implementation scope.
 
+`briefs/<task>-reviewer.md` is absent by design in Express/Fast mode (no `/roster-plan` phase). Do not block on it — proceed from the impl brief and diff alone.
+
 ## Steps
 
 ### 1. Read the diff
@@ -273,6 +275,8 @@ Status: GO ✅ / NO-GO ❌
 [If GO]: ready for /roster-qa.
 ```
 
+Wait for explicit human confirmation before proceeding.
+
 ## Output Contract
 
 `briefs/<task>-review.json` with GO or NO-GO status and all findings documented.
@@ -292,7 +296,8 @@ Status: GO ✅ / NO-GO ❌
 
 ## What Next
 
-**Primary path (GO):** `/roster-qa`
+**Primary path (GO, Express mode):** `/roster-ship` — Express skips QA
+**Primary path (GO, Fast/Full mode):** `/roster-qa`
 **Primary path (NO-GO):** `/roster-implement` — pass `briefs/<task>-review.json` as context
 **Alternatives:**
 - `/roster-audit` — if broader code quality concerns were flagged beyond this task

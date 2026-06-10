@@ -28,6 +28,8 @@ jobs:
           bash --version | head -1
       - run: npm ci
       - run: npm test
+      - name: Verify skill manifest is current (H16 — prevent populate-manifest-skills drift)
+        run: node scripts/populate-manifest-skills.js --check
       - name: Leak scan changed files (enforce check-leak via git diff, not agent-supplied)
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then

@@ -68,16 +68,20 @@ const HIGH = [
   },
 ];
 
-// WARN patterns: PII / infra / blobs. Printed, never hard-fail.
+// WARN patterns: PII / infra. Printed, never hard-fail.
 const WARN = [
   { name: "email", re: /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/, ignore: /@(example|test|invalid|localhost)\./i },
   { name: "private-ipv4", re: /\b(?:10\.\d{1,3}|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b/ },
-  // long unbroken base64/PEM-body run (catches key bodies & blobs without HIGH false positives)
-  { name: "high-entropy-blob", re: /\b[A-Za-z0-9+/]{60,}={0,2}\b/ },
 ];
 
-function scanLine(line) {
-  if (MARKER.test(line)) return [];
+// long unbroken base64/PEM-body run — HIGH (exits 1) so key bodies block the gate
+const HIGH_BLOB = { name: "high-entropy-blob", re: /\b[A-Za-z0-9+/]{60,}={0,2}\b/ };
+HIGH.push(HIGH_BLOB);
+
+// strict = true disables the leak-ok marker exemption (used by the delta-gate in check-leak-diff.sh
+// to reject a newly-added line that carries both a HIGH match and a leak-ok marker).
+function scanLine(line, strict = false) {
+  if (!strict && MARKER.test(line)) return [];
   const hits = [];
   for (const p of HIGH) {
     const m = p.re.exec(line);
@@ -96,12 +100,12 @@ function scanLine(line) {
 }
 
 // Scan one file → { high: [...], warn: [...] }.
-function scanFile(file) {
+function scanFile(file, strict = false) {
   const high = [];
   const warn = [];
   const lines = fs.readFileSync(file, "utf8").split("\n");
   lines.forEach((line, i) => {
-    for (const hit of scanLine(line)) {
+    for (const hit of scanLine(line, strict)) {
       const rec = { file, line: i + 1, name: hit.name };
       (hit.level === "HIGH" ? high : warn).push(rec);
     }
@@ -110,9 +114,11 @@ function scanFile(file) {
 }
 
 function main(argv) {
-  const files = argv.slice(2);
+  const args = argv.slice(2);
+  const strict = args.includes("--strict");
+  const files = args.filter((a) => a !== "--strict");
   if (files.length === 0) {
-    console.error("usage: node scripts/check-leak.js <file> [<file> ...]");
+    console.error("usage: node scripts/check-leak.js [--strict] <file> [<file> ...]");
     return 3;
   }
   const high = [];
@@ -122,7 +128,7 @@ function main(argv) {
       console.error(`✗ check-leak: file not found: ${f}`);
       return 3;
     }
-    const r = scanFile(f);
+    const r = scanFile(f, strict);
     high.push(...r.high);
     warn.push(...r.warn);
   }

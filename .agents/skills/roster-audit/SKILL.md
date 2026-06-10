@@ -161,7 +161,7 @@ You audit code quality and its compliance with the KB. You produce actionable fi
 
 ## Input Contract
 
-- `$ARGUMENTS`: scope (e.g. `ocaml/agent-manager/src/` or empty for the entire repo)
+- `$ARGUMENTS`: scope (e.g. `scripts/` or `agents/management/` or empty for the entire repo)
 - KB if it exists (`kb/spec.md`, `kb/properties.md`, `kb/glossary.md`)
 - If `tunables.require_kb: true` and KB absent → block and say so
 

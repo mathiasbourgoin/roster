@@ -16,7 +16,7 @@
     "check:recruiter-sync": "node scripts/check-recruiter-sync.js",
     "check:pipeline-install": "node scripts/check-pipeline-install.js",
     "check:harness-sync": "bash scripts/sync-harness.sh --check",
-    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node --test dist/scripts/run-hook.test.js && node --test scripts/check-leak.test.js && node --test scripts/check-roster-upgrade-invariants.test.js && node --test scripts/check-skill-contract.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js && node dist/scripts/check-hook-structure.js && node scripts/check-kb-links.js && node scripts/check-recruiter-sync.js && node scripts/check-pipeline-install.js && bash scripts/sync-harness.sh --check"
+    "test": "npm run build:ts && node --test dist/scripts/build-index.test.js && node --test dist/scripts/run-hook.test.js && node --test scripts/check-leak.test.js && node --test scripts/check-leak-delta.test.js && node --test scripts/check-roster-upgrade-invariants.test.js && node --test scripts/check-skill-contract.test.js && node dist/scripts/check-agents.js && node dist/scripts/check-skill-structure.js && node dist/scripts/check-hook-structure.js && node scripts/check-kb-links.js && node scripts/check-recruiter-sync.js && node scripts/check-pipeline-install.js && bash scripts/sync-harness.sh --check"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

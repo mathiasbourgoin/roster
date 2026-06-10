@@ -65,6 +65,47 @@ test("rejects each contract violation", () => {
   }
 });
 
+test("## Steps only inside a fenced code block is not counted as the real section", () => {
+  // A skill whose only `## Steps` mention is inside a code fence should fail — the validator
+  // must not treat code-block content as a real heading.
+  const content = [
+    "---",
+    "name: x",
+    "version: 1.0.0",
+    "---",
+    "",
+    "Here is an example:",
+    "```",
+    "## Steps",
+    "do the thing",
+    "```",
+    "",
+  ].join("\n");
+  const { f, cleanup } = tmp(content);
+  try {
+    const errs = checkFile(f);
+    assert.ok(errs.some((e) => /Steps/.test(e)), `expected missing-Steps error, got: ${errs.join(" | ") || "(none)"}`);
+  } finally { cleanup(); }
+});
+
+test("version with trailing inline comment is accepted", () => {
+  // YAML comments are valid — `version: 1.0.0 # latest` should parse as 1.0.0.
+  const content = [
+    "---",
+    "name: x",
+    "version: 1.0.0 # latest release",
+    "---",
+    "",
+    "## Steps",
+    "do the thing",
+  ].join("\n");
+  const { f, cleanup } = tmp(content);
+  try {
+    const errs = checkFile(f);
+    assert.ok(!errs.some((e) => /version/.test(e)), `unexpected version error: ${errs.join(" | ")}`);
+  } finally { cleanup(); }
+});
+
 test("a real roster skill conforms (live check) + main() exit codes", () => {
   const real = path.resolve(__dirname, "../skills/meta/roster-upgrade.md");
   assert.deepStrictEqual(checkFile(real), [], "roster-upgrade.md should conform to its own contract");

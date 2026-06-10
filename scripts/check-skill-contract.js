@@ -29,10 +29,16 @@ function frontmatter(text) {
   return m ? m[1] : null;
 }
 
+// Strip fenced code blocks from text so that section-header checks only match real headings.
+function stripCodeFences(text) {
+  return text.replace(/```[\s\S]*?```/g, (m) => "\n".repeat((m.match(/\n/g) || []).length));
+}
+
 // Validate one file → array of error strings (empty = valid).
 function checkFile(file) {
   const errors = [];
   const text = fs.readFileSync(file, "utf8");
+  const stripped = stripCodeFences(text);
 
   const fm = frontmatter(text);
   if (fm === null) {
@@ -49,20 +55,26 @@ function checkFile(file) {
   const version = fm.match(/^version\s*:\s*(.+?)\s*$/m);
   if (!version) {
     errors.push("frontmatter missing `version`");
-  } else if (!/^\d+\.\d+\.\d+$/.test(version[1].replace(/^["']|["']$/g, ""))) {
-    errors.push(`\`version\` must be bare semver X.Y.Z (got ${JSON.stringify(version[1])})`);
+  } else {
+    // Strip inline YAML comments before semver check.
+    const versionValue = version[1].replace(/#.*$/, "").replace(/^["']|["']$/g, "").trim();
+    if (!/^\d+\.\d+\.\d+$/.test(versionValue)) {
+      errors.push(`\`version\` must be bare semver X.Y.Z (got ${JSON.stringify(version[1])})`);
+    }
   }
 
-  if (!/\n##\s+Steps\b/.test(text)) errors.push("missing `## Steps` section");
+  if (!/\n##\s+Steps\b/.test(stripped)) errors.push("missing `## Steps` section");
 
   const isMeta =
     /^phase\s*:/m.test(fm) || /^preamble\s*:\s*true/m.test(fm) || /^friction_log\s*:\s*true/m.test(fm);
   if (isMeta) {
-    if (!/\n##\s+When to Go Back\b/.test(text)) errors.push("pipeline/meta skill missing `## When to Go Back`");
-    if (!/\n##\s+What Next\b/.test(text)) errors.push("pipeline/meta skill missing `## What Next`");
+    if (!/\n##\s+When to Go Back\b/.test(stripped)) errors.push("pipeline/meta skill missing `## When to Go Back`");
+    if (!/\n##\s+What Next\b/.test(stripped)) errors.push("pipeline/meta skill missing `## What Next`");
   }
 
   if (/^friction_log\s*:\s*true/m.test(fm)) {
+    // Use original text for Friction Log section detection — this section header and its jsonl
+    // fence are never inside a code block, so `text` gives correct character offsets for slicing.
     const i = text.indexOf("\n## Friction Log");
     const section = i === -1 ? "" : text.slice(i, text.indexOf("\n## ", i + 1) === -1 ? undefined : text.indexOf("\n## ", i + 1));
     if (i === -1) errors.push("`friction_log: true` but no `## Friction Log` section");

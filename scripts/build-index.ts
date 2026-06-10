@@ -30,6 +30,8 @@ type SourceConfig = {
   local: {
     enabled: boolean;
     repo: string;
+    roots?: string[];
+    patterns?: string[];
   };
   remotes: RemoteSource[];
 };
@@ -89,8 +91,8 @@ function parseArgs(argv: string[]): CliArgs {
   return { output, sources, quiet, cacheDir, refreshRemotes };
 }
 
-export async function collectLocalMarkdownFiles(repoRoot: string): Promise<string[]> {
-  const roots = ["agents", "skills", "rules", "hooks", "kb", "recruiter", "governor", "specs"];
+export async function collectLocalMarkdownFiles(repoRoot: string, roots?: string[]): Promise<string[]> {
+  const effectiveRoots = roots ?? ["agents", "skills", "rules", "hooks", "kb", "recruiter", "governor", "specs"];
   const files: string[] = [];
 
   async function walk(absPath: string, relRoot: string): Promise<void> {
@@ -112,7 +114,7 @@ export async function collectLocalMarkdownFiles(repoRoot: string): Promise<strin
     }
   }
 
-  for (const root of roots) {
+  for (const root of effectiveRoots) {
     await walk(path.join(repoRoot, root), root);
   }
 
@@ -142,6 +144,14 @@ export async function mapLimit<T, R>(
   return out;
 }
 
+const DEFAULT_CACHE_TTL_HOURS = 24;
+
+function isCacheExpired(cached: { built_at?: string }, ttlHours: number): boolean {
+  if (!cached.built_at) return true;
+  const ageMs = Date.now() - new Date(cached.built_at).getTime();
+  return ageMs > ttlHours * 3600 * 1000;
+}
+
 function appendRemoteEntries(allEntries: IndexEntry[], stats: BuildStats, sourceEntries: IndexEntry[]): void {
   for (const item of sourceEntries) {
     allEntries.push(item);
@@ -166,13 +176,18 @@ export async function run(): Promise<void> {
     failed_sources: [],
   };
 
+  const cacheTtlHours = Number(process.env.INDEX_CACHE_TTL_HOURS ?? DEFAULT_CACHE_TTL_HOURS);
+
   if (sourceConfig.local?.enabled) {
-    const localFiles = await collectLocalMarkdownFiles(repoRoot);
+    const localFiles = await collectLocalMarkdownFiles(repoRoot, sourceConfig.local.roots);
     for (const localFile of localFiles) {
       const absolute = path.join(repoRoot, localFile);
       const content = await fs.readFile(absolute, "utf8");
       const fm = parseFrontmatter(content);
       if (!fm) {
+        if (!args.quiet) {
+          console.error(`warning: skipping ${localFile} — no frontmatter found`);
+        }
         continue;
       }
       const entry = normalizeEntry(fm, localFile, "local", "local", sourceConfig.local.repo);
@@ -187,7 +202,7 @@ export async function run(): Promise<void> {
   for (const remote of sourceConfig.remotes ?? []) {
     const branch = remote.branch ?? "main";
     const cached = await readSourceCacheRecord(cacheDir, remote.id);
-    if (!args.refreshRemotes && cached && cached.entries.length > 0) {
+    if (!args.refreshRemotes && cached && cached.entries.length > 0 && !isCacheExpired(cached, cacheTtlHours)) {
       appendRemoteEntries(entries, stats, cached.entries);
       continue;
     }

@@ -61,5 +61,20 @@ if [ "${#files[@]}" -eq 0 ]; then
   exit 0
 fi
 
+# Delta-gate: extract only newly-ADDED lines and scan in --strict mode (leak-ok not accepted
+# on new additions). This blocks an agent from adding a real secret + leak-ok on the same line,
+# bypassing the normal full-file scan. Context lines (unchanged) are skipped.
+tmp_delta=$(mktemp)
+trap 'rm -f "$tmp_delta"' EXIT
+for f in "${files[@]:-}"; do
+  git diff --unified=0 "$base"...HEAD -- "$f" 2>/dev/null \
+    | grep '^+' | grep -v '^+++' | sed 's/^+//' >> "$tmp_delta" || true
+done
+if [ -s "$tmp_delta" ]; then
+  added_count=$(wc -l < "$tmp_delta")
+  echo "check-leak-diff: delta-gate — scanning ${added_count} added line(s) in strict mode"
+  node "$SCANNER" --strict "$tmp_delta"  # exits 1 on HIGH; set -e propagates
+fi
+
 echo "check-leak-diff: scanning ${#files[@]} changed file(s) vs $base"
 node "$SCANNER" "${files[@]}"

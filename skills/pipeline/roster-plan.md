@@ -38,6 +38,13 @@ If the brief is absent or does not have VALIDATED status:
 If required sections are missing (Goal, Scope Boundary, Relevant Files, Quality Gates):
 > ⛔ Incomplete brief — missing section(s): <list>. Complete the brief before planning.
 
+If the intake brief `**Type:**` is `feature` or `api-change`, check for a spec artifact:
+```bash
+[ -f briefs/<task>-spec.md ] && grep -q 'Status.*VALIDATED\|Status.*SKIPPED' briefs/<task>-spec.md && echo "spec: ready" || echo "spec: missing"
+```
+If the spec artifact is absent or not VALIDATED/SKIPPED:
+> ⛔ Feature/api-change task requires a spec. Run `/roster-spec` first.
+
 ## Steps
 
 ### 0. KB ambiguity pre-check (conditional)
@@ -218,13 +225,13 @@ Produce one sub-brief per execution role:
 
 ### 7. Human validation quiz
 
-Before presenting the sub-briefs, ask 3 consistency questions:
+Before presenting the sub-briefs, run the quiz per the human-validation.md protocol. Write the full plan to `briefs/<task>-plan.md` first, then present the quiz — 3 questions, uniform format (do not label by type):
 
-1. "The plan sequences steps in this order: [list]. Is the order correct?"
-2. "The identified risks are: [list]. Are there other important ones?"
-3. "The implementer sub-brief covers [scope]. Does that match what you want in this iteration?"
+1. **Comprehension** — ask about the specific ordering or dependency between the two highest-risk steps. Can only be answered correctly by someone who read the plan.
+2. **Clarification** — name an implicit decision in the plan (e.g. a batching order, a rollback strategy, a data migration approach) that must be made explicit. The user's answer becomes binding — update the plan accordingly.
+3. **Consistency-check** — embed a deliberately wrong recommendation targeting the highest-risk step (e.g. suggest doing the most dangerous step last, or suggest skipping an irreversible operation's gate). Phrase as a plausible option. Do not label it differently from the other questions.
 
-Wait for answers before finalizing the sub-briefs.
+Wait for answers before finalizing the sub-briefs. Gate on human-validation.md rules: comprehension must be answered correctly (offer one clarification, then re-ask), clarification must produce an explicit decision, consistency-check must not be confirmed unchallenged.
 
 ### 8. Final human gate
 
