@@ -12,7 +12,7 @@ The project's design documents describe a sophisticated, layered safety and qual
 ### C1 — check-leak-diff.sh has ZERO test coverage and the required delta-gate was never implemented
 - **File:** `scripts/check-leak-diff.sh`
 - **Problem:** An automated /roster-upgrade edit (or any author) can ship a real secret past CI by appending `# leak-ok` to the line. The code itself admits this is the threat model and that the fix belongs in the enforcement wiring — but the fix was never built, and no test would catch its absence. The delta-gate check-leak.js's own header says is REQUIRED (lines 24-28: "The leak-ok marker … is editable by the same agent … Real protection must be a delta-gate … that lives in the enforcement wiring above [check-leak-diff.sh], not here") does not exist: check-leak-diff.sh just calls `node check-leak.js` on the file list, which honors leak-ok unconditionally.
-- **Evidence:** `grep` confirms NO test file references check-leak-diff.sh. A file containing `DB_PASSWORD=HHHHHHHHHHHHHHHHHHHH  # leak-ok` scans clean, exit 0. grep for delta/newly-added logic in check-leak-diff.sh returns 0 hits.
+- **Evidence:** `grep` confirms NO test file references check-leak-diff.sh. A file containing a `DB_PASSWORD=<fixture>  # leak-ok` assignment scans clean (exit 0) because check-leak.js honors the marker and check-leak-diff.sh does not enforce a delta-gate. grep for delta/newly-added logic in check-leak-diff.sh returns 0 hits.
 - **Blast radius:** Every push/PR. A leaked credential in any committed skill/pack reaches the public roster registry. This is the headline safety guarantee of the two-gate upgrade contract.
 
 ### C2 — Leak gate is fully defeatable via the agent-editable .check-leak-ignore file
