@@ -53,6 +53,12 @@ isolation: <fork|worktree>   # fork → run in an isolated sub-agent context (on
                              # (auto-cleaned if unchanged). Use for blind/read-only or parallel work.
 preamble: <bool>             # true → inject skills/shared/preamble.md content
 friction_log: <bool>         # true → skill appends to skills-meta/friction.jsonl at end of run
+capability: <string>         # CONDITIONALLY REQUIRED for formal-verification skills.
+                             # Valid values: formal-rocq | formal-quint
+                             # Used by roster-formal-verify to detect available backends via grep.
+                             # Absent on all other skills (absence = not a formal skill).
+                             # roster-doctor warns on skills whose description contains
+                             # "formal"/"rocq"/"coq"/"quint" but lacks this field.
 tunables:
   <key>: <value>             # overridable per-project in harness.json
 artifacts:
@@ -65,6 +71,34 @@ pipeline_role:
   produces: <string>
 ---
 ```
+
+## Friction Log Entry Schema
+
+Each entry appended to `skills-meta/friction.jsonl` follows this structure:
+
+```jsonc
+{
+  "date": "<ISO-8601>",
+  "skill": "<skill-name>",          // the skill that logged this entry
+  "task": "<task-slug>",
+  "frictions": ["<string>", ...],   // observed friction events (empty array if none)
+  "methods": ["<string>", ...],     // methods used during the run
+  "suggestion_type": "<value>|null",// improvement proposal type — open lowercase vocabulary:
+                                    //   skill | tool | adapt | agent | research | null
+                                    // Note: this is NOT a closed enum; new values may appear.
+                                    // Used by roster-skill-health for clustering. Do not jam
+                                    // routing/telemetry events into this field.
+  "suggestion": "<string>|null",    // the concrete improvement proposal (or null)
+  "effort_estimate": "<string>|null",// e.g. "small", "medium", "large" (or null)
+  "event": "<string>|null"          // routing/telemetry events — separate from suggestion_type.
+                                    // Current values: "critical_declined"
+                                    // Write-only; not consumed by roster-skill-health.
+}
+```
+
+**`suggestion_type` vocabulary is open by practice.** `roster-init` emits `"research"` in
+addition to the documented `skill|tool|adapt|agent`. Do not treat the documented set as closed
+when authoring new skills or creating the schema block in a project.
 
 ## Body
 

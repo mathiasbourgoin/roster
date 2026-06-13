@@ -99,6 +99,30 @@ Skills are slash-command workflows that run in the main context and produce cont
 | `/roster-ship` | Ship | Rebase-merge, conventional commits, PR |
 | `/roster-investigate` | Operational | Root-cause analysis, read-only, freeze scope |
 | `/roster-audit` | Operational | Code quality + spec compliance combined report |
+| `/roster-triage-critical` | Critical (triage) | Property elicitation, priority ordering, backend proposal, cost disclosure — dispatched by `roster-run` when `--critical` is chosen |
+| `/roster-spec-formal` | Critical (spec) | Produces a formal spec artifact (`.v` or `.qnt`) extending the Markdown spec; runs after `roster-spec`, never instead; mandatory human validation quiz |
+| `/roster-formal-verify` | Critical (verify) | Tool resolution via `capability:` tag; re-runs `coqchk`/connect bridge replay; emits E0p/E0m/E0m-abstract evidence tier; replaces QA gate for `--critical` tasks |
+
+**`--critical` route.** `roster-run` detects high-stakes components via Tier A deterministic checks (keyword grep, adjacent `.v`/`.qnt` file, crypto import scan) and suggests `--critical`. The critical pipeline is:
+
+```
+roster-triage-critical
+  → [question →] research → intake → roster-spec → roster-spec-formal
+  → plan → implement → roster-formal-verify → review → ship
+```
+
+**Evidence tiers (emitted by `roster-formal-verify`):**
+
+| Tier | Description |
+|------|-------------|
+| E0p | Rocq proof term verified by `coqchk`; proposition traces to parent user story (US-N) |
+| E0m | Quint model invariants verified by `quint verify` + connect bridge replay exit code 0 |
+| E0m-abstract | Quint model invariants verified; no connect driver yet — implementation correspondence is a manual argument |
+| E1 | Tests only — formal verification proposed and explicitly declined (logged in ship artifact) |
+| E2 | Code-inferred — no formal spec, no tests added |
+| E3 | Doc-claimed only |
+
+The E0 claim is conditioned on the accuracy of the proposition-to-user-story mapping validated at the `roster-spec-formal` intake quiz.
 
 ### Meta skills
 

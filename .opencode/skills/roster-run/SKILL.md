@@ -113,7 +113,7 @@ For steps the runner returns in `pending_llm_steps` (prompt:, loop:, parallel:),
 
 ## Routing
 
-**Step 1 — classify the task (Express / Fast / Full).** Do this before checking briefs/.
+**Step 1 — classify the task (Express / Fast / Full) and run the critical suggestion check in parallel.** Do this before checking briefs/.
 
 **Explicit mode override.** If the task text contains a mode flag — `--express`, `--fast`, or
 `--full` — or an explicit instruction to force a mode ("do this full", "spec it first"),
@@ -122,6 +122,90 @@ honor it verbatim and skip inference. Strip the flag from the task before routin
 honored **unless** classification detects a Full signal that would skip a mandatory phase (a
 new public API, an unspecced design decision) — in that case, surface the conflict and ask
 before downgrading. Otherwise infer the mode from the signals below.
+
+**If `--critical` is passed explicitly:** strip the flag, skip the critical suggestion check below, and dispatch directly to `/roster-triage-critical`. The human flag is the only thing that changes routing.
+
+**If `--critical=rocq` or `--critical=quint` is passed explicitly:** skip triage (backend pre-chosen) but **write a minimal triage brief** before entering the pipeline — downstream skills (`roster-spec-formal`, `roster-formal-verify`) hard-require it:
+
+```markdown
+---
+slug: <slug>
+date: <ISO date>
+component: <target>
+backend_recommendation: <rocq|quint>
+human_decision: <rocq|quint>
+downgrade_reason: null
+---
+
+## Properties
+(to be elicited during the pipeline — triage abbreviated, backend pre-selected by flag)
+
+## Backend Argument
+Backend pre-selected by user via --critical=<backend> flag.
+
+## Q3 Answer
+(to be completed if full triage is later requested)
+```
+
+Then route directly to the full pipeline, skipping `roster-triage-critical`.
+
+**Step 1.1 — critical suggestion check (runs in parallel with Step 1 classification).**
+
+Run the following deterministic Tier A checks against the task description and target path. These are grep/file-presence checks only — no LLM judgment. If any Tier A check fires AND the task would route to Full or Fast (not Express), emit a suggestion before routing.
+
+**Tier A — deterministic (any one fires the suggestion):**
+
+```bash
+# Keyword check on task description
+echo "<task>" | grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle|attestat|certif|vulnerability|exploit|attack|adversar|malicious|untrusted.input|invariant|correct.by.construction" && echo "KEYWORD_HIT"
+
+# Adjacent formal spec file
+[ -f "$(dirname <target>)/<basename>.v" ]   && echo "ADJACENT_V"
+[ -f "$(dirname <target>)/<basename>.qnt" ] && echo "ADJACENT_QNT"
+
+# Crypto import scan (if target is a source file)
+grep -qE "ring::|sha2::|bls12_381|ark_|secp256k1|ed25519|ff::" <target> 2>/dev/null && echo "CRYPTO_IMPORT"
+```
+
+**Tier B — advisory context (shown as rationale if Tier A fires; never changes routing):**
+- On the signature/verification/attestation path
+- Consensus-critical (wrong = chain split, lost funds)
+- Bug here could enable key leakage, forgery, bypass
+- Handles raw untrusted external input
+- Financial consequence if wrong (staking, slashing)
+- Silent failure mode (wrong answer looks like right answer)
+- Multiple bug fixes in git history for the same invariant
+
+**If Tier A fires** (and task is not Express, and `--critical` was not already passed):
+
+```
+Before routing to [FAST|FULL]: <Tier A signal that fired>.
+<Tier B context if any: "Advisory context: [signals]">
+
+This component might warrant --critical formal verification.
+
+Options:
+  --critical        (run roster-triage-critical first)
+  --full            (standard pipeline, no formal gate) [default]
+  --critical=rocq   (skip triage, go direct to Rocq route)
+  --critical=quint  (skip triage, go direct to Quint route)
+
+Which? (default: --full)
+```
+
+Default is `--full`. The human must explicitly choose `--critical`. **This is a suggestion, not a gate. It never auto-upgrades.**
+
+If the task would route to Express: skip the critical check entirely (formal verification is incompatible with Express-classified changes).
+
+**If `--critical` is chosen:** dispatch to `/roster-triage-critical` before the normal pipeline. The triage skill produces `briefs/<slug>-formal-triage.md`, then the human confirms the backend, then the pipeline routes:
+
+```
+roster-triage-critical
+  → question → research → intake → roster-spec → roster-spec-formal
+  → plan → implement → roster-formal-verify → review → ship
+```
+
+(E1 downgrade path, when formal verification is declined: `roster-formal-verify → review → qa → ship`)
 
 **Step 1.4 — resume from durable state (all modes, before per-mode routing).**
 If this task has already run one or more phases, the append-only ledger `briefs/<task>-state.json`

@@ -157,6 +157,18 @@ describe("inferComponentType", () => {
   it("other/a.md -> other", () => {
     assert.equal(inferComponentType("other/a.md"), "other");
   });
+
+  it("specs/foo.v -> formal-spec", () => {
+    assert.equal(inferComponentType("specs/foo.v"), "formal-spec");
+  });
+
+  it("specs/foo.qnt -> formal-spec", () => {
+    assert.equal(inferComponentType("specs/foo.qnt"), "formal-spec");
+  });
+
+  it("specs/foo.md -> spec", () => {
+    assert.equal(inferComponentType("specs/foo.md"), "spec");
+  });
 });
 
 // ---------------------------------------------------------------------------

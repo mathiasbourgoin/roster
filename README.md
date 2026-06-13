@@ -129,7 +129,7 @@ The two things that make roster compound over time — rather than stay static l
 Every pipeline skill logs structured friction events to `skills-meta/friction.jsonl` (gitignored, local to each project):
 
 ```jsonl
-{"date":"...","skill":"roster-plan","frictions":["decomp took 3 rounds"],"suggestion_type":"SKILL","suggestion":"roster-decomp-validator"}
+{"date":"...","skill":"roster-plan","frictions":["decomp took 3 rounds"],"suggestion_type":"skill","suggestion":"roster-decomp-validator"}
 ```
 
 Run `/roster-skill-health` manually after every 5–10 pipeline cycles (or when the friction count reminder fires at the end of `/roster-ship`). It clusters patterns and proposes concrete improvements:
