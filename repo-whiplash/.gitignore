@@ -1,0 +1,23 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# local env
+.env
+.env*.local
+
+# database (local SQLite cache)
+*.db
+*.db-journal
+*.sqlite
+
+# misc
+.DS_Store
+*.tsbuildinfo

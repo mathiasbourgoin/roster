@@ -1,0 +1,160 @@
+// Repo Whiplash — local cache + auth storage.
+// SQLite keeps the footprint zero-config for local-first use.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth.js (NextAuth) models. We persist Account so we can reuse the provider
+// access_token server-side to call the GitHub/GitLab APIs.
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  repos         Repo[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Domain: selected repositories and their cached raw entities.
+// ---------------------------------------------------------------------------
+
+model Repo {
+  id           String   @id @default(cuid())
+  userId       String
+  provider     String   // "github" | "gitlab"
+  fullName     String   // owner/name
+  externalId   String   // provider numeric/string id
+  defaultBranch String?
+  private      Boolean  @default(false)
+  selected     Boolean  @default(true)
+  lastSyncedAt DateTime?
+  createdAt    DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pullRequests PullRequest[]
+  commits      Commit[]
+  issues       IssueRecord[]
+  deployments  Deployment[]
+
+  @@unique([userId, provider, fullName])
+  @@index([userId])
+}
+
+model PullRequest {
+  id                   String    @id // `${provider}:${fullName}#${number}`
+  repoId               String
+  number               Int
+  authorLogin          String?
+  state                String    // open | merged | closed
+  createdAt            DateTime
+  mergedAt             DateTime?
+  closedAt             DateTime?
+  firstReviewAt        DateTime?
+  additions            Int       @default(0)
+  deletions            Int       @default(0)
+  changedFiles         Int       @default(0)
+  reviewCommentCount   Int       @default(0)
+  reviewCommentChars   Int       @default(0)
+  reviewerCount        Int       @default(0)
+  mergedWithoutReview  Boolean   @default(false)
+  aiAssisted           Boolean   @default(false)
+  aiTool               String?
+
+  repo Repo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+
+  @@index([repoId])
+}
+
+model Commit {
+  id           String   @id // `${provider}:${fullName}@${sha}`
+  repoId       String
+  sha          String
+  authorLogin  String?
+  authoredAt   DateTime
+  additions    Int      @default(0)
+  deletions    Int      @default(0)
+  changedFiles Int      @default(0)
+  aiAssisted   Boolean  @default(false)
+  aiTool       String?
+
+  repo Repo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+
+  @@index([repoId])
+}
+
+model IssueRecord {
+  id            String    @id // `${provider}:${fullName}!${number}`
+  repoId        String
+  number        Int
+  kind          String    // bug | incident | other
+  state         String    // open | closed
+  createdAt     DateTime
+  closedAt      DateTime?
+  reopened      Boolean   @default(false)
+  labelsJson    String    @default("[]")
+  authorLogin   String?
+
+  repo Repo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+
+  @@index([repoId])
+}
+
+model Deployment {
+  id          String   @id // `${provider}:${fullName}:deploy:${externalId}`
+  repoId      String
+  externalId  String
+  environment String?
+  sha         String?
+  createdAt   DateTime
+  leadTimeMs  Int?     // commit -> deploy, when resolvable
+
+  repo Repo @relation(fields: [repoId], references: [id], onDelete: Cascade)
+
+  @@index([repoId])
+}
