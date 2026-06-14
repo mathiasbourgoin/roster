@@ -6,25 +6,25 @@
     {
       "kind": "agent",
       "id": "roster-implement",
-      "prompt": "Execute /roster-implement for task ${TASK}. Read briefs/${TASK}-implementer.md as your sole input. If a pre-hook exists, run: TASK=${TASK} node dist/scripts/run-hook.js pre roster-implement before starting. After completion, run: TASK=${TASK} node dist/scripts/run-hook.js post roster-implement.",
+      "prompt": "Invoke the Skill tool with skill=\"roster-implement\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node dist/scripts/run-hook.js pre roster-implement. Post-hook (run after Skill): TASK=${TASK} node dist/scripts/run-hook.js post roster-implement.",
       "on_failure": "abort"
     },
     {
       "kind": "agent",
       "id": "roster-formal-verify",
-      "prompt": "Execute /roster-formal-verify for task ${TASK}. Read briefs/${TASK}-formal-triage.md as input. If a pre-hook exists, run: TASK=${TASK} node dist/scripts/run-hook.js pre roster-formal-verify before starting. After completion, run: TASK=${TASK} node dist/scripts/run-hook.js post roster-formal-verify.",
+      "prompt": "Invoke the Skill tool with skill=\"roster-formal-verify\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node dist/scripts/run-hook.js pre roster-formal-verify. Post-hook (run after Skill): TASK=${TASK} node dist/scripts/run-hook.js post roster-formal-verify.",
       "on_failure": "abort"
     },
     {
       "kind": "agent",
       "id": "roster-review",
-      "prompt": "Execute /roster-review for task ${TASK}. Read briefs/${TASK}-reviewer.md. If a pre-hook exists, run: TASK=${TASK} node dist/scripts/run-hook.js pre roster-review before starting. After completion, run: TASK=${TASK} node dist/scripts/run-hook.js post roster-review.",
+      "prompt": "Invoke the Skill tool with skill=\"roster-review\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node dist/scripts/run-hook.js pre roster-review. Post-hook (run after Skill): TASK=${TASK} node dist/scripts/run-hook.js post roster-review.",
       "on_failure": "abort"
     },
     {
       "kind": "agent",
       "id": "roster-ship",
-      "prompt": "Execute /roster-ship for task ${TASK}. If a pre-hook exists, run: TASK=${TASK} node dist/scripts/run-hook.js pre roster-ship before starting. After completion, run: TASK=${TASK} node dist/scripts/run-hook.js post roster-ship.",
+      "prompt": "Invoke the Skill tool with skill=\"roster-ship\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node dist/scripts/run-hook.js pre roster-ship. Post-hook (run after Skill): TASK=${TASK} node dist/scripts/run-hook.js post roster-ship.",
       "on_failure": "abort"
     }
   ]
