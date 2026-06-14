@@ -269,12 +269,18 @@ If absent: invoke `/roster-workflow-build` (presents Gate 1 interactively). On r
 ```bash
 command -v cwr >/dev/null 2>&1 && echo "cwr: available" || echo "cwr: absent"
 ```
-- **CWR available** and `workflows/<task>.cwr.json` present:
-  ```bash
-  TASK=<slug> cwr run workflows/<task>.cwr.json
-  ```
-  - Exit 0: proceed to Gate 2 check (below).
-  - Exit non-zero: report `✗ cwr run exited <N> — pipeline halted. Inspect cwr output above.` and **STOP** (do not route to `/roster-implement`).
+- **CWR available** and `workflows/<task>.cwr.json` present — two sub-paths:
+  - **Default** (cabal runtime):
+    ```bash
+    TASK=<slug> cwr run workflows/<task>.cwr.json
+    ```
+    Exit 0: proceed to Gate 2 check (below).
+    Exit non-zero: report `✗ cwr run exited <N> — pipeline halted. Inspect cwr output above.` and **STOP** (do not route to `/roster-implement`).
+  - **Claude Code Workflow tool** (when target runtime is Claude Code's Workflow tool):
+    ```bash
+    cwr to-claude-workflow workflows/<task>.cwr.json
+    ```
+    Pipe the compiled JavaScript output to the `Workflow` tool for execution. Compilation notes go to stderr. Exit non-zero from `cwr to-claude-workflow`: **STOP** (same as above).
 - **CWR absent**: route to `/roster-implement` (existing manual chain, unchanged).
 
 **4. Execution-only cleanup** (before Gate 2):

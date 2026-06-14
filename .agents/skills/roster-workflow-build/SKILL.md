@@ -278,7 +278,8 @@ If `cwr` is available: `cwr lint workflows/<task>.cwr.json`
 ## What Next
 
 Roster-run dispatches after this skill:
-- CWR CLI available (`command -v cwr` exits 0): `TASK=<slug> cwr run workflows/<task>.cwr.json`
+- CWR CLI available, default (cabal runtime): `TASK=<slug> cwr run workflows/<task>.cwr.json`
+- CWR CLI available, Claude Code Workflow tool target: `cwr to-claude-workflow workflows/<task>.cwr.json` → Workflow tool
 - CWR absent: manual skill chain (existing roster-run behavior)
 
 ## Friction Log
