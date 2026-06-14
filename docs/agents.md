@@ -92,7 +92,8 @@ Skills are slash-command workflows that run in the main context and produce cont
 | `/roster-research` | Research | Blind documentarian research — file:line grounded, optional online scan |
 | `/roster-intake` | Intake | Turns a task into a contractual brief with human gate |
 | `/roster-spec` | Spec | Adversarial spec: user stories, challenges, structured AC, runnable checks |
-| `/roster-plan` | Plan | Dual-voice decomposition, consensus table |
+| `/roster-plan` | Plan | Dual-voice decomposition, consensus table; produces plan.json for workflow dispatch |
+| `roster-workflow-build` | Workflow dispatch (phase: null, capability: workflow-builder) | Translates plan.json + mode template → CWR workflow; privacy gate (commit/local/execution-only) |
 | `/roster-implement` | Implement | TDD + improve loop + specialist sub-agents |
 | `/roster-review` | Review | Fix-first review, GO/NO-GO JSON verdict |
 | `/roster-qa` | QA | Deterministic quality gates, gated on review GO |

@@ -238,7 +238,7 @@ If Full mode: check briefs/ state and use the routing table below.
 | `briefs/<task>-intake.md` VALIDATED + `**Type:**` is feature/api-change + `briefs/<task>-spec.md` absent | `/roster-spec` |
 | `briefs/<task>-spec.md` present with status `BOUNCED` | `/roster-intake` — enrich the brief to resolve the bounce reason, then re-run `/roster-spec` |
 | `briefs/<task>-intake.md` exists and is validated | `/roster-plan` |
-| `briefs/<task>-plan.md` exists and is validated | `/roster-implement` |
+| `briefs/<task>-plan.md` exists and is validated | workflow dispatch (if `briefs/<task>-plan.json` present) → `/roster-implement` — see Post-plan workflow dispatch below |
 | Implementation complete, branch ready | `/roster-review` |
 | `briefs/<task>-review.json` with GO status | `/roster-qa` |
 | `briefs/<task>-review.json` with NO-GO + `no_go_reason.type == "spec-ac-failure"` | `/roster-spec` — spec ACs were not met; revise the spec |
@@ -248,6 +248,52 @@ If Full mode: check briefs/ state and use the routing table below.
 | New project or existing project without harness | `/roster-init` |
 | Periodic analysis, friction patterns | `/roster-skill-health` |
 | No signal matches | Stop — ask the user: "What are we doing?" before routing |
+
+### Post-plan workflow dispatch (Full mode only)
+
+When the routing table routes to "workflow dispatch → `/roster-implement`", perform these checks in order:
+
+**1. Check for plan.json** (backward-compatibility gate):
+```bash
+[ -f briefs/<task>-plan.json ] && echo "plan.json: present" || echo "plan.json: absent"
+```
+If absent: skip workflow dispatch entirely — route directly to `/roster-implement` (pre-feature task or plan.json not yet generated).
+
+**2. Check for existing workflow file**:
+```bash
+[ -f workflows/<task>.cwr.json ] && echo "workflow: present" || echo "workflow: absent"
+```
+If absent: invoke `/roster-workflow-build` (presents Gate 1 interactively). On resume with workflow already present: skip workflow-build and proceed to dispatch.
+
+**3. Dispatch**:
+```bash
+command -v cwr >/dev/null 2>&1 && echo "cwr: available" || echo "cwr: absent"
+```
+- **CWR available** and `workflows/<task>.cwr.json` present:
+  ```bash
+  TASK=<slug> cwr run workflows/<task>.cwr.json
+  ```
+  - Exit 0: proceed to Gate 2 check (below).
+  - Exit non-zero: report `✗ cwr run exited <N> — pipeline halted. Inspect cwr output above.` and **STOP** (do not route to `/roster-implement`).
+- **CWR absent**: route to `/roster-implement` (existing manual chain, unchanged).
+
+**4. Execution-only cleanup** (before Gate 2):
+```bash
+if [ -f workflows/<task>.cwr.json.ephemeral ]; then
+  rm -f workflows/<task>.cwr.json workflows/<task>.cwr.json.ephemeral
+fi
+```
+
+**5. Gate 2** (post-CWR execution, skip if manual chain was used):
+
+Skip Gate 2 if:
+- `workflows/<task>.cwr.json` is absent (execution-only was cleaned up), OR
+- `git diff --quiet HEAD -- workflows/<task>.cwr.json` exits 0 (no changes)
+
+Otherwise present AskUserQuestion:
+- **commit (bumps version)**: increment `_roster_version` patch level in the file, then `git add workflows/<task>.cwr.json && git commit`
+- **keep local**: no action
+- **remove**: `rm workflows/<task>.cwr.json`
 
 ### Detection
 

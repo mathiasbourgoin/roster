@@ -58,6 +58,22 @@ for p in .claude/commands/roster-run.md .agents/skills/roster-run/SKILL.md; do [
 
 Report each as ✓ / ✗ / absent. `gh` absent is a warning (only `/roster-ship` PR creation needs it), not a failure.
 
+```bash
+# Workflow templates health (Phase 1: JSON syntax only — cwr lint requires cwr CLI)
+if [ -d workflows/templates ]; then
+  for f in workflows/templates/*.cwr.json; do
+    [ -f "$f" ] && { jq empty "$f" 2>/dev/null && echo "$(basename $f) ✓" || echo "$(basename $f) ✗ invalid JSON"; }
+  done
+else
+  echo "workflows/templates/: absent ✗ (workflow dispatch unavailable)"
+fi
+# Workflow instances gitignore check
+if ls workflows/*.cwr.json 2>/dev/null | grep -v '/templates/' | grep -q .; then
+  grep -q 'workflows/\*\.cwr\.json' .gitignore || \
+    echo "⚠ WARN: workflow instances present but not gitignored — add 'workflows/*.cwr.json' to .gitignore (and '!workflows/templates/*.cwr.json' to preserve templates)"
+fi
+```
+
 ### 2. Project dev-env readiness
 
 **Detect the gate commands.** Prefer explicit harness tunables when present, else infer from

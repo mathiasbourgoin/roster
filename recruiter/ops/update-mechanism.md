@@ -230,6 +230,7 @@ Skills to install:
 - `skills/pipeline/roster-investigate.md`
 - `skills/pipeline/roster-audit.md`
 - `skills/pipeline/roster-doctor.md`
+- `skills/pipeline/roster-workflow-build.md`
 - `skills/meta/roster-skill-health.md`
 - `skills/meta/roster-skill-evolve.md`
 - `skills/meta/roster-upgrade.md`

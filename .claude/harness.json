@@ -409,6 +409,14 @@
         }
       },
       {
+        "name": "roster-workflow-build",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "pipeline",
+        "phase": null,
+        "tunables": {}
+      },
+      {
         "name": "roster-preamble",
         "source": "roster",
         "version": "1.5.0",

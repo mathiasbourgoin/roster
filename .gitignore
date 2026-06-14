@@ -26,6 +26,11 @@ roster/
 briefs/
 reports/
 
+# Workflow instances (privacy gate opt-in; templates are committed)
+workflows/*.cwr.json
+!workflows/templates/*.cwr.json
+workflows/*.cwr.json.ephemeral
+
 # Runtime state files
 .ta-state.json
 .ta-state.json.lock

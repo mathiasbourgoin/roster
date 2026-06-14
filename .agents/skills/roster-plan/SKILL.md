@@ -13,6 +13,7 @@ artifacts:
     - briefs/<task>-intake.md
   writes:
     - briefs/<task>-plan.md
+    - briefs/<task>-plan.json
     - briefs/<task>-implementer.md
     - briefs/<task>-reviewer.md
     - briefs/<task>-qa-scope.md
@@ -363,6 +364,42 @@ Wait for answers before finalizing the sub-briefs. Gate on human-validation.md r
 Present the sub-briefs with their paths. Request validation before spawning execution agents.
 
 Set `**Status:** VALIDATED` in each sub-brief after approval.
+
+### 8.5. Write plan JSON (after VALIDATED only)
+
+After the human approves and VALIDATED status is set, write `briefs/<task>-plan.json` atomically:
+
+1. Build the JSON object:
+```json
+{
+  "task": "<slug>",
+  "mode": "express|fast|full",
+  "schema_version": "1.0",
+  "steps": [
+    {
+      "id": "step-N",
+      "skill": "<skill-name>",
+      "inputs": ["<artifact-path>"],
+      "outputs": ["<artifact-path>"],
+      "hook": true
+    }
+  ],
+  "quality_gates": {
+    "build": "<exact build command or empty string>",
+    "test": "<exact test command or empty string>",
+    "lint": "<exact lint command or empty string>"
+  }
+}
+```
+
+2. For each `step.hook`: set `true` if `.harness/hooks/skills/<skill>/pre.md` OR `.harness/hooks/skills/<skill>/post.md` exists; `false` otherwise.
+
+3. For missing quality gate commands: use `""` (never null or omit the key).
+
+4. Write atomically:
+   - Write JSON to `briefs/<task>-plan.json.tmp`
+   - Rename to `briefs/<task>-plan.json`
+   - If interrupted before rename: only the `.tmp` file exists (treated as absent by downstream consumers)
 
 ## Output Contract
 

@@ -43,6 +43,8 @@ when_to_use: "Use when …; e.g. '<phrase>'."   # Trigger situations + example p
 ---
 domain: <kb|media|meta|pipeline|shared|testing|workflow>
 phase: <intake|plan|implement|review|qa|ship|null>
+capability: <formal-rocq|formal-quint|workflow-builder>   # optional; required for skills that
+                                                           # use a specialised backend or runner
 tags: [tag1, tag2]
 allowed_tools: [Read, Write, Edit, Bash, Agent, AskUserQuestion, Skill]
 disallowed_tools: [AskUserQuestion]   # tools this skill must NOT use — e.g. block interactive

@@ -11,6 +11,7 @@ human_gate: both
 artifacts:
   reads:
     - skills-meta/health-<date>.md
+    - workflows/*.cwr.json
   writes:
     - skills/<domain>/<name>.md
     - scripts/<name>.sh
@@ -278,6 +279,33 @@ For each APPROVED proposal, in order A → B → C → D:
    - Human gate between the two
 
 3. **Follow the standard recruiter workflow** for install in the harness.
+
+### Proposal [WORKFLOW] — Promote instance diff to template
+
+1. **Collect instances and compute diffs**:
+   ```bash
+   ls workflows/*.cwr.json 2>/dev/null | grep -v 'templates/' || echo "no instances"
+   ```
+   For each instance:
+   - Read `_roster_template_version` to identify the source template
+   - Load `workflows/templates/<mode>.cwr.json`
+   - Compute structural diff: compare steps by (position, id, skill) — **ignore prompt content**
+   - If template has been updated since `_roster_template_version` → mark diff as `[CONFLICT]`, skip
+
+2. **Cluster diffs**: group instances by (template, structural-diff-signature). For clusters with count ≥ `min_entries_for_signal` (default 3, shared with roster-skill-health tunable), generate a unified structural diff.
+
+3. **Gate before**: present the unified diff to the human. Show how many instances share this modification and what it does. Do not apply without explicit approval.
+
+4. **Apply patch** (on approval):
+   - Edit `workflows/templates/<mode>.cwr.json` to incorporate the diff
+   - Bump `_roster_version`: minor (x.Y.0) if steps added/removed; patch (x.y.Z) for wording changes
+   - Run `bash scripts/sync-harness.sh`
+
+5. **Gate after**: present the final template diff. Request commit approval.
+
+6. **Conflict handling**: if template evolved since instances were created (version mismatch), mark the proposal `[CONFLICT — template evolved; cannot apply cleanly]` and skip without modifying any file.
+
+---
 
 ### Post-edit validation (run after every proposal)
 
