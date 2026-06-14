@@ -1,8 +1,7 @@
 {
   "name": "roster-critical",
-  "_roster_version": "1.0.0",
-  "_roster_phase1_note": "Linear approximation only. The critical pipeline has an optional question phase and branching formal-verification steps (roster-spec-formal, roster-formal-verify). This template covers only the post-plan linear path. Manual intervention is required for formal-verification steps.",
-  "_doc": "Critical mode template (Phase 1 linear approximation, post-plan phases): implement → review → qa → ship.",
+  "_roster_version": "1.1.0",
+  "_doc": "Critical mode pipeline: implement → roster-formal-verify → review → ship.",
   "steps": [
     {
       "kind": "agent",
@@ -12,14 +11,14 @@
     },
     {
       "kind": "agent",
-      "id": "roster-review",
-      "prompt": "Execute /roster-review for task ${TASK}. Read briefs/${TASK}-reviewer.md. If a pre-hook exists, run: TASK=${TASK} node dist/scripts/run-hook.js pre roster-review before starting. After completion, run: TASK=${TASK} node dist/scripts/run-hook.js post roster-review.",
+      "id": "roster-formal-verify",
+      "prompt": "Execute /roster-formal-verify for task ${TASK}. Read briefs/${TASK}-formal-triage.md as input. If a pre-hook exists, run: TASK=${TASK} node dist/scripts/run-hook.js pre roster-formal-verify before starting. After completion, run: TASK=${TASK} node dist/scripts/run-hook.js post roster-formal-verify.",
       "on_failure": "abort"
     },
     {
       "kind": "agent",
-      "id": "roster-qa",
-      "prompt": "Execute /roster-qa for task ${TASK}. Read briefs/${TASK}-qa-scope.md. If a pre-hook exists, run: TASK=${TASK} node dist/scripts/run-hook.js pre roster-qa before starting. After completion, run: TASK=${TASK} node dist/scripts/run-hook.js post roster-qa.",
+      "id": "roster-review",
+      "prompt": "Execute /roster-review for task ${TASK}. Read briefs/${TASK}-reviewer.md. If a pre-hook exists, run: TASK=${TASK} node dist/scripts/run-hook.js pre roster-review before starting. After completion, run: TASK=${TASK} node dist/scripts/run-hook.js post roster-review.",
       "on_failure": "abort"
     },
     {

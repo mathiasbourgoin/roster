@@ -100,6 +100,9 @@ Skills are slash-command workflows that run in the main context and produce cont
 | `/roster-ship` | Ship | Rebase-merge, conventional commits, PR |
 | `/roster-investigate` | Operational | Root-cause analysis, read-only, freeze scope |
 | `/roster-audit` | Operational | Code quality + spec compliance combined report |
+| `/roster-triage-critical` | Critical route (phase: null) | Elicits formal-verification properties, proposes Rocq/Quint backend, writes briefs/&lt;slug&gt;-formal-triage.md |
+| `/roster-spec-formal` | Critical route (phase: null) | Extends roster-spec output with formal spec file (.v/.qnt) from triage brief |
+| `/roster-formal-verify` | Critical route (phase: null) | Runs coqchk/.itf replay, emits evidence tiers (E0p/E0m/E1), gates before review |
 
 ### Meta skills
 

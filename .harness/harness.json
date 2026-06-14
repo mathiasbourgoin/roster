@@ -280,6 +280,14 @@
         "tunables": {}
       },
       {
+        "name": "roster-formal-verify",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "pipeline",
+        "phase": null,
+        "tunables": {}
+      },
+      {
         "name": "roster-implement",
         "source": "roster",
         "version": "1.5.0",
@@ -395,6 +403,14 @@
         }
       },
       {
+        "name": "roster-spec-formal",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "pipeline",
+        "phase": null,
+        "tunables": {}
+      },
+      {
         "name": "roster-spec",
         "source": "roster",
         "version": "2.0.0",
@@ -407,6 +423,14 @@
           "max_questions_to_user": 5,
           "require_runnable_checks": true
         }
+      },
+      {
+        "name": "roster-triage-critical",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "pipeline",
+        "phase": null,
+        "tunables": {}
       },
       {
         "name": "roster-workflow-build",
