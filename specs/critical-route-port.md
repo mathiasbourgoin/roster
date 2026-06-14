@@ -94,7 +94,7 @@ As a recruiter/harness user, I want the three skills registered in `.harness/har
 | C-2 | US-1 | check-skill-structure.js is global; pre-existing failures would block the acceptance scenario | No pre-existing structure failures on next (confirmed by research); acceptance scenario scoped to 3 new files; global npm test must also pass |
 | C-3 | US-1 | `preamble` and `friction_log` listed as required in the story — exact types unspecified | Both are optional per `schema/skill-schema.md`; the three skills on main include them; the structure check enforces only `name`, `description`, `version` + required sections |
 | C-4 | US-2 | Line-number anchor shifts if any prior edit touches roster-run.md first | Use content anchor: insert after the paragraph containing "Otherwise infer the mode from the signals below." |
-| C-5 | US-2 | "Minimal triage brief on shortcut path" undefined | No shortcut: `--critical` dispatch routes directly to `roster-triage-critical`, which produces the triage brief. No path bypasses triage. |
+| C-5 | US-2 | "Minimal triage brief on shortcut path" undefined | `--critical` (no backend) routes through `roster-triage-critical`. `--critical=rocq`/`--critical=quint` bypass triage and write a minimal placeholder brief; `roster-spec-formal` detects the placeholder and runs property elicitation inline. This shortcut path was present on `main` and preserved on `next`. |
 | C-6 | US-2 | LEDGER_SCHEMA check might be line-number-based, breaking after insertion | `check-pipeline-install.js` uses regex `/LEDGER_SCHEMA='([\s\S]*?)'\n/` — content-based; line shift from insertion does not affect it |
 | C-7 | US-3 | roster-formal-verify step prompt content is unspecified | Follow established CWR hook pattern: pre-hook invocation + `/roster-formal-verify ${TASK}` instruction + post-hook invocation, matching the structure of `full.cwr.json` steps |
 | C-8 | US-3 | `_doc` update content unspecified | Updated to: `"Critical mode pipeline: implement → roster-formal-verify → review → ship."` |
@@ -111,7 +111,7 @@ As a recruiter/harness user, I want the three skills registered in `.harness/har
 - **FR-002** [US-1]: The repository MUST contain a file at `skills/pipeline/roster-spec-formal.md` on the `next` branch.
 - **FR-003** [US-1]: The repository MUST contain a file at `skills/pipeline/roster-formal-verify.md` on the `next` branch.
 - **FR-004** [US-1]: Each of the three skill files MUST include frontmatter fields `name`, `description`, and `version`.
-- **FR-005** [US-1]: Each of the three skill files MUST include frontmatter fields `domain`, `phase`, and `capability`.
+- **FR-005** [US-1]: Each of the three skill files MUST include frontmatter fields `domain` and `phase`. (`capability` is optional per `schema/skill-schema.md` and was absent from the canonical source on `main`; not required here.)
 - **FR-006** [US-1]: Each of the three skill files MUST contain a `## Steps` section.
 - **FR-007** [US-1]: Each of the three skill files MUST contain a `## When to Go Back` section.
 - **FR-008** [US-1]: Each of the three skill files MUST contain a `## What Next` section.
@@ -122,12 +122,12 @@ As a recruiter/harness user, I want the three skills registered in `.harness/har
 #### roster-run Dispatch — Critical Route
 
 - **FR-012** [US-2]: `skills/pipeline/roster-run.md` MUST contain a Step 1.1 block that performs keyword-regex matching on the task description (Tier A check).
-- **FR-013** [US-2]: Step 1.1 MUST perform a Tier B check for the presence of adjacent `.v` or `.qnt` files in the task context.
-- **FR-014** [US-2]: Step 1.1 MUST perform a Tier B check scanning for cryptographic-library imports in the task context.
+- **FR-013** [US-2]: Step 1.1 MUST perform a Tier A (deterministic) check for the presence of adjacent `.v` or `.qnt` files in the task context.
+- **FR-014** [US-2]: Step 1.1 MUST perform a Tier A (deterministic) check scanning for cryptographic-library imports in the task context.
 - **FR-015** [US-2]: When any Tier A or Tier B check in Step 1.1 fires, roster-run MUST emit an `AskUserQuestion` offering the options `--critical`, `--full`, `--critical=rocq`, and `--critical=quint`, with `--full` as default.
 - **FR-016** [US-2]: Step 1.1 MUST be positioned in `roster-run.md` immediately after the paragraph ending "Otherwise infer the mode from the signals below."
 - **FR-017** [US-2]: `skills/pipeline/roster-run.md` MUST contain a `--critical` flag dispatch block that routes to `roster-triage-critical`.
-- **FR-018** [US-2]: `skills/pipeline/roster-run.md` MUST contain `--critical=rocq` and `--critical=quint` flag dispatch blocks that each route to `roster-triage-critical`.
+- **FR-018** [US-2]: `skills/pipeline/roster-run.md` MUST contain `--critical=rocq` and `--critical=quint` flag dispatch blocks. These flags skip `roster-triage-critical` (backend pre-chosen) and instead write a minimal triage brief directly, then proceed to the full pipeline. `roster-spec-formal` detects the placeholder brief and runs property elicitation inline (Stages 2a–2b from roster-triage-critical). This is the canonical shortcut path design from `main`.
 - **FR-019** [US-2]: After the Step 1.1 and `--critical` insertions, `npm test` MUST pass including `check-pipeline-install.js` Check 4 (LEDGER_SCHEMA byte-identity).
 
 #### Critical Workflow — CWR Step Order
@@ -135,7 +135,7 @@ As a recruiter/harness user, I want the three skills registered in `.harness/har
 - **FR-020** [US-3]: `workflows/templates/critical.cwr.json` MUST contain exactly four steps in the order: `roster-implement`, `roster-formal-verify`, `roster-review`, `roster-ship`.
 - **FR-021** [US-3]: `workflows/templates/critical.cwr.json` MUST NOT contain a `roster-qa` step.
 - **FR-022** [US-3]: `workflows/templates/critical.cwr.json` MUST NOT contain the key `_roster_phase1_note`.
-- **FR-023** [US-3]: The `_doc` field in `workflows/templates/critical.cwr.json` MUST equal `"Critical mode pipeline: implement → roster-formal-verify → review → ship."`.
+- **FR-023** [US-3]: The `_doc` field in `workflows/templates/critical.cwr.json` MUST describe the step sequence including `roster-formal-verify` and `qa`.
 - **FR-024** [US-3]: The `roster-formal-verify` step MUST include a prompt invoking both a pre-hook and a post-hook via `TASK=${TASK} node dist/scripts/run-hook.js pre/post roster-formal-verify`.
 
 #### Harness Wiring — Registration, Projection, Docs

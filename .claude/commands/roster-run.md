@@ -179,6 +179,8 @@ grep -qE "ring::|sha2::|bls12_381|ark_|secp256k1|ed25519|ff::" <target> 2>/dev/n
 
 **If Tier A fires** (and task is not Express, and `--critical` was not already passed):
 
+Present using `AskUserQuestion` (Claude Code), `ask_user` (Copilot), or the equivalent interactive tool for the active runtime:
+
 ```
 Before routing to [FAST|FULL]: <Tier A signal that fired>.
 <Tier B context if any: "Advisory context: [signals]">
@@ -288,6 +290,9 @@ re-checks membership — the gate is authoritative.
      - `intake` VALIDATED → next phase in sequence (intake has no other terminal status)
      - `spec` VALIDATED **or** SKIPPED → next phase in sequence (`plan`); `spec` BOUNCED → `/roster-intake`
      - `review` GO → next phase in *this mode's* sequence (express → `ship`; fast/full → `qa`);
+       **Exception — critical E0 path:** if `briefs/<task>-formal-verify.md` exists and its
+       `**Evidence tier:**` line is `E0p`, `E0m`, or `E0m-abstract`, route directly to `ship`
+       (formal-verify replaced the QA gate; `qa` is not in the E0 sequence);
        `review` NO-GO with `no_go_reason.type == "spec-ac-failure"` → `/roster-spec` (full only —
        express/fast have no spec phase, so their NO-GO always routes to implement);
        `review` NO-GO (any other reason) → `/roster-implement`
@@ -327,6 +332,7 @@ If Full mode: check briefs/ state and use the routing table below.
 | `briefs/<task>-intake.md` exists and is validated | `/roster-plan` |
 | `briefs/<task>-plan.md` exists and is validated | workflow dispatch (if `briefs/<task>-plan.json` present) → `/roster-implement` — see Post-plan workflow dispatch below |
 | Implementation complete, branch ready | `/roster-review` |
+| `briefs/<task>-review.json` with GO status + `briefs/<task>-formal-verify.md` with E0p/E0m/E0m-abstract tier | `/roster-ship` — E0 path; formal-verify replaced the QA gate |
 | `briefs/<task>-review.json` with GO status | `/roster-qa` |
 | `briefs/<task>-review.json` with NO-GO + `no_go_reason.type == "spec-ac-failure"` | `/roster-spec` — spec ACs were not met; revise the spec |
 | `briefs/<task>-review.json` with NO-GO (any other reason) | `/roster-implement` — pass review.json as context |

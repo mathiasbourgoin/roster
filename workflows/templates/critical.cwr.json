@@ -1,7 +1,7 @@
 {
   "name": "roster-critical",
-  "_roster_version": "1.1.0",
-  "_doc": "Critical mode pipeline: implement → roster-formal-verify → review → ship.",
+  "_roster_version": "1.2.0",
+  "_doc": "Critical mode pipeline: implement → roster-formal-verify → review → qa → ship. E0 path: qa runs but formal-verify already provides the quality gate. E1 downgrade: qa is required.",
   "steps": [
     {
       "kind": "agent",
@@ -19,6 +19,12 @@
       "kind": "agent",
       "id": "roster-review",
       "prompt": "Execute /roster-review for task ${TASK}. Read briefs/${TASK}-reviewer.md. If a pre-hook exists, run: TASK=${TASK} node dist/scripts/run-hook.js pre roster-review before starting. After completion, run: TASK=${TASK} node dist/scripts/run-hook.js post roster-review.",
+      "on_failure": "abort"
+    },
+    {
+      "kind": "agent",
+      "id": "roster-qa",
+      "prompt": "Execute /roster-qa for task ${TASK}. Read briefs/${TASK}-qa-scope.md. If a pre-hook exists, run: TASK=${TASK} node dist/scripts/run-hook.js pre roster-qa before starting. After completion, run: TASK=${TASK} node dist/scripts/run-hook.js post roster-qa.",
       "on_failure": "abort"
     },
     {
