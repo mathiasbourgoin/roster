@@ -170,9 +170,11 @@ GitHub PR opened (then merged after human approval), or BLOCKED status documente
 HARNESS=".harness/harness.json"
 [ -f "$HARNESS" ] || HARNESS=".claude/harness.json"
 [ -f "$HARNESS" ] && jq '.layers.metabolism.completed_tasks += 1' "$HARNESS" > "${HARNESS}.tmp" && mv "${HARNESS}.tmp" "$HARNESS"
+# Sync projections immediately — harness.json drift will fail the next npm test otherwise
+[ -f "$HARNESS" ] && ./scripts/sync-harness.sh 2>/dev/null && git add -A && git commit -m "chore(harness): sync .claude projection after metabolism counter bump" || true
 ```
 
-If `jq` is not available or neither harness file exists, note the missed increment in the friction log without blocking.
+If `jq` is not available or neither harness file exists, note the missed increment in the friction log without blocking. The sync-harness step is best-effort (`|| true`) — if it fails (e.g. no git or no sync-harness.sh), the increment was still written; the drift will be caught by the next `npm test`.
 
 **Friction reminder:** After incrementing, print the current friction log size.
 Substitute `tunables.friction_warn_threshold` for `THRESHOLD` before running:
