@@ -369,11 +369,19 @@ Set `**Status:** VALIDATED` in each sub-brief after approval.
 
 After the human approves and VALIDATED status is set, write `briefs/<task>-plan.json` atomically:
 
-1. Build the JSON object:
+1. **Detect critical mode** before building the JSON:
+
+```bash
+[ -f briefs/<task>-formal-triage.md ] && TASK_MODE="critical" || TASK_MODE="<mode from intake brief>"
+```
+
+Use `$TASK_MODE` as the `"mode"` field value. The `critical` mode causes `roster-workflow-build` to select `workflows/templates/critical.cwr.json`. This detection applies to both full triage briefs and minimal placeholder briefs written by the `--critical=rocq`/`--critical=quint` shortcut — file existence is the signal.
+
+2. Build the JSON object:
 ```json
 {
   "task": "<slug>",
-  "mode": "express|fast|full",
+  "mode": "express|fast|full|critical",
   "schema_version": "1.0",
   "steps": [
     {
@@ -392,11 +400,11 @@ After the human approves and VALIDATED status is set, write `briefs/<task>-plan.
 }
 ```
 
-2. For each `step.hook`: set `true` if `.harness/hooks/skills/<skill>/pre.md` OR `.harness/hooks/skills/<skill>/post.md` exists; `false` otherwise.
+3. For each `step.hook`: set `true` if `.harness/hooks/skills/<skill>/pre.md` OR `.harness/hooks/skills/<skill>/post.md` exists; `false` otherwise.
 
-3. For missing quality gate commands: use `""` (never null or omit the key).
+4. For missing quality gate commands: use `""` (never null or omit the key).
 
-4. Write atomically:
+5. Write atomically:
    - Write JSON to `briefs/<task>-plan.json.tmp`
    - Rename to `briefs/<task>-plan.json`
    - If interrupted before rename: only the `.tmp` file exists (treated as absent by downstream consumers)

@@ -199,6 +199,28 @@ if ls workflows/*.cwr.json 2>/dev/null | grep -v '/templates/' | grep -q .; then
 fi
 ```
 
+**Capability tag check (formal skills).**
+
+Scan pipeline skills for a mismatch between description content and the presence of a `capability:` frontmatter field. A skill that mentions formal tools but omits the tag will be invisible to `roster-formal-verify`'s tool-resolution grep:
+
+```bash
+for f in skills/pipeline/*.md; do
+  # Extract the name: field from frontmatter
+  skill_name=$(grep -m1 "^name:" "$f" 2>/dev/null | sed 's/^name: *//')
+  # Skip roster-* orchestration skills — they describe the formal route but are NOT backends.
+  # The check targets third-party tool skills (e.g. formal-apparatus) that perform verification.
+  case "$skill_name" in roster-*) continue ;; esac
+  # Case-insensitive: match description lines containing formal tool names
+  if grep -qi "^description:.*\(formal\|rocq\|coq\|quint\)" "$f"; then
+    if ! grep -q "^capability:" "$f"; then
+      echo "⚠ WARN: $f ($skill_name) — description mentions formal tools but lacks 'capability:' field"
+    fi
+  fi
+done
+```
+
+Report each match as a warning, not a failure. The fix is to add `capability: formal-rocq` or `capability: formal-quint` to the skill's frontmatter. If `formal-apparatus` was installed without this tag, patch it before running `roster-formal-verify`.
+
 ### 2. Project dev-env readiness
 
 **Detect the gate commands.** Prefer explicit harness tunables when present, else infer from

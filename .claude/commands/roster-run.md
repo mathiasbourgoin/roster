@@ -371,7 +371,7 @@ command -v cwr >/dev/null 2>&1 && echo "cwr: available" || echo "cwr: absent"
     Exit non-zero: report `✗ cwr run exited <N> — pipeline halted. Inspect cwr output above.` and **STOP** (do not route to `/roster-implement`).
   - **Claude Code Workflow tool** (when target runtime is Claude Code's Workflow tool):
     ```bash
-    cwr to-claude-workflow workflows/<task>.cwr.json
+    TASK=<slug> cwr to-claude-workflow workflows/<task>.cwr.json
     ```
     Pipe the compiled JavaScript output to the `Workflow` tool for execution. Compilation notes go to stderr. Exit non-zero from `cwr to-claude-workflow`: **STOP** (same as above).
 - **CWR absent**: route to `/roster-implement` (existing manual chain, unchanged).
