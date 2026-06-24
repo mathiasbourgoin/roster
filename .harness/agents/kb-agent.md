@@ -4,7 +4,7 @@ display_name: KB Agent
 description: Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture.
 domain: [management, knowledge]
 tags: [kb, spec, properties, architecture, audit]
-model: opus
+model: sonnet
 complexity: high
 compatible_with: [claude-code]
 tunables:
@@ -37,7 +37,7 @@ pipeline_role:
   receives: code diff or description of change plus existing kb/ directory
   produces: updated or created KB files with contradictions flagged and unresolved decisions noted
   human_gate: after — unresolved contradictions require human decision
-version: 2.4.0
+version: 2.4.1
 author: mathiasbourgoin
 ---
 
