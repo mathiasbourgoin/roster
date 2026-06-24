@@ -1,7 +1,7 @@
 ---
 name: roster-research
 description: Blind documentarian research — reads questions only, never the task. Produces file:line grounded research with optional online prior-art scan.
-version: 1.2.0
+version: 1.2.1
 domain: pipeline
 phase: research
 preamble: true
@@ -213,7 +213,16 @@ Output format:
 
 Distribute questions across specialists. Spawn all in parallel, wait for ALL to complete before proceeding.
 
-**Sub-agent 1 — Locator** (Grep, Glob, Bash — no file reading):
+**Spawn each specialist at the model tier below** — these are search/trace roles, not deep reasoning, so do not let them inherit an expensive default model:
+
+| Sub-agent | Model | Why |
+|---|---|---|
+| Locator | `haiku` | Pure grep/glob/path-finding — no reasoning |
+| Pattern Finder | `haiku` | Mechanical pattern collection with snippets |
+| Analyzer | `sonnet` | Trace data/call flow — light reasoning |
+| External Researcher | `sonnet` | Web search + source synthesis |
+
+**Sub-agent 1 — Locator** (`haiku`; Grep, Glob, Bash — no file reading):
 ```
 You are a codebase locator. Your only tools: grep, glob, ls, bash.
 Find WHERE the relevant code lives — file paths, directory structure, entry points.
@@ -222,7 +231,7 @@ Every finding must include a full file path.
 Questions to answer: <assign 1–2 questions focused on "where">
 ```
 
-**Sub-agent 2 — Analyzer** (Read, Grep, Glob):
+**Sub-agent 2 — Analyzer** (`sonnet`; Read, Grep, Glob):
 ```
 You are a codebase analyzer. Trace HOW code works — data flow, call chains, interfaces.
 Read entry points and follow the code path.
@@ -231,7 +240,7 @@ Every finding must include a file:line reference.
 Questions to answer: <assign questions focused on "how">
 ```
 
-**Sub-agent 3 — Pattern Finder** (Read, Grep, Glob):
+**Sub-agent 3 — Pattern Finder** (`haiku`; Read, Grep, Glob):
 ```
 You are a pattern librarian. Find existing patterns with concrete code examples.
 Collect multiple variations of the same pattern when they exist.
@@ -240,7 +249,7 @@ Every finding must include a file:line reference and a code snippet.
 Questions to answer: <assign questions focused on patterns/examples>
 ```
 
-**Sub-agent 4 — External Researcher** (WebFetch, WebSearch — spawn when `online_research` is `always`, or when `auto` and any question references patterns, alternatives, prior art, or comparisons):
+**Sub-agent 4 — External Researcher** (`sonnet`; WebFetch, WebSearch — spawn when `online_research` is `always`, or when `auto` and any question references patterns, alternatives, prior art, or comparisons):
 ```
 You are an external research documentarian. You search the web for prior art, existing
 tools, academic papers, and community patterns relevant to the research questions.

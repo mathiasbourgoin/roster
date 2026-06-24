@@ -1,7 +1,7 @@
 ---
 name: roster-review
 description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
-version: 1.5.0
+version: 1.5.1
 domain: pipeline
 phase: review
 preamble: true
@@ -151,9 +151,9 @@ Rules for writing your event:
 
 # Roster Review
 
-You conduct a structured, fix-first review. Mechanical corrections are applied without asking. Ambiguities are grouped into one single question. You produce a structured JSON verdict.
+You conduct a structured, fix-first review. Mechanical corrections are applied without asking. Ambiguities are grouped into one question. You produce a structured JSON verdict.
 
-**Golden rule:** every claim ("it's handled", "tests cover that") must cite the file and line. Never "probably" or "likely".
+**Golden rule:** every claim must cite the file and line. Never "probably" or "likely".
 
 ## Mode Awareness
 
@@ -176,7 +176,7 @@ After reading the diff, check for signs the task scope exceeded its mode:
 | Design decision made implicitly in the code (no brief, no spec) | Recommend upgrading to Fast if Express, or Full if Fast |
 | Spec or KB update is clearly needed but was not done | Flag as `escalation_needed: true` in verdict |
 
-If escalation is needed: set `escalation_needed: true` and `escalation_reason` in the verdict. **Do not block GO** for this — it is informational. The human decides whether to loop back.
+If escalation is needed: set `escalation_needed: true` and `escalation_reason`. **Do not block GO** — it is informational; the human decides whether to loop back.
 
 ## Input Contract
 
@@ -185,10 +185,9 @@ Read in order:
 2. `briefs/<task>-impl.md` — modified files and decisions made
 3. `git diff main...HEAD` — the complete diff
 
-If `briefs/<task>-impl.md` is absent:
-> ⛔ Impl brief missing. Review cannot start without knowing the implementation scope.
+If `briefs/<task>-impl.md` is absent: ⛔ stop — review cannot start without the implementation scope.
 
-`briefs/<task>-reviewer.md` is absent by design in Express/Fast mode (no `/roster-plan` phase). Do not block on it — proceed from the impl brief and diff alone.
+`briefs/<task>-reviewer.md` is absent by design in Express/Fast mode. Do not block — proceed from the impl brief and diff alone.
 
 ## Steps
 
@@ -240,38 +239,24 @@ Spawn specialists based on scope. Each specialist receives:
 
 ### Cross-Runtime Review
 
-The same model reviewing its own implementation is a blind spot. When a **different** runtime
-CLI is available, run an independent adversarial pass with it. Detection (auto-on, no config):
+When a **different** runtime CLI is available, run an independent adversarial pass. Detection (auto-on):
 
 ```bash
 command -v codex >/dev/null 2>&1 && echo "codex available"
 command -v opencode >/dev/null 2>&1 && echo "opencode available"
 ```
 
-If neither is present (or the only one present is the host runtime itself), **skip this
-specialist silently** — single-runtime projects are unaffected.
+If neither is present (or only the host runtime), **skip silently**.
 
-Otherwise, shell out to the second runtime non-interactively (e.g. `codex exec "<prompt>"`
-or `opencode run "<prompt>"`, mirroring how `skills/media/image-generation.md` invokes the
-Codex CLI). Pass it the diff (`git diff main...HEAD`) and the primary `briefs/<task>-review.json`,
-and instruct it to return **only findings the primary review missed**, as JSON objects in the
-standard finding schema with `specialist: "<runtime>-xruntime"`.
+Otherwise shell out non-interactively (e.g. `codex exec "<prompt>"`). Pass the diff and `briefs/<task>-review.json`; instruct it to return **only findings the primary missed**, as JSON in the standard finding schema with `specialist: "<runtime>-xruntime"`.
 
-**Augment, never rewrite.** Append the returned objects to a `cross_runtime_findings` array
-in `briefs/<task>-review.json`. Do **not** edit or remove any primary `findings` entry — the
-second runtime adds perspective, it does not overrule the primary review's wording.
+**Augment, never rewrite.** Append returned objects to `cross_runtime_findings`. Do **not** edit primary `findings` entries.
 
-**GO authority:** if any `cross_runtime_findings` entry is CRITICAL or HIGH (and OPEN), set the
-verdict `status` to `NO-GO` with `no_go_reason.type = "cross-runtime-finding"`. This is the one
-case where the second runtime blocks the gate.
+**GO authority:** any `cross_runtime_findings` entry that is CRITICAL or HIGH (OPEN) sets `status: NO-GO` with `no_go_reason.type = "cross-runtime-finding"`.
 
-**KB-conditional check:**
+**KB-conditional check:** `[ -d kb ] && [ -f kb/properties.md ] && echo "KB present" || echo "KB absent"`
 
-```bash
-[ -d kb ] && [ -f kb/properties.md ] && echo "KB present" || echo "KB absent"
-```
-
-If KB is present, `code-quality-auditor` findings are merged into the review table alongside other specialists. Critical KB violations are auto-classified as HIGH severity.
+If KB is present, `code-quality-auditor` findings are merged into the review table. Critical KB violations are auto-classified as HIGH severity.
 
 When findings have `category: "spec"` and severity CRITICAL or HIGH:
 - Set `no_go_reason.type = "spec-ac-failure"` in the verdict
@@ -389,26 +374,13 @@ Produce `briefs/<task>-review.json`:
 
 ### 7. Human gate
 
-Present a summary:
-```
-Review complete.
-Auto-fixes applied: <N>
-Findings: <N> critical, <N> high, <N> medium, <N> low
-Status: GO ✅ / NO-GO ❌
-
-[If NO-GO]: resolve HIGH+ findings before proceeding to QA.
-[If GO]: ready for /roster-qa.
-```
-
-Wait for explicit human confirmation before proceeding.
+Present a one-line summary: auto-fixes applied, finding counts by severity, GO/NO-GO status. If NO-GO, name the HIGH+ findings to resolve. Wait for explicit human confirmation before proceeding.
 
 ## Output Contract
 
 `briefs/<task>-review.json` with GO or NO-GO status and all findings documented.
 
-**If GO:** `/roster-qa` can start.
-**If NO-GO:** return to `/roster-implement` with OPEN findings.
-**If NO-GO with `no_go_reason.type == "spec-ac-failure"`:** return to `/roster-spec` — the spec ACs were not met by the implementation.
+**If GO:** `/roster-qa` can start. **If NO-GO:** return to `/roster-implement` with OPEN findings. **If `no_go_reason.type == "spec-ac-failure"`:** return to `/roster-spec` — spec ACs were not met.
 
 ## When to Go Back
 
@@ -444,10 +416,10 @@ Wait for explicit human confirmation before proceeding.
 
 ## Rules
 
-- Every coverage claim must cite the file and line — never "probably"
-- "Looks good" is not a finding — if it's good, don't mention it
-- A caught error or a rejected input is not automatically safe — check its blast radius: does the error abort a whole request, transaction, job, or batch rather than failing just the one operation? If so, flag it as a correctness/security finding
-- One single grouped AskUserQuestion — never multiple separate questions
-- Auto-fixes: verify quality gates after each fix
-- Specialists must produce JSON findings — do not accept free-form text as output
+- Every claim must cite file and line — never "probably"
+- "Looks good" is not a finding — omit it
+- A caught error is not automatically safe — check blast radius: does it abort a whole request/transaction/batch? If so, flag as correctness/security
+- One grouped AskUserQuestion — never multiple separate questions
+- Verify quality gates after each auto-fix
+- Specialists must produce JSON findings — reject free-form text
 - Do not auto-fix visible behavior changes even if under the line threshold
