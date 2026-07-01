@@ -406,11 +406,13 @@ sync_skill_sources_to_skill_dir() {
         if [ -f "$out_dir/$name/.roster-extension" ]; then
             extension_owned=1
         elif [ -f "$HARNESS_DIR/extensions.json" ]; then
-            # Fail closed (audit M4/R6): if the registry cannot be parsed as a
-            # JSON object, ownership cannot be determined — refuse the sync
-            # instead of silently proceeding.
-            if ! jq -e 'type == "object"' "$HARNESS_DIR/extensions.json" >/dev/null 2>&1; then
-                echo "Refusing to sync: $HARNESS_DIR/extensions.json is unreadable or not a JSON object." >&2
+            # Fail closed (audit M4/R6): ownership is only determinable from a
+            # registry whose full shape is valid — a JSON object whose
+            # .extensions is an array. Anything else refuses the sync (a
+            # malformed object must not read as "unowned").
+            if ! jq -e 'type == "object" and (.extensions | type == "array")' \
+                "$HARNESS_DIR/extensions.json" >/dev/null 2>&1; then
+                echo "Refusing to sync: $HARNESS_DIR/extensions.json is unreadable or malformed (expected an object with an extensions array)." >&2
                 echo "Fix or remove the extension registry, then retry sync." >&2
                 exit 1
             fi
@@ -418,11 +420,14 @@ sync_skill_sources_to_skill_dir() {
             case "$candidate" in
                 "$PROJECT_ROOT"/*)
                     local candidate_rel="${candidate#"$PROJECT_ROOT"/}"
-                    if jq -e --arg target "$candidate_rel" \
+                    local owned_probe
+                    owned_probe="$(jq --arg target "$candidate_rel" \
                         'any(.extensions[]?.installed_files[]?; .target == $target)' \
-                        "$HARNESS_DIR/extensions.json" >/dev/null 2>&1; then
-                        extension_owned=1
-                    fi
+                        "$HARNESS_DIR/extensions.json" 2>/dev/null)" || {
+                        echo "Refusing to sync: ownership probe failed against $HARNESS_DIR/extensions.json." >&2
+                        exit 1
+                    }
+                    [ "$owned_probe" = "true" ] && extension_owned=1
                     ;;
             esac
         fi

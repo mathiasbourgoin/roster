@@ -34,4 +34,23 @@ describe("roster-extension.sh stale-build check (R10d)", () => {
     const after = await fs.stat(cli);
     assert.equal(after.mtimeMs, before.mtimeMs);
   });
+
+  // Review finding (codex-xruntime, 2026-07-02): the watch set is limited to
+  // the CLI's own sources — an unrelated (e.g. future-dated test) .ts file
+  // under scripts/ must NOT trigger a rebuild loop.
+  it("does not rebuild when only an unrelated scripts/*.ts file is newer", async () => {
+    const before = await fs.stat(cli);
+    const unrelated = path.resolve(__dirname, "../../scripts/extension-wrapper-rebuild.test.ts");
+    const original = await fs.stat(unrelated);
+    const future = new Date(Date.now() + 60_000);
+    await fs.utimes(unrelated, future, future);
+    try {
+      const { stdout } = await execFileAsync(wrapper, ["--help"]);
+      assert.match(stdout, /Usage: roster-extension/);
+      const after = await fs.stat(cli);
+      assert.equal(after.mtimeMs, before.mtimeMs);
+    } finally {
+      await fs.utimes(unrelated, original.atime, original.mtime);
+    }
+  });
 });

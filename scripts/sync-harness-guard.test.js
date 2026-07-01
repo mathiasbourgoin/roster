@@ -119,7 +119,24 @@ describe("sync-harness extension-ownership guard", () => {
     const result = await runSync(root);
 
     assert.notEqual(result.code, 0);
-    assert.match(result.stderr, /Refusing to sync: .*extensions\.json is unreadable or not a JSON object/);
+    assert.match(result.stderr, /Refusing to sync: .*extensions\.json is unreadable or malformed/);
+    await assert.rejects(fs.stat(path.join(root, `.agents/skills/${SKILL_NAME}/SKILL.md`)));
+  });
+
+  // Review finding (codex-xruntime, 2026-07-02): a registry that IS a JSON
+  // object but whose .extensions is missing or not an array must also fail
+  // CLOSED — a malformed object must not read as "unowned".
+  it("refuses to sync when extensions.json is an object without an extensions array", async () => {
+    const root = await makeFixture();
+    await write(
+      path.join(root, ".harness/extensions.json"),
+      JSON.stringify({ schema_version: "1.0", extensions: {} }),
+    );
+
+    const result = await runSync(root);
+
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /Refusing to sync: .*extensions\.json is unreadable or malformed/);
     await assert.rejects(fs.stat(path.join(root, `.agents/skills/${SKILL_NAME}/SKILL.md`)));
   });
 });
