@@ -404,6 +404,8 @@ Tool installation happens only after explicit human approval.
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-doctor",
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

@@ -187,6 +187,8 @@ Present the report and ask:
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-investigate",
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

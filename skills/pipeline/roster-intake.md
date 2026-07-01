@@ -178,6 +178,8 @@ Wait for explicit validation. Apply corrections if requested, then set `**Status
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-intake",
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

@@ -343,6 +343,8 @@ those is the quiz (now altitude-independent) + propose-only.
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-upgrade",
   "task": "roster-upgrade",
   "frictions": [],
   "methods": [],

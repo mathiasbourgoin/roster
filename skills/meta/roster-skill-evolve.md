@@ -244,6 +244,8 @@ For each APPROVED proposal:
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-skill-evolve",
   "task": "skill-evolution",
   "frictions": [],
   "methods": [],

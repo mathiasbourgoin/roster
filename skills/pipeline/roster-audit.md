@@ -165,6 +165,8 @@ Present the report and ask:
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-audit",
   "task": "audit",
   "frictions": [],
   "methods": [],

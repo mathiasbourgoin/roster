@@ -342,6 +342,8 @@ is `PARTIAL`, the next step is instead a re-run of `/roster-implement` (routed b
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-implement",
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

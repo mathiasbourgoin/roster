@@ -215,6 +215,8 @@ If NO-GO: suggest returning to `/roster-implement` with the exact reason.
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-qa",
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

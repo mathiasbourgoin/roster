@@ -280,6 +280,8 @@ Present a one-line summary: auto-fixes applied, finding counts by severity, GO/N
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-review",
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

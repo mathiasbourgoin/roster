@@ -401,6 +401,8 @@ Use `$TASK_MODE` as the `"mode"` field. File existence is the signal — applies
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-plan",
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],

@@ -73,6 +73,39 @@ pipeline_role:
 ---
 ```
 
+## Friction Log Entry Schema
+
+Each entry appended to `skills-meta/friction.jsonl` follows this structure:
+
+```jsonc
+{
+  "date": "<ISO-8601>",
+  "skill": "<skill-name>",          // the skill that logged this entry
+  "task": "<task-slug>",
+  "frictions": ["<string>", ...],   // observed friction events (empty array if none)
+  "methods": ["<string>", ...],     // methods used during the run
+  "suggestion_type": "<value>|null",// improvement proposal type — open lowercase vocabulary:
+                                    //   skill | tool | adapt | agent | research | null
+                                    // Note: this is NOT a closed enum; new values may appear.
+                                    // Used by roster-skill-health for clustering. Do not jam
+                                    // routing/telemetry events into this field.
+  "suggestion": "<string>|null",    // the concrete improvement proposal (or null)
+  "effort_estimate": "<string>|null",// e.g. "small", "medium", "large" (or null)
+  "event": "<string>|null"          // routing/telemetry events — separate from suggestion_type.
+                                    // Current values: "critical_declined"
+                                    // Write-only; not consumed by roster-skill-health.
+}
+```
+
+**`suggestion_type` vocabulary is open by practice.** `roster-init` emits `"research"` in
+addition to the documented `skill|tool|adapt|agent`. Do not treat the documented set as closed
+when authoring new skills or creating the schema block in a project.
+
+The first eight keys (`date`, `skill`, `task`, `frictions`, `methods`, `suggestion_type`,
+`suggestion`, `effort_estimate`) are the **required minimum** every skill's `## Friction Log`
+template carries; per-skill extra fields (e.g. `event`, `mode`) are allowed on top. Placeholder
+values validate as keys being present, not as value formats.
+
 ## Body
 
 The markdown body contains the full workflow instructions. Write it as a direct system prompt in runtime-neutral terms: imperative mood, numbered steps, minimal assumptions about slash-command syntax.

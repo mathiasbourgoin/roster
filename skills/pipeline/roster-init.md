@@ -290,6 +290,7 @@ Triggered when an adversarial question reveals a fundamental problem and the use
 {
   "date": "<ISO-8601>",
   "skill": "roster-init",
+  "task": "<task-slug or short description>",
   "mode": "<greenfield|onboard>",
   "frictions": ["<friction 1>", "..."],
   "methods": ["<workaround used>"],

@@ -219,6 +219,8 @@ echo "💡 Friction log: ${FRICTION_COUNT} entries."
 
 ```jsonl
 {
+  "date": "<ISO-8601>",
+  "skill": "roster-ship",
   "task": "<task-slug>",
   "frictions": [],
   "methods": [],
