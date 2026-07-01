@@ -402,6 +402,27 @@ sync_skill_sources_to_skill_dir() {
             preamble|roster-preamble) continue ;;
         esac
         require_safe_name "$name"
+        local extension_owned=0
+        if [ -f "$out_dir/$name/.roster-extension" ]; then
+            extension_owned=1
+        elif [ -f "$HARNESS_DIR/extensions.json" ]; then
+            local candidate="$out_dir/$name/SKILL.md"
+            case "$candidate" in
+                "$PROJECT_ROOT"/*)
+                    local candidate_rel="${candidate#"$PROJECT_ROOT"/}"
+                    if jq -e --arg target "$candidate_rel" \
+                        '.extensions // [] | any(.installed_files[]?; .target == $target)' \
+                        "$HARNESS_DIR/extensions.json" >/dev/null 2>&1; then
+                        extension_owned=1
+                    fi
+                    ;;
+            esac
+        fi
+        if [ "$extension_owned" -eq 1 ]; then
+            echo "Refusing to overwrite extension-owned skill '$name' at $out_dir/$name" >&2
+            echo "Remove the extension first with roster-extension remove, then retry sync." >&2
+            exit 1
+        fi
         render_skill_source "$src" "$name" "$out_dir/$name/SKILL.md" "$preamble"
         touch "$out_dir/$name/.roster-managed"
         copy_skill_resources "$src" "$name" "$out_dir" "dir"

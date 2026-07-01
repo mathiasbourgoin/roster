@@ -11,6 +11,7 @@ This directory contains schema specifications for all roster component types.
 | `rule-schema.md` | Rule frontmatter and structure — category, scope, enforcement |
 | `hook-schema.md` | Tool-level and skill-level hook format — DSL step types, ABORT sentinel, on_error handling |
 | `harness-schema.md` | Harness config format — agents, rules, hooks, skills, layers, metabolism block |
+| `extension-schema.md` | Local extension pack format — metadata, inferred components, install registry, converge checks |
 | `kb-schema.md` | Knowledge base file format — spec, architecture, glossary, frontmatter fields |
 | `profiles.md` | Named harness profiles — defines which agents/skills/rules are bundled per profile |
 

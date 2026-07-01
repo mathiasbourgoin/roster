@@ -232,4 +232,5 @@ To add or update components:
 → **[Full agent and skill catalog](docs/agents.md)**  
 → **[Skill Overlap Guide](docs/skill-overlap.md)** — when to use each audit/spec/research skill  
 → **[Skill hooks DSL and tutorial](docs/hooks.md)**  
+→ **[Roster extensions](docs/extensions.md)** — local extension packs, install registry, converge checks  
 → **[Changelog](CHANGES.md)**
