@@ -289,9 +289,15 @@ async function classifyInstalledFiles(
 
 async function convergeExtension(projectRoot: string, extension: InstalledExtension): Promise<Record<string, unknown>> {
   const managedRoots = extension.runtime_roots.map((root) => resolveProjectEntrypoint(projectRoot, root));
-  const currentManifest = await loadManifest(extension.source.path).catch(() => null);
+  // A vanished source root is reported truthfully as source_missing (R10c).
+  // Previously loadManifest inferred a phantom manifest from the nonexistent
+  // path (basename name, version "0.0.0") and DRIFT surfaced as a bogus
+  // version comparison.
+  const sourceRootExists = await exists(extension.source.path);
+  const currentManifest = sourceRootExists ? await loadManifest(extension.source.path).catch(() => null) : null;
   const currentCommit = await gitCommit(extension.source.path);
   const findings = await classifyInstalledFiles(projectRoot, extension, managedRoots);
+  if (!sourceRootExists) findings.source_missing.unshift(extension.source.path);
   const clean =
     findings.missing.length === 0 &&
     findings.modified.length === 0 &&
