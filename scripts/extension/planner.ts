@@ -86,6 +86,13 @@ export async function skillTargets(
   runtimeTargets: RuntimeTarget[],
 ): Promise<{ runtime: RuntimeTarget; root: string }[]> {
   const harness = await readJson(path.join(projectRoot, ".harness/harness.json"));
+  // Fail-closed gating (R5): a present harness manifest is authoritative. If it
+  // exists but carries no runtimes array, refusing is the only safe reading —
+  // silently falling back to conventional paths would bypass the gate that
+  // docs/extensions.md documents.
+  if (harness && !Array.isArray(harness.runtimes)) {
+    throw new Error(".harness/harness.json exists but has no runtimes array; refusing ungated extension install");
+  }
   const runtimes = Array.isArray(harness?.runtimes) ? harness.runtimes : null;
   const targets: { runtime: RuntimeTarget; root: string }[] = [];
   for (const runtime of runtimeTargets) {
