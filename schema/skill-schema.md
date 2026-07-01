@@ -46,7 +46,7 @@ phase: <intake|question|research|spec|plan|implement|review|qa|ship|null>
 capability: <formal-rocq|formal-quint|workflow-builder>   # optional; required for skills that
                                                            # use a specialised backend or runner
 tags: [tag1, tag2]
-allowed_tools: [Read, Write, Edit, Bash, Agent, AskUserQuestion, Skill]
+allowed_tools: [Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion, Skill, WebFetch, WebSearch]
 disallowed_tools: [AskUserQuestion]   # tools this skill must NOT use — e.g. block interactive
                                       # prompts in blind, background, or hook-invoked runs that
                                       # would otherwise hang waiting for input

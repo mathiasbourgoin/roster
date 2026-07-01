@@ -26,7 +26,11 @@ pipeline_role:               # How this agent fits into a team pipeline
   triggered_by: <string>     # What invokes this agent (e.g., "tech-lead spawn request", "user directly")
   receives: <string>         # Expected input format (e.g., "sub-brief at briefs/<task>-<role>.md")
   produces: <string>         # Output format and destination (e.g., "diff + review comments → tech-lead")
-  human_gate: <before|after|both|none>  # Where human validation sits relative to this agent's work
+  human_gate: <before|after|both|none>  # Where human validation sits relative to this agent's work.
+                             # The enum token MAY be followed by " — " and a freeform annotation
+                             # describing the gate (shipped convention, e.g. "both — quiz before
+                             # execution batch begins and before each merge"); validators match
+                             # on the leading token only.
 tunables:                    # Parameters that can be overridden locally
   <key>: <default_value>
 requires:                    # Tool and MCP server dependencies

@@ -82,10 +82,15 @@ Populated by: **tech-lead**, **roster-skill-evolve**
                              # tdd-workflow, image-generation)
   source: <roster|external|custom>  # Origin
   version: <semver>          # Installed version
-  domain: <kb|media|meta|operational|pipeline|shared|testing|workflow>  # Skill domain
-  phase: <intake|question|research|spec|plan|implement|review|qa|ship|null>  # Pipeline phase (null if not a pipeline skill)
-  tunables: {}               # Local overrides for skill tunables
+  domain: <kb|media|meta|operational|pipeline|shared|testing|workflow>  # Skill domain (optional at bootstrap)
+  phase: <intake|question|research|spec|plan|implement|review|qa|ship|null>  # Pipeline phase (null if not a pipeline skill; optional at bootstrap)
+  tunables: {}               # Local overrides for skill tunables (optional at bootstrap)
 ```
+
+`domain`, `phase`, and `tunables` are maintained by the roster repo's own manifest and by
+`sync-harness`-aware tooling; the `init-harness.sh` bootstrap emits the minimal
+`{name, source, version}` entry and the richer fields are filled in as the harness matures.
+Validators must treat them as optional.
 
 ### `layers.metabolism`
 
