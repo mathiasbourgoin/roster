@@ -107,6 +107,13 @@ detect_project_metadata() {
       }'
 }
 
+# The exists-check must precede any mkdir, or a fresh target trips over the
+# directories this very run just created.
+if [ -d "$HARNESS_DIR" ] && [ "$FORCE" != "--force" ]; then
+    echo "Harness already exists at $HARNESS_DIR. Use --force to overwrite." >&2
+    exit 1
+fi
+
 mkdir -p "$AGENTS_DIR" "$SKILLS_DIR" "$RULES_DIR" "$HOOKS_DIR"
 mkdir -p "$HOOKS_DIR/skills" "$HOOKS_DIR/shared"
 
@@ -128,7 +135,7 @@ CORE_AGENTS=(
 DEVELOPER_AGENTS=(
     "agents/backend/implementer.md"
     "agents/testing/qa.md"
-    "agents/management/architect.md"
+    "agents/testing/architect.md"
     "agents/management/kb-agent.md"
     "agents/management/planner.md"
 )
@@ -141,17 +148,16 @@ SECURITY_AGENTS=(
 FULL_EXTRA_AGENTS=(
     "recruiter/recruiter.md"
     "agents/management/harness-builder.md"
-    "agents/management/context-manager.md"
-    "agents/management/error-coordinator.md"
+    "agents/specialist/context-manager.md"
     "agents/management/project-auditor.md"
     "agents/management/skill-creator.md"
     "agents/devops/tool-provisioner.md"
     "agents/devops/performance-monitor.md"
     "agents/specialist/expert-debugger.md"
     "agents/specialist/config-migrator.md"
-    "agents/specialist/kernel-arm64-bringup.md"
-    "agents/specialist/fex-wine-proton.md"
-    "agents/specialist/gamescope-mangohud-qam.md"
+    "agents/personal/kernel-arm64-bringup.md"
+    "agents/personal/fex-wine-proton.md"
+    "agents/personal/gamescope-mangohud-qam.md"
 )
 
 CORE_RULES=(
@@ -181,11 +187,6 @@ FULL_EXTRA_SKILLS=(
     "skills/kb/spec-compliance-auditor.md"
     "skills/kb/harness-validator.md"
 )
-
-if [ -d "$HARNESS_DIR" ] && [ "$FORCE" != "--force" ]; then
-    echo "Harness already exists at $HARNESS_DIR. Use --force to overwrite." >&2
-    exit 1
-fi
 
 find "$AGENTS_DIR" -maxdepth 1 -type f -name '*.md' -delete
 find "$SKILLS_DIR" -maxdepth 1 -type f -name '*.md' -delete
