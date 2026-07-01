@@ -53,6 +53,32 @@ function cliParseError(message: string): never {
   usage(1);
 }
 
+// Per-command arity/flag table (R8 + R10-json): every known flag is either
+// honored or rejected per command, and extra operands are rejected instead of
+// silently ignored. This table is the single source the parser enforces; it
+// mirrors the usage() text above.
+type CommandSpec = { operands: number; flags: readonly string[] };
+
+const COMMAND_SPECS: Record<string, CommandSpec> = {
+  info: { operands: 1, flags: [] },
+  install: { operands: 1, flags: ["--target", "--dry-run"] },
+  remove: { operands: 1, flags: ["--target", "--dry-run"] },
+  list: { operands: 0, flags: ["--target"] },
+  converge: { operands: 0, flags: ["--target", "--json"] },
+};
+
+function assertFlagAllowed(command: string, flag: string): void {
+  const spec = COMMAND_SPECS[command];
+  if (spec && !spec.flags.includes(flag)) cliParseError(`${flag} is not supported by ${command}`);
+}
+
+function assertOperandArity(command: string, args: string[]): void {
+  const spec = COMMAND_SPECS[command];
+  if (spec && args.length > spec.operands) {
+    cliParseError(`unexpected argument for ${command}: ${args[spec.operands]}`);
+  }
+}
+
 function parseArgs(argv: string[]): { command: string; args: string[]; options: CliOptions; json: boolean } {
   const [command, ...rest] = argv;
   if (!command || command === "-h" || command === "--help") usage(command ? 0 : 1);
@@ -65,6 +91,7 @@ function parseArgs(argv: string[]): { command: string; args: string[]; options: 
   for (let i = 0; i < rest.length; i += 1) {
     const arg = rest[i];
     if (arg === "--target") {
+      assertFlagAllowed(command, arg);
       const value = rest[i + 1];
       if (value === undefined || value.startsWith("--")) cliParseError("--target requires a value");
       target = value;
@@ -72,16 +99,19 @@ function parseArgs(argv: string[]): { command: string; args: string[]; options: 
       continue;
     }
     if (arg === "--dry-run") {
+      assertFlagAllowed(command, arg);
       dryRun = true;
       continue;
     }
     if (arg === "--json") {
+      assertFlagAllowed(command, arg);
       json = true;
       continue;
     }
     if (arg.startsWith("--")) cliParseError(`unknown option: ${arg}`);
     args.push(arg);
   }
+  assertOperandArity(command, args);
 
   return { command, args, options: { target, dryRun }, json };
 }
