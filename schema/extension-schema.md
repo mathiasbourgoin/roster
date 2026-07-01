@@ -43,6 +43,14 @@ An extension can expose a `roster-extension.json` manifest. If absent, roster fa
 
 Only skill directories are projected into runtime skill directories in this version. Other component types are still listed in the manifest so review, converge, and future installers can reason about the full extension surface.
 
+### Source-tree walk semantics
+
+Component discovery and skill projection walk the extension source tree fail-closed:
+
+- `dist/`, `node_modules/`, and `.git/` directories are **skipped** at any depth. They are build/VCS artifacts and are never part of an extension's installable surface.
+- An **unreadable directory** anywhere in the walked tree is a hard error (`unreadable extension source directory: …`) — a partial install is impossible, not silently incomplete.
+- A **symlinked entry** (file or directory) in the source tree is a hard error (`refusing symlinked extension source file: …`); extensions must ship regular files.
+
 An extension that declares no skill components (for example a profiles-only pack) still installs: it is registered as a recorded-only entry with an empty `installed_files` list and nothing is projected. Skill components that are declared but resolve to no installable files remain a hard error (`declared skills resolved to no installable files`).
 
 ## Installed Registry

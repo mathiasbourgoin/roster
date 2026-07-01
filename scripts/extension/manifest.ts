@@ -80,18 +80,27 @@ export async function readJson(filePath: string): Promise<Record<string, unknown
   return JSON.parse(await fs.readFile(filePath, "utf8")) as Record<string, unknown>;
 }
 
+// Fail-closed source walk (R4): a partial view of an extension source must be
+// impossible. Unreadable directories and symlinked entries are hard errors;
+// only `.git`, `node_modules`, and `dist` are skipped (build/VCS artifacts —
+// never part of an extension's installable surface; documented in
+// schema/extension-schema.md).
 export async function walkFiles(root: string): Promise<string[]> {
   const out: string[] = [];
   async function walk(dir: string): Promise<void> {
     let entries;
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code ?? "unknown";
+      throw new Error(`unreadable extension source directory: ${dir} (${code})`);
     }
     for (const entry of entries) {
       if (entry.name === ".git" || entry.name === "node_modules" || entry.name === "dist") continue;
       const abs = path.join(dir, entry.name);
+      if (entry.isSymbolicLink()) {
+        throw new Error(`refusing symlinked extension source file: ${abs}`);
+      }
       if (entry.isDirectory()) {
         await walk(abs);
       } else if (entry.isFile()) {
