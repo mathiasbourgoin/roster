@@ -128,9 +128,9 @@ export async function gitCommit(repoPath: string): Promise<string | null> {
   }
 }
 
-function componentFromSkill(root: string, skillFile: string): Component {
+async function componentFromSkill(root: string, skillFile: string): Promise<Component> {
   const rel = path.relative(root, skillFile).replace(/\\/g, "/");
-  const content = require("node:fs").readFileSync(skillFile, "utf8") as string;
+  const content = await fs.readFile(skillFile, "utf8");
   const fm = parseFrontmatter(content);
   const fallback = path.basename(path.dirname(skillFile));
   const name = typeof fm?.name === "string" && fm.name ? fm.name : fallback;
@@ -160,7 +160,9 @@ async function collectSkills(root: string): Promise<Component[]> {
   const base = path.join(root, "skills");
   if (!(await exists(base))) return [];
   const files = await walkFiles(base);
-  const skills = files.filter((file) => path.basename(file) === "SKILL.md").map((file) => componentFromSkill(root, file));
+  const skills = await Promise.all(
+    files.filter((file) => path.basename(file) === "SKILL.md").map((file) => componentFromSkill(root, file)),
+  );
   // A skills/ tree is a declaration: resolving it to zero SKILL.md files is a
   // layout error (typo'd structure), not a recorded-only pack.
   if (skills.length === 0) {
