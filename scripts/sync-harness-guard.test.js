@@ -66,15 +66,10 @@ function registryOwning(target) {
 }
 
 describe("sync-harness extension-ownership guard", () => {
-  // DEFECT (pinned, do not rely on): the registry branch of the guard is expected to
-  // refuse this sync, but its jq expression is broken — `.extensions // [] |
-  // any(.installed_files[]?; ...)` indexes the extensions ARRAY with a string, jq
-  // errors (silenced by `2>/dev/null`), and the guard fails OPEN on perfectly valid
-  // JSON. Same fail-open family as audit finding M4; discovered by this test on
-  // 2026-07-01 during the extension-installer-fixes task. When the guard is fixed,
-  // invert this test into a refusal assertion (exit != 0, "Refusing to overwrite
-  // extension-owned skill 'guard-skill'").
-  it("currently fails open on a valid registry entry recording the target (guard jq defect, pinned)", async () => {
+  // Inverted 2026-07-02 (extension-installer-refactor R6): the registry-branch jq
+  // expression is fixed (`any(.extensions[]?.installed_files[]?; ...)`), so a valid
+  // registry entry recording the target now refuses the sync as originally intended.
+  it("refuses to overwrite a target recorded in a valid registry entry", async () => {
     const root = await makeFixture();
     await write(
       path.join(root, ".harness/extensions.json"),
@@ -83,8 +78,9 @@ describe("sync-harness extension-ownership guard", () => {
 
     const result = await runSync(root);
 
-    assert.equal(result.code, 0, result.stderr);
-    assert.ok(await fs.stat(path.join(root, `.agents/skills/${SKILL_NAME}/SKILL.md`)));
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /Refusing to overwrite extension-owned skill 'guard-skill'/);
+    await assert.rejects(fs.stat(path.join(root, `.agents/skills/${SKILL_NAME}/SKILL.md`)));
   });
 
   it("refuses to overwrite a skill directory carrying a .roster-extension marker", async () => {
@@ -113,17 +109,17 @@ describe("sync-harness extension-ownership guard", () => {
     assert.ok(await fs.stat(path.join(root, `.agents/skills/${SKILL_NAME}/.roster-managed`)));
   });
 
-  // Pins CURRENT behavior for audit finding M4 (out of scope to fix here): a corrupt
-  // .harness/extensions.json makes `jq -e ... 2>/dev/null` fail, the guard fails OPEN,
-  // and sync overwrites the skill. When M4 is fixed (fail closed), this test must be
-  // inverted deliberately.
-  it("currently fails open when extensions.json is corrupt JSON (audit M4, pinned)", async () => {
+  // Inverted 2026-07-02 (extension-installer-refactor R6 / audit M4): a corrupt
+  // .harness/extensions.json now fails CLOSED — ownership cannot be determined, so
+  // the sync refuses instead of overwriting the skill.
+  it("refuses to sync when extensions.json is corrupt JSON", async () => {
     const root = await makeFixture();
     await write(path.join(root, ".harness/extensions.json"), "{ not json");
 
     const result = await runSync(root);
 
-    assert.equal(result.code, 0, result.stderr);
-    assert.ok(await fs.stat(path.join(root, `.agents/skills/${SKILL_NAME}/SKILL.md`)));
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /Refusing to sync: .*extensions\.json is unreadable or not a JSON object/);
+    await assert.rejects(fs.stat(path.join(root, `.agents/skills/${SKILL_NAME}/SKILL.md`)));
   });
 });

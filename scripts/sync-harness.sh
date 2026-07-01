@@ -406,12 +406,20 @@ sync_skill_sources_to_skill_dir() {
         if [ -f "$out_dir/$name/.roster-extension" ]; then
             extension_owned=1
         elif [ -f "$HARNESS_DIR/extensions.json" ]; then
+            # Fail closed (audit M4/R6): if the registry cannot be parsed as a
+            # JSON object, ownership cannot be determined — refuse the sync
+            # instead of silently proceeding.
+            if ! jq -e 'type == "object"' "$HARNESS_DIR/extensions.json" >/dev/null 2>&1; then
+                echo "Refusing to sync: $HARNESS_DIR/extensions.json is unreadable or not a JSON object." >&2
+                echo "Fix or remove the extension registry, then retry sync." >&2
+                exit 1
+            fi
             local candidate="$out_dir/$name/SKILL.md"
             case "$candidate" in
                 "$PROJECT_ROOT"/*)
                     local candidate_rel="${candidate#"$PROJECT_ROOT"/}"
                     if jq -e --arg target "$candidate_rel" \
-                        '.extensions // [] | any(.installed_files[]?; .target == $target)' \
+                        'any(.extensions[]?.installed_files[]?; .target == $target)' \
                         "$HARNESS_DIR/extensions.json" >/dev/null 2>&1; then
                         extension_owned=1
                     fi
