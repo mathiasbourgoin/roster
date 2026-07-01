@@ -46,6 +46,9 @@ entrypoints:                 # Optional runtime-specific thin wrappers
   codex:
     type: <agent|skill|cli|agents-md>
 isolation: <worktree|none>   # Whether the agent needs an isolated workspace
+overlay: <personal>          # Marks an agent as part of a private overlay rather than the
+                             # shipped roster; overlay agents live under agents/personal/ and
+                             # are excluded from the public catalogs and install profiles
 replaces: [<agent-name>, ...] # Agents this one supersedes (for upgrade proposals)
 version: <semver>            # Version for tracking updates
 author: <string>             # Who created/maintains this agent
@@ -92,3 +95,10 @@ You are a security triage specialist...
 
 Files are named `<agent-name>.md` matching the `name` frontmatter field.
 Placed in `agents/<primary-domain>/` directory.
+
+Known deliberate exceptions to the primary-domain placement rule:
+
+- `architect` (domain `[management, architecture]`) lives in `agents/testing/` — it operates as
+  part of the review/QA quality bar alongside `reviewer` and `qa`.
+- `context-manager` (domain `[management, context]`) lives in `agents/specialist/`.
+- `agents/personal/` holds `overlay: personal` agents grouped by overlay, not by domain.

@@ -17,7 +17,7 @@ version: <semver>            # Schema version (currently "1.0.0")
 profile: <string>            # Active install profile: core|developer|security|full
 source_of_truth: <string>    # Canonical shared harness root, usually ".harness"
 runtimes:
-  - name: <claude-code|codex>
+  - name: <claude-code|codex|codex-global|opencode|copilot>
     enabled: <bool>
     entrypoint: <string>     # e.g. ".claude/" or ".agents/skills/"
 project:
@@ -57,7 +57,7 @@ Populated by: **governor**, **tech-lead**
 - name: <string>             # Rule name (kebab-case)
   source: <roster|governor-generated|custom>  # Origin
   scope: <global|path:glob>  # Where the rule applies
-  category: <safety|style|workflow|language>  # Classification
+  category: <safety|style|workflow|language|governance>  # Classification
 ```
 
 ### `layers.hooks`
@@ -76,11 +76,14 @@ Populated by: **tech-lead**
 Populated by: **tech-lead**, **roster-skill-evolve**
 
 ```yaml
-- name: <string>             # Skill name (kebab-case, must start with roster-)
+- name: <string>             # Skill name (kebab-case). The roster- prefix is a naming
+                             # convention for pipeline/meta skills, not a hard requirement —
+                             # standalone skills are exempt (e.g. git-conventions, kb-update,
+                             # tdd-workflow, image-generation)
   source: <roster|external|custom>  # Origin
   version: <semver>          # Installed version
-  domain: <pipeline|operational|meta|shared>  # Skill domain
-  phase: <intake|plan|implement|review|qa|ship|null>  # Pipeline phase (null if not a pipeline skill)
+  domain: <kb|media|meta|operational|pipeline|shared|testing|workflow>  # Skill domain
+  phase: <intake|question|research|spec|plan|implement|review|qa|ship|null>  # Pipeline phase (null if not a pipeline skill)
   tunables: {}               # Local overrides for skill tunables
 ```
 

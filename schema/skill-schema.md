@@ -42,7 +42,7 @@ when_to_use: "Use when …; e.g. '<phrase>'."   # Trigger situations + example p
 ```yaml
 ---
 domain: <kb|media|meta|pipeline|shared|testing|workflow>
-phase: <intake|plan|implement|review|qa|ship|null>
+phase: <intake|question|research|spec|plan|implement|review|qa|ship|null>
 capability: <formal-rocq|formal-quint|workflow-builder>   # optional; required for skills that
                                                            # use a specialised backend or runner
 tags: [tag1, tag2]
@@ -60,7 +60,12 @@ tunables:
 artifacts:
   reads: [<path pattern>]    # contractual inputs (checked at skill start)
   writes: [<path pattern>]   # contractual outputs (produced before skill ends)
-human_gate: <before|after|both|none>
+human_gate: <before|during|after|both|none>
+                             # during → the gate sits inside the skill's own steps (an in-run
+                             # AskUserQuestion checkpoint, e.g. roster-workflow-build's template
+                             # confirmation) rather than before/after the whole run
+disable-model-invocation: <bool>  # true → the runtime must never auto-select this skill; it is
+                                  # maintainer/human-invoked only (e.g. roster-upgrade)
 pipeline_role:
   triggered_by: <string>
   receives: <string>
@@ -97,9 +102,11 @@ If `preamble: true`, the contents of `skills/shared/preamble.md` are injected at
 
 ## Naming Convention
 
-- File: `skills/<domain>/<name>.md`
 - File: `skills/<domain>/<name>.md` where `<name>` is the kebab-case skill identifier
 - Names must be kebab-case, unique across all skills (no mandatory `roster-` prefix)
+- Exemption: `skills/shared/preamble.md` is an injected fragment, not a standalone skill —
+  `check-skill-structure.ts` skips it (`SKIP_FILES`) and it is not subject to skill frontmatter
+  or naming requirements
 - Canonical shared location after install: `.harness/skills/<name>.md`
 - Claude compatibility location: `.claude/commands/<name>.md`
 - Domain groups skills by function: `kb`, `media`, `meta`, `pipeline`, `shared`, `testing`, `workflow`
