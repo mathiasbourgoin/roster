@@ -111,42 +111,171 @@ export async function saveRegistry(projectRoot: string, registry: Registry, dryR
   await fs.rename(tempPath, registryPath);
 }
 
-export async function withRegistryLock<T>(projectRoot: string, action: () => Promise<T>): Promise<T> {
+// ---------------------------------------------------------------------------
+// Registry lock (R3 redesign)
+//
+// Artifact shape (observed by the public stale-lock test — do not change):
+// a lock DIRECTORY `.harness/extensions.lock` containing `owner.json` with
+// numeric `pid` and `acquired_at` (epoch ms). This design adds a `token` for
+// ownership re-verification; readers of the legacy shape are unaffected.
+//
+// Acquisition is an atomic exclusive-create (`mkdir`). Reclaim of a stale lock
+// is an atomic `rename` to a caller-unique quarantine path — exactly one
+// contender can win the rename, which closes the read→rm TOCTOU where two
+// processes could both delete and both acquire. After every acquisition the
+// owner file is read back and its token verified (post-reclaim
+// re-verification); release is token-checked so a holder never removes a lock
+// it no longer owns.
+// ---------------------------------------------------------------------------
+
+export type LockConfig = {
+  staleMs: number;
+  retryBudgetMs: number;
+  pollMs: number;
+};
+
+// Named defaults. The retry budget MUST exceed the staleness threshold so a
+// waiter always survives long enough to reclaim a lock that goes stale while
+// it is waiting (the old constants had budget 2.5s < threshold 5s).
+export const LOCK_DEFAULTS: LockConfig = { staleMs: 5_000, retryBudgetMs: 10_000, pollMs: 25 };
+
+export const LOCK_STALE_MS_ENV = "ROSTER_EXTENSION_LOCK_STALE_MS";
+export const LOCK_RETRY_BUDGET_MS_ENV = "ROSTER_EXTENSION_LOCK_RETRY_BUDGET_MS";
+export const LOCK_POLL_MS_ENV = "ROSTER_EXTENSION_LOCK_POLL_MS";
+
+function envMs(name: string): number | undefined {
+  const raw = process.env[name];
+  if (raw === undefined) return undefined;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+export function resolveLockConfig(overrides?: Partial<LockConfig>): LockConfig {
+  const config: LockConfig = {
+    staleMs: overrides?.staleMs ?? envMs(LOCK_STALE_MS_ENV) ?? LOCK_DEFAULTS.staleMs,
+    retryBudgetMs: overrides?.retryBudgetMs ?? envMs(LOCK_RETRY_BUDGET_MS_ENV) ?? LOCK_DEFAULTS.retryBudgetMs,
+    pollMs: overrides?.pollMs ?? envMs(LOCK_POLL_MS_ENV) ?? LOCK_DEFAULTS.pollMs,
+  };
+  if (config.retryBudgetMs <= config.staleMs) {
+    throw new Error(
+      `extension lock retry budget (${config.retryBudgetMs}ms) must exceed the staleness threshold (${config.staleMs}ms)`,
+    );
+  }
+  return config;
+}
+
+type LockOwner = { pid: number | null; acquiredAt: number | null; token: string | null };
+
+async function readLockOwner(ownerPath: string): Promise<LockOwner> {
+  const owner = await readJson(ownerPath).catch(() => null);
+  return {
+    pid: typeof owner?.pid === "number" ? owner.pid : null,
+    acquiredAt: typeof owner?.acquired_at === "number" ? owner.acquired_at : null,
+    token: typeof owner?.token === "string" ? owner.token : null,
+  };
+}
+
+function isPidAlive(pid: number | null): boolean {
+  if (pid === null) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // Any failure other than "no such process" (e.g. EPERM) means it exists.
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
+  }
+}
+
+// A lock is stale when its holder is dead AND it is older than the staleness
+// threshold. Age comes from owner.json; if the holder crashed between mkdir
+// and the owner write, the lock directory's mtime stands in.
+async function isLockStale(lockPath: string, owner: LockOwner, staleMs: number): Promise<boolean> {
+  if (isPidAlive(owner.pid)) return false;
+  let age: number;
+  if (owner.acquiredAt !== null) {
+    age = Date.now() - owner.acquiredAt;
+  } else {
+    try {
+      age = Date.now() - (await fs.stat(lockPath)).mtimeMs;
+    } catch {
+      return false; // lock vanished — the acquire loop will retry mkdir
+    }
+  }
+  return age > staleMs;
+}
+
+// Atomic exclusive-create, then write + read back the owner metadata. Returns
+// the ownership token on success. Any interference (dir stolen between mkdir
+// and write, token mismatch on read-back) yields null and the caller retries.
+async function tryAcquireLock(lockPath: string, ownerPath: string): Promise<string | null> {
+  const token = crypto.randomUUID();
+  try {
+    await fs.mkdir(lockPath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    return null;
+  }
+  try {
+    await fs.writeFile(ownerPath, JSON.stringify({ pid: process.pid, acquired_at: Date.now(), token }), { flag: "wx" });
+    const readBack = await readLockOwner(ownerPath);
+    return readBack.token === token ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+// Atomic reclaim: exactly one contender wins the rename; the loser sees ENOENT
+// and simply retries. The quarantined directory is then deleted out-of-band of
+// the lock path, so a fresh lock created by the winner can never be destroyed
+// by a slow second reclaimer (the old read→rm TOCTOU).
+async function reclaimStaleLock(lockPath: string, token: string): Promise<void> {
+  const quarantine = `${lockPath}.reclaimed-${token}`;
+  try {
+    await fs.rename(lockPath, quarantine);
+  } catch {
+    return; // another contender won the reclaim (or the holder released)
+  }
+  await fs.rm(quarantine, { recursive: true, force: true });
+}
+
+async function releaseLock(lockPath: string, ownerPath: string, token: string): Promise<void> {
+  const owner = await readLockOwner(ownerPath);
+  if (owner.token !== null && owner.token !== token) return; // not ours anymore
+  await fs.rm(lockPath, { recursive: true, force: true });
+}
+
+async function acquireRegistryLock(projectRoot: string, lockPath: string, config: LockConfig): Promise<string> {
+  const ownerPath = path.join(lockPath, "owner.json");
+  const deadline = Date.now() + config.retryBudgetMs;
+  const reclaimToken = crypto.randomUUID();
+  for (;;) {
+    const token = await tryAcquireLock(lockPath, ownerPath);
+    if (token !== null) return token;
+    const owner = await readLockOwner(ownerPath);
+    if (await isLockStale(lockPath, owner, config.staleMs)) {
+      await reclaimStaleLock(lockPath, reclaimToken);
+      continue; // retry the exclusive create immediately
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(`timed out waiting for extension registry lock: ${path.relative(projectRoot, lockPath)}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, config.pollMs));
+  }
+}
+
+export async function withRegistryLock<T>(
+  projectRoot: string,
+  action: () => Promise<T>,
+  lockConfig?: Partial<LockConfig>,
+): Promise<T> {
+  const config = resolveLockConfig(lockConfig);
   const lockPath = path.join(projectRoot, ".harness/extensions.lock");
   const ownerPath = path.join(lockPath, "owner.json");
   await fs.mkdir(path.dirname(lockPath), { recursive: true });
-  let acquired = false;
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    try {
-      await fs.mkdir(lockPath);
-      await fs.writeFile(ownerPath, JSON.stringify({ pid: process.pid, acquired_at: Date.now() }), { flag: "wx" });
-      acquired = true;
-      break;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      const owner = await readJson(ownerPath).catch(() => null);
-      const pid = typeof owner?.pid === "number" ? owner.pid : null;
-      const acquiredAt = typeof owner?.acquired_at === "number" ? owner.acquired_at : 0;
-      let ownerAlive = false;
-      if (pid !== null) {
-        try {
-          process.kill(pid, 0);
-          ownerAlive = true;
-        } catch (killError) {
-          if ((killError as NodeJS.ErrnoException).code !== "ESRCH") ownerAlive = true;
-        }
-      }
-      if (!ownerAlive && Date.now() - acquiredAt > 5_000) {
-        await fs.rm(lockPath, { recursive: true, force: true });
-        continue;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 25));
-    }
-  }
-  if (!acquired) throw new Error(`timed out waiting for extension registry lock: ${path.relative(projectRoot, lockPath)}`);
+  const token = await acquireRegistryLock(projectRoot, lockPath, config);
   try {
     return await action();
   } finally {
-    await fs.rm(lockPath, { recursive: true, force: true });
+    await releaseLock(lockPath, ownerPath, token);
   }
 }
