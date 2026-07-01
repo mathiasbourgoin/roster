@@ -19,14 +19,28 @@ An extension can expose a `roster-extension.json` manifest. If absent, roster fa
 
 ## Fields
 
-| Field | Required | Description |
+The **Required** column applies to an explicit `roster-extension.json` only: when that file is present, `schema_version`, `name`, and `version` must be present and well-formed or the manifest is rejected. When no `roster-extension.json` exists, every field is inferred through the fallback chain below.
+
+| Field | Required (explicit manifest) | Description |
 |---|---:|---|
-| `schema_version` | yes | Must be `"1.0"` when present. |
+| `schema_version` | yes | Must be `"1.0"`. |
 | `name` | yes | Lowercase safe name: letters, digits, dots, underscores, and hyphens. |
 | `version` | yes | Extension version. Semver is recommended. |
 | `type` | no | Descriptive classification: `skill-pack`, `apparatus`, `profile-pack`, or `workflow-pack`. Inferred when absent; it does not change v1 installation behavior. |
 | `description` | no | Human-readable summary. |
 | `runtime_targets` | no | Supported projection targets. Current managed targets are `codex` and `opencode`; default is `codex`. |
+
+### Fallback chain (no explicit manifest)
+
+Without `roster-extension.json`, roster reads `.claude-plugin/plugin.json` (if present) and infers the rest from the repository layout:
+
+- `name`: `roster-extension.json` → `.claude-plugin/plugin.json` `name` → the extension directory's basename. Whatever source wins must still be a safe lowercase name.
+- `version`: `roster-extension.json` → `.claude-plugin/plugin.json` `version` → the trimmed content of a `VERSION` file at the extension root → the literal `"0.0.0"`.
+- `description`: manifest/plugin `description` → empty string.
+- `type`: manifest/plugin `type` → inferred from discovered components (profiles or templates → `apparatus`; workflows → `workflow-pack`; skills → `skill-pack`; otherwise `profile-pack`).
+- `runtime_targets`: manifest/plugin `runtime_targets` → `["codex"]`.
+
+These fallbacks are deliberate (decided 2026-07-01: document, don't enforce): plugin-style repositories install without any roster-specific manifest. The `"0.0.0"` version sentinel means "no version information available" — publish a `VERSION` file or an explicit manifest to get meaningful `converge` version tracking.
 
 ## Inferred Components
 
