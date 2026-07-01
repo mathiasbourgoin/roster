@@ -44,8 +44,8 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | tech-lead | 1.9.1 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
 | recruiter | 2.7.0 | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
-| governor | 2.1.0 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
-| kb-agent | 2.4.0 | opus | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
+| governor | 2.1.1 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
+| kb-agent | 2.4.1 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
 | project-auditor | 1.1.0 | opus | Performs exhaustive project mapping and multi-slice audits, producing a hierarchical kb/ with components, invariants, risks, and fix candidates |
 | skill-creator | 1.4.0 | opus | Designs reusable workflow skills from repeated patterns, with search-first and safety checks |
 | planner | 1.2.0 | opus | Sub-agent behind `/roster-plan` — decomposes a validated brief into per-role sub-briefs with fresh context |
@@ -101,25 +101,29 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
 | gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
-## Skills (34)
+## Skills (37)
 
-### Pipeline (14)
+### Pipeline (18)
 | Skill | Version | Purpose |
 |-------|---------|---------|
 | roster-run | 1.7.0 | Pipeline entry point — detects context and routes to the right skill |
-| roster-init | 1.2.1 | Bootstrap a new project or onboard an existing project into the roster ecosystem |
+| roster-init | 1.2.2 | Bootstrap a new project or onboard an existing project into the roster ecosystem |
 | roster-intake | 1.1.0 | Intake phase — transforms a task into a contractual brief validated by the human |
-| roster-spec | 2.0.0 | Adversarial spec phase — derives user stories with GWT scenarios, formalizes FR-NNN requirements |
-| roster-plan | 1.3.0 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
+| roster-spec | 2.0.2 | Adversarial spec phase — derives user stories with GWT scenarios, formalizes FR-NNN requirements |
+| roster-plan | 1.3.1 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
 | roster-implement | 1.5.0 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
-| roster-review | 1.5.0 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
+| roster-review | 1.5.1 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
 | roster-qa | 1.3.1 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
 | roster-ship | 1.3.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
 | roster-investigate | 1.3.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
 | roster-audit | 1.1.1 | Quality and compliance audit — combines code-quality and spec-compliance into one actionable report |
 | roster-doctor | 1.2.0 | Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment is runnable before work starts |
 | roster-question | 1.0.0 | Decompose a task into neutral research questions — blind research prep, task intent not revealed |
-| roster-research | 1.2.0 | Blind documentarian research — reads questions only, produces file:line grounded research |
+| roster-research | 1.2.2 | Blind documentarian research — reads questions only, produces file:line grounded research |
+| roster-workflow-build | 1.0.0 | Translates a validated plan JSON into a CWR workflow file using the matching mode template |
+| roster-triage-critical | 1.0.0 | Critical-route triage — property elicitation, priority ordering, backend proposal, cost disclosure |
+| roster-spec-formal | 1.0.0 | Formal spec phase — extends roster-spec output with a Rocq (.v) or Quint (.qnt) formal spec artifact |
+| roster-formal-verify | 1.0.0 | Formal verification gate — re-runs coqchk/.itf replay, emits evidence tier; replaces QA for --critical tasks |
 
 ### Meta (3)
 | Skill | Version | Purpose |
@@ -156,13 +160,14 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 |-------|---------|---------|
 | image-generation | 1.0.1 | Generate or edit images via Codex CLI — with prompt refinement, vision validation, retry loop |
 
-## Rules (5)
+## Rules (6)
 
 | Rule | Category | Scope |
 |------|----------|-------|
 | sycophancy | safety | global |
 | escalation | safety | global |
 | code-quality | style | global |
+| context-budget | workflow | global |
 | human-validation | governance | global |
 | diagnostic-interview | governance | global |
 

@@ -4,14 +4,20 @@ Profiles define which harness layers are installed. The **tech-lead** agent sele
 
 ## Profile Definitions
 
-| Profile     | Agents                                                        | Rules                                  | Hooks                        | Skills                                  | KB               |
-|-------------|---------------------------------------------------------------|----------------------------------------|------------------------------|-----------------------------------------|------------------|
-| `core`      | tech-lead, reviewer                                           | sycophancy, escalation                 | block-dangerous-commands     | —                                       | —                |
-| `developer` | core + implementer, qa, architect, kb-agent                   | core + detected language rules         | core + post-edit-lint        | tdd-workflow, kb-update, git-conventions | bootstrap proposed |
-| `security`  | developer + mcp-vetter                                        | developer + security-audit             | developer (secret-scan: not yet available) | (security-review: not yet available) | + security auditor |
-| `full`      | all applicable                                                | all applicable                         | all                          | all                                     | bootstrap + all auditors |
+These definitions transcribe the arrays in `scripts/init-harness.sh` — the script is the
+behavior; this document describes it. If they disagree, the script wins and this table is stale.
 
-Profiles are additive — each tier includes everything from the tier below it.
+| Profile     | Agents                                                        | Rules                                  | Hooks                        | Skills                                  |
+|-------------|---------------------------------------------------------------|----------------------------------------|------------------------------|-----------------------------------------|
+| `core`      | recruiter, tech-lead, reviewer                                | sycophancy, escalation, code-quality, human-validation | block-dangerous-commands     | —                                       |
+| `developer` | core + implementer, qa, architect, kb-agent, planner          | core                                   | core + post-edit-lint        | tdd-workflow, kb-update, git-conventions |
+| `security`  | developer + mcp-vetter, red-team-auditor                      | core                                   | developer                    | developer                               |
+| `full`      | security + harness-builder, context-manager, project-auditor, skill-creator, tool-provisioner, performance-monitor, expert-debugger, config-migrator, kernel-arm64-bringup, fex-wine-proton, gamescope-mangohud-qam | core | developer | developer + ambiguity-auditor, code-quality-auditor, spec-compliance-auditor, harness-validator |
+
+Profiles compose additively — each tier includes everything from the tier below it
+(core ⊂ developer ⊂ security ⊂ full). The installer copies the same core rule set for every
+profile; per-profile rule additions (detected language rules, security-audit) and KB bootstrap
+are handled by the governor and kb-agent after install, not by `init-harness.sh`.
 
 ## Profile Selection
 
@@ -40,7 +46,7 @@ Switching never removes components silently. The tech-lead shows a diff summary:
 ```
 Profile: core → developer
 
-+ agents:  implementer, qa, architect, kb-agent
++ agents:  implementer, qa, architect, kb-agent, planner
 + rules:   ocaml-style (detected)
 + hooks:   post-edit-lint
 + skills:  tdd-workflow, kb-update, git-conventions

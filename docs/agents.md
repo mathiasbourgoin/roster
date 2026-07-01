@@ -6,24 +6,23 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 
 ---
 
-## Agents (27)
+## Agents (26)
 
-### Management (12)
+### Management (11)
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| tech-lead | 1.9.0 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
-| recruiter | 2.5.2 | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
+| tech-lead | 1.9.1 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
+| recruiter | 2.7.0 | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
-| governor | 2.1.0 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
-| kb-agent | 2.4.0 | opus | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
+| governor | 2.1.1 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
+| kb-agent | 2.4.1 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
 | project-auditor | 1.1.0 | opus | Performs exhaustive project mapping and multi-slice audits, producing a hierarchical kb/ with components, invariants, risks, and fix candidates |
 | skill-creator | 1.4.0 | opus | Designs reusable workflow skills from repeated patterns, with search-first and safety checks |
 | architect | 1.5.0 | sonnet | Code quality and architecture guardian focused on structural regressions, duplication, and maintainability risks |
 | context-manager | 1.3.0 | haiku | Maintains concise shared context for multi-agent execution to reduce drift and duplication |
 | planner | 1.2.0 | opus | Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent |
 | pr-workflow | 1.2.0 | sonnet | Owns the project PR/git workflow — conventional commits, rebase merge, pre-push validation, and review rounds |
-| error-coordinator | 1.4.0 | sonnet | Correlates failures across CI, tests, and agents to isolate likely root causes quickly |
 
 > **Note:** `recruiter` and `governor` source files live in `recruiter/` and `governor/` respectively (predates the `agents/<domain>/` convention). These directories are closed to new additions. To add a new management agent, always use `agents/management/` — the `recruiter/` and `governor/` directories are legacy locations that cannot be changed without breaking the `install.sh` path references (which hardcode `recruiter/recruiter.md`).
 
@@ -61,7 +60,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| expert-debugger | 1.3.0 | opus | Escalation agent for hard diagnostic problems |
+| expert-debugger | 1.4.0 | opus | Escalation agent for hard diagnostic problems |
 | config-migrator | 1.3.0 | sonnet | One-shot env→pydantic-settings migration (Python) |
 | migration-guard | 1.2.0 | sonnet | Guards incremental migrations — detects regressions between steps |
 | ocaml-dune-specialist | 1.2.0 | sonnet | Specialist for OCaml/dune/.opam: .mli discipline, dune layout, ppx wiring, opam metadata |
@@ -78,7 +77,7 @@ These agents are domain-specific overlays for particular hardware/projects. Inst
 
 ---
 
-## Skills (33)
+## Skills (37)
 
 Skills are slash-command workflows that run in the main context and produce contractual artifacts that chain across pipeline phases.
 
@@ -144,13 +143,14 @@ Skills are slash-command workflows that run in the main context and produce cont
 
 ---
 
-## Rules (5)
+## Rules (6)
 
 | Rule | Category | Scope |
 |------|----------|-------|
 | sycophancy | safety | global |
 | escalation | safety | global |
 | code-quality | style | global |
+| context-budget | workflow | global |
 | human-validation | governance | global |
 | diagnostic-interview | governance | global |
 
@@ -165,14 +165,22 @@ Skills are slash-command workflows that run in the main context and produce cont
 
 ## Profiles
 
-Bootstrap profiles (used with `init-harness.sh`):
+Bootstrap profiles (used with `init-harness.sh`). Profiles compose additively — each tier
+installs everything from the tier below plus its own additions:
 
-| Profile | Includes |
-|---------|---------|
-| `core` | tech-lead, recruiter, implementer |
-| `developer` | core + reviewer, qa, architect, kb-agent |
+| Profile | Agents added |
+|---------|--------------|
+| `core` | recruiter, tech-lead, reviewer |
+| `developer` | core + implementer, qa, architect, kb-agent, planner |
 | `security` | developer + mcp-vetter, red-team-auditor |
-| `full` | security + all specialist agents |
+| `full` | security + harness-builder, context-manager, project-auditor, skill-creator, tool-provisioner, performance-monitor, expert-debugger, config-migrator, kernel-arm64-bringup, fex-wine-proton, gamescope-mangohud-qam |
+
+Skills and hooks follow the same additive scheme: `developer`+ adds tdd-workflow, kb-update,
+git-conventions and the post-edit-lint hook; `full` adds ambiguity-auditor,
+code-quality-auditor, spec-compliance-auditor, harness-validator. All profiles install the
+four core rules (sycophancy, escalation, code-quality, human-validation) and the
+block-dangerous-commands hook. See `schema/profiles.md` and `scripts/init-harness.sh`
+(the script is the behavior; the docs describe it).
 
 ---
 
