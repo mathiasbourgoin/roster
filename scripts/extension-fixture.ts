@@ -17,6 +17,7 @@ export type SkillFixture = {
   dir: string;
   name?: string;
   version?: string;
+  description?: string;
   extraFiles?: Record<string, string>;
 };
 
@@ -27,6 +28,7 @@ export type ExtensionFixtureOptions = {
   versionFile?: string;
   skills?: SkillFixture[];
   profiles?: string[];
+  templates?: string[];
 };
 
 export async function write(filePath: string, content: string): Promise<void> {
@@ -52,16 +54,14 @@ function skillMarkdown(skill: SkillFixture): string {
   const lines = ["---"];
   if (skill.name) lines.push(`name: ${skill.name}`);
   lines.push(`version: ${skill.version ?? "1.0.0"}`);
+  if (skill.description) lines.push(`description: ${skill.description}`);
   lines.push("---", `# ${skill.name ?? skill.dir}`, "");
   return lines.join("\n");
 }
 
-// Fabricates an extension source directory. The extension lives in a safe-named
-// subdirectory (mkdtemp basenames may contain uppercase, which the installer's
-// name fallback would reject).
-export async function makeExtension(options: ExtensionFixtureOptions = {}): Promise<string> {
-  const root = path.join(await tempRoot(), options.dirName ?? "fixture-ext");
-  await fs.mkdir(root, { recursive: true });
+// Writes extension content into an existing root. Shared by makeExtension (fresh
+// temp root) and the canned pack builders (caller-provided root).
+async function writeExtensionInto(root: string, options: ExtensionFixtureOptions): Promise<void> {
   if (options.plugin) {
     await write(path.join(root, ".claude-plugin/plugin.json"), JSON.stringify(options.plugin));
   }
@@ -80,7 +80,61 @@ export async function makeExtension(options: ExtensionFixtureOptions = {}): Prom
   for (const profile of options.profiles ?? []) {
     await write(path.join(root, "profiles", `${profile}.md`), `# ${profile}\n`);
   }
+  for (const template of options.templates ?? []) {
+    await write(path.join(root, "project-template", `${template}.template`), `# ${template}\n`);
+  }
+}
+
+// Fabricates an extension source directory. The extension lives in a safe-named
+// subdirectory (mkdtemp basenames may contain uppercase, which the installer's
+// name fallback would reject).
+export async function makeExtension(options: ExtensionFixtureOptions = {}): Promise<string> {
+  const root = path.join(await tempRoot(), options.dirName ?? "fixture-ext");
+  await fs.mkdir(root, { recursive: true });
+  await writeExtensionInto(root, options);
   return root;
+}
+
+// Canned multi-skill pack used by the legacy lifecycle tests (migrated from
+// roster-extension.test.ts local builders — scenario preserved 1:1).
+export async function makeSkillPack(root: string): Promise<void> {
+  await writeExtensionInto(root, {
+    plugin: { name: "security-workflows", version: "1.57.0", description: "Security workflow skills" },
+    skills: [
+      {
+        dir: "security-hunt",
+        name: "security-hunt",
+        version: "1.0.0",
+        description: "Hunt for invariant violations.",
+        extraFiles: { "reference.md": "# Reference\n" },
+      },
+      { dir: "security-review", name: "security-review", version: "1.0.0" },
+    ],
+  });
+}
+
+// Canned apparatus pack (skills + profiles + project templates) — migrated 1:1.
+export async function makeApparatus(root: string): Promise<void> {
+  await writeExtensionInto(root, {
+    plugin: { name: "verification-apparatus", version: "1.2.1", description: "Verification project apparatus" },
+    skills: [{ dir: "verification-apparatus", name: "verification-apparatus", version: "1.2.1" }],
+    profiles: ["example-host"],
+    templates: ["STATUS.md"],
+  });
+}
+
+// Writes a harness manifest with codex enabled at the given entrypoint and
+// opencode disabled — migrated 1:1 from the legacy writeHarness builder.
+export async function writeHarness(root: string, codexEntrypoint: string): Promise<void> {
+  await write(
+    path.join(root, ".harness/harness.json"),
+    JSON.stringify({
+      runtimes: [
+        { name: "codex", enabled: true, entrypoint: codexEntrypoint },
+        { name: "opencode", enabled: false, entrypoint: ".opencode" },
+      ],
+    }),
+  );
 }
 
 // Spawns the compiled CLI and never throws — exit code, stdout, and stderr are

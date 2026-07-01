@@ -11,6 +11,9 @@ import {
   makeProject,
   makeExtension,
   makeRegistryEntry,
+  makeSkillPack,
+  makeApparatus,
+  writeHarness,
   writeRegistry,
   runCli as runFixtureCli,
   tempRoot,
@@ -26,55 +29,6 @@ async function runCli(args: string[]): Promise<CliResult> {
 }
 
 const tempDir = tempRoot;
-
-async function makeSkillPack(root: string): Promise<void> {
-  await write(
-    path.join(root, ".claude-plugin/plugin.json"),
-    JSON.stringify({ name: "security-workflows", version: "1.57.0", description: "Security workflow skills" }),
-  );
-  await write(
-    path.join(root, "skills/security-hunt/SKILL.md"),
-    [
-      "---",
-      "name: security-hunt",
-      "version: 1.0.0",
-      "description: Hunt for invariant violations.",
-      "---",
-      "# Security Hunt",
-      "",
-    ].join("\n"),
-  );
-  await write(path.join(root, "skills/security-hunt/reference.md"), "# Reference\n");
-  await write(
-    path.join(root, "skills/security-review/SKILL.md"),
-    "---\nname: security-review\nversion: 1.0.0\n---\n# Security Review\n",
-  );
-}
-
-async function makeApparatus(root: string): Promise<void> {
-  await write(
-    path.join(root, ".claude-plugin/plugin.json"),
-    JSON.stringify({ name: "verification-apparatus", version: "1.2.1", description: "Verification project apparatus" }),
-  );
-  await write(
-    path.join(root, "skills/verification-apparatus/SKILL.md"),
-    "---\nname: verification-apparatus\nversion: 1.2.1\n---\n# Verification Apparatus\n",
-  );
-  await write(path.join(root, "profiles/example-host.md"), "# Example host profile\n");
-  await write(path.join(root, "project-template/STATUS.md.template"), "# Status\n");
-}
-
-async function writeHarness(root: string, codexEntrypoint: string): Promise<void> {
-  await write(
-    path.join(root, ".harness/harness.json"),
-    JSON.stringify({
-      runtimes: [
-        { name: "codex", enabled: true, entrypoint: codexEntrypoint },
-        { name: "opencode", enabled: false, entrypoint: ".opencode" },
-      ],
-    }),
-  );
-}
 
 describe("roster-extension CLI argument parsing", () => {
   it("rejects --target with a missing value and prints usage", async () => {
