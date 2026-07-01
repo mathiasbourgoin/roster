@@ -13,6 +13,24 @@ import {
   type PlannedFile,
 } from "./planner.js";
 
+// Bounded empty-dir prune (R10b): after deletions, walk each affected file's
+// parent chain upward and rmdir while empty, stopping strictly below the
+// managed roots — the roots themselves (e.g. .agents/skills) always survive.
+// rmdir refuses non-empty directories, so foreign files halt the walk safely.
+async function pruneEmptyDirs(targets: string[], managedRoots: string[]): Promise<void> {
+  for (const target of targets) {
+    let dir = path.dirname(target);
+    while (managedRoots.some((root) => dir.startsWith(`${root}${path.sep}`))) {
+      try {
+        await fs.rmdir(dir);
+      } catch {
+        break; // not empty (or already gone) — stop this walk
+      }
+      dir = path.dirname(dir);
+    }
+  }
+}
+
 export async function applyInstallTransaction(
   projectRoot: string,
   files: PlannedFile[],
@@ -24,6 +42,7 @@ export async function applyInstallTransaction(
   const backups = path.join(transactionRoot, "backups");
   const staged = path.join(transactionRoot, "staged");
   const touched: { target: string; backup: string | null }[] = [];
+  const deletions: string[] = [];
   await fs.mkdir(backups, { recursive: true });
   await fs.mkdir(staged, { recursive: true });
 
@@ -48,16 +67,20 @@ export async function applyInstallTransaction(
       }
       touched.push({ target, backup });
       if (mutation.stage) await fs.rename(mutation.stage, target);
+      else deletions.push(target);
     }
     await save();
+    await pruneEmptyDirs(deletions, managedRoots);
   } catch (error) {
-    for (const item of touched.reverse()) {
+    const rolledBack = touched.reverse();
+    for (const item of rolledBack) {
       await fs.rm(item.target, { force: true });
       if (item.backup && (await exists(item.backup))) {
         await fs.mkdir(path.dirname(item.target), { recursive: true });
         await fs.rename(item.backup, item.target);
       }
     }
+    await pruneEmptyDirs(rolledBack.map((item) => item.target), managedRoots);
     throw error;
   } finally {
     await fs.rm(transactionRoot, { recursive: true, force: true });
