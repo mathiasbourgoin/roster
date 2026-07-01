@@ -189,8 +189,8 @@ LEDGER_SCHEMA='
    fast:["implement","review","qa","ship"],
    full:["question","research","intake","spec","plan","implement","review","qa","ship"]} as $seq
   | {intake:["VALIDATED"],spec:["VALIDATED","SKIPPED","BOUNCED"],
-     review:["GO","NO-GO"],qa:["GO","NO-GO"],ship:["COMPLETED"],
-     question:["COMPLETED"],research:["COMPLETED"],plan:["COMPLETED"],implement:["COMPLETED"]} as $vocab
+     review:["GO","NO-GO"],qa:["GO","NO-GO"],ship:["COMPLETED","BLOCKED"],
+     question:["COMPLETED"],research:["COMPLETED"],plan:["COMPLETED"],implement:["COMPLETED","PARTIAL"]} as $vocab
   | .current_phase as $cp | .mode as $m | (.events[-1]) as $last
   | (.task == $t)
     and ($seq[$m] != null)
@@ -199,6 +199,7 @@ LEDGER_SCHEMA='
     and ($last.phase == $cp)
     and (($seq[$m]|index($cp)) != null)
     and (($vocab[$last.phase] // []) | index($last.outcome) != null)
+    and (($last.reason // "") | type == "string")
 '
 for f in <selected ledgers>; do
   # The expected slug is the file's own basename (status scans whatever ledgers exist, so it
@@ -221,10 +222,14 @@ Then state the **next phase** roster-run would resume into, computed from `curre
 the recorded `mode`'s sequence** (express: implement→review→ship; fast: implement→review→qa→ship;
 full: question→research→intake→spec→plan→implement→review→qa→ship):
 
-- If `current_phase` is the last in its mode's sequence (`ship`), print `next: complete`.
+- If `current_phase` is the last in its mode's sequence (`ship`), print `next: complete` when
+  the latest `ship` outcome is `COMPLETED`; if it is `BLOCKED`, print `next: halted (ship
+  BLOCKED)` plus the event's `reason` if present.
 - If `current_phase` is an outcome-bearing phase (`intake`/`spec`/`review`/`qa`), note that the
   actual route is verdict-dependent (read the brief's VALIDATED/SKIPPED/BOUNCED or GO/NO-GO) —
   don't assert a positional successor.
+- If `current_phase` is `implement` with latest outcome `PARTIAL`, print `next: implement
+  (re-run — PARTIAL)`; with `COMPLETED`, print the positional successor as usual.
 - Otherwise print the positional successor in that mode's sequence.
 
 A malformed ledger is reported as a finding (above) — never crash, never rewrite it; a corrupt

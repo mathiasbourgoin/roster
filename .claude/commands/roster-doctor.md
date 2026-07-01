@@ -18,7 +18,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.5.0
+version: 1.6.0
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -131,8 +131,25 @@ Rules for writing your event:
   Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
 - **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
   `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
-  `ship`: `COMPLETED`; `question`/`research`/`plan`/`implement`: `COMPLETED`. Do not invent other
-  values.
+  `ship`: `COMPLETED` or `BLOCKED`; `implement`: `COMPLETED` or `PARTIAL`;
+  `question`/`research`/`plan`: `COMPLETED`. Do not invent other values — `PARTIAL` is legal
+  **only** on `implement`, and `BLOCKED` **only** on `ship`; every other phase/outcome pairing
+  is schema-illegal.
+- **Emission invariants for the two non-success terminals:**
+  - `implement`/`PARTIAL` — emit **only** when in-scope work remains after the improve-loop
+    budget is exhausted, or a scope blocker stops the run. Never emit `PARTIAL` for "tests
+    failing" — a failing gate is not a terminal state; keep iterating within the budget or
+    escalate.
+  - `ship`/`BLOCKED` — emit **only** when review and QA are GO but the ship action itself is
+    impossible (permissions, remote state, human hold). A NO-GO gate is not `BLOCKED`.
+  - Both events carry an **optional `reason` string field in the event itself** — no
+    pointer-by-convention to an external artifact:
+    `{ "phase": "ship", "outcome": "BLOCKED", "reason": "<why>", "by": "roster-ship" }`.
+  - **Artifact writes happen BEFORE the event append.** Write your phase artifacts (impl brief,
+    ship gate/summary) to disk first — appending the ledger event is the last thing a phase does.
+- **Resume semantics** (read by `/roster-run` Step 1.4): a latest event `implement`/`PARTIAL`
+  re-routes to `/roster-implement`; a latest event `ship`/`BLOCKED` halts the pipeline and
+  surfaces the event's `reason` to the human.
 - **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
   A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
   repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
@@ -314,8 +331,8 @@ LEDGER_SCHEMA='
    fast:["implement","review","qa","ship"],
    full:["question","research","intake","spec","plan","implement","review","qa","ship"]} as $seq
   | {intake:["VALIDATED"],spec:["VALIDATED","SKIPPED","BOUNCED"],
-     review:["GO","NO-GO"],qa:["GO","NO-GO"],ship:["COMPLETED"],
-     question:["COMPLETED"],research:["COMPLETED"],plan:["COMPLETED"],implement:["COMPLETED"]} as $vocab
+     review:["GO","NO-GO"],qa:["GO","NO-GO"],ship:["COMPLETED","BLOCKED"],
+     question:["COMPLETED"],research:["COMPLETED"],plan:["COMPLETED"],implement:["COMPLETED","PARTIAL"]} as $vocab
   | .current_phase as $cp | .mode as $m | (.events[-1]) as $last
   | (.task == $t)
     and ($seq[$m] != null)
@@ -324,6 +341,7 @@ LEDGER_SCHEMA='
     and ($last.phase == $cp)
     and (($seq[$m]|index($cp)) != null)
     and (($vocab[$last.phase] // []) | index($last.outcome) != null)
+    and (($last.reason // "") | type == "string")
 '
 for f in <selected ledgers>; do
   # The expected slug is the file's own basename (status scans whatever ledgers exist, so it
@@ -346,10 +364,14 @@ Then state the **next phase** roster-run would resume into, computed from `curre
 the recorded `mode`'s sequence** (express: implement→review→ship; fast: implement→review→qa→ship;
 full: question→research→intake→spec→plan→implement→review→qa→ship):
 
-- If `current_phase` is the last in its mode's sequence (`ship`), print `next: complete`.
+- If `current_phase` is the last in its mode's sequence (`ship`), print `next: complete` when
+  the latest `ship` outcome is `COMPLETED`; if it is `BLOCKED`, print `next: halted (ship
+  BLOCKED)` plus the event's `reason` if present.
 - If `current_phase` is an outcome-bearing phase (`intake`/`spec`/`review`/`qa`), note that the
   actual route is verdict-dependent (read the brief's VALIDATED/SKIPPED/BOUNCED or GO/NO-GO) —
   don't assert a positional successor.
+- If `current_phase` is `implement` with latest outcome `PARTIAL`, print `next: implement
+  (re-run — PARTIAL)`; with `COMPLETED`, print the positional successor as usual.
 - Otherwise print the positional successor in that mode's sequence.
 
 A malformed ledger is reported as a finding (above) — never crash, never rewrite it; a corrupt

@@ -226,8 +226,8 @@ LEDGER_SCHEMA='
    fast:["implement","review","qa","ship"],
    full:["question","research","intake","spec","plan","implement","review","qa","ship"]} as $seq
   | {intake:["VALIDATED"],spec:["VALIDATED","SKIPPED","BOUNCED"],
-     review:["GO","NO-GO"],qa:["GO","NO-GO"],ship:["COMPLETED"],
-     question:["COMPLETED"],research:["COMPLETED"],plan:["COMPLETED"],implement:["COMPLETED"]} as $vocab
+     review:["GO","NO-GO"],qa:["GO","NO-GO"],ship:["COMPLETED","BLOCKED"],
+     question:["COMPLETED"],research:["COMPLETED"],plan:["COMPLETED"],implement:["COMPLETED","PARTIAL"]} as $vocab
   | .current_phase as $cp | .mode as $m | (.events[-1]) as $last
   | (.task == $t)
     and ($seq[$m] != null)
@@ -236,6 +236,7 @@ LEDGER_SCHEMA='
     and ($last.phase == $cp)
     and (($seq[$m]|index($cp)) != null)
     and (($vocab[$last.phase] // []) | index($last.outcome) != null)
+    and (($last.reason // "") | type == "string")
 '
 if [ -f briefs/<task>-state.json ]; then
   if jq -e --arg t "<task>" "$LEDGER_SCHEMA" briefs/<task>-state.json >/dev/null 2>&1; then
@@ -252,9 +253,12 @@ The `jq` gate validates the **complete** ledger schema in one predicate: valid J
 equals this task's slug (a copied/misnamed ledger must not authoritatively resume another task);
 `.mode ∈ {express,fast,full}`; `.current_phase` is a string **and a member of that mode's
 sequence** (an express ledger claiming `spec` is corrupt, not resumable); `.events` is a non-empty
-array; the last event's `phase` equals `current_phase`; and the last event's `outcome` is legal
-for its phase per the preamble vocabulary (a `ship`/`NO-GO` ledger is corrupt). Nothing downstream
-re-checks membership — the gate is authoritative.
+array; the last event's `phase` equals `current_phase`; the last event's `outcome` is legal
+for its phase per the preamble vocabulary — **per-phase strict**: `implement` ∈
+`COMPLETED|PARTIAL`, `ship` ∈ `COMPLETED|BLOCKED`, and `PARTIAL`/`BLOCKED` are illegal on every
+other phase (a `ship`/`NO-GO` or `intake`/`PARTIAL` ledger is corrupt); and the event's optional
+`reason` field, when present, is a string. Nothing downstream re-checks membership — the gate is
+authoritative.
 
 - **`CORRUPT`** → **stop.** Do not fall back to brief-file detection or classification — the
   authoritative position is untrustworthy. Report it; tell the user to run
@@ -278,8 +282,13 @@ re-checks membership — the gate is authoritative.
 
   Compute the route from `current_phase` **within that mode's sequence**:
 
-  1. **Terminal.** If `current_phase` is the last phase of its mode's sequence (`ship`), the task
-     is **complete** — report done, do not invent a next phase; start a new cycle only if asked.
+  1. **Terminal.** If `current_phase` is the last phase of its mode's sequence (`ship`), route by
+     the latest `ship` event's outcome:
+     - `ship`/`COMPLETED` → the task is **complete** — report done, do not invent a next phase;
+       start a new cycle only if asked.
+     - `ship`/`BLOCKED` → **halt.** Print the event's `reason` (or note it is absent) and stop —
+       the block is something the human resolves (permissions, remote state, hold); do not retry
+       the ship or route elsewhere.
   2. **Outcome-bearing phases are verdict-aware, not positional.** `intake`, `spec`, `review`, and
      `qa` can complete with a non-success outcome, so do not advance on ledger position alone —
      read that phase's brief and route by its verdict, scoped to the recorded mode. **The verdict
@@ -297,8 +306,11 @@ re-checks membership — the gate is authoritative.
        express/fast have no spec phase, so their NO-GO always routes to implement);
        `review` NO-GO (any other reason) → `/roster-implement`
      - `qa` GO → next phase (`ship`); `qa` NO-GO → `/roster-implement`
-  3. **Otherwise** (`question`, `research`, `plan`, `implement` — always `COMPLETED`) → the
-     positional successor in the mode's sequence.
+     - `implement` COMPLETED → the positional successor (`review`); `implement` PARTIAL →
+       re-route to `/roster-implement` to finish the remaining in-scope work (surface the
+       event's `reason` when announcing the route)
+  3. **Otherwise** (`question`, `research`, `plan` — always `COMPLETED`) → the positional
+     successor in the mode's sequence.
 
   Then run **Step 1.5** before re-entering `/roster-implement`. Announce:
   `→ resuming <task> after <current_phase> (<mode> mode)`. roster-run never writes the ledger —

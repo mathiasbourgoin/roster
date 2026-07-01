@@ -1,6 +1,6 @@
 ---
 name: roster-preamble
-version: 1.5.0
+version: 1.6.0
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -113,8 +113,25 @@ Rules for writing your event:
   Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
 - **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
   `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
-  `ship`: `COMPLETED`; `question`/`research`/`plan`/`implement`: `COMPLETED`. Do not invent other
-  values.
+  `ship`: `COMPLETED` or `BLOCKED`; `implement`: `COMPLETED` or `PARTIAL`;
+  `question`/`research`/`plan`: `COMPLETED`. Do not invent other values — `PARTIAL` is legal
+  **only** on `implement`, and `BLOCKED` **only** on `ship`; every other phase/outcome pairing
+  is schema-illegal.
+- **Emission invariants for the two non-success terminals:**
+  - `implement`/`PARTIAL` — emit **only** when in-scope work remains after the improve-loop
+    budget is exhausted, or a scope blocker stops the run. Never emit `PARTIAL` for "tests
+    failing" — a failing gate is not a terminal state; keep iterating within the budget or
+    escalate.
+  - `ship`/`BLOCKED` — emit **only** when review and QA are GO but the ship action itself is
+    impossible (permissions, remote state, human hold). A NO-GO gate is not `BLOCKED`.
+  - Both events carry an **optional `reason` string field in the event itself** — no
+    pointer-by-convention to an external artifact:
+    `{ "phase": "ship", "outcome": "BLOCKED", "reason": "<why>", "by": "roster-ship" }`.
+  - **Artifact writes happen BEFORE the event append.** Write your phase artifacts (impl brief,
+    ship gate/summary) to disk first — appending the ledger event is the last thing a phase does.
+- **Resume semantics** (read by `/roster-run` Step 1.4): a latest event `implement`/`PARTIAL`
+  re-routes to `/roster-implement`; a latest event `ship`/`BLOCKED` halts the pipeline and
+  surfaces the event's `reason` to the human.
 - **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
   A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
   repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
