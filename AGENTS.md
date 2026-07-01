@@ -111,10 +111,10 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-intake | 1.1.0 | Intake phase — transforms a task into a contractual brief validated by the human |
 | roster-spec | 2.0.2 | Adversarial spec phase — derives user stories with GWT scenarios, formalizes FR-NNN requirements |
 | roster-plan | 1.3.1 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
-| roster-implement | 1.5.0 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
+| roster-implement | 1.5.1 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
 | roster-review | 1.5.1 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
 | roster-qa | 1.3.1 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
-| roster-ship | 1.3.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
+| roster-ship | 1.3.1 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
 | roster-investigate | 1.3.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
 | roster-audit | 1.1.1 | Quality and compliance audit — combines code-quality and spec-compliance into one actionable report |
 | roster-doctor | 1.2.0 | Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment is runnable before work starts |
@@ -158,7 +158,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Media (1, experimental)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| image-generation | 1.0.1 | Generate or edit images via Codex CLI — with prompt refinement, vision validation, retry loop |
+| image-generation | 1.0.2 | Generate or edit images via Codex CLI — with prompt refinement, vision validation, retry loop |
 
 ## Rules (6)
 
