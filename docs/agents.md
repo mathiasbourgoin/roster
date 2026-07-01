@@ -99,6 +99,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 | `/roster-ship` | Ship | Rebase-merge, conventional commits, PR |
 | `/roster-investigate` | Operational | Root-cause analysis, read-only, freeze scope |
 | `/roster-audit` | Operational | Code quality + spec compliance combined report |
+| `/roster-doctor` | Operational | Health check + pipeline pre-flight — install integrity and runnable dev environment |
 | `/roster-triage-critical` | Critical route (phase: null) | Elicits formal-verification properties, proposes Rocq/Quint backend, writes briefs/&lt;slug&gt;-formal-triage.md |
 | `/roster-spec-formal` | Critical route (phase: null) | Extends roster-spec output with formal spec file (.v/.qnt) from triage brief |
 | `/roster-formal-verify` | Critical route (phase: null) | Runs coqchk/.itf replay, emits evidence tiers (E0p/E0m/E1), gates before review |
@@ -109,6 +110,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 |-------|---------|
 | `roster-skill-health` | Friction log analysis → proposes new skills, tools, adaptations |
 | `roster-skill-evolve` | Implements approved skill-health proposals |
+| `roster-upgrade` | Propose-only roster upgrade for installed projects — two-gate (leak scan + validation quiz) |
 
 ### Workflow skills
 
@@ -119,9 +121,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 | `improvement-loop-planner` | management | Propose bounded improvement loops from KB, tests, issues, CI, and code signals |
 | `improvement-loop` | workflow | Execute a bounded verification-first improvement loop |
 | `roster-config` | workflow | Discover and set tunables across installed agents |
-| `team-build` | management | Assemble and configure a multi-agent team from a spec |
-| `team-review` | management | Run a structured review pass with a configured team |
-| `team-run` | management | Orchestrate a full pipeline run with a configured team |
+| `team` | workflow | Manage the installed agent team — `build` (apply proposal), `review` (audit gaps), `run <task>` (execute pipeline) |
 
 ### Media skills (experimental)
 
