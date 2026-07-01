@@ -1,7 +1,7 @@
 ---
 name: roster-ship
 description: Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go.
-version: 1.3.0
+version: 1.3.1
 domain: pipeline
 phase: ship
 preamble: true
@@ -160,6 +160,18 @@ If KB is **present**:
 ## Output Contract
 
 GitHub PR opened (then merged after human approval), or BLOCKED status documented.
+
+**Ledger event.** Per the preamble *Pipeline State*, append your event to
+`briefs/<task>-state.json` as the last thing this phase does:
+
+- **Shipped** → `{ "phase": "ship", "outcome": "COMPLETED", "by": "roster-ship" }`.
+- **BLOCKED** → first make sure the block is documented in the ship-gate artifact
+  (`briefs/<task>-ship-gate.md`) **on disk**, then append `{ "phase": "ship", "outcome":
+  "BLOCKED", "reason": "<...>", "by": "roster-ship" }` — the `reason` string summarizes why the
+  ship action is impossible. Emit `BLOCKED` **only** when review and QA are GO but the ship
+  action itself cannot be performed (permissions, remote state, human hold) — a NO-GO gate is
+  not `BLOCKED` (that is a refusal to enter this skill's push path, handled by the gates above).
+  On resume, `/roster-run` halts on a latest `ship`/`BLOCKED` and surfaces this `reason`.
 
 **Next:** tech-lead / human with merge confirmation.
 

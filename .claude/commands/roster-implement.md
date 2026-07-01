@@ -1,7 +1,7 @@
 ---
 name: roster-implement
 description: Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief.
-version: 1.5.0
+version: 1.5.1
 domain: pipeline
 phase: implement
 preamble: true
@@ -301,11 +301,25 @@ Produce `briefs/<task>-impl.md`:
 <Improvements seen but not implemented — with reference to the Friction Log>
 ```
 
+### 7. Ledger event (after the impl brief is on disk)
+
+Per the preamble *Pipeline State*, append your event to `briefs/<task>-state.json` — **after**
+`briefs/<task>-impl.md` is written (artifact first, event last):
+
+- **Status COMPLETED** → `{ "phase": "implement", "outcome": "COMPLETED", "by": "roster-implement" }`.
+- **Status PARTIAL** → `{ "phase": "implement", "outcome": "PARTIAL", "reason": "<...>",
+  "by": "roster-implement" }` — the `reason` string mirrors the impl brief's `**Status:**` line
+  reason verbatim. Emit `PARTIAL` **only** when in-scope work remains after the improve-loop
+  budget is exhausted or a scope blocker stops the run — never for "tests failing" (keep
+  iterating within the budget or escalate). On resume, `/roster-run` routes a latest
+  `implement`/`PARTIAL` back to this skill.
+
 ## Output Contract
 
 `briefs/<task>-impl.md` + implemented code with all quality gates passing.
 
-**Next:** `/roster-review` reads `briefs/<task>-impl.md` + the current diff.
+**Next:** `/roster-review` reads `briefs/<task>-impl.md` + the current diff. If the ledger event
+is `PARTIAL`, the next step is instead a re-run of `/roster-implement` (routed by `/roster-run`).
 
 ## When to Go Back
 
