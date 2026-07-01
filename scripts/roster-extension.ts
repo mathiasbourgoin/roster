@@ -285,27 +285,21 @@ function inferType(components: ExtensionManifest["components"]): ExtensionType {
   return "profile-pack";
 }
 
-async function loadManifest(root: string): Promise<ExtensionManifest> {
-  const explicit = await readJson(path.join(root, "roster-extension.json"));
-  const plugin = await readJson(path.join(root, ".claude-plugin/plugin.json"));
-  const versionFile = (await exists(path.join(root, "VERSION"))) ? (await fs.readFile(path.join(root, "VERSION"), "utf8")).trim() : "";
-  const source = explicit ?? plugin ?? {};
-  if (explicit) {
-    if (explicit.schema_version !== "1.0") {
-      throw new Error(`unsupported roster-extension.json schema_version: ${String(explicit.schema_version)}`);
-    }
-    if (typeof explicit.name !== "string" || typeof explicit.version !== "string") {
-      throw new Error("roster-extension.json requires string name and version fields");
-    }
-    if (explicit.runtime_targets !== undefined && !Array.isArray(explicit.runtime_targets)) {
-      throw new Error("roster-extension.json runtime_targets must be an array");
-    }
+function validateExplicitManifest(explicit: Record<string, unknown> | null): void {
+  if (!explicit) return;
+  if (explicit.schema_version !== "1.0") {
+    throw new Error(`unsupported roster-extension.json schema_version: ${String(explicit.schema_version)}`);
   }
+  if (typeof explicit.name !== "string" || typeof explicit.version !== "string") {
+    throw new Error("roster-extension.json requires string name and version fields");
+  }
+  if (explicit.runtime_targets !== undefined && !Array.isArray(explicit.runtime_targets)) {
+    throw new Error("roster-extension.json runtime_targets must be an array");
+  }
+}
 
-  const name = String(source.name ?? path.basename(root));
-  assertSafeName(name, "extension name");
-
-  const components = {
+async function collectComponents(root: string): Promise<ExtensionManifest["components"]> {
+  return {
     skills: await collectSkills(root),
     agents: await collectNamedFiles(root, "agents", ".md"),
     hooks: await collectNamedFiles(root, "hooks", ".md"),
@@ -314,7 +308,9 @@ async function loadManifest(root: string): Promise<ExtensionManifest> {
     tools: await collectNamedFiles(root, "tools", ""),
     workflows: await collectNamedFiles(root, "workflows", ".json"),
   };
+}
 
+function resolveRuntimeTargets(source: Record<string, unknown>): RuntimeTarget[] {
   const rawTargets = source.runtime_targets;
   if (rawTargets !== undefined && !Array.isArray(rawTargets)) {
     throw new Error("runtime_targets must be an array");
@@ -329,22 +325,92 @@ async function loadManifest(root: string): Promise<ExtensionManifest> {
   if (requestedTargets.length !== runtimeTargets.length) {
     throw new Error(`unsupported runtime target in manifest: ${requestedTargets.join(", ")}`);
   }
+  return runtimeTargets;
+}
 
+function resolveManifestType(source: Record<string, unknown>, components: ExtensionManifest["components"]): ExtensionType {
   const inferredType = inferType(components);
   const manifestType = source.type === undefined ? inferredType : String(source.type);
   if (!["skill-pack", "apparatus", "profile-pack", "workflow-pack"].includes(manifestType)) {
     throw new Error(`unsupported extension type: ${manifestType}`);
   }
+  return manifestType as ExtensionType;
+}
+
+async function loadManifest(root: string): Promise<ExtensionManifest> {
+  const explicit = await readJson(path.join(root, "roster-extension.json"));
+  const plugin = await readJson(path.join(root, ".claude-plugin/plugin.json"));
+  const versionFile = (await exists(path.join(root, "VERSION"))) ? (await fs.readFile(path.join(root, "VERSION"), "utf8")).trim() : "";
+  const source = explicit ?? plugin ?? {};
+  validateExplicitManifest(explicit);
+
+  const name = String(source.name ?? path.basename(root));
+  assertSafeName(name, "extension name");
+
+  const components = await collectComponents(root);
+  const runtimeTargets = resolveRuntimeTargets(source);
 
   return {
     schema_version: "1.0",
     name,
     version: String(source.version ?? (versionFile || "0.0.0")),
-    type: manifestType as ExtensionType,
+    type: resolveManifestType(source, components),
     description: String(source.description ?? ""),
     runtime_targets: runtimeTargets.length > 0 ? runtimeTargets : ["codex"],
     components,
   };
+}
+
+function validateRegistryEntryShape(entry: unknown): Record<string, unknown> {
+  if (!entry || typeof entry !== "object") throw new Error(`${REGISTRY_PATH} contains an invalid extension entry`);
+  const item = entry as Record<string, unknown>;
+  if (
+    typeof item.name !== "string" ||
+    typeof item.version !== "string" ||
+    !Array.isArray(item.installed_files) ||
+    !Array.isArray(item.runtime_roots) ||
+    !Array.isArray(item.runtime_targets) ||
+    !item.source ||
+    typeof item.source !== "object"
+  ) {
+    throw new Error(`${REGISTRY_PATH} contains an invalid extension entry`);
+  }
+  const source = item.source as Record<string, unknown>;
+  if (typeof source.path !== "string" || !(typeof source.git_commit === "string" || source.git_commit === null)) {
+    throw new Error(`${REGISTRY_PATH} contains an invalid extension source`);
+  }
+  const runtimeTargets = asArray(item.runtime_targets).filter((target): target is RuntimeTarget =>
+    target === "codex" || target === "opencode",
+  );
+  if (runtimeTargets.length !== (item.runtime_targets as unknown[]).length) {
+    throw new Error(`${REGISTRY_PATH} contains an invalid runtime target`);
+  }
+  return item;
+}
+
+function validateRegistryInstalledFiles(
+  projectRoot: string,
+  item: Record<string, unknown>,
+  managedRoots: string[],
+  targets: Set<string>,
+): void {
+  for (const rawFile of item.installed_files as unknown[]) {
+    if (!rawFile || typeof rawFile !== "object") throw new Error(`${REGISTRY_PATH} contains an invalid installed file`);
+    const file = rawFile as Record<string, unknown>;
+    if (
+      typeof file.source !== "string" ||
+      typeof file.target !== "string" ||
+      typeof file.sha256 !== "string" ||
+      !/^[a-f0-9]{64}$/.test(file.sha256)
+    ) {
+      throw new Error(`${REGISTRY_PATH} contains an invalid installed file`);
+    }
+    const canonicalTarget = resolveManagedTarget(projectRoot, file.target, managedRoots);
+    if (targets.has(canonicalTarget)) {
+      throw new Error(`${REGISTRY_PATH} contains duplicate owned target: ${file.target}`);
+    }
+    targets.add(canonicalTarget);
+  }
 }
 
 async function validateRegistry(projectRoot: string, raw: Record<string, unknown>): Promise<Registry> {
@@ -355,53 +421,15 @@ async function validateRegistry(projectRoot: string, raw: Record<string, unknown
   const names = new Set<string>();
   const targets = new Set<string>();
   for (const entry of extensions) {
-    if (!entry || typeof entry !== "object") throw new Error(`${REGISTRY_PATH} contains an invalid extension entry`);
-    const item = entry as Record<string, unknown>;
-    if (
-      typeof item.name !== "string" ||
-      typeof item.version !== "string" ||
-      !Array.isArray(item.installed_files) ||
-      !Array.isArray(item.runtime_roots) ||
-      !Array.isArray(item.runtime_targets) ||
-      !item.source ||
-      typeof item.source !== "object"
-    ) {
-      throw new Error(`${REGISTRY_PATH} contains an invalid extension entry`);
-    }
-    const source = item.source as Record<string, unknown>;
-    if (typeof source.path !== "string" || !(typeof source.git_commit === "string" || source.git_commit === null)) {
-      throw new Error(`${REGISTRY_PATH} contains an invalid extension source`);
-    }
-    const runtimeTargets = asArray(item.runtime_targets).filter((target): target is RuntimeTarget =>
-      target === "codex" || target === "opencode",
-    );
-    if (runtimeTargets.length !== item.runtime_targets.length) {
-      throw new Error(`${REGISTRY_PATH} contains an invalid runtime target`);
-    }
+    const item = validateRegistryEntryShape(entry);
     const managedRoots = asArray(item.runtime_roots).map((root) => resolveProjectEntrypoint(projectRoot, root));
-    if (managedRoots.length !== item.runtime_roots.length || managedRoots.length === 0) {
+    if (managedRoots.length !== (item.runtime_roots as unknown[]).length || managedRoots.length === 0) {
       throw new Error(`${REGISTRY_PATH} contains invalid runtime roots`);
     }
-    assertSafeName(item.name, "registered extension name");
-    if (names.has(item.name)) throw new Error(`${REGISTRY_PATH} contains duplicate extension name: ${item.name}`);
-    names.add(item.name);
-    for (const rawFile of item.installed_files) {
-      if (!rawFile || typeof rawFile !== "object") throw new Error(`${REGISTRY_PATH} contains an invalid installed file`);
-      const file = rawFile as Record<string, unknown>;
-      if (
-        typeof file.source !== "string" ||
-        typeof file.target !== "string" ||
-        typeof file.sha256 !== "string" ||
-        !/^[a-f0-9]{64}$/.test(file.sha256)
-      ) {
-        throw new Error(`${REGISTRY_PATH} contains an invalid installed file`);
-      }
-      const canonicalTarget = resolveManagedTarget(projectRoot, file.target, managedRoots);
-      if (targets.has(canonicalTarget)) {
-        throw new Error(`${REGISTRY_PATH} contains duplicate owned target: ${file.target}`);
-      }
-      targets.add(canonicalTarget);
-    }
+    assertSafeName(item.name as string, "registered extension name");
+    if (names.has(item.name as string)) throw new Error(`${REGISTRY_PATH} contains duplicate extension name: ${item.name}`);
+    names.add(item.name as string);
+    validateRegistryInstalledFiles(projectRoot, item, managedRoots, targets);
   }
   return raw as Registry;
 }
@@ -461,6 +489,66 @@ async function skillTargets(
   return targets;
 }
 
+// Shared overwrite guard for every planned target (regular files and the
+// .roster-extension marker). Message strings are byte-identical to the
+// pre-refactor inline blocks (see S1 characterization inventory).
+async function guardPlannedTarget(
+  projectRoot: string,
+  targetFile: string,
+  targetRel: string,
+  managedRoots: string[],
+  label: string,
+  previousTargets: Map<string, InstalledFile>,
+): Promise<void> {
+  resolveManagedTarget(projectRoot, targetRel, managedRoots);
+  await assertNoSymlinkParents(projectRoot, targetFile);
+  await assertNotSymlink(targetFile, label);
+  if (await exists(targetFile)) {
+    const prior = previousTargets.get(targetRel);
+    if (!prior) throw new Error(`refusing to overwrite unowned target: ${targetRel}`);
+    if ((await sha256(targetFile)) !== prior.sha256) {
+      throw new Error(`refusing to overwrite locally modified installed file: ${targetRel}`);
+    }
+  }
+}
+
+function plannedFile(source: string, target: string, content: Buffer): PlannedFile {
+  return {
+    source,
+    target,
+    sha256: crypto.createHash("sha256").update(content).digest("hex"),
+    content,
+  };
+}
+
+async function planSkillIntoRuntime(
+  sourceRoot: string,
+  projectRoot: string,
+  extensionName: string,
+  skillName: string,
+  sourceSkillDir: string,
+  sourceFiles: string[],
+  runtimeRoot: string,
+  managedRoots: string[],
+  previousTargets: Map<string, InstalledFile>,
+): Promise<PlannedFile[]> {
+  const installed: PlannedFile[] = [];
+  const targetSkillDir = path.join(runtimeRoot, skillName);
+  for (const sourceFile of sourceFiles) {
+    const rel = path.relative(sourceSkillDir, sourceFile).replace(/\\/g, "/");
+    const targetFile = path.join(targetSkillDir, rel);
+    const sourceRel = path.relative(sourceRoot, sourceFile).replace(/\\/g, "/");
+    const targetRel = path.relative(projectRoot, targetFile).replace(/\\/g, "/");
+    await guardPlannedTarget(projectRoot, targetFile, targetRel, managedRoots, "extension target", previousTargets);
+    installed.push(plannedFile(sourceRel, targetRel, await fs.readFile(sourceFile)));
+  }
+  const marker = path.join(targetSkillDir, ".roster-extension");
+  const markerRel = path.relative(projectRoot, marker).replace(/\\/g, "/");
+  await guardPlannedTarget(projectRoot, marker, markerRel, managedRoots, "extension marker", previousTargets);
+  installed.push(plannedFile("<generated>", markerRel, Buffer.from(`${extensionName}\n`)));
+  return installed;
+}
+
 async function planSkillFiles(
   sourceRoot: string,
   projectRoot: string,
@@ -470,6 +558,7 @@ async function planSkillFiles(
 ): Promise<PlannedFile[]> {
   const installed: PlannedFile[] = [];
   const previousTargets = new Map(previous?.installed_files.map((file) => [file.target, file]) ?? []);
+  const managedRoots = targets.map((target) => target.root);
   for (const skill of manifest.components.skills) {
     assertSafeName(skill.name, "skill name");
     const sourceSkillDir = path.dirname(path.join(sourceRoot, skill.path));
@@ -478,52 +567,37 @@ async function planSkillFiles(
       throw new Error(`declared skills resolved to no installable files: ${skill.name}`);
     }
     for (const targetRuntime of targets) {
-      const targetSkillDir = path.join(targetRuntime.root, skill.name);
-      for (const sourceFile of sourceFiles) {
-        const rel = path.relative(sourceSkillDir, sourceFile).replace(/\\/g, "/");
-        const targetFile = path.join(targetSkillDir, rel);
-        const sourceRel = path.relative(sourceRoot, sourceFile).replace(/\\/g, "/");
-        const targetRel = path.relative(projectRoot, targetFile).replace(/\\/g, "/");
-        resolveManagedTarget(projectRoot, targetRel, targets.map((target) => target.root));
-        await assertNoSymlinkParents(projectRoot, targetFile);
-        await assertNotSymlink(targetFile, "extension target");
-        if (await exists(targetFile)) {
-          const prior = previousTargets.get(targetRel);
-          if (!prior) throw new Error(`refusing to overwrite unowned target: ${targetRel}`);
-          if ((await sha256(targetFile)) !== prior.sha256) {
-            throw new Error(`refusing to overwrite locally modified installed file: ${targetRel}`);
-          }
-        }
-        const content = await fs.readFile(sourceFile);
-        installed.push({
-          source: sourceRel,
-          target: targetRel,
-          sha256: crypto.createHash("sha256").update(content).digest("hex"),
-          content,
-        });
-      }
-      const marker = path.join(targetSkillDir, ".roster-extension");
-      const markerRel = path.relative(projectRoot, marker).replace(/\\/g, "/");
-      resolveManagedTarget(projectRoot, markerRel, targets.map((target) => target.root));
-      await assertNoSymlinkParents(projectRoot, marker);
-      await assertNotSymlink(marker, "extension marker");
-      if (await exists(marker)) {
-        const prior = previousTargets.get(markerRel);
-        if (!prior) throw new Error(`refusing to overwrite unowned target: ${markerRel}`);
-        if ((await sha256(marker)) !== prior.sha256) {
-          throw new Error(`refusing to overwrite locally modified installed file: ${markerRel}`);
-        }
-      }
-      const content = Buffer.from(`${manifest.name}\n`);
-      installed.push({
-        source: "<generated>",
-        target: markerRel,
-        sha256: crypto.createHash("sha256").update(content).digest("hex"),
-        content,
-      });
+      installed.push(
+        ...(await planSkillIntoRuntime(
+          sourceRoot,
+          projectRoot,
+          manifest.name,
+          skill.name,
+          sourceSkillDir,
+          sourceFiles,
+          targetRuntime.root,
+          managedRoots,
+          previousTargets,
+        )),
+      );
     }
   }
   return installed;
+}
+
+// Unified preflight for a file recorded in the registry: resolves + symlink-guards
+// the target, then classifies its on-disk state. install/remove/converge all share
+// this path and attach their own (byte-preserved) error messages.
+async function verifyInstalledFile(
+  projectRoot: string,
+  file: InstalledFile,
+  managedRoots: string[],
+): Promise<"missing" | "clean" | "modified"> {
+  const abs = resolveManagedTarget(projectRoot, file.target, managedRoots);
+  await assertNoSymlinkParents(projectRoot, abs);
+  await assertNotSymlink(abs, "extension target");
+  if (!(await exists(abs))) return "missing";
+  return (await sha256(abs)) === file.sha256 ? "clean" : "modified";
 }
 
 async function withRegistryLock<T>(projectRoot: string, action: () => Promise<T>): Promise<T> {
@@ -621,6 +695,47 @@ export async function info(extensionPath: string): Promise<ExtensionManifest> {
   return loadManifest(path.resolve(extensionPath));
 }
 
+function assertUniquePlannedTargets(plannedFiles: PlannedFile[]): void {
+  const targetNames = new Set<string>();
+  for (const file of plannedFiles) {
+    if (targetNames.has(file.target)) throw new Error(`extension produces duplicate target: ${file.target}`);
+    targetNames.add(file.target);
+  }
+}
+
+function assertNoCrossOwnership(
+  projectRoot: string,
+  registry: Registry,
+  extensionName: string,
+  plannedFiles: PlannedFile[],
+  currentRoots: string[],
+): void {
+  const otherOwnedTargets = new Set<string>();
+  for (const extension of registry.extensions) {
+    if (extension.name === extensionName) continue;
+    const roots = extension.runtime_roots.map((root) => resolveProjectEntrypoint(projectRoot, root));
+    for (const file of extension.installed_files) {
+      otherOwnedTargets.add(resolveManagedTarget(projectRoot, file.target, roots));
+    }
+  }
+  for (const file of plannedFiles) {
+    const abs = resolveManagedTarget(projectRoot, file.target, currentRoots);
+    if (otherOwnedTargets.has(abs)) throw new Error(`target is owned by another extension: ${file.target}`);
+  }
+}
+
+async function preflightStaleFiles(
+  projectRoot: string,
+  staleFiles: InstalledFile[],
+  managedRoots: string[],
+): Promise<void> {
+  for (const file of staleFiles) {
+    if ((await verifyInstalledFile(projectRoot, file, managedRoots)) === "modified") {
+      throw new Error(`refusing to replace extension with locally modified stale file: ${file.target}`);
+    }
+  }
+}
+
 export async function install(extensionPath: string, options: CliOptions): Promise<InstalledExtension> {
   const sourceRoot = path.resolve(extensionPath);
   const projectRoot = path.resolve(options.target);
@@ -633,38 +748,15 @@ export async function install(extensionPath: string, options: CliOptions): Promi
     const previousRoots = previous?.runtime_roots.map((root) => resolveProjectEntrypoint(projectRoot, root)) ?? [];
     const managedRoots = [...new Set([...currentRoots, ...previousRoots])];
     const plannedFiles = await planSkillFiles(sourceRoot, projectRoot, manifest, previous, targets);
-    const targetNames = new Set<string>();
-    for (const file of plannedFiles) {
-      if (targetNames.has(file.target)) throw new Error(`extension produces duplicate target: ${file.target}`);
-      targetNames.add(file.target);
-    }
-    const otherOwnedTargets = new Set<string>();
-    for (const extension of registry.extensions) {
-      if (extension.name === manifest.name) continue;
-      const roots = extension.runtime_roots.map((root) => resolveProjectEntrypoint(projectRoot, root));
-      for (const file of extension.installed_files) {
-        otherOwnedTargets.add(resolveManagedTarget(projectRoot, file.target, roots));
-      }
-    }
-    for (const file of plannedFiles) {
-      const abs = resolveManagedTarget(projectRoot, file.target, currentRoots);
-      if (otherOwnedTargets.has(abs)) throw new Error(`target is owned by another extension: ${file.target}`);
-    }
+    assertUniquePlannedTargets(plannedFiles);
+    assertNoCrossOwnership(projectRoot, registry, manifest.name, plannedFiles, currentRoots);
     // Recorded-only packs (no skill components declared) register with an empty
     // installed_files list: the entry is still lock-protected, validated, and written
     // atomically, but nothing is projected. Declared skills that resolve to zero
     // installable files are a hard error inside planSkillFiles instead.
     const newTargets = new Set(plannedFiles.map((file) => file.target));
     const staleFiles = previous?.installed_files.filter((file) => !newTargets.has(file.target)) ?? [];
-    for (const file of staleFiles) {
-      const abs = resolveManagedTarget(projectRoot, file.target, managedRoots);
-      await assertNoSymlinkParents(projectRoot, abs);
-      await assertNotSymlink(abs, "extension target");
-      if (!(await exists(abs))) continue;
-      if ((await sha256(abs)) !== file.sha256) {
-        throw new Error(`refusing to replace extension with locally modified stale file: ${file.target}`);
-      }
-    }
+    await preflightStaleFiles(projectRoot, staleFiles, managedRoots);
     const installedFiles = plannedFiles.map(({ content: _content, ...file }) => file);
     const installed: InstalledExtension = {
       ...manifest,
@@ -704,11 +796,7 @@ export async function remove(extensionName: string, options: CliOptions): Promis
     if (!installed) return null;
     const managedRoots = installed.runtime_roots.map((root) => resolveProjectEntrypoint(projectRoot, root));
     for (const file of installed.installed_files) {
-      const abs = resolveManagedTarget(projectRoot, file.target, managedRoots);
-      await assertNoSymlinkParents(projectRoot, abs);
-      await assertNotSymlink(abs, "extension target");
-      if (!(await exists(abs))) continue;
-      if ((await sha256(abs)) !== file.sha256) {
+      if ((await verifyInstalledFile(projectRoot, file, managedRoots)) === "modified") {
         throw new Error(`refusing to remove locally modified installed file: ${file.target}`);
       }
     }
@@ -727,76 +815,87 @@ export async function remove(extensionName: string, options: CliOptions): Promis
   return options.dryRun ? action() : withRegistryLock(projectRoot, action);
 }
 
+type ConvergeFindings = {
+  missing: string[];
+  modified: string[];
+  invalid_targets: string[];
+  source_missing: string[];
+  source_modified: string[];
+};
+
+async function classifySourceFile(sourceRootPath: string, file: InstalledFile): Promise<"ok" | "missing" | "modified"> {
+  let sourceAbs;
+  try {
+    sourceAbs = resolveExtensionSource(sourceRootPath, file.source);
+  } catch {
+    return "missing";
+  }
+  if (!(await exists(sourceAbs))) return "missing";
+  return (await sha256(sourceAbs)) === file.sha256 ? "ok" : "modified";
+}
+
+async function classifyInstalledFiles(
+  projectRoot: string,
+  extension: InstalledExtension,
+  managedRoots: string[],
+): Promise<ConvergeFindings> {
+  const findings: ConvergeFindings = { missing: [], modified: [], invalid_targets: [], source_missing: [], source_modified: [] };
+  for (const file of extension.installed_files) {
+    let state;
+    try {
+      state = await verifyInstalledFile(projectRoot, file, managedRoots);
+    } catch {
+      findings.invalid_targets.push(file.target);
+      continue;
+    }
+    if (state === "missing") {
+      findings.missing.push(file.target);
+      continue;
+    }
+    if (state === "modified") findings.modified.push(file.target);
+    if (file.source !== "<generated>") {
+      const sourceState = await classifySourceFile(extension.source.path, file);
+      if (sourceState === "missing") findings.source_missing.push(file.source);
+      else if (sourceState === "modified") findings.source_modified.push(file.source);
+    }
+  }
+  return findings;
+}
+
+async function convergeExtension(projectRoot: string, extension: InstalledExtension): Promise<Record<string, unknown>> {
+  const managedRoots = extension.runtime_roots.map((root) => resolveProjectEntrypoint(projectRoot, root));
+  const currentManifest = await loadManifest(extension.source.path).catch(() => null);
+  const currentCommit = await gitCommit(extension.source.path);
+  const findings = await classifyInstalledFiles(projectRoot, extension, managedRoots);
+  const clean =
+    findings.missing.length === 0 &&
+    findings.modified.length === 0 &&
+    findings.invalid_targets.length === 0 &&
+    findings.source_missing.length === 0 &&
+    findings.source_modified.length === 0 &&
+    currentManifest?.version === extension.version &&
+    currentCommit === extension.source.git_commit;
+  return {
+    name: extension.name,
+    status: clean ? "OK" : "DRIFT",
+    // Advisory only: a recorded-only pack has no on-disk files to verify, so the
+    // report says so explicitly. It never causes DRIFT by itself — only real
+    // version/commit/source drift does.
+    recorded_only: extension.installed_files.length === 0,
+    installed_version: extension.version,
+    source_version: currentManifest?.version ?? null,
+    installed_commit: extension.source.git_commit,
+    source_commit: currentCommit,
+    ...findings,
+  };
+}
+
 export async function converge(projectRootArg: string): Promise<Record<string, unknown>[]> {
   const projectRoot = path.resolve(projectRootArg);
   const registry = await loadRegistry(projectRoot);
   const reports: Record<string, unknown>[] = [];
   for (const extension of registry.extensions) {
-    const managedRoots = extension.runtime_roots.map((root) => resolveProjectEntrypoint(projectRoot, root));
-    const currentManifest = await loadManifest(extension.source.path).catch(() => null);
-    const currentCommit = await gitCommit(extension.source.path);
-    const missing: string[] = [];
-    const modified: string[] = [];
-    const invalid_targets: string[] = [];
-    const source_missing: string[] = [];
-    const source_modified: string[] = [];
-    for (const file of extension.installed_files) {
-      let abs;
-      try {
-        abs = resolveManagedTarget(projectRoot, file.target, managedRoots);
-        await assertNoSymlinkParents(projectRoot, abs);
-        await assertNotSymlink(abs, "extension target");
-      } catch {
-        invalid_targets.push(file.target);
-        continue;
-      }
-      if (!(await exists(abs))) {
-        missing.push(file.target);
-        continue;
-      }
-      const actual = await sha256(abs);
-      if (actual !== file.sha256) modified.push(file.target);
-      if (file.source !== "<generated>") {
-        let sourceAbs;
-        try {
-          sourceAbs = resolveExtensionSource(extension.source.path, file.source);
-        } catch {
-          source_missing.push(file.source);
-          continue;
-        }
-        if (!(await exists(sourceAbs))) {
-          source_missing.push(file.source);
-        } else if ((await sha256(sourceAbs)) !== file.sha256) {
-          source_modified.push(file.source);
-        }
-      }
-    }
-    reports.push({
-      name: extension.name,
-      status:
-        missing.length === 0 &&
-        modified.length === 0 &&
-        invalid_targets.length === 0 &&
-        source_missing.length === 0 &&
-        source_modified.length === 0 &&
-        currentManifest?.version === extension.version &&
-        currentCommit === extension.source.git_commit
-          ? "OK"
-          : "DRIFT",
-      // Advisory only: a recorded-only pack has no on-disk files to verify, so the
-      // report says so explicitly. It never causes DRIFT by itself — only real
-      // version/commit/source drift does.
-      recorded_only: extension.installed_files.length === 0,
-      installed_version: extension.version,
-      source_version: currentManifest?.version ?? null,
-      installed_commit: extension.source.git_commit,
-      source_commit: currentCommit,
-      missing,
-      modified,
-      invalid_targets,
-      source_missing,
-      source_modified,
-    });
+    reports.push(await convergeExtension(projectRoot, extension));
   }
   return reports;
 }
@@ -844,35 +943,41 @@ async function main(): Promise<void> {
     return;
   }
   if (command === "converge") {
-    const reports = await converge(options.target);
-    const hasDrift = reports.some((report) => report.status === "DRIFT");
-    if (json) {
-      console.log(JSON.stringify(reports, null, 2));
-      if (hasDrift) process.exitCode = 1;
-      return;
-    }
-    if (reports.length === 0) {
-      console.log("no extensions installed");
-      return;
-    }
-    for (const report of reports) {
-      console.log(`${report.name}: ${report.status}`);
-      if (report.recorded_only) console.log("  note: recorded-only entry, no installed files on disk to verify");
-      const missing = report.missing as string[];
-      const modified = report.modified as string[];
-      const invalidTargets = report.invalid_targets as string[];
-      const sourceMissing = report.source_missing as string[];
-      const sourceModified = report.source_modified as string[];
-      if (missing.length > 0) console.log(`  missing: ${missing.join(", ")}`);
-      if (modified.length > 0) console.log(`  modified: ${modified.join(", ")}`);
-      if (invalidTargets.length > 0) console.log(`  invalid targets: ${invalidTargets.join(", ")}`);
-      if (sourceMissing.length > 0) console.log(`  source missing: ${sourceMissing.join(", ")}`);
-      if (sourceModified.length > 0) console.log(`  source modified: ${sourceModified.join(", ")}`);
-    }
-    if (hasDrift) process.exitCode = 1;
+    await runConverge(options, json);
     return;
   }
   usage();
+}
+
+async function runConverge(options: CliOptions, json: boolean): Promise<void> {
+  const reports = await converge(options.target);
+  const hasDrift = reports.some((report) => report.status === "DRIFT");
+  if (json) {
+    console.log(JSON.stringify(reports, null, 2));
+    if (hasDrift) process.exitCode = 1;
+    return;
+  }
+  if (reports.length === 0) {
+    console.log("no extensions installed");
+    return;
+  }
+  for (const report of reports) printConvergeReport(report);
+  if (hasDrift) process.exitCode = 1;
+}
+
+function printConvergeReport(report: Record<string, unknown>): void {
+  console.log(`${report.name}: ${report.status}`);
+  if (report.recorded_only) console.log("  note: recorded-only entry, no installed files on disk to verify");
+  const missing = report.missing as string[];
+  const modified = report.modified as string[];
+  const invalidTargets = report.invalid_targets as string[];
+  const sourceMissing = report.source_missing as string[];
+  const sourceModified = report.source_modified as string[];
+  if (missing.length > 0) console.log(`  missing: ${missing.join(", ")}`);
+  if (modified.length > 0) console.log(`  modified: ${modified.join(", ")}`);
+  if (invalidTargets.length > 0) console.log(`  invalid targets: ${invalidTargets.join(", ")}`);
+  if (sourceMissing.length > 0) console.log(`  source missing: ${sourceMissing.join(", ")}`);
+  if (sourceModified.length > 0) console.log(`  source modified: ${sourceModified.join(", ")}`);
 }
 
 if (require.main === module) {
