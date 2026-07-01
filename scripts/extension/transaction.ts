@@ -31,6 +31,23 @@ async function pruneEmptyDirs(targets: string[], managedRoots: string[]): Promis
   }
 }
 
+// Undo a partially applied mutation list in reverse order, restoring backups,
+// then prune any directories the failed attempt left empty.
+async function rollbackTouched(
+  touched: { target: string; backup: string | null }[],
+  managedRoots: string[],
+): Promise<void> {
+  const rolledBack = touched.reverse();
+  for (const item of rolledBack) {
+    await fs.rm(item.target, { force: true });
+    if (item.backup && (await exists(item.backup))) {
+      await fs.mkdir(path.dirname(item.target), { recursive: true });
+      await fs.rename(item.backup, item.target);
+    }
+  }
+  await pruneEmptyDirs(rolledBack.map((item) => item.target), managedRoots);
+}
+
 export async function applyInstallTransaction(
   projectRoot: string,
   files: PlannedFile[],
@@ -72,15 +89,7 @@ export async function applyInstallTransaction(
     await save();
     await pruneEmptyDirs(deletions, managedRoots);
   } catch (error) {
-    const rolledBack = touched.reverse();
-    for (const item of rolledBack) {
-      await fs.rm(item.target, { force: true });
-      if (item.backup && (await exists(item.backup))) {
-        await fs.mkdir(path.dirname(item.target), { recursive: true });
-        await fs.rename(item.backup, item.target);
-      }
-    }
-    await pruneEmptyDirs(rolledBack.map((item) => item.target), managedRoots);
+    await rollbackTouched(touched, managedRoots);
     throw error;
   } finally {
     await fs.rm(transactionRoot, { recursive: true, force: true });
