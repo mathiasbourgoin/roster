@@ -1,7 +1,7 @@
 ---
 name: roster-spec
 description: Adversarial spec phase — derives user stories with concrete GWT scenarios, surfaces challenges, formalizes FR-NNN requirements, produces structured contract with runnable checks.
-version: 2.0.1
+version: 2.0.2
 domain: pipeline
 phase: spec
 preamble: true
@@ -158,6 +158,16 @@ Rules for writing your event:
 You produce a structured contract for the feature described in the intake brief. This is an adversarial process — find what is wrong with the requirements before implementation begins.
 
 **Anti-sycophancy rule:** Challenge every assumption. Surface every gap. The spec is only complete when challenges are resolved, not when requirements are listed.
+
+## Input Contract
+
+Read `briefs/<task>-intake.md` **in full** before doing anything.
+
+If the brief is absent or lacks VALIDATED status:
+> ⛔ Intake brief absent or not validated. Re-run `/roster-intake` first.
+
+If required sections are missing (Goal, Scope Boundary, Relevant Files, Quality Gates):
+> ⛔ Incomplete brief — missing section(s): <list>. Complete the brief before speccing.
 
 ## Trigger Check
 
