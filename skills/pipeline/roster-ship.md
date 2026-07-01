@@ -45,9 +45,10 @@ If `review.json.mode` is absent and the impl brief has no `Mode:` line, **requir
 confirmation before treating a missing `qa.md` as expected** — the mode cannot be safely
 inferred without an authoritative source.
 
-Block conditions:
-> ⛔ BLOCKED: review.json is NO-GO or absent → resolve before shipping.
-> ⛔ BLOCKED: qa.md is NO-GO, or absent on a non-express task → run /roster-qa first.
+Block conditions (these are refusals to enter ship — they do **not** emit a
+`ship`/`BLOCKED` ledger event, which is reserved for the Output Contract's definition):
+> ⛔ DO NOT SHIP: review.json is NO-GO or absent → resolve before shipping.
+> ⛔ DO NOT SHIP: qa.md is NO-GO, or absent on a non-express task → run /roster-qa first.
 
 ## Steps
 
@@ -162,7 +163,10 @@ If KB is **present**:
 GitHub PR opened (then merged after human approval), or BLOCKED status documented.
 
 **Ledger event.** Per the preamble *Pipeline State*, append your event to
-`briefs/<task>-state.json` as the last thing this phase does:
+`briefs/<task>-state.json` as the last **contractual** act of the phase — after every ship
+artifact is on disk. The metabolism counter, projection sync, and friction reminder below are
+post-phase housekeeping, not part of the ship contract: a resumed run seeing `ship`/`COMPLETED`
+may assume the ship itself is done even if housekeeping was interrupted.
 
 - **Shipped** → `{ "phase": "ship", "outcome": "COMPLETED", "by": "roster-ship" }`.
 - **BLOCKED** → first make sure the block is documented in the ship-gate artifact

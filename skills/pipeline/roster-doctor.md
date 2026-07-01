@@ -196,10 +196,13 @@ LEDGER_SCHEMA='
     and ($seq[$m] != null)
     and ($cp|type=="string")
     and (.events|type=="array") and ((.events|length)>0)
+    and (all(.events[]; . as $e
+          | ($e|type)=="object"
+          and ($e.phase|type=="string")
+          and (($vocab[$e.phase] // []) | index($e.outcome) != null)
+          and (($e|has("reason")|not) or ($e.reason|type=="string"))))
     and ($last.phase == $cp)
     and (($seq[$m]|index($cp)) != null)
-    and (($vocab[$last.phase] // []) | index($last.outcome) != null)
-    and (($last.reason // "") | type == "string")
 '
 for f in <selected ledgers>; do
   # The expected slug is the file's own basename (status scans whatever ledgers exist, so it
