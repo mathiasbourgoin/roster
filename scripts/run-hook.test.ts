@@ -424,6 +424,58 @@ test("friction: reason strings are newline-stripped — one single-line record",
   }
 });
 
+// ─── break_if / continue_if (spec US-4 Sc.4C) ─────────────────────────────────
+
+test("break_if: round-trips through the parser as its own operator", async () => {
+  const { parseHookFile, stepOperator } = await import("./lib/hook-parser");
+  const parsed = parseHookFile(makeHook("post", [
+    `  - break_if: "{{result}} == 'done'"`,
+    `  - continue_if: "{{result}} == 'skip'"`,
+  ].join("\n")));
+  assert.equal(parsed.steps.length, 2);
+  assert.equal(stepOperator(parsed.steps[0]), "break_if");
+  assert.equal(stepOperator(parsed.steps[1]), "continue_if");
+  assert.equal((parsed.steps[0] as { break_if: string }).break_if, "{{result}} == 'done'");
+});
+
+test("break_if/continue_if at top level → pending_llm_steps (not silent skip)", async () => {
+  const metaDir = newMetaDir();
+  const r = await runHook({
+    content: makeHook("post", [
+      `  - run: "exit 0"`,
+      `  - break_if: "{{result}} == 'done'"`,
+      `  - continue_if: "{{result}} == 'skip'"`,
+    ].join("\n")),
+    event: "post", skill: "s", metaDir,
+  });
+  assert.equal(r.outcome, "pending"); // exit 3 at CLI level
+  assert.equal(r.pending_llm_steps.length, 2);
+  assert.ok("break_if" in r.pending_llm_steps[0]);
+  assert.ok("continue_if" in r.pending_llm_steps[1]);
+  assert.ok(!r.log.some((l) => l.includes("[unknown]")), "must not be treated as unknown operator");
+});
+
+test("break_if/continue_if inside a loop body travel intact in the deferred loop step", async () => {
+  const r = await runHook({
+    content: makeHook("post", [
+      `  - loop:`,
+      `      steps:`,
+      `        - run: "npm test"`,
+      `        - break_if: "{{result}} == 'done'"`,
+      `        - continue_if: "{{result}} == 'skip'"`,
+      `      until: "exit 0"`,
+    ].join("\n")),
+    event: "post", skill: "s",
+  });
+  assert.equal(r.outcome, "pending");
+  assert.equal(r.pending_llm_steps.length, 1);
+  const loop = (r.pending_llm_steps[0] as { loop: { steps: unknown[]; until?: string } }).loop;
+  assert.equal(loop.steps.length, 3);
+  assert.deepEqual(loop.steps[1], { break_if: "{{result}} == 'done'" });
+  assert.deepEqual(loop.steps[2], { continue_if: "{{result}} == 'skip'" });
+  assert.equal(loop.until, "exit 0");
+});
+
 test("backward goto: loop cap triggers abort (not hang)", { timeout: 5000 }, async () => {
   // A hook with an unconditional backward goto must abort via the jump cap, not hang forever.
   const r = await runHook({

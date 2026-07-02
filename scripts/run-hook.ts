@@ -2,7 +2,7 @@
  * roster hook executor — runs the "real" steps of a skill hook file.
  *
  * Enforces: run:, test:, timeout:, retry:, log:, label:, goto:, on_error:
- * Returns as pending_llm_steps: prompt:, loop:, parallel:
+ * Returns as pending_llm_steps: prompt:, loop:, parallel:, break_if:, continue_if:
  *
  * CLI usage:
  *   node dist/scripts/run-hook.js <pre|post> <skill-name> [hook-dir]
@@ -310,10 +310,15 @@ class HookExecutor {
           break;
         }
 
-        // ── prompt: / loop: / parallel: → pending LLM ─────────────────────
+        // ── prompt: / loop: / parallel: / break_if: / continue_if: → pending LLM ──
+        // break_if/continue_if conditions are LLM-evaluated in v1 (Sc.4C);
+        // outside a loop they are still valid and routed here (linter warns).
+        // Inside a loop: body steps travel intact in the deferred loop: step.
         case "prompt":
         case "loop":
-        case "parallel": {
+        case "parallel":
+        case "break_if":
+        case "continue_if": {
           this.emit(`[${op}] → deferred to LLM (pending_llm_steps)`);
           this.pendingLlm.push(step);
           i++;

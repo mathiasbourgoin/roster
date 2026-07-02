@@ -58,6 +58,17 @@ export interface IncludeStep {
 export interface OutputStep {
   output: string;
 }
+/**
+ * Loop-control steps (spec US-4 Sc.4C). Conditions are LLM-evaluated in v1
+ * ({{result}} forms); native evaluation is reserved for v2 (capture:).
+ * Valid outside a loop too — routed to pending_llm_steps (linter warns).
+ */
+export interface BreakIfStep {
+  break_if: string;
+}
+export interface ContinueIfStep {
+  continue_if: string;
+}
 
 export type Step =
   | RunStep
@@ -71,7 +82,9 @@ export type Step =
   | LoopStep
   | ParallelStep
   | IncludeStep
-  | OutputStep;
+  | OutputStep
+  | BreakIfStep
+  | ContinueIfStep;
 
 export interface ParsedHook {
   frontmatter: HookFrontmatter;
@@ -140,6 +153,6 @@ export function parseHookFile(content: string): ParsedHook {
 
 export function stepOperator(step: Step): string {
   return Object.keys(step).find((k) =>
-    ["run","prompt","test","label","goto","timeout","log","retry","loop","parallel","include","output"].includes(k)
+    ["run","prompt","test","label","goto","timeout","log","retry","loop","parallel","include","output","break_if","continue_if"].includes(k)
   ) ?? "unknown";
 }
