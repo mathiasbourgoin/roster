@@ -3,9 +3,59 @@
  * Uses Node.js built-in test runner (node --test).
  */
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { runHook } from "./run-hook";
+import * as fsSync from "node:fs";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { runHook as runHookRaw, RunHookOptions, HookResult } from "./run-hook";
+
+// ─── Pollution guard (R1) ─────────────────────────────────────────────────────
+// Every runHook call in this file MUST use a scratch metaDir — never the repo's
+// skills-meta/. The wrapper below injects a scratch default; the after() backstop
+// asserts the repo friction.jsonl line count is unchanged across the whole run.
+
+const SCRATCH_ROOT = fsSync.mkdtempSync(path.join(os.tmpdir(), "roster-hook-meta-"));
+const DEFAULT_META = path.join(SCRATCH_ROOT, "default-meta");
+fsSync.mkdirSync(DEFAULT_META);
+
+const REPO_FRICTION = path.resolve(__dirname, "../..", "skills-meta", "friction.jsonl");
+const repoFrictionLines = (): number => {
+  try {
+    return fsSync.readFileSync(REPO_FRICTION, "utf-8").split("\n").filter((l) => l.trim() !== "").length;
+  } catch {
+    return -1;
+  }
+};
+const REPO_FRICTION_LINES_BEFORE = repoFrictionLines();
+
+after(() => {
+  assert.equal(
+    repoFrictionLines(),
+    REPO_FRICTION_LINES_BEFORE,
+    "POLLUTION: run-hook tests wrote to the repo's skills-meta/friction.jsonl"
+  );
+  fsSync.rmSync(SCRATCH_ROOT, { recursive: true, force: true });
+});
+
+/** runHook with a scratch metaDir default (explicit opts.metaDir still wins). */
+function runHook(opts: RunHookOptions): Promise<HookResult> {
+  return runHookRaw({ metaDir: DEFAULT_META, ...opts });
+}
+
+let metaDirCounter = 0;
+/** Fresh empty scratch metaDir for tests that assert friction file contents. */
+function newMetaDir(): string {
+  const dir = path.join(SCRATCH_ROOT, `meta-${metaDirCounter++}`);
+  fsSync.mkdirSync(dir);
+  return dir;
+}
+
+async function readFrictionRecords(metaDir: string): Promise<Record<string, unknown>[]> {
+  const raw = await fs.readFile(path.join(metaDir, "friction.jsonl"), "utf-8");
+  return raw.split("\n").filter((l) => l.trim() !== "").map((l) => JSON.parse(l) as Record<string, unknown>);
+}
 
 function makeHook(event: "pre" | "post", stepsYaml: string): string {
   return `---
@@ -227,6 +277,151 @@ test("ROSTER_HOOK_RUNNING → skip (re-entrance guard)", async () => {
   delete process.env.ROSTER_HOOK_RUNNING;
   assert.equal(r.outcome, "skip");
   assert.ok(r.skip_reason?.match(/re-entrance/i));
+});
+
+// ─── Friction logging (spec US-6 / AC-16) ─────────────────────────────────────
+
+const CANONICAL_KEYS = [
+  "date", "skill", "task", "frictions", "methods",
+  "suggestion_type", "suggestion", "effort_estimate",
+];
+const HOOK_EXTRA_KEYS = ["hook", "outcome", "duration_ms", "loop_iterations"];
+
+test("friction: pass outcome appends canonical record with hook extras", async () => {
+  const metaDir = newMetaDir();
+  const r = await runHook({ content: makeHook("pre", `  - run: "exit 0"`), event: "pre", skill: "s", metaDir });
+  assert.equal(r.outcome, "pass");
+  const records = await readFrictionRecords(metaDir);
+  assert.equal(records.length, 1);
+  const rec = records[0];
+  for (const k of [...CANONICAL_KEYS, ...HOOK_EXTRA_KEYS]) {
+    assert.ok(k in rec, `record missing key "${k}"`);
+  }
+  assert.equal(rec.outcome, "pass");
+  assert.equal(rec.hook, "pre");
+  assert.equal(rec.skill, "s");
+  assert.deepEqual(rec.frictions, []);
+  assert.deepEqual(rec.methods, []);
+  assert.equal(rec.suggestion_type, null);
+  assert.equal(rec.suggestion, null);
+  assert.equal(rec.effort_estimate, null);
+  assert.equal(rec.loop_iterations, null);
+  assert.match(String(rec.date), /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test("friction: abort outcome carries the abort reason in frictions", async () => {
+  const metaDir = newMetaDir();
+  const r = await runHook({
+    content: makeHook("pre", `  - run: "exit 1"\n    on_error: stop`),
+    event: "pre", skill: "s", metaDir,
+  });
+  assert.equal(r.outcome, "abort");
+  const [rec] = await readFrictionRecords(metaDir);
+  assert.equal(rec.outcome, "abort");
+  assert.equal((rec.frictions as string[]).length, 1);
+  assert.match((rec.frictions as string[])[0], /exited with code 1/);
+});
+
+test("friction: warn outcome carries warn reasons in frictions", async () => {
+  const metaDir = newMetaDir();
+  const r = await runHook({
+    content: makeHook("post", `  - run: "exit 1"\n    on_error: warn\n  - run: "exit 3"\n    on_error: warn`),
+    event: "post", skill: "s", metaDir,
+  });
+  assert.equal(r.outcome, "warn");
+  const [rec] = await readFrictionRecords(metaDir);
+  assert.equal(rec.outcome, "warn");
+  const frictions = rec.frictions as string[];
+  assert.equal(frictions.length, 2);
+  assert.match(frictions[0], /exited with code 1/);
+  assert.match(frictions[1], /exited with code 3/);
+});
+
+test("friction: pending outcome is logged", async () => {
+  const metaDir = newMetaDir();
+  const r = await runHook({
+    content: makeHook("pre", `  - prompt: "check"\n    agent: qa`),
+    event: "pre", skill: "s", metaDir,
+  });
+  assert.equal(r.outcome, "pending");
+  const [rec] = await readFrictionRecords(metaDir);
+  assert.equal(rec.outcome, "pending");
+  assert.deepEqual(rec.frictions, []);
+});
+
+test("friction: TASK env populates task; unset → null", async () => {
+  const metaDir = newMetaDir();
+  process.env.TASK = "my-task";
+  try {
+    await runHook({ content: makeHook("pre", `  - run: "exit 0"`), event: "pre", skill: "s", metaDir });
+  } finally {
+    delete process.env.TASK;
+  }
+  await runHook({ content: makeHook("pre", `  - run: "exit 0"`), event: "pre", skill: "s", metaDir });
+  const records = await readFrictionRecords(metaDir);
+  assert.equal(records.length, 2);
+  assert.equal(records[0].task, "my-task");
+  assert.equal(records[1].task, null);
+});
+
+test("friction: duration_ms is a non-negative number", async () => {
+  const metaDir = newMetaDir();
+  await runHook({ content: makeHook("pre", `  - run: "sleep 0.05"`), event: "pre", skill: "s", metaDir });
+  const [rec] = await readFrictionRecords(metaDir);
+  assert.equal(typeof rec.duration_ms, "number");
+  assert.ok((rec.duration_ms as number) >= 0);
+});
+
+test("friction: absent metaDir → logging skipped, hook result unaffected, dir not created", async () => {
+  const metaDir = path.join(SCRATCH_ROOT, "does-not-exist");
+  const r = await runHook({ content: makeHook("pre", `  - run: "exit 0"`), event: "pre", skill: "s", metaDir });
+  assert.equal(r.outcome, "pass");
+  assert.equal(fsSync.existsSync(metaDir), false);
+});
+
+test("friction: append failure is fail-open (friction.jsonl is a directory)", async () => {
+  const metaDir = newMetaDir();
+  fsSync.mkdirSync(path.join(metaDir, "friction.jsonl")); // appendFile will fail
+  const r = await runHook({ content: makeHook("pre", `  - run: "exit 0"`), event: "pre", skill: "s", metaDir });
+  assert.equal(r.outcome, "pass"); // logging failure never fails the hook
+});
+
+test("friction: skip outcome writes nothing (re-entrance guard)", async () => {
+  const metaDir = newMetaDir();
+  process.env.ROSTER_HOOK_RUNNING = "1";
+  const r = await runHook({ content: makeHook("pre", `  - run: "exit 0"`), event: "pre", skill: "s", metaDir });
+  delete process.env.ROSTER_HOOK_RUNNING;
+  assert.equal(r.outcome, "skip");
+  assert.equal(fsSync.existsSync(path.join(metaDir, "friction.jsonl")), false);
+});
+
+test("friction: skip outcome writes nothing (hook file absent)", async () => {
+  const metaDir = newMetaDir();
+  const r = await runHook({ hookDir: "/tmp/no-such-dir-roster", event: "pre", skill: "s", metaDir });
+  assert.equal(r.outcome, "skip");
+  assert.equal(fsSync.existsSync(path.join(metaDir, "friction.jsonl")), false);
+});
+
+test("friction: reason strings are newline-stripped — one single-line record", async () => {
+  const metaDir = newMetaDir();
+  // Multi-line command via YAML block scalar → failure reason embeds newlines.
+  const r = await runHook({
+    content: makeHook("pre", [
+      `  - run: |`,
+      `      echo line1`,
+      `      exit 1`,
+      `    on_error: stop`,
+    ].join("\n")),
+    event: "pre", skill: "s", metaDir,
+  });
+  assert.equal(r.outcome, "abort");
+  const raw = await fs.readFile(path.join(metaDir, "friction.jsonl"), "utf-8");
+  const lines = raw.split("\n").filter((l) => l.trim() !== "");
+  assert.equal(lines.length, 1); // exactly one physical line per record
+  const rec = JSON.parse(lines[0]) as Record<string, unknown>;
+  for (const f of rec.frictions as string[]) {
+    assert.ok(!/[\r\n]/.test(f), "friction reason contains a raw newline");
+  }
 });
 
 test("backward goto: loop cap triggers abort (not hang)", { timeout: 5000 }, async () => {

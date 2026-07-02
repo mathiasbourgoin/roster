@@ -31,6 +31,7 @@ export interface HookResult {
   steps_run: number;
   pending_llm_steps: Step[];
   abort_reason: string | null;
+  warn_reasons: string[];
   skip_reason: string | null;
   log: string[];
 }
@@ -42,6 +43,35 @@ export interface RunHookOptions {
   skill: string;
   /** Directory containing <skill>/<event>.md. Defaults to .harness/hooks/skills */
   hookDir?: string;
+  /**
+   * Directory containing friction.jsonl. Defaults to cwd-relative `skills-meta/`.
+   * If the directory does not exist, friction logging is skipped with a stderr
+   * warning — the directory is never created by the hook runner.
+   */
+  metaDir?: string;
+}
+
+/**
+ * Friction record appended to skills-meta/friction.jsonl after each executed hook.
+ * Canonical 8 keys (check-friction-shape compliant) + hook extras (spec US-6/AC-16).
+ * `outcome` is the runner's real state machine: pass|warn|abort|pending — `skip`
+ * is NEVER logged (nothing executed; re-entrant runs would double-count).
+ * `loop_iterations` is reserved for native loop execution and stays null in v1;
+ * the `loop-N` outcome form is likewise reserved (loops are LLM-deferred today).
+ */
+export interface HookFrictionRecord {
+  date: string;
+  skill: string;
+  task: string | null;
+  frictions: string[];
+  methods: string[];
+  suggestion_type: null;
+  suggestion: null;
+  effort_estimate: null;
+  hook: "pre" | "post";
+  outcome: Exclude<Outcome, "skip">;
+  duration_ms: number;
+  loop_iterations: null;
 }
 
 // ─── Shell execution ──────────────────────────────────────────────────────────
@@ -92,6 +122,8 @@ class HookExecutor {
   private stepsRun = 0;
   private pendingLlm: Step[] = [];
   private warnTriggered = false;
+  private warnReasons: string[] = [];
+  private abortReason: string | null = null;
   private hookOnError?: OnError;
 
   constructor(steps: Step[], event: "pre" | "post", skill: string, hookOnError?: OnError) {
@@ -163,6 +195,7 @@ class HookExecutor {
               jumpCount++;
               if (jumpCount > jumpCap) {
                 this.emit(`[error] goto loop cap exceeded (${jumpCount} backward jumps) — aborting`);
+                this.abortReason = `goto loop cap exceeded (${jumpCount} backward jumps)`;
                 return "abort";
               }
             }
@@ -308,10 +341,12 @@ class HookExecutor {
     switch (onError) {
       case "stop":
         this.emit(`[error] abort: ${reason}`);
+        this.abortReason = reason;
         return "abort";
       case "warn":
         this.emit(`[error] warn: ${reason}`);
         this.warnTriggered = true;
+        this.warnReasons.push(reason);
         return null;
       case "skip":
         this.emit(`[error] skip: ${reason}`);
@@ -322,6 +357,7 @@ class HookExecutor {
         // Unknown on_error (e.g. a stale/invalid value the parser somehow let through):
         // fail CLOSED — never silently pass a failing step.
         this.emit(`[error] abort: ${reason} (unknown on_error "${String(onError)}" — failing closed)`);
+        this.abortReason = `${reason} (unknown on_error "${String(onError)}" — failing closed)`;
         return "abort";
     }
   }
@@ -346,11 +382,63 @@ class HookExecutor {
       outcome: finalOutcome,
       steps_run: this.stepsRun,
       pending_llm_steps: this.pendingLlm,
-          abort_reason: outcome === "abort" ? this.log.filter((l) => l.startsWith("[error] abort")).at(-1) ?? null : null,
+      abort_reason: outcome === "abort" ? this.abortReason : null,
+      warn_reasons: [...this.warnReasons],
       skip_reason: null,
       log: this.log,
     };
   }
+}
+
+// ─── Friction logging (spec US-6 / AC-16) ─────────────────────────────────────
+//
+// scripts/run-hook.ts is the SINGLE programmatic writer of skills-meta/friction.jsonl.
+// roster-skill-health is a read-only consumer. Every record is exactly one line
+// (single appendFile call, newline-stripped reason strings) so concurrent appends
+// cannot interleave partial records.
+
+/** Collapse all newlines/CRs to single spaces — single-line JSONL invariant (R6). */
+function stripNewlines(s: string): string {
+  return s.replace(/[\r\n]+/g, " ").trim();
+}
+
+export function buildFrictionRecord(result: HookResult, durationMs: number): HookFrictionRecord {
+  const frictions =
+    result.outcome === "abort" && result.abort_reason !== null
+      ? [stripNewlines(result.abort_reason)]
+      : result.outcome === "warn"
+        ? result.warn_reasons.map(stripNewlines)
+        : [];
+
+  return {
+    date: new Date().toISOString().slice(0, 10),
+    skill: result.skill,
+    task: process.env.TASK ?? null,
+    frictions,
+    methods: [],
+    suggestion_type: null,
+    suggestion: null,
+    effort_estimate: null,
+    hook: result.event,
+    outcome: result.outcome as Exclude<Outcome, "skip">,
+    duration_ms: durationMs,
+    loop_iterations: null,
+  };
+}
+
+/**
+ * Append one friction record to <metaDir>/friction.jsonl. Skips (stderr note)
+ * when metaDir is absent — installed projects may not have skills-meta/; the
+ * runner never creates it. One appendFile call = one atomic single-line record.
+ */
+async function appendFriction(record: HookFrictionRecord, metaDir: string): Promise<void> {
+  try {
+    await fs.access(metaDir);
+  } catch {
+    process.stderr.write(`[friction] skills-meta dir absent (${metaDir}) — friction logging skipped\n`);
+    return;
+  }
+  await fs.appendFile(path.join(metaDir, "friction.jsonl"), JSON.stringify(record) + "\n", "utf-8");
 }
 
 // ─── Public entry point ───────────────────────────────────────────────────────
@@ -362,6 +450,7 @@ const SKIP_RESULT = (skill: string, event: "pre" | "post", reason: string): Hook
   steps_run: 0,
   pending_llm_steps: [],
   abort_reason: null,
+  warn_reasons: [],
   skip_reason: reason,
   log: [],
 });
@@ -399,11 +488,27 @@ export async function runHook(opts: RunHookOptions): Promise<HookResult> {
   const executor = new HookExecutor(parsed.steps, event, skill, parsed.frontmatter.on_error);
 
   process.env.ROSTER_HOOK_RUNNING = "1";
+  let result: HookResult;
+  const startedMs = Date.now();
   try {
-    return await executor.run();
+    result = await executor.run();
   } finally {
     delete process.env.ROSTER_HOOK_RUNNING;
   }
+  const durationMs = Date.now() - startedMs;
+
+  // Friction append is AWAITED here, before main()'s process.exit — a
+  // fire-and-forget write would truncate abort records (R5). Fail-open: a
+  // logging failure must never fail the hook itself (stderr warning only).
+  // `skip` outcomes never reach this point — nothing executed, nothing logged.
+  const metaDir = opts.metaDir ?? path.resolve(process.cwd(), "skills-meta");
+  try {
+    await appendFriction(buildFrictionRecord(result, durationMs), metaDir);
+  } catch (err) {
+    process.stderr.write(`[friction] failed to append friction record: ${String(err)}\n`);
+  }
+
+  return result;
 }
 
 // ─── CLI ─────────────────────────────────────────────────────────────────────
