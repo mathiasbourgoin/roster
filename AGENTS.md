@@ -116,7 +116,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-qa | 1.3.2 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
 | roster-ship | 1.4.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
 | roster-investigate | 1.3.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
-| roster-audit | 1.2.0 | Quality and compliance audit — combines code-quality and spec-compliance into one actionable report |
+| roster-audit | 1.3.0 | Quality and compliance audit — combines code-quality and spec-compliance into one actionable report |
 | roster-doctor | 1.2.0 | Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment is runnable before work starts |
 | roster-question | 1.0.0 | Decompose a task into neutral research questions — blind research prep, task intent not revealed |
 | roster-research | 1.2.2 | Blind documentarian research — reads questions only, produces file:line grounded research |
@@ -137,7 +137,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 |-------|---------|---------|
 | kb-update | 1.1.1 | Update knowledge base — sync KB files with recent code changes without weakening specs |
 | ambiguity-auditor | 1.0.1 | Audit KB for ambiguity — undefined terms, vague requirements, contradictions, stale content |
-| code-quality-auditor | 1.0.1 | Audit code quality against KB-defined properties, invariants, and naming conventions |
+| code-quality-auditor | 1.0.2 | Audit code quality against KB-defined properties, invariants, and naming conventions |
 | spec-compliance-auditor | 1.0.1 | Audit implementation against kb/spec.md — flag unimplemented spec items and behavioral divergence |
 | harness-validator | 1.0.1 | Meta-auditor — validate the KB harness itself (structure, auditors, rules coherence, feedback loops) |
 | roster-spec-infer | 1.0.1 | Reverse-engineer existing code into a structured, evidence-tiered inferred spec (specs/\<slug\>-inferred.md) |

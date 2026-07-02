@@ -2,7 +2,7 @@
 name: roster-audit
 description: Quality and compliance audit — combines code-quality and spec-compliance into one actionable report.
 when_to_use: "Use to assess existing code's quality + spec compliance with no specific change in flight. Trigger: 'audit this', 'is the code healthy'."
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: null
 preamble: true
@@ -52,6 +52,8 @@ If KB exists:
 - Read `kb/properties.md` → invariants, thresholds, constraints
 - Read `kb/glossary.md` → canonical naming
 - Read `kb/spec.md` → specified behaviors
+- Read `kb/architecture.md` (top-level and per-module, if present) → declared structural
+  expectations: module boundaries, dependency direction, layering
 
 If KB absent and `tunables.require_kb: false` → continue with defaults (thresholds in tunables).
 
@@ -105,6 +107,20 @@ Classification:
 For each invariant in `kb/properties.md`:
 - Verify it is preserved in the code
 - If not statically verifiable → note "not statically verifiable"
+
+### 6.5. Check: structural conformance (if `kb/architecture.md` present)
+
+For each structural expectation declared in `kb/architecture.md` (module boundaries,
+dependency direction, layering, forbidden imports):
+
+1. Locate the corresponding structure in the code (imports, module layout)
+2. Verify conformance — cite file:line for each divergence
+3. If an expectation is not statically verifiable → note "not statically verifiable"
+   explicitly, do not assume conformance
+
+This is the standing-codebase counterpart of the `architect` agent's diff-time review:
+architecture drift with no change in flight surfaces here. Report divergences in the same
+severity classes as other findings.
 
 ### 7. Report
 

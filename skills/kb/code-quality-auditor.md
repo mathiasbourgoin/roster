@@ -2,7 +2,7 @@
 name: code-quality-auditor
 description: Audit code quality against KB-defined properties, invariants, and naming conventions.
 when_to_use: "Use to check code against KB-defined properties, invariants, and naming. Trigger: 'check code quality', property/invariant audit."
-version: 1.0.1
+version: 1.0.2
 ---
 
 # Code Quality Auditor
@@ -16,6 +16,10 @@ Check implementation against knowledge base properties and conventions. Uses onl
 - Read `kb/properties.md` for invariants, constraints, and quality thresholds.
 - Read `kb/glossary.md` for canonical naming conventions and term definitions.
 - Read `kb/spec.md` for architectural boundaries and module responsibilities.
+- Read `kb/architecture.md` (top-level and per-module, if present) for declared structural
+  expectations — module boundaries, dependency direction, layering. Check code structure
+  against them; a divergence is a finding (cite file:line), and expectations that are not
+  statically verifiable are noted as such, never assumed satisfied.
 
 ### 2. Check: Function Size
 
