@@ -21,6 +21,10 @@
  *   are single PRETTY-PRINTED objects, so if line-parsing fails the whole block is
  *   parsed as one JSON object instead.
  *
+ *   A `## Friction Log` section with ZERO fenced json/jsonl blocks is an ERROR — an
+ *   empty section would otherwise pass vacuously. (A file with no Friction Log
+ *   heading at all is still check-skill-structure's job, not ours.)
+ *
  * REQUIRED KEYS (canonical set from the shared friction-log schema; extras allowed):
  *   date, skill, task, frictions, methods, suggestion_type, suggestion, effort_estimate
  *
@@ -99,7 +103,12 @@ function checkFile(rel: string): void {
   const content = fs.readFileSync(path.join(REPO_ROOT, rel), "utf-8");
   const section = frictionSection(content);
   if (!section) return; // section presence is check-skill-structure's job, not ours
-  for (const block of fencedBlocks(section)) {
+  const blocks = fencedBlocks(section);
+  if (blocks.length === 0) {
+    errors.push(`${rel}: "## Friction Log" section contains no fenced json/jsonl block — nothing to validate is an error, not a pass`);
+    return;
+  }
+  for (const block of blocks) {
     const { records, badLine } = parseRecords(block);
     if (badLine !== null) {
       errors.push(`${rel}: Friction Log block is neither JSONL nor a single JSON object — offending line: ${badLine.trim()}`);

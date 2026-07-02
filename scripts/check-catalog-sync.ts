@@ -26,6 +26,10 @@
  *     | `/roster-run` | Entry point | Detects context and routes... |
  *     | `tdd-workflow` | testing | Red-green-refactor with auto language detection |
  *
+ *   Skill completeness mirrors the agent-table logic in BOTH catalogs: duplicate rows
+ *   for the same skill name fail, and every filesystem skill (skills/*[star]/*.md,
+ *   preamble exempt) must have a row in each catalog file.
+ *
  *   Section counts — any heading ending in "(N)" (or "(N, qualifier)") must equal the
  *   number of data rows in the tables of its own section (section = until the next
  *   heading of the same or higher level):
@@ -151,6 +155,7 @@ function checkAgentTables(catalog: string, tables: Table[], agents: Map<string, 
 }
 
 function checkSkillTables(catalog: string, tables: Table[], skills: Map<string, Component>): void {
+  const seen = new Set<string>();
   for (const t of tables) {
     if (t.header[0] !== "Skill") continue;
     const versionCol = t.header.indexOf("Version");
@@ -161,10 +166,17 @@ function checkSkillTables(catalog: string, tables: Table[], skills: Map<string, 
         errors.push(`${catalog}:${row.line}: skill row "${name}" has no source file under skills/*/ — offending line: ${row.raw}`);
         continue;
       }
+      if (seen.has(name)) {
+        errors.push(`${catalog}:${row.line}: duplicate skill row "${name}" — offending line: ${row.raw}`);
+      }
+      seen.add(name);
       if (versionCol !== -1 && row.cells[versionCol] !== truth.version) {
         errors.push(`${catalog}:${row.line}: skill "${name}" version ${row.cells[versionCol]} != frontmatter ${truth.version} — offending line: ${row.raw}`);
       }
     }
+  }
+  for (const name of skills.keys()) {
+    if (!seen.has(name)) errors.push(`${catalog}: skill "${name}" (from filesystem) has no row in any skill table`);
   }
 }
 

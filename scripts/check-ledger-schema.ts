@@ -20,9 +20,11 @@
  *   illegal → reason:false (non-string); earlier illegal event in history;
  *             non-object event entry; ship/PARTIAL; implement/BLOCKED; intake/PARTIAL
  *
- * Requires `jq` on PATH — skipped with a warning (exit 0) if absent.
+ * Requires `jq` on PATH — HARD FAILURE (exit 1) if absent: jq is already a hard
+ * dependency of init-harness.sh and sync-harness.sh, so any CI environment running
+ * this suite must have it; a green skip would be a vacuous pass.
  * Flags: --report  → print findings but always exit 0 (debug mode).
- * Exit 0 = clean/skipped. Exit 1 = a fixture was mis-classified (fixture printed).
+ * Exit 0 = clean. Exit 1 = missing jq, or a fixture was mis-classified (fixture printed).
  */
 
 import * as fs from "node:fs";
@@ -90,8 +92,10 @@ function main(): void {
   const errors: string[] = [];
 
   if (spawnSync("jq", ["--version"], { encoding: "utf-8" }).status !== 0) {
-    console.log("⚠ ledger-schema: jq not found on PATH — skipping fixture matrix.");
-    process.exit(0);
+    console.error(
+      "✗ ledger-schema: jq not found on PATH — jq is a hard dependency of init-harness.sh and sync-harness.sh, so a jq-less environment cannot run roster anyway; a green skip here would be a vacuous pass. Install jq."
+    );
+    process.exit(reportOnly ? 0 : 1);
   }
 
   const schema = extractSchema();
