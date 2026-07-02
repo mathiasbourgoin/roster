@@ -424,6 +424,84 @@ test("friction: reason strings are newline-stripped — one single-line record",
   }
 });
 
+// ─── CHECK-8 integration: built CLI writes friction BEFORE process.exit ───────
+// Spawns dist/scripts/run-hook.js in a scratch project. Reading the record
+// AFTER the child has exited proves the append is awaited inside runHook —
+// a fire-and-forget write would truncate abort records (R5).
+
+import { execFile } from "node:child_process";
+
+const CLI = path.join(__dirname, "run-hook.js"); // sibling in dist/scripts at runtime
+
+function runCli(cwd: string, event: string, skill: string, env: Record<string, string> = {}):
+  Promise<{ code: number; stdout: string }> {
+  return new Promise((resolve) => {
+    execFile("node", [CLI, event, skill], { cwd, env: { ...process.env, ...env } }, (err, stdout) => {
+      const code = err && typeof (err as { code?: unknown }).code === "number" ? (err as { code: number }).code : 0;
+      resolve({ code, stdout });
+    });
+  });
+}
+
+function scaffoldProject(hooks: { skill: string; steps: string }[]): string {
+  const proj = path.join(SCRATCH_ROOT, `proj-${metaDirCounter++}`);
+  fsSync.mkdirSync(path.join(proj, "skills-meta"), { recursive: true });
+  for (const h of hooks) {
+    const dir = path.join(proj, ".harness", "hooks", "skills", h.skill);
+    fsSync.mkdirSync(dir, { recursive: true });
+    fsSync.writeFileSync(path.join(dir, "pre.md"), makeHook("pre", h.steps));
+  }
+  return proj;
+}
+
+test("CHECK-8 integration: abort via built CLI — record present after exit", async () => {
+  const proj = scaffoldProject([{ skill: "s-abort", steps: `  - run: "exit 1"\n    on_error: stop` }]);
+  const { code } = await runCli(proj, "pre", "s-abort", { TASK: "check-8" });
+  assert.equal(code, 1); // abort exit code
+  // Child has fully exited — the record must already be on disk (write-before-exit).
+  const records = await readFrictionRecords(path.join(proj, "skills-meta"));
+  assert.equal(records.length, 1);
+  const rec = records[records.length - 1];
+  assert.ok("hook" in rec && "outcome" in rec, "CHECK-8: tail record must carry hook and outcome");
+  assert.equal(rec.outcome, "abort");
+  assert.equal(rec.task, "check-8");
+});
+
+test("integration: one record per outcome (pass/warn/abort/pending), all shape-compliant", async () => {
+  const proj = scaffoldProject([
+    { skill: "s-pass", steps: `  - run: "exit 0"` },
+    { skill: "s-warn", steps: `  - run: "exit 1"\n    on_error: warn` },
+    { skill: "s-abort", steps: `  - run: "exit 1"\n    on_error: stop` },
+    { skill: "s-pending", steps: `  - prompt: "check"\n    agent: qa` },
+  ]);
+  const expectations: [string, number, string][] = [
+    ["s-pass", 0, "pass"],
+    ["s-warn", 2, "warn"],
+    ["s-abort", 1, "abort"],
+    ["s-pending", 3, "pending"],
+  ];
+  for (const [skill, expectedCode] of expectations) {
+    const { code } = await runCli(proj, "pre", skill);
+    assert.equal(code, expectedCode, `exit code for ${skill}`);
+  }
+  const records = await readFrictionRecords(path.join(proj, "skills-meta"));
+  assert.equal(records.length, 4);
+  for (let i = 0; i < 4; i++) {
+    const rec = records[i];
+    assert.equal(rec.outcome, expectations[i][2]);
+    for (const k of [...CANONICAL_KEYS, ...HOOK_EXTRA_KEYS]) {
+      assert.ok(k in rec, `record ${i} missing key "${k}" — not check-friction-shape compliant`);
+    }
+  }
+});
+
+test("integration: skip (no hook file) via built CLI writes nothing", async () => {
+  const proj = scaffoldProject([]); // skills-meta exists, no hooks
+  const { code } = await runCli(proj, "pre", "no-hook-skill");
+  assert.equal(code, 4); // skip
+  assert.equal(fsSync.existsSync(path.join(proj, "skills-meta", "friction.jsonl")), false);
+});
+
 // ─── break_if / continue_if (spec US-4 Sc.4C) ─────────────────────────────────
 
 test("break_if: round-trips through the parser as its own operator", async () => {
