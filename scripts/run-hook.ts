@@ -373,10 +373,13 @@ class HookExecutor {
     let finalOutcome: Outcome;
     if (outcome === "abort") {
       finalOutcome = "abort";
+    } else if (this.pendingLlm.length > 0) {
+      // pending outranks warn: deferred LLM steps still need dispatching, and
+      // callers key on exit 3 for that. The warn is not lost — warn_reasons
+      // stay in the result and the friction record.
+      finalOutcome = "pending";
     } else if (this.warnTriggered) {
       finalOutcome = "warn";
-    } else if (this.pendingLlm.length > 0) {
-      finalOutcome = "pending";
     } else {
       finalOutcome = "pass";
     }
@@ -398,9 +401,10 @@ class HookExecutor {
 // ─── Friction logging (spec US-6 / AC-16) ─────────────────────────────────────
 //
 // scripts/run-hook.ts is the SINGLE programmatic writer of skills-meta/friction.jsonl.
-// roster-skill-health is a read-only consumer. Every record is exactly one line
-// (single appendFile call, newline-stripped reason strings) so concurrent appends
-// cannot interleave partial records.
+// roster-skill-health is a read-only consumer. Each record is written as one line via a
+// single appendFile call with newline-stripped reason strings — best-effort single-line
+// JSONL: a mid-write fault (ENOSPC/EIO) can still leave a truncated trailing line, so
+// readers must tolerate (skip) a malformed final line.
 
 /** Collapse all newlines/CRs to single spaces — single-line JSONL invariant (R6). */
 function stripNewlines(s: string): string {
@@ -535,11 +539,11 @@ async function main(): Promise<void> {
   console.log(JSON.stringify(result, null, 2));
 
   switch (result.outcome) {
-    case "pass":    process.exit(0); break;
-    case "abort":   process.exit(1); break;
-    case "warn":    process.exit(2); break;
-    case "pending": process.exit(3); break;
-    case "skip":    process.exit(4); break;
+    case "pass":    process.exit(0);
+    case "abort":   process.exit(1);
+    case "warn":    process.exit(2);
+    case "pending": process.exit(3);
+    case "skip":    process.exit(4);
   }
 }
 

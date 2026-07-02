@@ -114,6 +114,23 @@ test("run: default post → warn", async () => {
   assert.equal(r.outcome, "warn");
 });
 
+test("pending outranks warn: a warned hook with deferred LLM steps is pending", async () => {
+  // Review finding (codex-xruntime 2026-07-02): warn used to mask pending, so
+  // callers keying on exit 3 skipped the deferred steps. The warn survives in
+  // warn_reasons and the friction record.
+  const metaDir = newMetaDir();
+  const r = await runHook({
+    content: makeHook("post", `  - run: "exit 2"\n  - prompt: "do the deferred thing"`),
+    event: "post", skill: "s", metaDir,
+  });
+  assert.equal(r.outcome, "pending");
+  assert.equal(r.pending_llm_steps.length, 1);
+  assert.equal(r.warn_reasons.length, 1);
+  const records = await readFrictionRecords(metaDir);
+  assert.equal(records[0].outcome, "pending");
+  assert.deepEqual(records[0].frictions, []);
+});
+
 test("frontmatter on_error: warn overrides the pre-hook stop default", async () => {
   // A pre-hook normally defaults failed steps to stop → abort. A hook-level
   // `on_error: warn` must become the per-step default, so a failing step warns instead.

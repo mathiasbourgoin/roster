@@ -487,7 +487,7 @@ Records carry the canonical 8 friction keys (`date`, `skill`, `task`, `frictions
 Field semantics:
 
 - `task` is the `$TASK` env var at invocation (`roster-run` exports `TASK=<slug>` at hook dispatch — it is the join key), or `null` when unset.
-- `frictions` is `[]` on pass/pending, the warn reasons on warn, and the abort reason on abort. Reason strings are newline-stripped; each record is exactly one JSONL line.
+- `frictions` is `[]` on pass/pending, the warn reasons on warn, and the abort reason on abort. Reason strings are newline-stripped and each record is written as one JSONL line (best-effort: a mid-write disk fault can truncate the trailing line, so consumers skip a malformed final line).
 - Logging is **fail-open**: a write failure warns on stderr and never fails the hook. If `skills-meta/` does not exist (installed projects may not have it), logging is skipped with a stderr note — the runner never creates the directory.
 
 ### `[HOOK]` Proposals in Health Reports
