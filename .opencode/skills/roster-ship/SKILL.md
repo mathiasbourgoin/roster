@@ -1,7 +1,7 @@
 ---
 name: roster-ship
 description: Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go.
-version: 1.3.1
+version: 1.4.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -13,6 +13,8 @@ tunables:
   commit_convention: conventional
   pre_pr_checks: ""
   friction_warn_threshold: 10
+  push_mode: pr  # allowed: pr | direct
+  push_target: main
 artifacts:
   reads:
     - briefs/<task>-review.json
@@ -28,7 +30,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.6.0
+version: 1.6.1
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -166,6 +168,8 @@ Rules for writing your event:
 - `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
 - Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
   skill name (or `human-gate` for a gate decision).
+- Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
+  hooks manually.
 
 
 # Roster Ship
@@ -224,7 +228,9 @@ git add <scope files>
 git commit -m "type(scope): description"
 ```
 
-### 3. Rebase on main
+### 3. Rebase on main (`push_mode: pr` only)
+
+This step applies **only in `pr` mode**. In `direct` mode there is **no rebase-onto-main** — the work is fast-forward pushed to `tunables.push_target`'s configured long-lived branch (see Step 5).
 
 ```bash
 git fetch origin
@@ -253,6 +259,10 @@ Wait for explicit human confirmation after the quiz passes.
 
 ### 5. Push and PR
 
+Behavior depends on `tunables.push_mode` (default `pr` — preserves current behavior):
+
+**`pr` mode (default):**
+
 ```bash
 git push origin <branch> --force-with-lease
 gh pr create \
@@ -262,6 +272,14 @@ gh pr create \
 Closes #N" \
   --base main
 ```
+
+**`direct` mode:** fast-forward push to the long-lived branch configured in `tunables.push_target` — no PR, no rebase-onto-main (Step 3's rebase and Step 6's PR merge do not apply):
+
+```bash
+git push origin HEAD:<push_target>   # must be a fast-forward — never force
+```
+
+If the push is not a fast-forward, stop and report — do not force-push (see escalation rules).
 
 ### 6. Human gate — merge
 

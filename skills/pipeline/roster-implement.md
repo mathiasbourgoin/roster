@@ -1,7 +1,7 @@
 ---
 name: roster-implement
 description: Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief.
-version: 1.5.1
+version: 1.5.2
 domain: pipeline
 phase: implement
 preamble: true
@@ -91,6 +91,8 @@ Violating a KB invariant is a **blocker**: stop and escalate rather than breakin
   Reference path: `.claude/agents/implementer.md`
 
 **If mixed scope:** sequence — OCaml first, rest after.
+
+**Note — worktree isolation:** the `implementer` sub-agent type isolates in a git worktree; it cannot see uncommitted changes in the main working tree. For tasks operating on uncommitted working-tree files, use a non-isolated general agent instead.
 
 ### 3. TDD if required
 

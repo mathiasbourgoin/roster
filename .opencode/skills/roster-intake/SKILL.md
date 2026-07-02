@@ -1,7 +1,7 @@
 ---
 name: roster-intake
 description: Intake phase — transforms a task into a contractual brief validated by the human.
-version: 1.1.0
+version: 1.1.1
 domain: pipeline
 phase: intake
 preamble: true
@@ -26,7 +26,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.6.0
+version: 1.6.1
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -164,6 +164,8 @@ Rules for writing your event:
 - `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
 - Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
   skill name (or `human-gate` for a gate decision).
+- Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
+  hooks manually.
 
 
 # Roster Intake
@@ -202,6 +204,8 @@ Before any question:
 - Form an initial understanding of the task
 
 If the task is in $ARGUMENTS, analyze it completely before asking anything.
+
+For divergence-shaped tasks (comparing or reconciling two branches), scope with `git cherry <upstream> <branch>` (patch-id based) rather than raw `git diff A..B`, whose direction misleads on cherry-pick-heavy histories.
 
 ### 2. Clarification questions (if necessary)
 

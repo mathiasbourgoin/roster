@@ -1,7 +1,7 @@
 ---
 name: roster-intake
 description: Intake phase — transforms a task into a contractual brief validated by the human.
-version: 1.1.0
+version: 1.1.1
 domain: pipeline
 phase: intake
 preamble: true
@@ -60,6 +60,8 @@ Before any question:
 - Form an initial understanding of the task
 
 If the task is in $ARGUMENTS, analyze it completely before asking anything.
+
+For divergence-shaped tasks (comparing or reconciling two branches), scope with `git cherry <upstream> <branch>` (patch-id based) rather than raw `git diff A..B`, whose direction misleads on cherry-pick-heavy histories.
 
 ### 2. Clarification questions (if necessary)
 

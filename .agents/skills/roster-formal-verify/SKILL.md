@@ -13,7 +13,7 @@ artifacts:
 
 ---
 name: roster-preamble
-version: 1.6.0
+version: 1.6.1
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -151,6 +151,8 @@ Rules for writing your event:
 - `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
 - Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
   skill name (or `human-gate` for a gate decision).
+- Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
+  hooks manually.
 
 
 # Roster Formal Verify

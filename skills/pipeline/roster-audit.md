@@ -2,7 +2,7 @@
 name: roster-audit
 description: Quality and compliance audit — combines code-quality and spec-compliance into one actionable report.
 when_to_use: "Use to assess existing code's quality + spec compliance with no specific change in flight. Trigger: 'audit this', 'is the code healthy'."
-version: 1.1.1
+version: 1.2.0
 domain: pipeline
 phase: null
 preamble: true
@@ -42,6 +42,8 @@ You audit code quality and its compliance with the KB. You produce actionable fi
 
 Default scope if $ARGUMENTS is empty: all source code (excluding `_build/`, `node_modules/`, `dist/`).
 
+**Mandatory scope confirmation — before any fan-out.** Confirm the scope with an explicit choice between **whole-tree** and **git-range** (e.g. `main..HEAD`) scope, using the runtime's interactive tool (`AskUserQuestion` or equivalent — see preamble *Asking Questions*). In autonomous/delegated mode where no human is available, record the chosen scope and the basis for the choice in the report header. Never re-interpret the scope mid-run — a scope change requires restarting the audit.
+
 ## Steps
 
 ### 1. Load references
@@ -52,6 +54,8 @@ If KB exists:
 - Read `kb/spec.md` → specified behaviors
 
 If KB absent and `tunables.require_kb: false` → continue with defaults (thresholds in tunables).
+
+**Git-range scope — branch divergence.** The canonical tool for scoping branch divergence is `git cherry <upstream> <branch>` (patch-id based): it identifies commits whose *changes* are genuinely missing from the other side, regardless of hashes. ⚠️ Raw `git diff A..B` direction misleads on cherry-pick-heavy histories — a commit cherry-picked across branches shows as a diff even though its change is already present, and the apparent direction of divergence can invert. Use `git cherry` (mind the merge-base) to establish what actually diverges before reading any diff.
 
 ### 2. Check: function size (if `check_code_quality: true`)
 

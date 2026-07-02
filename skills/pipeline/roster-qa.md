@@ -1,7 +1,7 @@
 ---
 name: roster-qa
 description: Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO.
-version: 1.3.1
+version: 1.3.2
 domain: pipeline
 phase: qa
 preamble: true
@@ -144,6 +144,10 @@ the primary run passed (a CRITICAL/HIGH discrepancy), the verdict is **NO-GO** �
 only passes under one runtime is not a pass. Surface the exact divergence.
 
 ### 5. Write the QA report
+
+**Report format contract (load-bearing):** the verdict line MUST be exactly `**Status:** GO ✅` or `**Status:** NO-GO ❌`, at the start of a line — the ship-gate hook greps `^\*\*Status:\*\* GO`. Do not inline the status into another sentence, indent it, or reword it; a report that fails this grep is rejected by the gate even if the verdict is GO.
+
+**Manual hook invocation:** the pre/post skill hooks require the task slug via the `TASK` environment variable — e.g. `TASK=<slug> node dist/scripts/run-hook.js pre|post <skill>`. Without `TASK` the hook aborts.
 
 Produce `briefs/<task>-qa.md`:
 

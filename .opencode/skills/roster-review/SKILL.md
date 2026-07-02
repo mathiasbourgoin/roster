@@ -1,7 +1,7 @@
 ---
 name: roster-review
 description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
-version: 1.5.1
+version: 1.6.0
 domain: pipeline
 phase: review
 preamble: true
@@ -26,7 +26,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.6.0
+version: 1.6.1
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -164,6 +164,8 @@ Rules for writing your event:
 - `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
 - Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
   skill name (or `human-gate` for a gate decision).
+- Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
+  hooks manually.
 
 
 # Roster Review
@@ -244,6 +246,8 @@ Spawn specialists based on scope. Each specialist receives:
 - The `briefs/<task>-reviewer.md`
 - Their own instructions (path below)
 
+**Uncommitted-tree work:** when reviewing work done on uncommitted working-tree files, capture the **pre-task tree state** (`git diff --stat` + `git status` snapshot recorded at task start — e.g. from the intake/impl brief) and pass it to every specialist, so scope-discipline claims are verifiable without session history.
+
 | Specialist | Condition | Path / Invocation |
 |---|---|---|
 | `spec-compliance` (per-feature) | `specs/<task-slug>.md` exists | Invoke `spec-compliance-auditor` with spec path as `$ARGUMENTS` |
@@ -252,11 +256,11 @@ Spawn specialists based on scope. Each specialist receives:
 | `architect` | Medium or large blast radius (>3 files modified or public module) | `.claude/agents/architect.md` |
 | `terminal-ux-reviewer` | TUI scope detected in diff or brief | `.claude/agents/terminal-ux-reviewer.md` |
 | `reviewer` (agent) | Always | `.claude/agents/reviewer.md` |
-| `cross-runtime-reviewer` | A runtime CLI other than the host is on `PATH` (`codex` or `opencode`) | See **Cross-Runtime Review** below — an independent second-model pass |
+| `cross-runtime-reviewer` | **Mandatory** in Fast/Full when a runtime CLI other than the host is on `PATH` (`codex` or `opencode`); skip only by explicit human decision | See **Cross-Runtime Review** below — an independent second-model pass |
 
 ### Cross-Runtime Review
 
-When a **different** runtime CLI is available, run an independent adversarial pass. Detection (auto-on):
+When a **different** runtime CLI is available, run an independent adversarial pass. Detection:
 
 ```bash
 command -v codex >/dev/null 2>&1 && echo "codex available"
@@ -265,7 +269,13 @@ command -v opencode >/dev/null 2>&1 && echo "opencode available"
 
 If neither is present (or only the host runtime), **skip silently**.
 
-Otherwise shell out non-interactively (e.g. `codex exec "<prompt>"`). Pass the diff and `briefs/<task>-review.json`; instruct it to return **only findings the primary missed**, as JSON in the standard finding schema with `specialist: "<runtime>-xruntime"`.
+**Mandatory for Fast/Full reviews when a second runtime CLI is on `PATH`.** This pass may be skipped **only by explicit human decision** — never silently. If skipped, record the human decision in the verdict.
+
+**Invocation notes:**
+- `codex exec` needs `--skip-git-repo-check` when invoked outside trusted directories.
+- When the pass must run builds, use `--sandbox workspace-write` and take a **before/after tree-integrity snapshot** (e.g. `git status --porcelain` + `git diff --stat` before and after) to verify the second runtime did not mutate the tree.
+
+Shell out non-interactively (e.g. `codex exec "<prompt>"`). Pass the diff and `briefs/<task>-review.json`; instruct it to return **only findings the primary missed**, as JSON in the standard finding schema with `specialist: "<runtime>-xruntime"`. Verification prompts must state claims in **behavioral terms** (observable behavior, not implementation phrasing) — disputes over phrasing are not findings.
 
 **Augment, never rewrite.** Append returned objects to `cross_runtime_findings`. Do **not** edit primary `findings` entries.
 
