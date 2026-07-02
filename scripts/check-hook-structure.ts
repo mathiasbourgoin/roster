@@ -19,6 +19,9 @@
  *   - `loop:` without `until:` key
  *   - `parallel:` step found
  *   - `goto:` from a `pre` hook targets a roster pipeline step (not a label in this file)
+ *   - `goto:` targets the hook's own skill — self-loop (EC-3)
+ *   - hook targets a skill not installed in the harness (EC-7)
+ *   - `break_if:`/`continue_if:` outside a loop body (valid, LLM-deferred — Sc.4C)
  *
  * Entry point: scans directory passed as CLI arg (default: `.harness/hooks/skills/`).
  * If 0 hook files found, prints "0 hook files found — nothing to lint" and exits 0.
@@ -29,6 +32,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import yaml from "js-yaml";
+import { collectStepsWithContext, skillInstalled } from "./lib/hook-lint-helpers";
 
 const DEFAULT_DIR = path.resolve(process.cwd(), ".harness/hooks/skills");
 const SCAN_DIR = process.argv[2] ? path.resolve(process.argv[2]) : DEFAULT_DIR;
@@ -68,6 +72,8 @@ const ALLOWED_OPERATORS = new Set([
   "include",
   "output",
   "parallel",
+  "break_if",
+  "continue_if",
 ]);
 
 // Supported on_error values — must match what run-hook.ts actually implements.
@@ -105,31 +111,6 @@ function extractStepsBlock(content: string): string | null {
     }
   }
   return null;
-}
-
-/**
- * Recursively collect all steps from a parsed steps array (including nested).
- */
-function collectSteps(steps: unknown[]): unknown[] {
-  const result: unknown[] = [];
-  for (const step of steps) {
-    result.push(step);
-    if (step && typeof step === "object") {
-      const s = step as Record<string, unknown>;
-      for (const nested of ["on_true", "on_false", "steps"]) {
-        if (Array.isArray(s[nested])) {
-          result.push(...collectSteps(s[nested] as unknown[]));
-        }
-      }
-      if (s["loop"] && typeof s["loop"] === "object") {
-        const loopObj = s["loop"] as Record<string, unknown>;
-        if (Array.isArray(loopObj["steps"])) {
-          result.push(...collectSteps(loopObj["steps"] as unknown[]));
-        }
-      }
-    }
-  }
-  return result;
 }
 
 async function pathExists(p: string): Promise<boolean> {
@@ -228,12 +209,12 @@ async function checkHook(
     return { errors, warnings };
   }
 
-  // Collect all steps (flat) for validation
-  const allSteps = collectSteps(stepsValue);
+  // Collect all steps (flat, with loop context) for validation
+  const allSteps = collectStepsWithContext(stepsValue);
 
   // Collect label names defined in this hook
   const labelNames = new Set<string>();
-  for (const step of allSteps) {
+  for (const { step } of allSteps) {
     if (step && typeof step === "object") {
       const s = step as Record<string, unknown>;
       if (typeof s["label"] === "string") {
@@ -245,8 +226,15 @@ async function checkHook(
   // Track harness presence once
   const harnessExists = await pathExists(HARNESS_DIR);
 
+  // EC-7: hook present for a skill that is not installed in the harness → warning
+  if (harnessExists && skill && !(await skillInstalled(HARNESS_DIR, skill))) {
+    warnings.push(
+      `hook targets skill "${skill}" which is not installed in the harness (.harness/skills/ or harness.json layers) — hook has no runtime effect (EC-7)`
+    );
+  }
+
   for (let i = 0; i < allSteps.length; i++) {
-    const step = allSteps[i];
+    const { step, inLoop } = allSteps[i];
     if (!step || typeof step !== "object") {
       errors.push(`step ${i + 1} is not an object`);
       continue;
@@ -324,6 +312,20 @@ async function checkHook(
           `step ${i + 1}: "goto: ${target}" in pre-hook targets a pipeline step — this may bypass pre-hook intent`
         );
       }
+
+      // 11c. EC-3: goto targets the hook's own skill (self-loop) — warning, runtime allowed
+      if (skill && target === skill) {
+        warnings.push(
+          `step ${i + 1}: "goto: ${target}" targets the hook's own skill — self-loop (EC-3); allowed at runtime but creates a loop`
+        );
+      }
+    }
+
+    // Warning: break_if/continue_if outside a loop body — valid, LLM-deferred (Sc.4C)
+    if ((op === "break_if" || op === "continue_if") && !inLoop) {
+      warnings.push(
+        `step ${i + 1}: "${op}:" outside a loop body — valid but LLM-deferred (routed to pending_llm_steps); intended for loop bodies (Sc.4C)`
+      );
     }
 
     // 12. agent values must resolve to an installed skill or agent (if .harness exists)

@@ -476,7 +476,9 @@ test("break_if/continue_if inside a loop body travel intact in the deferred loop
   assert.equal(loop.until, "exit 0");
 });
 
-test("backward goto: loop cap triggers abort (not hang)", { timeout: 5000 }, async () => {
+// 501 backward jumps → 501 real shell spawns; comfortably <1s standalone but can
+// exceed 5s when the full npm-test chain loads the machine — budget accordingly.
+test("backward goto: loop cap triggers abort (not hang)", { timeout: 20000 }, async () => {
   // A hook with an unconditional backward goto must abort via the jump cap, not hang forever.
   const r = await runHook({
     content: makeHook("pre", [
