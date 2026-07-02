@@ -1,5 +1,5 @@
 ---
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Hook Definition Schema
@@ -187,6 +187,8 @@ steps:
   - loop:
       steps:
         - run: "cmd"
+        - break_if: "{{result}} == 'done'"      # exit the loop early (LLM-evaluated in v1)
+        - continue_if: "{{result}} == 'skip'"   # skip to next iteration (LLM-evaluated in v1)
       until: "bash returning 0=done"
   - goto: roster-implement    # pipeline jump (post-hooks only) OR intra-hook label
   - timeout: 5000             # advisory ms — LLM best-effort, not enforced
@@ -219,6 +221,8 @@ steps:
 | `include:` | — | Path relative to `.harness/hooks/shared/`; inlined at build time |
 | `output:` | — | Structured output key |
 | `parallel:` | `agents:` (required) | Prose-parallelism hint; sequential in v1; `first-wins`/`collect-all` are no-ops |
+| `break_if:` | — | Exit the enclosing loop when the condition holds; LLM-evaluated in v1 (native evaluation reserved for v2 with `capture:`); outside a loop → routed to `pending_llm_steps`, linter warns |
+| `continue_if:` | — | Skip to the next loop iteration when the condition holds; same evaluation and outside-loop semantics as `break_if:` |
 
 Each step object must have **exactly one** operator key from the table above.
 
@@ -245,12 +249,15 @@ Auto-discovered by `roster-run` using the `name:` frontmatter field of the targe
 
 Hooks do not fire for skill invocations initiated from within a hook (depth > 1). This is enforced by prose instruction in `roster-run.md` — not by a process mechanism. See the reliability caveats in `docs/hooks.md`.
 
-### Friction Log Fields
+### Friction Log Fields (HookFrictionEntry)
 
-Hook-enabled runs emit additional fields in `friction.jsonl` alongside standard fields:
+Every **executed** hook run appends one single-line record to `skills-meta/friction.jsonl`. The writer is `scripts/run-hook.ts` (single writer; `roster-skill-health` is a read-only consumer). Records carry the canonical 8 friction keys plus:
 
 ```jsonl
-{"hook": "pre | post", "outcome": "pass | warn | abort | loop-N", "duration_hint_ms": 1200, "loop_iterations": 0}
+{"hook": "pre | post", "outcome": "pass | warn | abort | pending", "duration_ms": 1200, "loop_iterations": null}
 ```
 
-> `duration_hint_ms` is LLM-approximate — no wall-clock timer is available.
+- `outcome` is the runner's real state machine; `skip` is **never logged** (nothing executed). `loop-N` is **reserved** for future native loop execution.
+- `duration_ms` is real wall-clock time measured by the runner around step execution.
+- `loop_iterations` is reserved — always `null` in v1 (loops are LLM-deferred).
+- `task` = `$TASK` env at invocation or `null`; `frictions` = `[]` on pass/pending, warn reasons on warn, abort reason on abort (newline-stripped).

@@ -4,7 +4,7 @@
 
 Skill hooks are declarative automation files that run **before** (`pre`) or **after** (`post`) a skill is dispatched by `roster-run`. They let you add guard checks, post-run cleanup, or agentic feedback loops to any skill — without modifying the skill itself.
 
-Skill hooks are distinct from **tool-level hooks** (which intercept Bash/Edit/Write tool calls in `settings.json`). Skill hooks operate at the pipeline level. Shell-level steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) are executed by `run-hook.ts` (CLI: `node dist/scripts/run-hook.js`) as real processes with enforced exit-code semantics. Steps requiring LLM interpretation (`prompt:+agent:`, `loop:`, `parallel:`) are returned in `pending_llm_steps` for the agent to handle after the runner completes.
+Skill hooks are distinct from **tool-level hooks** (which intercept Bash/Edit/Write tool calls in `settings.json`). Skill hooks operate at the pipeline level. Shell-level steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) are executed by `run-hook.ts` (CLI: `node dist/scripts/run-hook.js`) as real processes with enforced exit-code semantics. Steps requiring LLM interpretation (`prompt:+agent:`, `loop:`, `parallel:`, `break_if:`, `continue_if:`) are returned in `pending_llm_steps` for the agent to handle after the runner completes.
 
 **Typical use cases:**
 
@@ -171,6 +171,24 @@ Execute a list of steps repeatedly.
 - **Without `until:`, the loop runs indefinitely.** This is intentional and allowed, but the linter will warn. Do not use unbounded loops in production pre-hooks without explicit understanding of termination conditions.
 
 > ⚠️ Do not copy-paste loops without understanding their termination conditions. An unbounded pre-hook will hang every skill dispatch.
+
+---
+
+### `break_if:` / `continue_if:`
+
+Mid-loop flow control inside a `loop:` body.
+
+```yaml
+- loop:
+    steps:
+      - run: "npm test"
+      - break_if: "{{result}} == 'done'"      # exit the loop early
+      - continue_if: "{{result}} == 'skip'"   # skip to the next iteration
+    until: "npm test"
+```
+
+- Conditions (the `{{result}}` form) are **LLM-evaluated** in v1 — loops are deferred to the agent (`pending_llm_steps`), and the loop body, including these steps, travels intact inside the deferred `loop:` step. Native evaluation is reserved for v2 alongside `capture:`.
+- Outside a loop body they are **valid but LLM-deferred**: the runner routes them to `pending_llm_steps` (outcome `pending`, exit 3) rather than silently skipping them. The linter warns, since they are intended for loop bodies.
 
 ---
 
@@ -441,6 +459,9 @@ node dist/scripts/check-hook-structure.js .harness/hooks/skills/
 | `loop:` without `until:` | "loop without detectable termination" |
 | `parallel:` step | "prose-parallelism hint — executes sequentially" |
 | `goto:` from pre-hook to pipeline step | "may bypass pre-hook intent" |
+| `goto:` targets the hook's own skill | "self-loop (EC-3) — allowed at runtime but creates a loop" |
+| hook targets a skill not installed in the harness | "no runtime effect (EC-7)" |
+| `break_if:`/`continue_if:` outside a loop body | "valid but LLM-deferred — intended for loop bodies (Sc.4C)" |
 
 **0 files found:** exits 0, prints `"0 hook files found — nothing to lint"`.
 
@@ -450,17 +471,24 @@ node dist/scripts/check-hook-structure.js .harness/hooks/skills/
 
 ### Friction Log Fields
 
-When a hook-enabled skill run logs to `friction.jsonl`, it emits additional fields:
+Every **executed** hook run appends one record to `skills-meta/friction.jsonl`. The append is performed by the hook runner itself (`scripts/run-hook.ts`) — it is the **single writer** of hook friction records; `roster-skill-health` is a read-only consumer.
 
 ```jsonl
-{"skill": "roster-spec", "hook": "pre", "outcome": "abort", "duration_hint_ms": 340, "loop_iterations": 0, "type": "workaround", ...}
-{"skill": "roster-implement", "hook": "post", "outcome": "loop-3", "duration_hint_ms": 4200, "loop_iterations": 3, "type": "rework", ...}
+{"date":"2026-07-02","skill":"roster-spec","task":"my-feature","frictions":["step 1: \"exit 1\" exited with code 1"],"methods":[],"suggestion_type":null,"suggestion":null,"effort_estimate":null,"hook":"pre","outcome":"abort","duration_ms":340,"loop_iterations":null}
 ```
 
+Records carry the canonical 8 friction keys (`date`, `skill`, `task`, `frictions`, `methods`, `suggestion_type`, `suggestion`, `effort_estimate`) plus hook extras:
+
 - `hook`: `"pre"` or `"post"`
-- `outcome`: `"pass"` | `"warn"` | `"abort"` | `"loop-N"` (N = iteration count)
-- `duration_hint_ms`: LLM-approximate elapsed time — no wall-clock timer is available
-- `loop_iterations`: number of loop iterations completed
+- `outcome`: `"pass"` | `"warn"` | `"abort"` | `"pending"` — the runner's real state machine. **`skip` is never logged** (nothing executed; logging re-entrant/absent-hook skips would double-count). `"loop-N"` is **reserved** for future native loop execution (loops are LLM-deferred in v1).
+- `duration_ms`: real wall-clock elapsed time around step execution (measured by the runner)
+- `loop_iterations`: reserved — always `null` in v1 (set when loops execute natively)
+
+Field semantics:
+
+- `task` is the `$TASK` env var at invocation (`roster-run` exports `TASK=<slug>` at hook dispatch — it is the join key), or `null` when unset.
+- `frictions` is `[]` on pass/pending, the warn reasons on warn, and the abort reason on abort. Reason strings are newline-stripped; each record is exactly one JSONL line.
+- Logging is **fail-open**: a write failure warns on stderr and never fails the hook. If `skills-meta/` does not exist (installed projects may not have it), logging is skipped with a stderr note — the runner never creates the directory.
 
 ### `[HOOK]` Proposals in Health Reports
 
@@ -520,8 +548,9 @@ The following features are **planned for v2** and are **absent from v1**:
 
 - `capture: <key>` — capture named output from a step into a variable
 - `{{var}}` interpolation — reference captured values in subsequent steps
+- Native (runner-side) evaluation of `break_if:`/`continue_if:` conditions — in v1 they are LLM-evaluated (the steps themselves are valid v1 syntax; only their evaluation is deferred)
 
-These features require a binding mechanism that was not designed in time for v1. Do not attempt to use `capture:` or `{{var}}` syntax — the linter will flag them as unknown operators.
+These features require a binding mechanism that was not designed in time for v1. Do not attempt to use `capture:` as a step key — the linter will flag it as an unknown operator. (`{{var}}` forms inside `break_if:`/`continue_if:` condition strings are accepted; the LLM interprets them.)
 
 ---
 
@@ -543,7 +572,7 @@ It returns the following exit codes, consumed by `roster-run` to decide whether 
 | **0** | `pass` — all steps completed successfully | Dispatch the skill normally |
 | **1** | `abort` — a `run:` step failed with `on_error: stop`, or a `retry:` exhausted all attempts | **Block** skill dispatch; print abort reason |
 | **2** | `warn` — a step failed with `on_error: warn` and execution continued | Dispatch the skill; log the warning |
-| **3** | `pending` — hook contains `prompt:`, `loop:`, or `parallel:` steps that require LLM interpretation | Hand remaining steps back to the LLM agent; it decides whether to proceed |
+| **3** | `pending` — hook contains `prompt:`, `loop:`, `parallel:`, `break_if:`, or `continue_if:` steps that require LLM interpretation | Hand remaining steps back to the LLM agent; it decides whether to proceed |
 | **4** | `skip` — the re-entrance guard `ROSTER_HOOK_RUNNING` was set (hook called from within a hook) | Skip hook silently; dispatch the skill normally |
 
 **Rule of thumb for hook authors:** if your pre-hook must block the skill on failure, use `on_error: stop` on the `run:` step. Exit 1 is the only code that prevents dispatch.

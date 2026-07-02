@@ -5,7 +5,7 @@ status: live
 feature: Skill-Level Hook System with Declarative DSL
 brief: briefs/skill-hooks-intake.md
 date: 2026-05-25
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Spec — Skill-Level Hook System
@@ -171,6 +171,15 @@ As a roster contributor, I want `npm run check:hooks` to validate hook file stru
 
 As a roster maintainer, I want `roster-skill-health` to surface `[HOOK]` proposals from friction patterns and detect hook↔skill migration opportunities, so that the system self-optimises over time.
 
+> **Amendment (2026-07-02, execution-model alignment):** the `outcome` field enum is the
+> hook runner's real state machine — `pass | warn | abort | pending` (`pending` = hook
+> contains LLM-deferred steps). `skip` is **never logged** (nothing executed; logging
+> re-entrant/absent-hook skips would double-count). The originally specced `loop-N` form
+> and a non-null `loop_iterations` are **reserved** for future native loop execution —
+> loops are LLM-deferred in v1, so `loop_iterations` is `null` today. The duration field
+> is `duration_ms` (real wall-clock time measured by `scripts/run-hook.ts`, the single
+> writer of these records).
+
 **Why this priority:** Health integration closes the feedback loop. Without it, hooks are installed and forgotten — friction from hooks is invisible.
 
 **Independent Test:** Write 3+ friction entries showing roster-implement failing on missing brief → roster-skill-health run proposes a `[HOOK]` pre-hook for roster-implement.
@@ -225,7 +234,7 @@ As a new roster user, I want `docs/hooks.md` to explain the hook format, all ste
 | C-15 | US-5 | Linter validates syntax not semantics — most dangerous failures are invisible | **Accepted:** Spec explicitly documents linter scope: structural validation only. Semantic errors (unreachable goto, non-terminating loops) are runtime risks, not linter scope. |
 | C-16 | US-5 | Schema doesn't exist yet — what does linter validate against? | **Resolved:** Schema is written as part of this feature (extension to `schema/hook-schema.md`). Linter validates against the new schema. |
 | C-17 | US-5 | check-skill-structure.ts is not a direct template — rules are categorically different | **Resolved:** "Template" means structural checker pattern (frontmatter parsing + fenced block extraction), not identical rules. New rules written from scratch. |
-| C-18 | US-6 | Hooks cannot generate friction entries today | **Resolved:** Hooks log to `friction.jsonl` with additional fields: `hook` (pre/post), `outcome` (pass/warn/abort/loop-N), `duration_ms`, `loop_iterations`. Schema extended. |
+| C-18 | US-6 | Hooks cannot generate friction entries today | **Resolved:** Hooks log to `friction.jsonl` with additional fields: `hook` (pre/post), `outcome` (pass/warn/abort/pending — see US-6 amendment 2026-07-02; loop-N reserved), `duration_ms`, `loop_iterations`. Schema extended. |
 | C-19 | US-6 | Migration signals undefined | **Resolved:** hook→skill: 100% pass rate over N runs; skill→hook: identical step prose in 3+ skills. Formal criteria in health skill update. |
 | C-20 | US-6 | [HOOK] threshold hardcoded in story, ignores existing tunable | **Resolved:** Uses existing `min_entries_for_signal` tunable. No new tunable. |
 | C-21 | US-7 | Error behaviors not yet specified | **Resolved:** Spec (this document) defines error behaviors. Tutorial documents what spec specifies. |
@@ -302,6 +311,6 @@ As a new roster user, I want `docs/hooks.md` to explain the hook format, all ste
 - `HookStep`: One entry in the `steps:` YAML sequence; typed by its primary key: `run:` (shell), `prompt:`+`agent:` (agentic), `test:` (conditional), `loop:` (iteration), `label:` (jump target), `parallel:` (concurrent), `log:` (observability), `include:` (fragment), `output:` (structured result).
 - `HookRunner`: The prose instructions in `roster-run` that discover and execute `SkillHook` files before/after skill dispatch — not a separate process; implemented as LLM-interpreted steps in the orchestrator skill.
 - `AbortSentinel`: The string `ABORT: <reason>` emitted by an agent step to signal hook failure to the HookRunner; the LLM executor interprets this as a non-zero exit equivalent for `prompt:+agent:` steps.
-- `HookFrictionEntry`: A JSONL entry in `skills-meta/friction.jsonl` with additional fields `hook` (pre/post), `outcome` (pass/warn/abort/loop-N), `duration_ms`, `loop_iterations` — extends the existing friction schema.
+- `HookFrictionEntry`: A JSONL entry in `skills-meta/friction.jsonl` with additional fields `hook` (pre/post), `outcome` (pass/warn/abort/pending — see US-6 amendment 2026-07-02; loop-N reserved, skip never logged), `duration_ms`, `loop_iterations` (null in v1) — extends the existing friction schema.
 - `GotoDirective`: A routing intent expressed as `goto: <skill-name>` in a hook step; machine-readable by linter and health analysis; interpreted by HookRunner as an instruction to dispatch the named skill next.
 - `IncludeFragment`: A shared hook step sequence stored in `.harness/hooks/shared/<name>.md`; referenced via `include:` steps; loaded by the LLM using the Read tool before processing the parent hook's steps.

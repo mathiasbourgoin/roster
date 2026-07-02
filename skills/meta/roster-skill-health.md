@@ -2,7 +2,7 @@
 name: roster-skill-health
 description: Periodic friction analysis — proposes new skills, deterministic tools, and adaptations.
 when_to_use: "Use periodically (every 5-10 pipeline cycles) to cluster friction-log patterns into improvement proposals. Trigger: 'analyze friction', friction-count reminder."
-version: 1.2.1
+version: 1.2.2
 domain: meta
 phase: null
 preamble: true
@@ -149,9 +149,9 @@ Expected friction reduction: <count> workaround entries eliminated
 
 **Additional `friction.jsonl` fields for hook-enabled runs:**
 ```jsonl
-{"hook": "pre | post", "outcome": "pass | warn | abort | loop-N", "duration_hint_ms": 1200, "loop_iterations": 3}
+{"hook": "pre | post", "outcome": "pass | warn | abort | pending", "duration_ms": 1200, "loop_iterations": null}
 ```
-Health analysis may filter on `"hook": "pre"` to identify pre-hook friction separately from skill friction.
+These records are appended automatically by the hook runner — **this skill is a read-only consumer; `scripts/run-hook.ts` is the single writer**. `outcome: skip` is never logged (nothing executed); `loop-N` outcomes and non-null `loop_iterations` are reserved for future native loop execution. `duration_ms` is real wall-clock time measured by the runner. Health analysis may filter on `"hook": "pre"` to identify pre-hook friction separately from skill friction.
 
 #### E. New dedicated agents
 
