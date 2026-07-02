@@ -1,4 +1,4 @@
-export type ComponentType = "agent" | "skill" | "rule" | "hook" | "kb" | "spec" | "other";
+export type ComponentType = "agent" | "skill" | "rule" | "hook" | "kb" | "spec" | "formal-spec" | "other";
 
 export type IndexEntry = {
   name: string;

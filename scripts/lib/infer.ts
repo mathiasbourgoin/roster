@@ -35,7 +35,12 @@ export function inferComponentType(filePath: string): ComponentType {
   if (normalized.startsWith("kb/")) {
     return "kb";
   }
-  if (normalized.startsWith("specs/")) return "spec";
+  if (
+    normalized.startsWith("specs/") &&
+    (normalized.endsWith(".v") || normalized.endsWith(".qnt"))
+  )
+    return "formal-spec";
+  if (normalized.startsWith("specs/") && normalized.endsWith(".md")) return "spec";
   return "other";
 }
 
