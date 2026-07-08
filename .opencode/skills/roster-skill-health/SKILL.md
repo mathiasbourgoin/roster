@@ -2,7 +2,7 @@
 name: roster-skill-health
 description: Periodic friction analysis — proposes new skills, deterministic tools, and adaptations.
 when_to_use: "Use periodically (every 5-10 pipeline cycles) to cluster friction-log patterns into improvement proposals. Trigger: 'analyze friction', friction-count reminder."
-version: 1.2.2
+version: 1.3.0
 domain: meta
 phase: null
 preamble: true
@@ -232,7 +232,9 @@ Below threshold → note in the report, do not propose action.
 
 ### 4. Produce proposals
 
-4 categories, in recommended priority order:
+Six categories (A–F), in recommended priority order. **This A–F tag list is the shared
+contract with `/roster-skill-evolve`** — every tag emitted here has a matching handler there;
+a change to this list is a change to both skills.
 
 #### A. New skills
 
@@ -274,7 +276,7 @@ Impacted section: <Steps N / Rules / Input Contract>
 Signal: `min_entries_for_signal` (default: 3) friction entries on the same skill with `type: workaround`, where the workaround pattern is a guard check (validate precondition before running), a post-run cleanup, or a feedback loop (run → check → fix → retry).
 
 ```
-**[HOOK] hooks/skills/<skill-name>/<pre|post>.md**
+**[HOOK] .harness/hooks/skills/<skill-name>/<pre|post>.md**
 
 Signal: <cite 1–2 friction entries>
 Problem: <what recurring manual step / guard / feedback loop is being done by hand>
@@ -309,6 +311,26 @@ Role: <description>
 Next step: recruiter + skill-creator
 ```
 
+#### F. Workflow template promotion
+
+Signal: ≥ `min_entries_for_signal` workflow instances (`workflows/*.cwr.json`, excluding
+`templates/`) sharing the same structural diff vs. their source template. Detection here is
+cheap — list the instances and group them by source template (match each instance's step
+sequence against `workflows/templates/*.cwr.json`; the version string alone does not
+identify a template). Emit the proposal only when one group reaches the threshold, and mark
+it *unconfirmed* — the precise per-step diffing happens in `/roster-skill-evolve`'s handler:
+
+```bash
+ls workflows/*.cwr.json 2>/dev/null | grep -v 'templates/'
+```
+
+```
+**[WORKFLOW] workflows/templates/<mode>.cwr.json**
+Signal: <N> instances diverge from template <mode> in the same way
+Divergence: <one-sentence description of the shared modification>
+Proposed promotion: fold the shared diff into the template
+```
+
 ### 5. Report
 
 Produce `skills-meta/health-<YYYY-MM-DD>.md`:
@@ -322,7 +344,7 @@ Produce `skills-meta/health-<YYYY-MM-DD>.md`:
 
 ## Proposals (strong signals)
 
-<proposals A/B/C/D>
+<proposals A–F>
 
 ## Weak signals (< threshold — to monitor)
 

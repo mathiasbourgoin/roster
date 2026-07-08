@@ -1,7 +1,7 @@
 ---
 name: roster-skill-evolve
 description: Implements skill-health approved improvements — skills, tools, adaptations, agents.
-version: 1.3.0
+version: 1.4.0
 domain: meta
 phase: null
 preamble: true
@@ -15,6 +15,9 @@ artifacts:
   writes:
     - skills/<domain>/<name>.md
     - scripts/<name>.sh
+    - .harness/hooks/skills/<skill>/<pre|post>.md
+    - .harness/hooks/shared/<fragment>.md
+    - workflows/templates/<mode>.cwr.json
     - .harness/harness.json (via sync-harness.sh)
 pipeline_role:
   triggered_by: /roster-skill-health with APPROVED proposals
@@ -43,7 +46,12 @@ If no APPROVED proposal:
 
 ## Steps
 
-For each APPROVED proposal, in order A → B → C → D:
+**Category vocabulary is owned by `/roster-skill-health`** (its §4 A–F list is the shared
+contract): A `[SKILL]`, B `[TOOL]`, C `[ADAPT]`, D `[HOOK]`, E `[AGENT]`, F `[WORKFLOW]`.
+Each tag has a handler below. A report tag with no handler here is a contract violation —
+stop and escalate rather than improvising.
+
+For each APPROVED proposal, in order A → B → C → D → E → F:
 
 ### Proposal [SKILL] — New skill
 
@@ -144,6 +152,39 @@ For each APPROVED proposal, in order A → B → C → D:
 
 ---
 
+### Proposal [HOOK] — Skill hook
+
+1. **Gate before**: present the target skill, the phase (`pre` or `post`), and what the hook
+   automates (the guard / cleanup / feedback loop cited in the proposal).
+
+2. **Author the hook** at `.harness/hooks/skills/<skill-name>/<pre|post>.md`:
+   - Frontmatter: `name`, `version`, `event: pre|post`, `skill: <skill-name>`, `on_error`,
+     `description` (see `docs/hooks.md` for the format and step operators)
+   - A fenced ` ```yaml ` block with `steps:` — prefer deterministic `run:`/`test:` steps;
+     `prompt:`/`loop:` steps only when the check genuinely needs LLM judgment
+
+3. **Validate and dry-run**:
+   ```bash
+   node dist/scripts/check-hook-structure.js
+   TASK=<sample-slug> node dist/scripts/run-hook.js <pre|post> <skill-name>
+   ```
+   Both must exit clean (run-hook exit 0/2/3 are acceptable outcomes; 1 means the hook's
+   abort path fired — verify that is the intended behavior for the sample input; 4 means
+   the runner did not find the hook — a red flag right after authoring it: check the
+   path and `skill:` frontmatter).
+
+4. **Gate after**: show the hook file and the dry-run output. Request install approval,
+   then `bash scripts/sync-harness.sh`.
+
+5. **Lifecycle proposals** (hook→skill migration, skill→hook extraction — see
+   `/roster-skill-health` §4.D): treat as `[ADAPT]` on the affected skill plus a hook
+   file add/delete; both diffs go through the same before/after gates. A skill→hook
+   extraction that health proposed as a **shared fragment** writes
+   `.harness/hooks/shared/<fragment>.md` and updates each affected skill hook to
+   `include:` it — run `node dist/scripts/check-hook-structure.js` after sync.
+
+---
+
 ### Proposal [AGENT] — New dedicated agent
 
 1. **Gate before**: present the role, domain, and frictions motivating it. This is a large investment — confirm explicitly.
@@ -162,8 +203,12 @@ For each APPROVED proposal, in order A → B → C → D:
    ls workflows/*.cwr.json 2>/dev/null | grep -v 'templates/' || echo "no instances"
    ```
    For each instance:
-   - Read `_roster_template_version` to identify the source template
-   - Load `workflows/templates/<mode>.cwr.json`
+   - Identify the source template **structurally**: match the instance's step sequence
+     (id, skill) against each `workflows/templates/*.cwr.json`. `_roster_template_version`
+     alone cannot identify the template — it is a version string and multiple templates
+     share versions. If zero or multiple templates match → mark the instance
+     `[AMBIGUOUS]`, skip it.
+   - Load the matched `workflows/templates/<mode>.cwr.json`
    - Compute structural diff: compare steps by (position, id, skill) — **ignore prompt content**
    - If template has been updated since `_roster_template_version` → mark diff as `[CONFLICT]`, skip
 
@@ -174,6 +219,10 @@ For each APPROVED proposal, in order A → B → C → D:
 4. **Apply patch** (on approval):
    - Edit `workflows/templates/<mode>.cwr.json` to incorporate the diff
    - Bump `_roster_version`: minor (x.Y.0) if steps added/removed; patch (x.y.Z) for wording changes
+   - Validate before the after-gate counts as satisfied:
+     `jq empty workflows/templates/<mode>.cwr.json && node scripts/check-cwr-templates.js`
+     (plus `cwr lint` when the CLI is available) — a template that fails validation is a
+     failed apply: revert it
    - Run `bash scripts/sync-harness.sh`
 
 5. **Gate after**: present the final template diff. Request commit approval.
@@ -222,7 +271,9 @@ For each APPROVED proposal:
 - [SKILL] → `skills/<domain>/roster-<name>.md` installed + harness updated
 - [TOOL] → `scripts/<name>.sh` created + affected skill patched
 - [ADAPT] → skill patched + version bumped
+- [HOOK] → `.harness/hooks/skills/<skill>/<pre|post>.md` installed + structure check green
 - [AGENT] → agent installed via recruiter
+- [WORKFLOW] → template patched + `_roster_version` bumped
 
 ## When to Go Back
 

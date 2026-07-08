@@ -128,8 +128,8 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Meta (3)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-skill-health | 1.2.2 | Periodic friction analysis — proposes new skills, deterministic tools, and adaptations |
-| roster-skill-evolve | 1.3.0 | Implements skill-health approved improvements — skills, tools, adaptations, agents |
+| roster-skill-health | 1.3.0 | Periodic friction analysis — proposes new skills, deterministic tools, and adaptations |
+| roster-skill-evolve | 1.4.0 | Implements skill-health approved improvements — skills, tools, adaptations, agents |
 | roster-upgrade | 0.1.0 | Propose-only self-upgrade for any roster-contract skill — two-gate CI check, maintainer-invoked only |
 
 ### KB/Audit (9)
