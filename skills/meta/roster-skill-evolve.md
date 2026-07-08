@@ -1,7 +1,8 @@
 ---
 name: roster-skill-evolve
-description: Implements skill-health approved improvements — skills, tools, adaptations, agents.
-version: 1.4.0
+description: Installs skill-health-approved improvements to skills, tools, adaptations, and agents.
+when_to_use: "Use after roster-skill-health produces APPROVED proposals ready to apply. Trigger: 'apply the skill-health proposals'."
+version: 1.4.1
 domain: meta
 phase: null
 preamble: true

@@ -1,7 +1,8 @@
 ---
 name: roster-qa
-description: Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO.
-version: 1.3.2
+description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
+when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
+version: 1.3.3
 domain: pipeline
 phase: qa
 preamble: true

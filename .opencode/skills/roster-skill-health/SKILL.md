@@ -1,8 +1,8 @@
 ---
 name: roster-skill-health
-description: Periodic friction analysis — proposes new skills, deterministic tools, and adaptations.
-when_to_use: "Use periodically (every 5-10 pipeline cycles) to cluster friction-log patterns into improvement proposals. Trigger: 'analyze friction', friction-count reminder."
-version: 1.3.0
+description: Clusters accumulated friction-log patterns into improvement proposals.
+when_to_use: "Use every 5-10 pipeline cycles or when a friction-count reminder fires. Trigger: 'analyze friction'."
+version: 1.3.1
 domain: meta
 phase: null
 preamble: true

@@ -1,7 +1,8 @@
 ---
 name: roster-triage-critical
-description: Critical-route triage — property elicitation, priority ordering, backend proposal, cost disclosure. Dispatched by roster-run when --critical is chosen. Checkpoints to briefs/<slug>-formal-triage.md.
-version: 1.0.0
+description: Elicits formal-verification properties and proposes a backend for the critical route.
+when_to_use: "Use when roster-run dispatches a --critical task. Trigger: 'triage critical', '--critical route'."
+version: 1.0.1
 domain: pipeline
 phase: null
 preamble: true

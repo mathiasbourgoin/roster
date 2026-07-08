@@ -1,8 +1,8 @@
 ---
 name: ambiguity-auditor
-description: Audit KB for ambiguity — undefined terms, vague requirements, contradictions, stale content.
-when_to_use: "Use to find undefined terms, vague requirements, contradictions, or stale content in the KB. Trigger: 'audit the KB for ambiguity'."
-version: 1.0.1
+description: Scans the KB for undefined terms, vague requirements, contradictions, and stale content.
+when_to_use: "Use before a spec review or KB migration to catch quality issues early. Trigger: 'audit the KB for ambiguity'."
+version: 1.0.2
 ---
 
 # Ambiguity Auditor

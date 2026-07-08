@@ -1,7 +1,8 @@
 ---
 name: kb-reindex
-description: Build or update the LanceDB semantic search index for KB files — opt-in, cold-start or incremental.
-version: 1.0.1
+description: Builds or incrementally updates the LanceDB semantic search index over KB files.
+when_to_use: "Use when semantic search over the KB is enabled but the index is missing or stale. Trigger: 'reindex the KB', 'rebuild the search index'."
+version: 1.0.2
 ---
 
 # KB Reindex

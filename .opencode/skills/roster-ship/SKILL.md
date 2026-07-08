@@ -1,7 +1,8 @@
 ---
 name: roster-ship
-description: Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go.
-version: 1.4.0
+description: Carries a reviewed, QA'd branch through to a merged PR.
+when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
+version: 1.4.1
 domain: pipeline
 phase: ship
 preamble: true

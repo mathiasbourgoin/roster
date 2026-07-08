@@ -1,7 +1,7 @@
 ---
 name: roster-upgrade
-description: Generic, propose-only upgrader for any roster-contract skill or pack. Mines evidence-graded signal, routes each change at its natural altitude, and gates it with a git-diff-enforced leak scan, the target's own validator, and a human-validation quiz the skill runs itself (altitude-independent). Propose-only — lands nothing; a human reviews and merges the diff. Maintainer-invoked only — never auto-discovered.
-version: 0.1.0
+description: Propose-only upgrader for roster-contract skills — evidence-mined, gate-checked, human-landed diffs.
+version: 0.1.1
 domain: meta
 phase: null
 preamble: true

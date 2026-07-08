@@ -1,7 +1,8 @@
 ---
 name: roster-formal-verify
-description: Formal verification gate — tool resolution via capability tag, roster re-runs coqchk/.itf replay directly, emits E0p/E0m/E0m-abstract evidence tier. Replaces the QA gate for --critical tasks.
-version: 1.0.0
+description: Formal verification gate that re-runs the deterministic checker itself and emits an evidence tier.
+when_to_use: "Use in place of the QA phase for --critical tasks needing machine-checked proof evidence. Trigger: 'formal verify', '--critical route QA'."
+version: 1.0.1
 domain: pipeline
 phase: null
 preamble: true

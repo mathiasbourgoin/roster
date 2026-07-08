@@ -1,7 +1,8 @@
 ---
 name: roster-spec
-description: Adversarial spec phase — derives user stories with concrete GWT scenarios, surfaces challenges, formalizes FR-NNN requirements, produces structured contract with runnable checks.
-version: 2.0.3
+description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
+when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
+version: 2.0.4
 domain: pipeline
 phase: spec
 preamble: true

@@ -1,7 +1,8 @@
 ---
 name: roster-intake
-description: Intake phase — transforms a task into a contractual brief validated by the human.
-version: 1.1.2
+description: Turns a raw task description into a human-validated contractual brief.
+when_to_use: "Use as the first pipeline step for any new task. Trigger: '/roster-run', 'start work on X'."
+version: 1.1.3
 domain: pipeline
 phase: intake
 preamble: true

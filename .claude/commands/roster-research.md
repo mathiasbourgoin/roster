@@ -1,7 +1,8 @@
 ---
 name: roster-research
-description: Blind documentarian research — reads questions only, never the task. Produces file:line grounded research with optional online prior-art scan.
-version: 1.2.3
+description: Performs blind, file:line-grounded research from a questions file, never the task itself.
+when_to_use: "Use after roster-question produces an approved questions file. Trigger: 'research this', 'roster-research'."
+version: 1.2.4
 domain: pipeline
 phase: research
 preamble: true

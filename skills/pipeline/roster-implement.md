@@ -1,7 +1,8 @@
 ---
 name: roster-implement
-description: Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief.
-version: 1.5.2
+description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
+when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
+version: 1.5.3
 domain: pipeline
 phase: implement
 preamble: true

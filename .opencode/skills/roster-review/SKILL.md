@@ -1,7 +1,8 @@
 ---
 name: roster-review
-description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
-version: 1.6.1
+description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
+when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
+version: 1.6.2
 domain: pipeline
 phase: review
 preamble: true

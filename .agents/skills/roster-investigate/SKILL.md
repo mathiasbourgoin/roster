@@ -1,8 +1,8 @@
 ---
 name: roster-investigate
-description: Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code.
-when_to_use: "Use when a bug's root cause is unclear and you must analyze without touching out-of-scope code. Trigger: 'why does X fail', 'investigate', flaky/ambiguous failures."
-version: 1.3.0
+description: Analyzes a bug or unexpected behavior to find its root cause, read-only.
+when_to_use: "Use when a failure is unclear, flaky, or ambiguous and needs diagnosis before any fix. Trigger: 'why does X fail', 'investigate'."
+version: 1.3.1
 domain: pipeline
 phase: null
 preamble: true

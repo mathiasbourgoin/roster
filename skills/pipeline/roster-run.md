@@ -1,8 +1,8 @@
 ---
 name: roster-run
-description: Pipeline entry point — detects context and routes to the right skill.
-when_to_use: "Default entry point for any task — classifies Express/Fast/Full and routes. Trigger: '/roster-run', 'work on X', or any task with no obvious phase."
-version: 1.7.0
+description: Classifies an incoming task and routes it to the right pipeline skill.
+when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
+version: 1.7.1
 ---
 
 # Roster Run

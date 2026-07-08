@@ -1,7 +1,8 @@
 ---
 name: roster-workflow-build
-description: Translates a validated plan JSON into a CWR workflow file using the matching mode template (mechanical template-fill — template steps are copied verbatim). Triggered automatically by roster-run after plan COMPLETED when no workflow file exists yet.
-version: 1.0.1
+description: Fills a CWR workflow template from a validated plan JSON via mechanical template-fill.
+when_to_use: "Use automatically once a plan is COMPLETED and no workflow file exists yet. Trigger: internal roster-run dispatch, not directly user-invoked."
+version: 1.0.2
 domain: pipeline
 phase: null
 capability: workflow-builder

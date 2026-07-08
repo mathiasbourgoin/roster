@@ -1,8 +1,8 @@
 ---
 name: kb-update
-description: Update knowledge base — sync KB files with recent code changes without weakening specs.
-when_to_use: "Use after code changes to sync the KB without weakening specs. Trigger: 'update the KB', post-merge doc sync."
-version: 1.1.1
+description: Synchronizes the KB with recent code changes, standalone from the KB agent's update mode.
+when_to_use: "Use after a merge to keep documentation current. Trigger: 'update the KB', 'post-merge doc sync'."
+version: 1.1.2
 ---
 
 # KB Update

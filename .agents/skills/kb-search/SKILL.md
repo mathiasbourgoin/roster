@@ -1,7 +1,8 @@
 ---
 name: kb-search
-description: Hybrid semantic+keyword search over the KB LanceDB index — returns ranked chunks with source, section, and status.
-version: 1.0.0
+description: Runs hybrid semantic and keyword search over the KB's LanceDB index.
+when_to_use: "Use to find a specific concept or constraint without loading the whole KB. Trigger: 'search the KB', 'find where X is defined'."
+version: 1.0.1
 ---
 
 # KB Search

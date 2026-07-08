@@ -1,7 +1,8 @@
 ---
 name: roster-plan
-description: Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs.
-version: 1.3.2
+description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
+when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
+version: 1.3.3
 domain: pipeline
 phase: plan
 preamble: true

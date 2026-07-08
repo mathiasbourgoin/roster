@@ -1,7 +1,8 @@
 ---
 name: roster-spec-formal
-description: Formal spec phase — extends roster-spec output to produce a Rocq (.v) or Quint (.qnt) formal specification artifact. Runs after roster-spec, never instead of it.
-version: 1.0.0
+description: Extends a validated roster-spec into a formal Rocq (.v) or Quint (.qnt) specification.
+when_to_use: "Use after roster-spec on the critical-verification route. Trigger: 'formal spec', 'write the Rocq/Quint spec'."
+version: 1.0.1
 domain: pipeline
 phase: null
 preamble: true

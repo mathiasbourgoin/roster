@@ -106,59 +106,59 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Pipeline (18)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.7.0 | Pipeline entry point — detects context and routes to the right skill |
-| roster-init | 1.2.2 | Bootstrap a new project or onboard an existing project into the roster ecosystem |
-| roster-intake | 1.1.2 | Intake phase — transforms a task into a contractual brief validated by the human |
-| roster-spec | 2.0.3 | Adversarial spec phase — derives user stories with GWT scenarios, formalizes FR-NNN requirements |
-| roster-plan | 1.3.2 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
-| roster-implement | 1.5.2 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
-| roster-review | 1.6.1 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
-| roster-qa | 1.3.2 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
-| roster-ship | 1.4.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
-| roster-investigate | 1.3.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
-| roster-audit | 1.3.1 | Quality and compliance audit — combines code-quality and spec-compliance into one actionable report |
-| roster-doctor | 1.2.0 | Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment is runnable before work starts |
-| roster-question | 1.0.1 | Decompose a task into neutral research questions — blind research prep, task intent not revealed |
-| roster-research | 1.2.3 | Blind documentarian research — reads questions only, produces file:line grounded research |
-| roster-workflow-build | 1.0.1 | Translates a validated plan JSON into a CWR workflow file using the matching mode template |
-| roster-triage-critical | 1.0.0 | Critical-route triage — property elicitation, priority ordering, backend proposal, cost disclosure |
-| roster-spec-formal | 1.0.0 | Formal spec phase — extends roster-spec output with a Rocq (.v) or Quint (.qnt) formal spec artifact |
-| roster-formal-verify | 1.0.0 | Formal verification gate — re-runs coqchk/.itf replay, emits evidence tier; replaces QA for --critical tasks |
+| roster-run | 1.7.1 | Classifies an incoming task and routes it to the right pipeline skill |
+| roster-init | 1.2.3 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
+| roster-intake | 1.1.3 | Turns a raw task description into a human-validated contractual brief |
+| roster-spec | 2.0.4 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
+| roster-plan | 1.3.3 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
+| roster-implement | 1.5.3 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
+| roster-review | 1.6.2 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
+| roster-qa | 1.3.3 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
+| roster-ship | 1.4.1 | Carries a reviewed, QA'd branch through to a merged PR |
+| roster-investigate | 1.3.1 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
+| roster-audit | 1.3.2 | Combines code-quality and spec-compliance checks into one actionable audit report |
+| roster-doctor | 1.2.1 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
+| roster-question | 1.0.2 | Decomposes a task into neutral research questions with the intent hidden |
+| roster-research | 1.2.4 | Performs blind, file:line-grounded research from a questions file, never the task itself |
+| roster-workflow-build | 1.0.2 | Fills a CWR workflow template from a validated plan JSON via mechanical template-fill |
+| roster-triage-critical | 1.0.1 | Elicits formal-verification properties and proposes a backend for the critical route |
+| roster-spec-formal | 1.0.1 | Extends a validated roster-spec into a formal Rocq (.v) or Quint (.qnt) specification |
+| roster-formal-verify | 1.0.1 | Formal verification gate that re-runs the deterministic checker itself and emits an evidence tier |
 
 ### Meta (3)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-skill-health | 1.3.0 | Periodic friction analysis — proposes new skills, deterministic tools, and adaptations |
-| roster-skill-evolve | 1.4.0 | Implements skill-health approved improvements — skills, tools, adaptations, agents |
-| roster-upgrade | 0.1.0 | Propose-only self-upgrade for any roster-contract skill — two-gate CI check, maintainer-invoked only |
+| roster-skill-health | 1.3.1 | Clusters accumulated friction-log patterns into improvement proposals |
+| roster-skill-evolve | 1.4.1 | Installs skill-health-approved improvements to skills, tools, adaptations, and agents |
+| roster-upgrade | 0.1.1 | Propose-only upgrader for roster-contract skills — evidence-mined, gate-checked, human-landed diffs |
 
 ### KB/Audit (9)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| kb-update | 1.1.1 | Update knowledge base — sync KB files with recent code changes without weakening specs |
-| ambiguity-auditor | 1.0.1 | Audit KB for ambiguity — undefined terms, vague requirements, contradictions, stale content |
-| code-quality-auditor | 1.0.3 | Audit code quality against KB-defined properties, invariants, and naming conventions |
-| spec-compliance-auditor | 1.0.2 | Audit implementation against kb/spec.md — flag unimplemented spec items and behavioral divergence |
-| harness-validator | 1.0.1 | Meta-auditor — validate the KB harness itself (structure, auditors, rules coherence, feedback loops) |
-| roster-spec-infer | 1.0.2 | Reverse-engineer existing code into a structured, evidence-tiered inferred spec (specs/\<slug\>-inferred.md) |
-| kb-migrate | 1.0.1 | Audit, clean, reorg, and migrate an existing KB to the current schema — idempotent, human-gated |
-| kb-reindex | 1.0.1 | ⚠️ Experimental — requires LanceDB. Build or update a vector index over kb/ — opt-in, cold-start or incremental |
-| kb-search | 1.0.0 | ⚠️ Experimental — requires LanceDB. Hybrid semantic+keyword search over the KB index |
+| kb-update | 1.1.2 | Synchronizes the KB with recent code changes, standalone from the KB agent's update mode |
+| ambiguity-auditor | 1.0.2 | Scans the KB for undefined terms, vague requirements, contradictions, and stale content |
+| code-quality-auditor | 1.0.4 | Checks implementation code against KB-defined properties, invariants, and naming conventions |
+| spec-compliance-auditor | 1.0.3 | Compares the implementation against kb/spec.md to verify spec/code parity |
+| harness-validator | 1.0.2 | Meta-auditor that verifies the KB harness's own structural and operational integrity |
+| roster-spec-infer | 1.0.3 | Reverse-engineers an evidence-tiered spec artifact from existing code, tests, docs, and git history |
+| kb-migrate | 1.0.2 | Runs a phased, human-gated migration of an existing KB to the current schema |
+| kb-reindex | 1.0.2 | Builds or incrementally updates the LanceDB semantic search index over KB files |
+| kb-search | 1.0.1 | Runs hybrid semantic and keyword search over the KB's LanceDB index |
 
 ### Workflow (6)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| git-conventions | 1.0.2 | Apply git workflow conventions — commits, branches, PRs |
-| improvement-loop | 1.1.1 | Run a bounded verification-first improvement loop from an approved loop spec |
-| improvement-loop-planner | 1.2.1 | Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals — pairs with improvement-loop |
-| roster-config | 1.0.1 | Discover, inspect, and interactively set tunables across installed roster agents |
-| team | 1.0.1 | Manage the installed agent team — `build` (apply proposal), `review` (audit gaps), `run <task>` (execute pipeline) |
-| tdd-workflow | 1.0.1 | Run TDD cycle — write failing test, implement, refactor, verify coverage |
+| git-conventions | 1.0.3 | Standardizes commit messages, branch names, and PR structure for the current action |
+| improvement-loop | 1.1.2 | Executes a human-approved, bounded improvement loop with verification at each step |
+| improvement-loop-planner | 1.2.2 | Synthesizes KB, code, test, and CI signals into candidate bounded improvement loops |
+| roster-config | 1.0.2 | Interactive editor for tunables exposed by installed roster agents |
+| team | 1.0.2 | Build, review, or run the installed agent team via one dispatch skill |
+| tdd-workflow | 1.0.2 | Drives a strict red-green-refactor TDD cycle with coverage verification |
 
 ### Media (1, experimental)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| image-generation | 1.0.3 | Generate or edit images via Codex CLI — with prompt refinement, vision validation, retry loop |
+| image-generation | 1.0.4 | Generates or edits images through the Codex CLI, with prompt refinement and vision validation |
 
 ## Rules (6)
 

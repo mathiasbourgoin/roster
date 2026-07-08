@@ -1,7 +1,8 @@
 ---
 name: roster-question
-description: Decompose a task into neutral research questions — blind research prep, task intent not revealed.
-version: 1.0.1
+description: Decomposes a task into neutral research questions with the intent hidden.
+when_to_use: "Use as the first roster-run step before any research happens. Trigger: 'roster-run', new task with no scoping yet."
+version: 1.0.2
 domain: pipeline
 phase: question
 preamble: true
