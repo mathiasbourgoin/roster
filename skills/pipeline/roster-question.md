@@ -1,7 +1,7 @@
 ---
 name: roster-question
 description: Decompose a task into neutral research questions — blind research prep, task intent not revealed.
-version: 1.0.0
+version: 1.0.1
 domain: pipeline
 phase: question
 preamble: true
@@ -39,7 +39,7 @@ Read `AGENTS.md` and `README.md` silently. Do not read the codebase yet.
 
 ### 2. Derive the task slug
 
-Kebab-case, max 4 words from $ARGUMENTS. Example: "add webhook retry logic" → `webhook-retry-logic`.
+Derive the canonical slug per the preamble's *Pipeline State* rule (it must be byte-identical across every phase). Example: "add webhook retry logic" → `webhook-retry-logic`.
 
 ### 3. Spawn question-generation sub-agent
 

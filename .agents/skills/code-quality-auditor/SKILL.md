@@ -2,7 +2,7 @@
 name: code-quality-auditor
 description: Audit code quality against KB-defined properties, invariants, and naming conventions.
 when_to_use: "Use to check code against KB-defined properties, invariants, and naming. Trigger: 'check code quality', property/invariant audit."
-version: 1.0.2
+version: 1.0.3
 ---
 
 # Code Quality Auditor
@@ -25,7 +25,7 @@ Check implementation against knowledge base properties and conventions. Uses onl
 
 - Scan source files for function/method definitions.
 - Measure line count per function (use grep + wc approach).
-- Flag functions exceeding the threshold defined in `properties.md` (default: 50 lines if not specified).
+- Flag functions exceeding the threshold defined in `kb/properties.md`; if unspecified there, use the max-function-length limit from the project's code-quality rule (`.claude/rules/code-quality.md`) — do not re-declare the number here.
 - Exclude test files from size checks unless properties.md says otherwise.
 
 ### 3. Check: DRY Violations

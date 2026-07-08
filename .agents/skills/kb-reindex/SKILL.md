@@ -1,7 +1,7 @@
 ---
 name: kb-reindex
 description: Build or update the LanceDB semantic search index for KB files — opt-in, cold-start or incremental.
-version: 1.0.0
+version: 1.0.1
 ---
 
 # KB Reindex
@@ -45,7 +45,7 @@ If `kb/` is absent: report and stop.
 2. For each file, chunk by section:
    - Split content on `## ` heading boundaries
    - Each chunk: `{file_path, section_heading, content, status, schema_version}`
-   - Infer `status` from frontmatter (`status:` field). Map legacy values: `draft`/`reviewed` → `live-doctrine`, `stale` → `historical`.
+   - Infer `status` from frontmatter (`status:` field). Map legacy values per the canonical mapping owned by `kb-migrate` (Phase D — Frontmatter Migration, step 3; currently `draft`/`reviewed` → `live-doctrine`, `stale` → `historical`, quoted here as a non-authoritative hint).
 
 3. Embed each chunk using the configured embedding model (default: `text-embedding-3-small`, 1536 dimensions). Batch embed for efficiency.
 

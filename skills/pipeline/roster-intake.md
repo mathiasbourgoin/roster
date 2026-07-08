@@ -1,7 +1,7 @@
 ---
 name: roster-intake
 description: Intake phase — transforms a task into a contractual brief validated by the human.
-version: 1.1.1
+version: 1.1.2
 domain: pipeline
 phase: intake
 preamble: true
@@ -42,7 +42,7 @@ You transform a task into a contractual brief. This brief is the single source o
 
 ### 0. Consume research (if available)
 
-Derive the task slug from `$ARGUMENTS`. Check for `roster/<task-slug>/research.md`:
+Derive the canonical task slug from `$ARGUMENTS` per the preamble's *Pipeline State* rule (reuse the slug on any existing `roster/<task-slug>/` or `briefs/<task>-*` files). Check for `roster/<task-slug>/research.md`:
 
 ```bash
 ls roster/<task-slug>/research.md 2>/dev/null && echo "research: present" || echo "research: absent"
@@ -96,7 +96,7 @@ If no gate is documented, explicitly note "not documented" — do not invent.
 
 Produce `briefs/<task>-intake.md` in the exact format below.
 
-**Derive the task slug** from $ARGUMENTS: kebab-case, max 4 words.
+**Derive the task slug** from $ARGUMENTS per the preamble's *Pipeline State* rule (byte-identical across phases; reuse the slug on existing `briefs/<task>-*` files if any).
 Example: "add webhook support" → `webhook-support`
 
 ```markdown
