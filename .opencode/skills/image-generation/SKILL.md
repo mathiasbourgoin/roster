@@ -2,7 +2,7 @@
 name: image-generation
 description: Generate or edit images via Codex CLI — with prompt refinement, vision validation, retry loop, and error handling.
 when_to_use: "Use to generate or edit images via the Codex CLI. Trigger: 'generate an image', 'create an icon/asset'."
-version: 1.0.2
+version: 1.0.3
 tags: [image-generation, assets, media, codex, vision, frontend, content, documentation]
 domain: media
 ---
@@ -65,7 +65,7 @@ codex exec --full-auto "Generate a <SIZE> <FORMAT> image of: <REFINED_PROMPT>. S
 codex exec --full-auto "Edit the image at <INPUT_PATH>: <REFINED_PROMPT>. Save the result to <OUTPUT_PATH>."
 ```
 
-Capture both stdout and stderr. On completion, proceed to Step 4.
+Capture both stdout and stderr. On completion, proceed to Step 4 (on user-requested "skip validation", Step 4 runs only 4a/4b — see Rules).
 
 ### Rate Limit Handling
 
@@ -152,9 +152,8 @@ On abort: summarize what failed and what the user should do next.
 ## Rules
 
 - Never invoke Codex without a resolved `OUTPUT_PATH`.
-- Never skip vision validation — even if the file exists and is non-empty.
+- Never skip vision validation (Step 4c) — even if the file exists and is non-empty — unless the user explicitly requests it ("skip validation"). A requested skip bypasses **only 4c**: still run 4a (existence) and 4b (partial-file) — a user skipping quality review is not asking to accept a missing or truncated file — then proceed to Step 5 and log `validation: skipped`.
 - Never hard-retry more than `MAX_ATTEMPTS` times total (rate limit retries are separate).
 - Never overwrite an existing file without confirming with the user first.
 - Never expose raw Codex stderr to the user — translate errors into plain language.
-- If the user explicitly says "skip validation", proceed directly to Step 5 after Step 3.
 - `.imagelog.json` must always be updated, even on failure (log the abort).

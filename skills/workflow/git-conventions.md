@@ -2,7 +2,7 @@
 name: git-conventions
 description: Apply git workflow conventions — commits, branches, PRs.
 when_to_use: "Use when committing, branching, or opening PRs to apply roster's git conventions. Trigger: 'commit this', 'open a PR'."
-version: 1.0.1
+version: 1.0.2
 ---
 
 # Git Conventions
@@ -82,7 +82,7 @@ When committing:
 
 - **Never** force-push to `main` or `master`.
 - **Always** push with `-u` to set upstream tracking.
-- **Never** use `git add .` or `git add -A` — stage specific files.
+- Stage specific files by default — `git add .` / `git add -A` are permitted **only** immediately after a full-tree generator run (e.g. `scripts/sync-harness.sh` projection regeneration, where CI's harness-sync check requires every regenerated file staged), and only when everything else in the tree was already staged or clean before the generator ran — never as a way to sweep in unrelated edits.
 - **Never** skip pre-commit hooks (`--no-verify`).
 - **Never** commit `.env`, credentials, or secrets — warn the user if these are staged.
 - PR descriptions must be comprehensive — reviewers should understand the change without reading code.

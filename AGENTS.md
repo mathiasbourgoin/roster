@@ -112,7 +112,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-spec | 2.0.2 | Adversarial spec phase — derives user stories with GWT scenarios, formalizes FR-NNN requirements |
 | roster-plan | 1.3.2 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
 | roster-implement | 1.5.2 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
-| roster-review | 1.6.0 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
+| roster-review | 1.6.1 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
 | roster-qa | 1.3.2 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
 | roster-ship | 1.4.0 | Ship — conventional commits, rebase-merge, GitHub PR. Gated on review + QA go |
 | roster-investigate | 1.3.0 | Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code |
@@ -148,7 +148,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Workflow (6)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| git-conventions | 1.0.1 | Apply git workflow conventions — commits, branches, PRs |
+| git-conventions | 1.0.2 | Apply git workflow conventions — commits, branches, PRs |
 | improvement-loop | 1.1.1 | Run a bounded verification-first improvement loop from an approved loop spec |
 | improvement-loop-planner | 1.2.0 | Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals — pairs with improvement-loop |
 | roster-config | 1.0.1 | Discover, inspect, and interactively set tunables across installed roster agents |
@@ -158,7 +158,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Media (1, experimental)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| image-generation | 1.0.2 | Generate or edit images via Codex CLI — with prompt refinement, vision validation, retry loop |
+| image-generation | 1.0.3 | Generate or edit images via Codex CLI — with prompt refinement, vision validation, retry loop |
 
 ## Rules (6)
 

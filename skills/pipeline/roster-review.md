@@ -1,7 +1,7 @@
 ---
 name: roster-review
 description: Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict.
-version: 1.6.0
+version: 1.6.1
 domain: pipeline
 phase: review
 preamble: true
@@ -184,6 +184,11 @@ For each point: A, B, or free-form answer.
 ```
 
 Never ask multiple separate questions. One single pass.
+
+> **Deliberate override:** the preamble's *Asking Questions* rule ("one question at a
+> time") does not apply to findings triage — a review's ambiguities are one decision
+> batch, and drip-feeding them wastes the human's attention. This grouped ask is the
+> only sanctioned exception; everywhere else in this skill the preamble rule stands.
 
 ### 6. Write the verdict
 
