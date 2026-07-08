@@ -1,7 +1,7 @@
 ---
 name: roster-plan
 description: Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs.
-version: 1.3.1
+version: 1.3.2
 domain: pipeline
 phase: plan
 preamble: true
@@ -11,6 +11,8 @@ human_gate: after
 artifacts:
   reads:
     - briefs/<task>-intake.md
+    - briefs/<task>-spec.md (feature/api-change: status gate only)
+    - briefs/<task>-formal-triage.md (critical route: mode signal only)
   writes:
     - briefs/<task>-plan.md
     - briefs/<task>-plan.json
@@ -19,7 +21,7 @@ artifacts:
     - briefs/<task>-qa-scope.md
 pipeline_role:
   triggered_by: /roster-intake with validated brief
-  receives: briefs/<task>-intake.md (single source of truth)
+  receives: briefs/<task>-intake.md (single decomposition source; spec/formal-triage consulted as gates, not mined)
   produces: per-role sub-briefs + sequenced plan
 ---
 
@@ -193,7 +195,7 @@ Gate on `human-validation.md` rules: comprehension must be answered correctly (o
 
 ### 8. Final human gate
 
-Present the sub-briefs with their paths. Request validation before spawning execution agents. Set `**Status:** VALIDATED` in each sub-brief after approval.
+Present the sub-briefs with their paths. Request validation before spawning execution agents. After approval, set `**Status:** VALIDATED` in `briefs/<task>-plan.md` **and** in each sub-brief — the Output Contract and roster-run's routing both key on a validated plan.md.
 
 ### 8.5. Write plan JSON (after VALIDATED only)
 
@@ -235,8 +237,10 @@ Use `$TASK_MODE` as the `"mode"` field. File existence is the signal — applies
 ## Output Contract
 
 - `briefs/<task>-plan.md` (VALIDATED)
+- `briefs/<task>-plan.json` (machine-readable plan, atomic `.tmp`-then-rename write)
 - `briefs/<task>-implementer.md` (VALIDATED)
 - `briefs/<task>-reviewer.md` (VALIDATED)
+- `briefs/<task>-qa-scope.md`
 
 **Next:** `/roster-implement` reads `briefs/<task>-implementer.md`.
 

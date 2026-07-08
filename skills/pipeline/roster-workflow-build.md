@@ -1,7 +1,7 @@
 ---
 name: roster-workflow-build
 description: Translates a validated plan JSON into a CWR workflow file using the matching mode template (mechanical template-fill — template steps are copied verbatim). Triggered automatically by roster-run after plan COMPLETED when no workflow file exists yet.
-version: 1.0.0
+version: 1.0.1
 domain: pipeline
 phase: null
 capability: workflow-builder
@@ -122,7 +122,7 @@ If `cwr` is available: `cwr lint workflows/<task>.cwr.json`
 - `name`: task slug
 - `_roster_version`: `"1.0.0"`
 - `_roster_template_version`: source template's `_roster_version`
-- `steps[]`: one `kind: agent` step per plan step, with hook invocations embedded when `hook: true`
+- `steps[]`: copied verbatim from `workflows/templates/<mode>.cwr.json` (Step 2 — never regenerated from plan.json)
 - Disposition: committed / local-only / execution-only temp (per Gate 1 decision)
 
 **Next:** roster-run continues dispatch after this skill completes.

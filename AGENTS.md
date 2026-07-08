@@ -110,7 +110,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-init | 1.2.2 | Bootstrap a new project or onboard an existing project into the roster ecosystem |
 | roster-intake | 1.1.1 | Intake phase — transforms a task into a contractual brief validated by the human |
 | roster-spec | 2.0.2 | Adversarial spec phase — derives user stories with GWT scenarios, formalizes FR-NNN requirements |
-| roster-plan | 1.3.1 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
+| roster-plan | 1.3.2 | Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs |
 | roster-implement | 1.5.2 | Guided implementation — TDD, improve loop, sub-agents. Reads the plan, produces an impl brief |
 | roster-review | 1.6.0 | Fix-first review with conditional specialists — produces a structured GO/NO-GO verdict |
 | roster-qa | 1.3.2 | Deterministic QA — quality gates, tmux matrix if TUI, blocked on review NO-GO |
@@ -120,7 +120,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-doctor | 1.2.0 | Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment is runnable before work starts |
 | roster-question | 1.0.0 | Decompose a task into neutral research questions — blind research prep, task intent not revealed |
 | roster-research | 1.2.2 | Blind documentarian research — reads questions only, produces file:line grounded research |
-| roster-workflow-build | 1.0.0 | Translates a validated plan JSON into a CWR workflow file using the matching mode template |
+| roster-workflow-build | 1.0.1 | Translates a validated plan JSON into a CWR workflow file using the matching mode template |
 | roster-triage-critical | 1.0.0 | Critical-route triage — property elicitation, priority ordering, backend proposal, cost disclosure |
 | roster-spec-formal | 1.0.0 | Formal spec phase — extends roster-spec output with a Rocq (.v) or Quint (.qnt) formal spec artifact |
 | roster-formal-verify | 1.0.0 | Formal verification gate — re-runs coqchk/.itf replay, emits evidence tier; replaces QA for --critical tasks |
