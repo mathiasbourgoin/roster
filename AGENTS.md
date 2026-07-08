@@ -140,7 +140,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | code-quality-auditor | 1.0.2 | Audit code quality against KB-defined properties, invariants, and naming conventions |
 | spec-compliance-auditor | 1.0.2 | Audit implementation against kb/spec.md — flag unimplemented spec items and behavioral divergence |
 | harness-validator | 1.0.1 | Meta-auditor — validate the KB harness itself (structure, auditors, rules coherence, feedback loops) |
-| roster-spec-infer | 1.0.1 | Reverse-engineer existing code into a structured, evidence-tiered inferred spec (specs/\<slug\>-inferred.md) |
+| roster-spec-infer | 1.0.2 | Reverse-engineer existing code into a structured, evidence-tiered inferred spec (specs/\<slug\>-inferred.md) |
 | kb-migrate | 1.0.1 | Audit, clean, reorg, and migrate an existing KB to the current schema — idempotent, human-gated |
 | kb-reindex | 1.0.0 | ⚠️ Experimental — requires LanceDB. Build or update a vector index over kb/ — opt-in, cold-start or incremental |
 | kb-search | 1.0.0 | ⚠️ Experimental — requires LanceDB. Hybrid semantic+keyword search over the KB index |
@@ -150,7 +150,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 |-------|---------|---------|
 | git-conventions | 1.0.2 | Apply git workflow conventions — commits, branches, PRs |
 | improvement-loop | 1.1.1 | Run a bounded verification-first improvement loop from an approved loop spec |
-| improvement-loop-planner | 1.2.0 | Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals — pairs with improvement-loop |
+| improvement-loop-planner | 1.2.1 | Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals — pairs with improvement-loop |
 | roster-config | 1.0.1 | Discover, inspect, and interactively set tunables across installed roster agents |
 | team | 1.0.1 | Manage the installed agent team — `build` (apply proposal), `review` (audit gaps), `run <task>` (execute pipeline) |
 | tdd-workflow | 1.0.1 | Run TDD cycle — write failing test, implement, refactor, verify coverage |
