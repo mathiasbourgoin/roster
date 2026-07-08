@@ -2,7 +2,7 @@
 name: roster-audit
 description: Quality and compliance audit — combines code-quality and spec-compliance into one actionable report.
 when_to_use: "Use to assess existing code's quality + spec compliance with no specific change in flight. Trigger: 'audit this', 'is the code healthy'."
-version: 1.3.0
+version: 1.3.1
 domain: pipeline
 phase: null
 preamble: true
@@ -98,7 +98,7 @@ Classification:
 | Status | Meaning |
 |---|---|
 | **PASS** | Code compliant + test exists |
-| **PARTIAL** | Code compliant + no test |
+| **UNTESTED** | Code compliant + no test |
 | **DIVERGE** | Code behaves differently |
 | **MISSING** | No implementation found |
 
@@ -139,7 +139,7 @@ Produce `briefs/audit-<YYYY-MM-DD>.md`:
 | Function size | N | N |
 | DRY | N | N |
 | Naming | N | N |
-| Spec compliance | PASS: N / PARTIAL: N / DIVERGE: N / MISSING: N | N |
+| Spec compliance | PASS: N / UNTESTED: N / DIVERGE: N / MISSING: N | N |
 | Invariants | N | N |
 
 ## Actionable findings

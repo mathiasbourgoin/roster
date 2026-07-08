@@ -1,7 +1,7 @@
 ---
 name: roster-research
 description: Blind documentarian research — reads questions only, never the task. Produces file:line grounded research with optional online prior-art scan.
-version: 1.2.2
+version: 1.2.3
 domain: pipeline
 phase: research
 preamble: true
@@ -56,7 +56,7 @@ Determine `task-slug` from the directory path (`roster/<task-slug>/questions.md`
 
 If `tunables.depth == auto`:
 - Count questions. If ≤3 → **fast** mode (single sub-agent)
-- If >3 → **full** mode (3 parallel sub-agents)
+- If >3 → **full** mode (parallel specialists — see Step 3b's roster)
 
 If `tunables.depth == fast` → fast mode regardless of question count.
 If `tunables.depth == full` → full mode regardless of question count.

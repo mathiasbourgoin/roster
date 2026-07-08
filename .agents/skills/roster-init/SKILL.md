@@ -32,7 +32,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.6.1
+version: 1.6.2
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -117,7 +117,7 @@ If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of 
 pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
 event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
 `/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
-is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
+is `null` (the standalone skills — e.g. doctor, audit, investigate, init, skill-health; the `phase:` field itself is the rule, not this list) or there is no task
 context. Create the file if absent; preserve every prior `events` entry:
 
 ```json

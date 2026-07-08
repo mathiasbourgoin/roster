@@ -1,7 +1,7 @@
 ---
 name: roster-spec
 description: Adversarial spec phase — derives user stories with concrete GWT scenarios, surfaces challenges, formalizes FR-NNN requirements, produces structured contract with runnable checks.
-version: 2.0.2
+version: 2.0.3
 domain: pipeline
 phase: spec
 preamble: true
@@ -91,7 +91,9 @@ Use the research output to pre-populate the spec's context — do not re-investi
 
 ### 2. Clarification Elicitor
 
-Spawn a sub-agent with this prompt:
+Spawn a sub-agent with this prompt (substitute the resolved value of
+`tunables.min_challenges_per_story` for the placeholder before sending — the sub-agent
+runs in a fresh context and cannot read this skill's frontmatter):
 
 ```
 You are a requirements clarifier. Surface and resolve every material ambiguity before story drafting begins.
@@ -117,7 +119,7 @@ Track `questions_asked_step2` = number of [OPEN] items resolved by asking the us
 
 ### 3. Story Generation
 
-From the brief's Goal, clarification Q&A, and research, derive 2–N user stories. Each must be:
+From the brief's Goal, clarification Q&A, and research, derive at least `tunables.min_user_stories` user stories. Each must be:
 - **Independent**: delivers value without requiring other stories in this brief
 - **Specific**: names actor, action, and observable outcome
 - **Falsifiable**: a test can prove it works or fails
@@ -141,11 +143,13 @@ As a [role], I want [action] so that [outcome].
 3. **Given** [error/boundary state], **When** [action], **Then** [observable outcome]
 ```
 
-If fewer than 2 independent stories are derivable: write `briefs/<task>-spec.md` with `**Status:** BOUNCED`, report what is missing, and stop.
+If fewer than `tunables.min_user_stories` independent stories are derivable: write `briefs/<task>-spec.md` with `**Status:** BOUNCED`, report what is missing, and stop.
 
 ### 4. Challenge Sub-Agent (adversarial)
 
-Spawn a sub-agent with this prompt:
+Spawn a sub-agent with this prompt (substitute the resolved value of
+`tunables.min_challenges_per_story` for the placeholder before sending — the sub-agent
+runs in a fresh context and cannot read this skill's frontmatter):
 
 ```
 You are an adversarial requirements engineer. Find every challenge that must be resolved before these stories can be implemented.
@@ -153,7 +157,7 @@ You are an adversarial requirements engineer. Find every challenge that must be 
 Rules:
 - Never accept a story as valid without a challenge
 - A challenge is a question, contradiction, edge case, or missing constraint that — if unresolved — makes the implementation ambiguous or wrong
-- Reference the story number and exact ambiguity; at least 1 challenge per story
+- Reference the story number and exact ambiguity; at least <min_challenges_per_story> challenge(s) per story
 
 Produce:
 1. Numbered challenges C-1, C-2, ... each citing its story. No solutions — only challenges.
@@ -170,13 +174,15 @@ Classify each challenge:
 - **Resolvable from research/KB or brief**: resolve immediately, document resolution.
 - **Requires user input**: add to questions list.
 
-Ask questions **one at a time**. Remaining budget: `max_questions_to_user − questions_asked_step2`. Do NOT ask questions answerable by reading code or the brief.
+Ask questions **one at a time**. Remaining budget: `tunables.max_questions_to_user − questions_asked_step2`. Do NOT ask questions answerable by reading code or the brief.
 
 If unresolved challenges exceed the remaining budget: write `briefs/<task>-spec.md` with `**Status:** BOUNCED — unresolved challenges: [list]` and stop.
 
 ### 6. Requirements Formalizer
 
-Spawn a sub-agent with this prompt:
+Spawn a sub-agent with this prompt (substitute the resolved value of
+`tunables.min_challenges_per_story` for the placeholder before sending — the sub-agent
+runs in a fresh context and cannot read this skill's frontmatter):
 
 ```
 You are a requirements formalizer. Produce FR-NNN MUST/MUST NOT statements — one normative requirement per distinct behavioral obligation, grouped by story.
@@ -315,7 +321,7 @@ Write `briefs/<task>-spec.md` **only after Step 9 approval**:
 
 | Condition | Action |
 |---|---|
-| Cannot derive ≥2 independent user stories | BOUNCED → user must clarify brief with `/roster-intake` |
+| Cannot derive ≥`tunables.min_user_stories` independent user stories | BOUNCED → user must clarify brief with `/roster-intake` |
 | >max_questions challenges unresolved after research | BOUNCED → re-run `/roster-intake` with challenge list |
 | Entity conflict with existing spec, user cannot resolve | STOP — ask user to amend existing spec first |
 | Type field missing from intake brief | STOP — re-run `/roster-intake` |

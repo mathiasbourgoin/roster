@@ -1,7 +1,7 @@
 ---
 name: roster-research
 description: Blind documentarian research — reads questions only, never the task. Produces file:line grounded research with optional online prior-art scan.
-version: 1.2.2
+version: 1.2.3
 domain: pipeline
 phase: research
 preamble: true
@@ -32,7 +32,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.6.1
+version: 1.6.2
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -117,7 +117,7 @@ If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of 
 pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
 event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
 `/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
-is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
+is `null` (the standalone skills — e.g. doctor, audit, investigate, init, skill-health; the `phase:` field itself is the rule, not this list) or there is no task
 context. Create the file if absent; preserve every prior `events` entry:
 
 ```json
@@ -200,7 +200,7 @@ Determine `task-slug` from the directory path (`roster/<task-slug>/questions.md`
 
 If `tunables.depth == auto`:
 - Count questions. If ≤3 → **fast** mode (single sub-agent)
-- If >3 → **full** mode (3 parallel sub-agents)
+- If >3 → **full** mode (parallel specialists — see Step 3b's roster)
 
 If `tunables.depth == fast` → fast mode regardless of question count.
 If `tunables.depth == full` → full mode regardless of question count.

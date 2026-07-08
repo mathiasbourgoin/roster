@@ -2,7 +2,7 @@
 name: roster-audit
 description: Quality and compliance audit — combines code-quality and spec-compliance into one actionable report.
 when_to_use: "Use to assess existing code's quality + spec compliance with no specific change in flight. Trigger: 'audit this', 'is the code healthy'."
-version: 1.3.0
+version: 1.3.1
 domain: pipeline
 phase: null
 preamble: true
@@ -30,7 +30,7 @@ pipeline_role:
 
 ---
 name: roster-preamble
-version: 1.6.1
+version: 1.6.2
 description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
 ---
 
@@ -115,7 +115,7 @@ If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of 
 pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
 event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
 `/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
-is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
+is `null` (the standalone skills — e.g. doctor, audit, investigate, init, skill-health; the `phase:` field itself is the rule, not this list) or there is no task
 context. Create the file if absent; preserve every prior `events` entry:
 
 ```json
@@ -242,7 +242,7 @@ Classification:
 | Status | Meaning |
 |---|---|
 | **PASS** | Code compliant + test exists |
-| **PARTIAL** | Code compliant + no test |
+| **UNTESTED** | Code compliant + no test |
 | **DIVERGE** | Code behaves differently |
 | **MISSING** | No implementation found |
 
@@ -283,7 +283,7 @@ Produce `briefs/audit-<YYYY-MM-DD>.md`:
 | Function size | N | N |
 | DRY | N | N |
 | Naming | N | N |
-| Spec compliance | PASS: N / PARTIAL: N / DIVERGE: N / MISSING: N | N |
+| Spec compliance | PASS: N / UNTESTED: N / DIVERGE: N / MISSING: N | N |
 | Invariants | N | N |
 
 ## Actionable findings

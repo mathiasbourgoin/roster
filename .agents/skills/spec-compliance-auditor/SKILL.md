@@ -2,7 +2,7 @@
 name: spec-compliance-auditor
 description: Audit implementation against kb/spec.md — flag unimplemented spec items and behavioral divergence.
 when_to_use: "Use to flag unimplemented spec items or behavioral divergence from kb/spec.md. Trigger: 'does the code match the spec'."
-version: 1.0.1
+version: 1.0.2
 ---
 
 # Spec Compliance Auditor
@@ -44,7 +44,7 @@ For each testable claim:
 | Status | Meaning |
 |--------|---------|
 | **PASS** | Code matches spec, test exists |
-| **PARTIAL** | Code matches spec, no test covering it |
+| **UNTESTED** | Code matches spec, no test covering it |
 | **DIVERGE** | Code behaves differently than spec states |
 | **MISSING** | No implementation found for this spec item |
 
@@ -70,7 +70,7 @@ coverage: X/Y claims verified (Z%)
 
 | Claim | Status | Location | Test | Notes |
 |-------|--------|----------|------|-------|
-| S1: <short desc> | PASS/PARTIAL/DIVERGE/MISSING | <file:line> | <test file> | <notes> |
+| S1: <short desc> | PASS/UNTESTED/DIVERGE/MISSING | <file:line> | <test file> | <notes> |
 
 ## Critical
 
@@ -95,7 +95,7 @@ coverage: X/Y claims verified (Z%)
 
 **Severity mapping:**
 - **Critical**: DIVERGE (code contradicts spec), MISSING (spec item not implemented).
-- **Warning**: PARTIAL (implemented but untested), unspecified features in critical paths.
+- **Warning**: UNTESTED (implemented but untested), unspecified features in critical paths.
 - **Info**: Unspecified features in non-critical paths, minor spec ambiguities discovered.
 
 ## Rules
