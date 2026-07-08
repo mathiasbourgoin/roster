@@ -146,18 +146,7 @@ Roster-run dispatches after this skill:
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-workflow-build",
-  "task": "<task-slug>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry per run. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-workflow-build"`.
 
 ## Rules
 

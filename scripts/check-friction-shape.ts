@@ -65,7 +65,9 @@ function skillFiles(): string[] {
 
 /** The `## Friction Log` section body (until the next `## ` heading), or null. */
 function frictionSection(content: string): string | null {
-  const m = content.match(/^## Friction Log\s*$/m);
+  // Matches the skill-level `## Friction Log` heading and the preamble fragment's
+  // `### Friction Log` (skills/shared/preamble-friction.md carries the canonical template).
+  const m = content.match(/^##+ Friction Log\s*$/m);
   if (!m || m.index === undefined) return null;
   const bodyStart = content.indexOf("\n", m.index) + 1;
   const nextSection = content.indexOf("\n## ", bodyStart);
@@ -105,7 +107,10 @@ function checkFile(rel: string): void {
   if (!section) return; // section presence is check-skill-structure's job, not ours
   const blocks = fencedBlocks(section);
   if (blocks.length === 0) {
-    errors.push(`${rel}: "## Friction Log" section contains no fenced json/jsonl block — nothing to validate is an error, not a pass`);
+    // Deduplicated form: the section may carry a pointer to the canonical template
+    // (skills/shared/preamble-friction.md) instead of an inline block.
+    if (section.includes("preamble-friction.md")) return;
+    errors.push(`${rel}: "## Friction Log" section contains no fenced json/jsonl block and no pointer to the canonical template (preamble-friction.md)`);
     return;
   }
   for (const block of blocks) {

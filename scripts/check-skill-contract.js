@@ -78,7 +78,8 @@ function checkFile(file) {
     const i = text.indexOf("\n## Friction Log");
     const section = i === -1 ? "" : text.slice(i, text.indexOf("\n## ", i + 1) === -1 ? undefined : text.indexOf("\n## ", i + 1));
     if (i === -1) errors.push("`friction_log: true` but no `## Friction Log` section");
-    else if (!section.includes("```jsonl")) errors.push("`## Friction Log` section missing a ```jsonl fence");
+    else if (!section.includes("```jsonl") && !section.includes("preamble-friction.md"))
+      errors.push("`## Friction Log` section missing a ```jsonl fence or a pointer to the canonical template (preamble-friction.md)");
   }
 
   return errors;

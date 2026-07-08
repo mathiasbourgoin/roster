@@ -263,18 +263,7 @@ Tool installation happens only after explicit human approval.
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-doctor",
-  "task": "<task-slug>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry per run. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-doctor"`.
 
 ## Rules
 

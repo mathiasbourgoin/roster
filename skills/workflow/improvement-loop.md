@@ -149,20 +149,7 @@ At the end, report:
 
 ## Friction Log
 
-At the end of each run, append to `skills-meta/friction.jsonl` :
-
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "improvement-loop",
-  "task": "<task-slug or short description>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry per run. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "improvement-loop"`.
 ## When to Go Back
 
 | Condition | Action |

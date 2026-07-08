@@ -70,6 +70,20 @@ function hasStepsSection(content: string): boolean {
   return /^## Steps?(?:\s|$)/m.test(content) || /^## Routing\s*$/m.test(content);
 }
 
+function frictionLogSection(content: string): string {
+  const sectionMark = "\n## Friction Log";
+  let sectionStart = content.indexOf(sectionMark);
+  if (sectionStart === -1) {
+    if (!content.startsWith("## Friction Log")) return "";
+    sectionStart = -1;
+  }
+  const headingEnd = sectionStart === -1 ? content.indexOf("\n") : content.indexOf("\n", sectionStart + 1);
+  if (headingEnd === -1) return "";
+  const bodyStart = headingEnd + 1;
+  const nextSection = content.indexOf("\n## ", bodyStart);
+  return nextSection === -1 ? content.slice(bodyStart) : content.slice(bodyStart, nextSection);
+}
+
 function hasJsonlFence(content: string): boolean {
   // Find ## Friction Log section boundary using indexOf to avoid regex lookahead pitfalls.
   // Also handle the (theoretical) case where the heading starts at position 0.
@@ -149,9 +163,9 @@ function checkSkill(content: string): string[] {
     // 7. ## Friction Log
     if (!hasSection(content, "Friction Log")) {
       errors.push('missing "## Friction Log" section (required when friction_log: true)');
-    } else if (!hasJsonlFence(content)) {
-      // 8. jsonl fence
-      errors.push('## Friction Log section missing ```jsonl fence (required by convention)');
+    } else if (!hasJsonlFence(content) && !frictionLogSection(content).includes("preamble-friction.md")) {
+      // 8. jsonl fence, or the deduplicated pointer to the canonical template
+      errors.push('## Friction Log section missing a ```jsonl fence or a pointer to the canonical template (preamble-friction.md)');
     }
   }
 

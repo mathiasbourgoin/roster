@@ -87,7 +87,24 @@ At the end of each run, honestly record:
 - any suggestion for a tool, skill, or adaptation
 
 This is not a performance review. It is cross-run memory.
-Format: see `skills-meta/friction.jsonl`.
+
+Canonical entry template (append to `skills-meta/friction.jsonl`; set `"skill"` to your
+skill's name — extra documented fields like `event` or `mode` are allowed):
+
+```jsonl
+{
+  "date": "<ISO-8601>",
+  "skill": "<skill-name>",
+  "task": "<task-slug>",
+  "frictions": [],
+  "methods": [],
+  "suggestion_type": null,
+  "suggestion": null,
+  "effort_estimate": null
+}
+```
+
+Schema: `schema/skill-schema.md`.
 
 
 # Roster Skill Evolve
@@ -358,18 +375,7 @@ For each APPROVED proposal:
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-skill-evolve",
-  "task": "skill-evolution",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry per run. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-skill-evolve"`.
 
 ## Rules
 
