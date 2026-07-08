@@ -26,7 +26,7 @@ import path from "node:path";
 import * as yaml from "js-yaml";
 
 const SKILLS_DIR = path.resolve(__dirname, "../../skills");
-const SKIP_FILES = new Set(["preamble.md"]);
+const SKIP_FILES = new Set(["preamble.md", "preamble-pipeline.md", "preamble-friction.md"]);
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 

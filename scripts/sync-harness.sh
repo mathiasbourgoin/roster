@@ -314,8 +314,25 @@ render_skill_source() {
             }
         ' "$adjusted" > "$dest"
         printf '\n' >> "$dest"
-        cat "$preamble" >> "$dest"
+        strip_frontmatter "$preamble" >> "$dest"
         printf '\n' >> "$dest"
+        # Frontmatter-gated preamble fragments: Pipeline State only for staged phases
+        # (phase: non-null), Friction Log only for friction_log: true. Gates read the
+        # parsed frontmatter (extract_frontmatter_field) normalized against trailing
+        # YAML comments, quotes, and CR — never the body. Fragments are injected
+        # body-only (strip_frontmatter), same as the core preamble.
+        local frag_dir phase_val friction_val
+        frag_dir="$(dirname "$preamble")"
+        phase_val="$(extract_frontmatter_field "$adjusted" "phase" | sed 's/[[:space:]]*#.*$//; s/^["'"'"']//; s/["'"'"']$//; s/\r$//; s/[[:space:]]*$//')"
+        friction_val="$(extract_frontmatter_field "$adjusted" "friction_log" | sed 's/[[:space:]]*#.*$//; s/^["'"'"']//; s/["'"'"']$//; s/\r$//; s/[[:space:]]*$//')"
+        if [ -n "$phase_val" ] && [ "$phase_val" != "null" ] && [ -f "$frag_dir/preamble-pipeline.md" ]; then
+            strip_frontmatter "$frag_dir/preamble-pipeline.md" >> "$dest"
+            printf '\n' >> "$dest"
+        fi
+        if [ "$friction_val" = "true" ] && [ -f "$frag_dir/preamble-friction.md" ]; then
+            strip_frontmatter "$frag_dir/preamble-friction.md" >> "$dest"
+            printf '\n' >> "$dest"
+        fi
         strip_frontmatter "$adjusted" >> "$dest"
     else
         cp "$adjusted" "$dest"
@@ -372,7 +389,7 @@ sync_skill_sources_to_claude() {
         name="$(extract_frontmatter_field "$src" "name")"
         [ -n "$name" ] || name="$(basename "$src" .md)"
         case "$name" in
-            preamble|roster-preamble) continue ;;
+            preamble*|roster-preamble*) continue ;;  # reserved prefix: preamble fragments, never standalone skills
         esac
         require_safe_name "$name"
         render_skill_source "$src" "$name" "$out_dir/$name.md" "$preamble"
@@ -399,7 +416,7 @@ sync_skill_sources_to_skill_dir() {
         name="$(extract_frontmatter_field "$src" "name")"
         [ -n "$name" ] || name="$(basename "$src" .md)"
         case "$name" in
-            preamble|roster-preamble) continue ;;
+            preamble*|roster-preamble*) continue ;;  # reserved prefix: preamble fragments, never standalone skills
         esac
         require_safe_name "$name"
         local extension_owned=0
