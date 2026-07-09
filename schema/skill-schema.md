@@ -43,8 +43,10 @@ when_to_use: "Use when …; e.g. '<phrase>'."   # Trigger situations + example p
 ---
 domain: <kb|media|meta|pipeline|shared|testing|workflow>
 phase: <intake|question|research|spec|plan|implement|review|qa|ship|null>
-capability: <formal-rocq|formal-quint|workflow-builder>   # optional; required for skills that
-                                                           # use a specialised backend or runner
+capability: <formal-rocq|formal-quint|workflow-builder|code-intel>   # optional; required for
+                                                           # skills that use a specialised
+                                                           # backend or runner, or that expose
+                                                           # a pack seam (see below)
 tags: [tag1, tag2]
 allowed_tools: [Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion, Skill, WebFetch, WebSearch]
 disallowed_tools: [AskUserQuestion]   # tools this skill must NOT use — e.g. block interactive
@@ -70,6 +72,40 @@ pipeline_role:
   triggered_by: <string>
   receives: <string>
   produces: <string>
+---
+```
+
+## Code-Intel Pack Seam Contract
+
+A skill becomes an addressable code-intel pack component when its frontmatter carries the
+seam quadruple (specs/code-intel-packs.md, FR-020). Consumers (roster-qa, roster-doctor,
+roster-audit, code-quality-auditor) resolve packs purely from this frontmatter over the
+projected runtime skill dirs (`.agents/skills/`, then `.opencode/skills/`) via
+`scripts/code-intel-resolve.js` — never from the registry or `harness.json`, so a
+user-authored skill carrying the contract is a first-class pack.
+
+```yaml
+---
+capability: code-intel       # the seam tag — without it, consumers never see the skill
+provides: <gate|audit-section|init>
+                             # what the pack contributes: gate → roster-qa invariant gate;
+                             # audit-section → deterministic audit fragment; init → index
+                             # bootstrap. One value per skill; ship one skill per role.
+entry: bash gate.sh          # interpreter-prefixed shell command, script path relative to
+                             # the skill directory. ALWAYS prefix the interpreter (`bash`,
+                             # `python3`, …): installers copy files without preserving the
+                             # executable bit, so a bare `./gate.sh` would fail after
+                             # install. Consumers run the command via `sh -c` from the
+                             # project root with `SKILL_DIR` set to the absolute skill
+                             # directory; the script token is resolved against the skill
+                             # dir.
+requires_tools: [tool1, tool2]
+                             # binaries the pack needs on PATH; roster-doctor checks each
+                             # with `command -v` (advisory only — a missing tool degrades
+                             # the pack, it never blocks routing). MUST be an inline-array
+                             # literal `[a, b]` on one line — the flat frontmatter parser
+                             # skips indented YAML list items, so a block-style list is
+                             # silently read as empty.
 ---
 ```
 
