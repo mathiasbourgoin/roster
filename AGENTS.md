@@ -111,7 +111,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-intake | 1.1.3 | Turns a raw task description into a human-validated contractual brief |
 | roster-spec | 2.0.5 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.3.4 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
-| roster-implement | 1.5.4 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
+| roster-implement | 1.5.5 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
 | roster-review | 1.6.2 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
 | roster-qa | 1.3.4 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
 | roster-ship | 1.4.3 | Carries a reviewed, QA'd branch through to a merged PR |
@@ -129,7 +129,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | Skill | Version | Purpose |
 |-------|---------|---------|
 | roster-skill-health | 1.3.2 | Clusters accumulated friction-log patterns into improvement proposals |
-| roster-skill-evolve | 1.4.1 | Installs skill-health-approved improvements to skills, tools, adaptations, and agents |
+| roster-skill-evolve | 1.4.2 | Installs skill-health-approved improvements to skills, tools, adaptations, and agents |
 | roster-upgrade | 0.1.2 | Propose-only upgrader for roster-contract skills — evidence-mined, gate-checked, human-landed diffs |
 
 ### KB/Audit (9)

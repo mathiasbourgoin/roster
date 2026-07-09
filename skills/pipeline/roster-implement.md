@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.5.4
+version: 1.5.5
 domain: pipeline
 phase: implement
 preamble: true
@@ -93,7 +93,7 @@ Violating a KB invariant is a **blocker**: stop and escalate rather than breakin
 
 **If mixed scope:** sequence — OCaml first, rest after.
 
-**Note — worktree isolation:** the `implementer` sub-agent type isolates in a git worktree; it cannot see uncommitted changes in the main working tree. For tasks operating on uncommitted working-tree files, use a non-isolated general agent instead.
+**Note — worktree isolation:** the `implementer` sub-agent type isolates in a git worktree; it cannot see uncommitted changes in the main working tree. For tasks operating on uncommitted working-tree files, use a non-isolated general agent instead. **Base freshness:** before delegating tree-wide edits to a worktree-isolated agent, verify the worktree is based on the *current* HEAD (a stale base silently applies the sweep to old sources); if it is not, have the agent rebase first or use a non-isolated agent.
 
 ### 3. TDD if required
 

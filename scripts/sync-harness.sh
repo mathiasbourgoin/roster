@@ -848,4 +848,10 @@ if runtime_enabled "copilot"; then
     generate_copilot_instructions "$COPILOT_GITHUB_DIR"
 fi
 
+# Regenerate AGENTS.md skill-catalog rows from frontmatter (writer counterpart of
+# check-catalog-sync, which stays the verifier). Best-effort: dev-checkout only.
+if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/scripts/populate-catalog-rows.js" ]; then
+    node "$PROJECT_ROOT/scripts/populate-catalog-rows.js" || echo "⚠ catalog-rows regeneration failed — run node scripts/populate-catalog-rows.js manually" >&2
+fi
+
 printf 'Synced shared harness from %s\n' "$HARNESS_DIR"

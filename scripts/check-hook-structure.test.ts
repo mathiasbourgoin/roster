@@ -28,7 +28,15 @@ function runLinter(dir: string): Promise<LintRun> {
   return new Promise((resolve) => {
     execFile("node", [LINTER, dir], { cwd: REPO_ROOT }, (err, stdout, stderr) => {
       const code = err && typeof (err as { code?: unknown }).code === "number" ? (err as { code: number }).code : 0;
-      resolve({ code, output: `${stdout}\n${stderr}` });
+      let output = `${stdout}\n${stderr}`;
+      // Surface spawn/exec failures so regex assertions fail with a diagnosis instead
+      // of an empty string — under some sandboxes the child produced no output at all
+      // and every assertion failed opaquely with `actual: '\n'`.
+      if (err && output.trim() === "") {
+        const e = err as { code?: unknown; message?: string };
+        output = `[runLinter: child produced no output — execFile error code=${String(e.code)} message=${e.message ?? "?"}]`;
+      }
+      resolve({ code, output });
     });
   });
 }

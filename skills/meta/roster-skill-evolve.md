@@ -2,7 +2,7 @@
 name: roster-skill-evolve
 description: Installs skill-health-approved improvements to skills, tools, adaptations, and agents.
 when_to_use: "Use after roster-skill-health produces APPROVED proposals ready to apply. Trigger: 'apply the skill-health proposals'."
-version: 1.4.1
+version: 1.4.2
 domain: meta
 phase: null
 preamble: true
@@ -237,16 +237,12 @@ For each APPROVED proposal, in order A → B → C → D → E → F:
 After any edit to skill `.md` files, run this integrity check:
 
 ```bash
-# Verify all friction_log: true skills have a valid jsonl block
-missing=$(grep -rL '```jsonl' $(grep -rl 'friction_log: true' skills/ --include='*.md') 2>/dev/null)
-if [ -n "$missing" ]; then
-  echo "❌ Missing jsonl wrapper in: $missing"
-else
-  echo "✅ All friction_log skills have valid jsonl wrapper"
-fi
+# Friction Log sections are validated by the canonical checker (accepts the inline
+# jsonl template OR the deduplicated pointer to skills/shared/preamble-friction.md):
+node dist/scripts/check-friction-shape.js && node dist/scripts/check-skill-structure.js
 ```
 
-If any skill fails: restore the `## Friction Log` block with the correct format before proceeding to the next proposal.
+If either check fails: restore the `## Friction Log` section (inline template or canonical pointer) before proceeding to the next proposal.
 
 ### Harness coherence check (run after every proposal)
 

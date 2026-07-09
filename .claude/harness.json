@@ -233,7 +233,7 @@
       {
         "name": "roster-skill-evolve",
         "source": "roster",
-        "version": "1.4.1",
+        "version": "1.4.2",
         "domain": "meta",
         "phase": null,
         "tunables": {}
@@ -290,7 +290,7 @@
       {
         "name": "roster-implement",
         "source": "roster",
-        "version": "1.5.4",
+        "version": "1.5.5",
         "domain": "pipeline",
         "phase": "implement",
         "tunables": {
