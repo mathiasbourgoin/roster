@@ -2,7 +2,7 @@
 name: roster-skill-health
 description: Clusters accumulated friction-log patterns into improvement proposals.
 when_to_use: "Use every 5-10 pipeline cycles or when a friction-count reminder fires. Trigger: 'analyze friction'."
-version: 1.3.3
+version: 1.4.0
 domain: meta
 phase: null
 preamble: true
@@ -170,7 +170,11 @@ Next step: recruiter + skill-creator
 #### F. Workflow template promotion
 
 Signal: ≥ `min_entries_for_signal` workflow instances (`workflows/*.cwr.json`, excluding
-`templates/`) sharing the same structural diff vs. their source template. Detection here is
+`templates/`) sharing the same divergence — **structural or prompt-level** — vs. their
+source template. Instances are generated as verbatim template copies, so any divergence
+comes from manual edits to persisted (commit/local-only) instances; that hand-tuning is
+precisely the signal this category promotes back into the template. Prompt-level edits
+are the common case; structural edits are rare. Detection here is
 cheap — list the instances and group them by source template (match each instance's step
 sequence against `workflows/templates/*.cwr.json`; the version string alone does not
 identify a template). Emit the proposal only when one group reaches the threshold, and mark
