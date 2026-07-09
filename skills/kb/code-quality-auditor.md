@@ -2,7 +2,7 @@
 name: code-quality-auditor
 description: Checks implementation code against KB-defined properties, invariants, and naming conventions.
 when_to_use: "Use after implementation, before review, to verify adherence to KB rules. Trigger: 'check code quality', 'property/invariant audit'."
-version: 1.0.4
+version: 1.1.0
 ---
 
 # Code Quality Auditor
@@ -47,6 +47,7 @@ Check implementation against knowledge base properties and conventions. Uses onl
   - If an invariant says "Y is always called before Z", trace call sequences.
   - If an invariant says "all inputs are validated", check for unvalidated entry points.
 - This is best-effort static analysis — flag suspicious patterns, don't claim proof.
+- When reading `kb/properties.md`, skip the contents of the fenced `code-intel` block (envelope: `schema/kb-schema.md`): those declarations are machine-checked by the roster-qa code-intel gate, and interpreting them as prose invariants would double-report.
 
 ### 6. Check: Error Handling
 
@@ -93,10 +94,19 @@ status: N critical, N warnings, N info
 - **Warning**: Function too long, DRY violation, inconsistent naming in internal code, empty catch block.
 - **Info**: Style suggestions, minor naming variants, refactoring opportunities.
 
+### 8. Append Code-Intel Audit Sections (conditional, deterministic)
+
+- If code-intel audit-section packs are installed (resolved from SKILL.md frontmatter per the seam contract in `schema/skill-schema.md`), run `node scripts/code-intel-resolve.js audit` — in the roster repo the resolver is `scripts/code-intel-resolve.js`; in consumer projects locate it via the installed roster checkout, or perform the documented inline equivalent (grep `capability: code-intel` + `provides: audit-section` from `.agents/skills/*/SKILL.md` then `.opencode/skills/*/SKILL.md`, dedupe by dir name with `.agents` winning, run each pack's `entry` with no arguments, cwd = project root, `SKILL_DIR` set, lexicographic order).
+- For each `SECTION <pack>` fragment on stdout: append it to `kb/reports/code-quality-report.md` as a distinct section `## Code-intel: <pack> (deterministic)`. This report has no Summary table, so there is nothing to preserve.
+- For each `DEGRADED <pack>: <reason>` line: append a single-line degraded notice instead of a section. The audit always completes.
+- Read-only with respect to any pack index — never run a pack's `init` or regenerate an index.
+- Severity classification stays with the auditor: cite fragment rows as evidence, never adopt a pack-assigned severity.
+- No pack installed → the resolver emits nothing and the report is unchanged.
+
 ## Rules
 
 - Always reference the specific KB entry that defines the violated property.
 - Never suggest fixes that would violate other KB properties.
-- Use only grep, wc, read, and glob for checks — no external tools.
+- Use only grep, wc, read, and glob for checks — no external tools (sole exception: step 8's code-intel audit-section run through the roster resolver).
 - Create `kb/reports/` directory if it doesn't exist.
 - If `kb/properties.md` doesn't exist, report that as Critical #1 and skip invariant checks.

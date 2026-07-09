@@ -2,7 +2,7 @@
 name: roster-audit
 description: Combines code-quality and spec-compliance checks into one actionable audit report.
 when_to_use: "Use to assess existing code with no specific change in flight. Trigger: 'audit this', 'is the code healthy'."
-version: 1.3.2
+version: 1.4.0
 domain: pipeline
 phase: null
 preamble: true
@@ -121,6 +121,34 @@ dependency direction, layering, forbidden imports):
 This is the standing-codebase counterpart of the `architect` agent's diff-time review:
 architecture drift with no change in flight surfaces here. Report divergences in the same
 severity classes as other findings.
+
+### 6.6. Code-intel audit sections (conditional, deterministic)
+
+If code-intel audit-section packs are installed (resolved purely from SKILL.md
+frontmatter per the seam contract in `schema/skill-schema.md` — `capability: code-intel`
++ `provides: audit-section` + `entry`), run:
+
+```bash
+node scripts/code-intel-resolve.js audit
+```
+
+In the roster repo the resolver lives at `scripts/code-intel-resolve.js`; in consumer
+projects, locate it via the installed roster checkout. If unavailable, perform the
+documented equivalent inline, deterministically: grep the seam frontmatter from
+`.agents/skills/*/SKILL.md` then `.opencode/skills/*/SKILL.md` (dedupe by dir name,
+`.agents` wins), and run each `provides: audit-section` pack's `entry` command with no
+arguments, cwd = project root, `SKILL_DIR` set (lexicographic skill-name order).
+
+- For each `SECTION <pack>` fragment on stdout: append the fragment to
+  `briefs/audit-<date>.md` as a distinct section `## Code-intel: <pack> (deterministic)`.
+  The existing Summary table columns are **unchanged**.
+- For each `DEGRADED <pack>: <reason>` line: write a single-line degraded notice in
+  place of that pack's section. The audit always continues.
+- **Read-only w.r.t. any pack index:** never run a pack's `init` or regenerate an index —
+  a stale index is disclosed by the fragment's mandatory freshness header, not fixed here.
+- **Severity stays model-judged:** you may cite fragment rows as evidence in Actionable
+  findings, but never delegate severity classification to the pack.
+- No pack installed → the resolver emits nothing and the report structure is unchanged.
 
 ### 7. Report
 

@@ -127,6 +127,21 @@ Agents may propose changes to spec files but must not apply them without human a
 - `index.md` — Auto-updated when files are added/removed
 - TODOs and tracking documents
 
+## Code-Intel Invariant Block (`properties.md`)
+
+`kb/properties.md` MAY contain one optional fenced block tagged `code-intel`, holding machine-checkable invariant declarations as JSONL — one JSON object per line:
+
+`````markdown
+```code-intel
+{"id": "INV-1", "type": "reachability", "description": "no HTTP handler reaches the raw storage layer", "check": {"from": "handlers/", "to": "storage/raw.ml"}}
+```
+`````
+
+- Each line declares string fields `id`, `type`, `description`, and an object field `check`.
+- **Core owns this envelope** (the fence tag and the JSONL line shape); the `check` object is opaque to core and interpreted by the installed code-intel gate pack (seam contract: `schema/skill-schema.md`; requirements: `specs/code-intel-packs.md` FR-025/FR-026).
+- The block is **additive**: prose invariants elsewhere in the file keep their existing meaning and consumers. A `properties.md` without the block is fully valid.
+- The block is machine-checked by roster-qa's code-intel gate (`scripts/code-intel-resolve.js gate`); prose-reading auditors skip its contents to avoid double-reporting.
+
 ## Auditor Report Format
 
 Audit reports in `reports/` use this frontmatter:

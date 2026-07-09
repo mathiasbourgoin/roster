@@ -2,7 +2,7 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.3.4
+version: 1.4.0
 domain: pipeline
 phase: qa
 preamble: true
@@ -12,6 +12,7 @@ human_gate: after
 tunables:
   require_tmux_matrix_for_tui: true
   run_full_suite: true
+  code_intel_gate_timeout: 120
 artifacts:
   reads:
     - briefs/<task>-review.json
@@ -101,6 +102,44 @@ If spec present: extract `## Runnable Checks` section. For each CHECK-N:
 
 At least one FAIL with no justification = QA NO-GO.
 
+### 3.5 Code-intel invariant gate (conditional)
+
+Deterministic gate over the machine-checkable invariants declared in `kb/properties.md`
+(the fenced `code-intel` block — envelope documented in `schema/kb-schema.md`). Gate packs
+are resolved purely from SKILL.md frontmatter per the seam contract in
+`schema/skill-schema.md` (`capability: code-intel` + `provides: gate` + `entry`) — never
+from the registry or `harness.json`.
+
+```bash
+node scripts/code-intel-resolve.js gate --timeout ${code_intel_gate_timeout:-120}
+```
+
+In the roster repo the resolver lives at `scripts/code-intel-resolve.js`. In consumer
+projects, locate it via the installed roster checkout. If it is unavailable, perform the
+documented equivalent inline — keep it deterministic:
+
+1. Resolve gate packs: grep `capability: code-intel` + `provides: gate` from
+   `.agents/skills/*/SKILL.md`, then `.opencode/skills/*/SKILL.md` (dedupe by skill
+   directory name, `.agents` wins — seam contract, `schema/skill-schema.md`).
+2. Extract the fenced `code-intel` block from `kb/properties.md` to a temp file
+   (malformed JSONL → treat as exit 2 below).
+3. Run each matching pack's `entry` command in lexicographic skill-name order, cwd =
+   project root, `SKILL_DIR` set to the absolute skill dir, the block-file path as the
+   sole argument, timeout `code_intel_gate_timeout` (expiry = exit 3).
+
+Outcome semantics (mirror the resolver's exit codes and `RESULT:` line):
+
+| Resolver outcome | QA behavior |
+|---|---|
+| `RESULT: skip` (no gate pack installed, or no `code-intel` block) | Step skipped — the skip MUST be recorded in `briefs/<task>-qa.md` (one line, e.g. `Code-intel gate: skipped (no code-intel block)`). Never silent in the report; no verdict impact. |
+| Exit 1 (`RESULT: fail` — invariant violated) | Immediate **NO-GO** — stop, include the full raw gate log in the report, keeping the per-pack `GATE <pack>: exit N` attribution lines. |
+| Exit 2 (`RESULT: malformed`) | Immediate **NO-GO** with the explicit malformed-declaration message — a malformed `code-intel` block is a loud failure, never a skip. |
+| Exit 0 with `RESULT: degraded` (crash, timeout, missing index) | Record `Code-intel gate: DEGRADED (<reason>)` from the `DEGRADED:` line(s); verdict unaffected. |
+| Exit 0 with `RESULT: pass` | Record pass; include the `0 invariants` note when the resolver emits it. |
+
+Multiple gate packs: the resolver already runs all of them in lexicographic order — the
+report MUST attribute the result per pack (the `GATE <name>: exit N` lines).
+
 ### 4. TUI check (if applicable)
 
 If the scope contains a TUI interface and `tunables.require_tmux_matrix_for_tui: true`:
@@ -137,7 +176,9 @@ command -v opencode >/dev/null 2>&1 && echo "opencode available"
 If none is present (or the only one is the host runtime), **skip silently**. Otherwise shell
 out non-interactively (`codex exec` / `opencode run`, as in `skills/media/image-generation.md`)
 and have the second runtime **independently re-run the deterministic gates** (step 2's
-commands) and re-check the implementer's handoff claims — it does not see the primary QA
+commands and, if it ran in the primary pass, the step 3.5 code-intel gate command —
+`node scripts/code-intel-resolve.js gate --timeout ${code_intel_gate_timeout:-120}`) and
+re-check the implementer's handoff claims — it does not see the primary QA
 result first. Record its outcome in the report under a `## Cross-runtime QA` section.
 
 **Block on discrepancy:** if the second runtime reports a gate FAIL or a disputed claim that
@@ -171,6 +212,10 @@ Produce `briefs/<task>-qa.md`:
 - New tests added: <N>
 - Existing tests: <N> pass, <N> skip, <N> fail
 - Regression detected: YES / NO
+
+## Code-intel gate
+
+<one line: pass (incl. "0 invariants" when emitted) / skipped (<reason>) / DEGRADED (<reason>) — plus the per-pack `GATE <pack>: exit N` lines when packs ran>
 
 ## TUI (if applicable)
 
