@@ -2,12 +2,12 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.3.4
+version: 1.3.5
 domain: pipeline
 phase: plan
 preamble: true
 friction_log: true
-allowed_tools: [Read, Write, Agent, AskUserQuestion]
+allowed_tools: [Read, Write, Bash, Agent, AskUserQuestion]
 human_gate: after
 artifacts:
   reads:
