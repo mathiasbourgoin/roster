@@ -2,7 +2,7 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.4.0
+version: 1.5.0
 domain: pipeline
 phase: qa
 preamble: true
@@ -199,9 +199,14 @@ Resolve review issues before running QA.
 
 - `briefs/<task>-review.json` — note reviewer's points of attention
 - `briefs/<task>-impl.md` — exact scope of implementation
+- `briefs/<task>-qa-scope.md` — if present (Full route): the plan's QA scoping — exact
+  gate commands, behaviors to validate, TUI scenarios. This is the **primary** scope
+  source when it exists; its behaviors-to-validate become explicit check items in the
+  report (Step 5), and its TUI scenarios drive Step 4.
 
-Derive the quality-gate commands from `briefs/<task>-intake.md` Quality Gates section.
-If no intake brief (Fast/Express mode), read quality-gate commands from `briefs/<task>-impl.md` Quality Gates section instead.
+Gate-command precedence: `briefs/<task>-qa-scope.md` → `briefs/<task>-intake.md`
+Quality Gates section → `briefs/<task>-impl.md` Quality Gates section (Fast/Express,
+where neither plan nor intake artifacts exist).
 
 ### 2. Deterministic quality gates
 
@@ -288,7 +293,10 @@ report MUST attribute the result per pack (the `GATE <name>: exit N` lines).
 
 ### 4. TUI check (if applicable)
 
-If the scope contains a TUI interface and `tunables.require_tmux_matrix_for_tui: true`:
+If the scope contains a TUI interface and `tunables.require_tmux_matrix_for_tui: true`.
+When `briefs/<task>-qa-scope.md` defines TUI scenarios, execute **those scenarios** in
+the tmux session (in addition to the baseline checks below) and record each one's
+outcome in the report:
 
 ```bash
 # Launch the application in a tmux session

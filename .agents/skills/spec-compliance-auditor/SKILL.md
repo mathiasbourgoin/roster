@@ -2,7 +2,7 @@
 name: spec-compliance-auditor
 description: Compares the implementation against kb/spec.md to verify spec/code parity.
 when_to_use: "Use before shipping a feature to confirm nothing drifted from spec. Trigger: 'does the code match the spec'."
-version: 1.0.3
+version: 1.1.0
 ---
 
 # Spec Compliance Auditor
@@ -97,6 +97,23 @@ coverage: X/Y claims verified (Z%)
 - **Critical**: DIVERGE (code contradicts spec), MISSING (spec item not implemented).
 - **Warning**: UNTESTED (implemented but untested), unspecified features in critical paths.
 - **Info**: Unspecified features in non-critical paths, minor spec ambiguities discovered.
+
+### 5. Embedded mode (invoked from `/roster-review`)
+
+When this skill runs as a review specialist, the markdown report above is still written,
+but the specialist's **return value** must additionally be the findings as JSON objects in
+roster-review's standard finding schema (severity, confidence, path, line, category,
+summary, evidence, fix, fingerprint, specialist) with:
+
+- `category: "spec"` and `specialist: "spec-compliance"`
+- one finding per Critical/Warning issue (severity CRITICAL for DIVERGE/MISSING, MEDIUM for UNTESTED)
+- an `acs` array on each finding carrying the spec identifiers the violated claim traces
+  to: when the spec source is a `specs/<task-slug>.md` contract, cite its `AC-N` (and
+  `FR-NNN`) identifiers; when the source is `kb/spec.md` (no AC section), cite the `S<N>`
+  claim ids instead — roster-review consumes this array to populate
+  `no_go_reason.failed_acs`.
+
+Free-form text is not an acceptable return value in embedded mode.
 
 ## Rules
 

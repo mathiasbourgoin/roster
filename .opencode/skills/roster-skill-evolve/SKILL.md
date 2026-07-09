@@ -2,7 +2,7 @@
 name: roster-skill-evolve
 description: Installs skill-health-approved improvements to skills, tools, adaptations, and agents.
 when_to_use: "Use after roster-skill-health produces APPROVED proposals ready to apply. Trigger: 'apply the skill-health proposals'."
-version: 1.4.2
+version: 1.5.0
 domain: meta
 phase: null
 preamble: true
@@ -291,10 +291,14 @@ For each APPROVED proposal, in order A → B → C → D → E → F:
      share versions. If zero or multiple templates match → mark the instance
      `[AMBIGUOUS]`, skip it.
    - Load the matched `workflows/templates/<mode>.cwr.json`
-   - Compute structural diff: compare steps by (position, id, skill) — **ignore prompt content**
+   - Compute the diff at two levels: **structural** (compare steps by position, id, skill)
+     and **prompt-level** (compare each step's prompt text). Instances are generated as
+     verbatim template copies, so any diff reflects deliberate manual instance edits —
+     prompt-level diffs are the common promotion case; structural diffs are rare.
+     (Template identification above stays structural only, so it survives prompt edits.)
    - If template has been updated since `_roster_template_version` → mark diff as `[CONFLICT]`, skip
 
-2. **Cluster diffs**: group instances by (template, structural-diff-signature). For clusters with count ≥ `min_entries_for_signal` (default 3, shared with roster-skill-health tunable), generate a unified structural diff.
+2. **Cluster diffs**: group instances by (template, diff-signature) — the signature covers both structural and prompt-level diffs. For clusters with count ≥ `min_entries_for_signal` (default 3, shared with roster-skill-health tunable), generate a unified diff.
 
 3. **Gate before**: present the unified diff to the human. Show how many instances share this modification and what it does. Do not apply without explicit approval.
 

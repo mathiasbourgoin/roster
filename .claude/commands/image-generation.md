@@ -2,7 +2,7 @@
 name: image-generation
 description: Generates or edits images through the Codex CLI, with prompt refinement and vision validation.
 when_to_use: "Use when a task needs a new visual asset or an edit to an existing one. Trigger: 'generate an image', 'create an icon/asset'."
-version: 1.0.4
+version: 1.0.5
 tags: [image-generation, assets, media, codex, vision, frontend, content, documentation]
 domain: media
 ---
@@ -136,7 +136,8 @@ Append a JSON entry to `.imagelog.json` in the project root (create if absent):
   "size": "<SIZE>",
   "format": "<FORMAT>",
   "attempts": <ATTEMPT>,
-  "outcome": "<pass|soft-fail|hard-fail|aborted>"
+  "outcome": "<pass|soft-fail|hard-fail|aborted>",
+  "validation": "<run|skipped>"
 }
 ```
 

@@ -2,7 +2,7 @@
 name: roster-spec-formal
 description: Extends a validated roster-spec into a formal Rocq (.v) or Quint (.qnt) specification.
 when_to_use: "Use after roster-spec on the critical-verification route. Trigger: 'formal spec', 'write the Rocq/Quint spec'."
-version: 1.0.3
+version: 1.0.4
 domain: pipeline
 phase: null
 preamble: true
@@ -213,7 +213,9 @@ These files are indexed as `component_type: "formal-spec"` by the build index �
 - Each proposition preceded by `(* US-N: <ELI5> *)` (Rocq) or `// US-N: <ELI5>` (Quint) traceability comment
 - Human validation quiz passed
 
-**Next:** `/roster-formal-verify` reads this artifact and the triage brief.
+**Next:** `/roster-plan` — the critical route continues plan → implement before
+`/roster-formal-verify` reads this artifact and the triage brief (the E0m replay path
+needs the implementation/driver that plan → implement produces).
 
 ## Rules
 
@@ -234,7 +236,7 @@ These files are indexed as `component_type: "formal-spec"` by the build index �
 
 ## What Next
 
-**Primary path:** `/roster-formal-verify`
+**Primary path:** `/roster-plan` (then implement; `/roster-formal-verify` runs after implement per the critical route)
 **If quiz fails (spec unclear):** return to `/roster-spec` to revise the user story or `/roster-triage-critical` to revise the ELI5
 
 > **Note:** `roster-spec-formal` has `phase: null` — it does not append to `briefs/<task>-state.json`. The critical task runs as `mode: full` in the ledger; triage, spec-formal, and formal-verify are `phase: null` helpers that run between Full phases without participating in ledger sequencing.

@@ -2,12 +2,12 @@
 name: roster-audit
 description: Combines code-quality and spec-compliance checks into one actionable audit report.
 when_to_use: "Use to assess existing code with no specific change in flight. Trigger: 'audit this', 'is the code healthy'."
-version: 1.4.0
+version: 1.4.1
 domain: pipeline
 phase: null
 preamble: true
 friction_log: true
-allowed_tools: [Read, Bash, AskUserQuestion]
+allowed_tools: [Read, Write, Bash, AskUserQuestion]
 human_gate: after
 tunables:
   max_function_lines: 50

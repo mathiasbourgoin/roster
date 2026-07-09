@@ -2,7 +2,7 @@
 name: code-quality-auditor
 description: Checks implementation code against KB-defined properties, invariants, and naming conventions.
 when_to_use: "Use after implementation, before review, to verify adherence to KB rules. Trigger: 'check code quality', 'property/invariant audit'."
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Code Quality Auditor
@@ -102,6 +102,16 @@ status: N critical, N warnings, N info
 - Read-only with respect to any pack index — never run a pack's `init` or regenerate an index.
 - Severity classification stays with the auditor: cite fragment rows as evidence, never adopt a pack-assigned severity.
 - No pack installed → the resolver emits nothing and the report is unchanged.
+
+### 9. Embedded mode (invoked from `/roster-review`)
+
+When this skill runs as a review specialist, the markdown report above is still written,
+but the specialist's **return value** must additionally be the findings as JSON objects in
+roster-review's standard finding schema (severity, confidence, path, line, category,
+summary, evidence, fix, fingerprint, specialist) with `specialist: "code-quality"`,
+`category` per finding (`correctness|architecture|style`), severity mapped from the
+report classes (Critical → HIGH, Warning → MEDIUM, Info → LOW), and `evidence` citing the
+violated KB entry. Free-form text is not an acceptable return value in embedded mode.
 
 ## Rules
 
