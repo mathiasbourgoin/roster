@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 1.6.3
+version: 1.6.4
 domain: pipeline
 phase: review
 preamble: true
@@ -144,7 +144,10 @@ If KB is present, `code-quality-auditor` findings are merged into the review tab
 
 When findings have `category: "spec"` and severity CRITICAL or HIGH:
 - Set `no_go_reason.type = "spec-ac-failure"` in the verdict
-- Populate `no_go_reason.failed_acs` with the AC identifiers from those findings
+- Populate `no_go_reason.failed_acs` from each finding's `acs` array (the
+  spec-compliance-auditor's embedded mode supplies it — `AC-N`/`FR-NNN` ids when the
+  spec source is a `specs/<task-slug>.md` contract, `S<N>` claim ids when auditing
+  against `kb/spec.md`, which has no AC section)
 
 **Expected findings format from each specialist:**
 
