@@ -2,7 +2,7 @@
 name: roster-research
 description: Performs blind, file:line-grounded research from a questions file, never the task itself.
 when_to_use: "Use after roster-question produces an approved questions file. Trigger: 'research this', 'roster-research'."
-version: 1.2.4
+version: 1.3.0
 domain: pipeline
 phase: research
 preamble: true
@@ -17,9 +17,10 @@ tunables:
   # fast: single sub-agent, surface scan
   # full: 4 parallel sub-agents (locator + analyzer + pattern-finder + external-researcher)
   online_research: auto
-  # auto: enabled in full mode when questions reference patterns, alternatives, or prior art
-  # always: always spawn external researcher sub-agent
-  # never: disable online research entirely
+  # auto: enabled (in BOTH fast and full mode) when any question carries the [ecosystem] tag
+  # always: treat all runs as having external questions; in full mode always spawn the
+  #         external researcher, in fast mode always grant the documentarian web tools
+  # never: disable online research entirely — [ecosystem] questions go to Coverage gaps
 artifacts:
   reads:
     - roster/<task-slug>/questions.md
@@ -195,20 +196,29 @@ If `questions.md` is absent:
 
 Read the file at `$ARGUMENTS`. Extract the numbered questions.
 
+Partition them: questions starting with `[ecosystem]` are **external questions**
+(answered by web research when `online_research` permits); the rest are **codebase
+questions**. The tag match is literal — do not infer external intent from phrasing.
+
 Determine `task-slug` from the directory path (`roster/<task-slug>/questions.md`).
 
 ### 2. Determine depth
 
 If `tunables.depth == auto`:
-- Count questions. If ≤3 → **fast** mode (single sub-agent)
+- Count **codebase** questions ([ecosystem] questions don't count toward depth). If ≤3 → **fast** mode (single sub-agent)
 - If >3 → **full** mode (parallel specialists — see Step 3b's roster)
+
+External questions are handled on either route: fast mode grants the documentarian
+web tools for them (Step 3a); full mode routes them to the External Researcher (Step 3b).
 
 If `tunables.depth == fast` → fast mode regardless of question count.
 If `tunables.depth == full` → full mode regardless of question count.
 
 ### 3a. Fast mode — single documentarian sub-agent
 
-Spawn one sub-agent with all questions and this constraint:
+Spawn one sub-agent with all questions. If external questions exist and
+`online_research` is not `never`, grant it WebSearch + WebFetch in addition to the
+read tools; otherwise omit the web tools and the `[ecosystem]` paragraph below.
 
 ```
 You are a codebase documentarian. You describe what exists — never what should be built.
@@ -217,6 +227,12 @@ YOUR ONLY JOB: answer the following research questions by reading the codebase.
 Every finding must include a file:line reference.
 DO NOT suggest improvements, identify problems, or propose changes.
 DO NOT infer what feature is being built.
+
+Questions tagged [ecosystem] are answered by web search instead: document how
+existing tools, libraries, standards, or community practice work — only what EXISTS
+in the world, never what to build. For those findings, substitute file:line
+references with URL citations (URL, title, author/year if available), and flag
+contradictions between sources explicitly.
 
 Questions:
 <numbered list from questions.md>
@@ -269,7 +285,7 @@ Every finding must include a file:line reference and a code snippet.
 Questions to answer: <assign questions focused on patterns/examples>
 ```
 
-**Sub-agent 4 — External Researcher** (`sonnet`; WebFetch, WebSearch — spawn when `online_research` is `always`, or when `auto` and any question references patterns, alternatives, prior art, or comparisons):
+**Sub-agent 4 — External Researcher** (`sonnet`; WebFetch, WebSearch — spawn when `online_research` is `always`, or when `auto` and any question carries the `[ecosystem]` tag; assign it exactly the `[ecosystem]` questions):
 ```
 You are an external research documentarian. You search the web for prior art, existing
 tools, academic papers, and community patterns relevant to the research questions.
@@ -280,7 +296,7 @@ Rules:
 - Flag contradictions between sources explicitly
 - Do NOT suggest what the project should do — document what others have done
 
-Questions to answer: <assign questions that benefit from external context>
+Questions to answer: <the [ecosystem] questions>
 
 Produce findings in the same format as codebase research, substituting
 file:line references with URL citations.
@@ -327,7 +343,11 @@ _Online research: enabled | disabled_
 
 Questions that could not be fully answered from code or external sources:
 - Q3: <reason — e.g. "behavior is runtime-configured, not statically readable">
+- Q4: <e.g. "[ecosystem] question skipped — online_research: never / no network">
 ```
+
+If `online_research` is `never` (or web access fails), do not silently drop
+`[ecosystem]` questions — list each one under Coverage gaps with the reason.
 
 ### 5. Announce
 
@@ -364,5 +384,6 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - NEVER read any file not referenced in `questions.md` or reachable via grep/glob from the questions
 - NEVER read a file named `task.md` or any file containing the task description
 - NEVER suggest, critique, or propose changes — describe only
-- NEVER check off questions as "unanswerable" without actually trying (grep first)
-- All findings must have at least one file:line reference — no floating claims
+- NEVER check off questions as "unanswerable" without actually trying (grep first; for `[ecosystem]` questions, search first)
+- All findings must have at least one file:line reference — no floating claims (`[ecosystem]` findings cite URLs instead)
+- NEVER perform web research on untagged questions, and never let web findings leak solution proposals — external findings document what others have done, nothing more

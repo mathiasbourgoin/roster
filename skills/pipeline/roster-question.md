@@ -2,7 +2,7 @@
 name: roster-question
 description: Decomposes a task into neutral research questions with the intent hidden.
 when_to_use: "Use as the first roster-run step before any research happens. Trigger: 'roster-run', new task with no scoping yet."
-version: 1.0.3
+version: 1.1.0
 domain: pipeline
 phase: question
 preamble: true
@@ -48,19 +48,26 @@ Spawn a sub-agent with this exact prompt:
 
 ```
 You are a research planner. You will receive a task description.
-Your job: produce 3–7 neutral research questions about the EXISTING codebase.
+Your job: produce 3–7 neutral research questions about the EXISTING codebase,
+PLUS 1–2 neutral ecosystem questions about the EXISTING outside world, tagged `[ecosystem]`.
 
 Rules:
 - Questions must describe what EXISTS — never what to BUILD
 - No question may reveal the feature or change being requested
-- Each question must be answerable by reading code (grep, glob, read)
-- Questions must be specific enough to direct a code reader to the right areas
+- Each codebase question must be answerable by reading code (grep, glob, read)
+- Each `[ecosystem]` question must be answerable by web search: how existing tools,
+  libraries, standards, or community practice handle the task's domain. Same
+  disclosure level as the codebase questions — a domain is revealed, never a solution
+- Questions must be specific enough to direct a reader to the right areas
 
 Good: "How does the middleware chain handle request authentication, and where are auth policies defined?"
 Bad: "What's the best way to add a new authenticated endpoint?"
 
 Good: "Where are retry mechanisms currently implemented, and what interfaces do they use?"
 Bad: "How should we implement webhook retry logic?"
+
+Good: "[ecosystem] How do established HTTP client libraries implement retry/backoff, and what interfaces do they expose?"
+Bad: "[ecosystem] Which retry library should we adopt?"
 
 Task description (DO NOT include this in the output):
 <$ARGUMENTS>
@@ -86,8 +93,12 @@ _DO NOT include the task description in this file or share it with the researche
 1. <neutral question>
 2. <neutral question>
 3. <neutral question>
+4. [ecosystem] <neutral ecosystem/prior-art question>
 ...
 ```
+
+The `[ecosystem]` tag is load-bearing: `/roster-research` keys its external (web)
+research on it. Keep it verbatim at the start of the question text.
 
 Write `roster/<task-slug>/task.md` with the full task description (this is the durable record downstream phases read to recover the goal if context is lost):
 
@@ -141,4 +152,5 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 ## Rules
 
 - Never skip the human review gate — questions shape the quality of all downstream research
+- Always include 1–2 `[ecosystem]` questions unless the task domain genuinely has no outside prior art (rare — say so explicitly if you omit them)
 - If the task is in a domain with no existing codebase (greenfield), note this and generate architectural questions about conventions and tooling instead

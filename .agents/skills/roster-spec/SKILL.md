@@ -2,7 +2,7 @@
 name: roster-spec
 description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
 when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
-version: 2.0.5
+version: 2.1.0
 domain: pipeline
 phase: spec
 preamble: true
@@ -18,6 +18,7 @@ tunables:
 artifacts:
   reads:
     - briefs/<task>-intake.md
+    - roster/<task-slug>/research.md (if present — external prior-art table)
     - specs/*.md (existing specs for consistency check)
     - kb/ (if present)
   writes:
@@ -213,6 +214,13 @@ Wait for user decision. If skip: write completion marker and stop.
 
 ## Steps
 
+### 0. Load prior art (if available)
+
+Check for `roster/<task-slug>/research.md`. If present, read its
+`## External prior art` section. This table is **load-bearing input** for Step 4:
+every documented external approach that diverges from the brief's implied direction
+must surface as a challenge — prior art is never merely context.
+
 ### 1. Research Sub-Agent
 
 Spawn a sub-agent (fresh context) with this prompt:
@@ -303,6 +311,11 @@ Rules:
 - Never accept a story as valid without a challenge
 - A challenge is a question, contradiction, edge case, or missing constraint that — if unresolved — makes the implementation ambiguous or wrong
 - Reference the story number and exact ambiguity; at least <min_challenges_per_story> challenge(s) per story
+- For EACH entry in the external prior-art table whose documented approach diverges
+  from the direction the stories assume, raise a challenge of the form:
+  "Prior art: <tool/paper> does Y (<source>); the stories assume X — justify the
+  divergence or adopt Y." Prior art that is ignored without a challenge is a defect
+  in YOUR output.
 
 Produce:
 1. Numbered challenges C-1, C-2, ... each citing its story. No solutions — only challenges.
@@ -310,6 +323,7 @@ Produce:
 
 Stories: <US-N with acceptance scenarios>
 Research context: <research sub-agent summary>
+External prior art: <the External prior art table from roster/<task-slug>/research.md, or "none available">
 Brief: <goal + scope boundary + architecture notes>
 ```
 
@@ -476,4 +490,5 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Never ask questions answerable by reading code or the brief
 - Never produce a spec with 0 runnable checks unless explicitly marked manual
 - Anti-sycophancy: challenge every requirement, including ones that seem obvious
+- Prior art is load-bearing: an external prior-art entry that diverges from the brief's direction MUST become a challenge ("existing practice does Y; task assumes X; justify or adopt") — never silently ignored
 - If both sub-agents agree a brief direction is wrong → USER-CHALLENGE, never auto-change

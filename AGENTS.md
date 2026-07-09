@@ -109,7 +109,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-run | 1.8.0 | Classifies an incoming task and routes it to the right pipeline skill |
 | roster-init | 1.3.0 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
 | roster-intake | 1.1.3 | Turns a raw task description into a human-validated contractual brief |
-| roster-spec | 2.0.5 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
+| roster-spec | 2.1.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.3.4 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
 | roster-implement | 1.5.5 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
 | roster-review | 1.6.3 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
@@ -118,8 +118,8 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-investigate | 1.3.2 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
 | roster-audit | 1.4.0 | Combines code-quality and spec-compliance checks into one actionable audit report |
 | roster-doctor | 1.3.0 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
-| roster-question | 1.0.3 | Decomposes a task into neutral research questions with the intent hidden |
-| roster-research | 1.2.4 | Performs blind, file:line-grounded research from a questions file, never the task itself |
+| roster-question | 1.1.0 | Decomposes a task into neutral research questions with the intent hidden |
+| roster-research | 1.3.0 | Performs blind, file:line-grounded research from a questions file, never the task itself |
 | roster-workflow-build | 1.0.2 | Fills a CWR workflow template from a validated plan JSON via mechanical template-fill |
 | roster-triage-critical | 1.0.3 | Elicits formal-verification properties and proposes a backend for the critical route |
 | roster-spec-formal | 1.0.3 | Extends a validated roster-spec into a formal Rocq (.v) or Quint (.qnt) specification |
