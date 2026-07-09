@@ -167,7 +167,7 @@ As a roster maintainer, I want a complete arch-index pack at `extensions/arch-in
 #### QA Gate
 - **FR-025** [US-2]: roster-qa MUST accept invariant declarations in `kb/properties.md` as a fenced block tagged `code-intel` containing JSONL lines with fields `id`, `type`, `description`, and an opaque pack-specific `check` object.
 - **FR-026** [US-2]: The envelope syntax of the code-intel block MUST be owned by core and documented in `schema/kb-schema.md`; `check` semantics MUST be owned by the pack.
-- **FR-027** [US-2]: roster-qa MUST run the code-intel gate only when both an installed pack matches `capability: code-intel` + `provides: gate` AND `kb/properties.md` contains a valid `code-intel` block.
+- **FR-027** [US-2]: roster-qa MUST run the code-intel gate only when both an installed pack matches `capability: code-intel` + `provides: gate` AND `kb/properties.md` contains a `code-intel` fenced block. *(Errata 2026-07-09, plan decision: "valid" means the block is present; a present-but-malformed block reaches the gate and fails loud per FR-033/EC-4 — skip applies only when the block is absent.)*
 - **FR-028** [US-2]: When `kb/properties.md` is absent or contains only prose (no code-intel block), roster-qa MUST skip the gate step and MUST record the skip in the `briefs/<task>-qa.md` report; the skip MUST NOT affect the verdict.
 - **FR-029** [US-2]: roster-qa MUST execute the gate by invoking the pack's `entry` command with the code-intel block path as its argument.
 - **FR-030** [US-2]: roster-qa MUST enforce a timeout on the gate command, exposed as a roster-qa tunable `code_intel_gate_timeout` (default 120s); a timeout MUST be treated as exit code 3.
@@ -191,7 +191,7 @@ As a roster maintainer, I want a complete arch-index pack at `extensions/arch-in
 #### Audit Section Provider
 - **FR-045** [US-4]: An audit-section pack's `entry` command MUST emit a markdown fragment on stdout whose first content line is a mandatory index-freshness header line.
 - **FR-046** [US-4]: roster-audit MUST append each audit-section pack's fragment as a distinct deterministic section in `briefs/audit-<date>.md`.
-- **FR-047** [US-4]: code-quality-auditor MUST append each audit-section pack's fragment to `kb/reports/code-quality-report.md`, and the fixed Summary table columns MUST remain unchanged.
+- **FR-047** [US-4]: code-quality-auditor MUST append each audit-section pack's fragment to `kb/reports/code-quality-report.md` as a distinct section. *(Errata 2026-07-09: the fixed-Summary-table-columns clause applies to roster-audit's report only — code-quality-auditor's report has no Summary table; see FR-046.)*
 - **FR-048** [US-4]: On a non-zero exit from an audit-section `entry` command, the consumer MUST replace that pack's section with a one-line degraded notice and MUST continue the audit.
 - **FR-049** [US-4]: Audit consumers MUST be read-only with respect to the code-intel index; they MUST NOT regenerate it.
 - **FR-050** [US-4]: Severity classification of pack-emitted rows MUST remain model-judged; the auditor MAY cite section rows as evidence but MUST NOT delegate severity to the pack.
@@ -267,9 +267,9 @@ As a roster maintainer, I want a complete arch-index pack at `extensions/arch-in
 ## Runnable Checks
 
 - CHECK-1 [AC-1]: `node scripts/check-code-intel-registry.js` → exit 0 on the shipped registry.
-- CHECK-2 [AC-2]: `node --test dist/scripts/check-code-intel-registry.test.js` → per-violation rejection fixtures pass.
-- CHECK-3 [AC-3, AC-9, AC-10]: `node --test dist/scripts/arch-index-pack.test.js` → stub-binary gate contract (exits 0/1/2/3) + install/uninstall round-trip pass.
-- CHECK-4 [AC-12]: `git grep -l "code_intel" -- ':!briefs' ':!roster'` → empty output.
+- CHECK-2 [AC-2]: `node --test scripts/check-code-intel-registry.test.js` → per-violation rejection fixtures pass. *(Errata: buildless plain-JS test in `scripts/`, per the check-skill-contract precedent.)*
+- CHECK-3 [AC-3, AC-9, AC-10]: `node --test scripts/arch-index-pack.test.js` → stub-binary gate contract (exits 0/1/2/3) + install/uninstall round-trip pass. *(Errata: same path convention.)*
+- CHECK-4 [AC-12]: `git grep -lE 'code_intel(_gate_timeout)?' -- ':!briefs' ':!roster' ':!specs' | xargs -r grep -lE 'code_intel([^_g]|_[^g]|_g[^a]|$)'` — simplified acceptance: `git grep -nE '\bcode_intel\b' -- ':!briefs' ':!roster' ':!specs'` restricted to matches that are not `code_intel_gate_timeout` → empty. *(Errata: the tunable name `code_intel_gate_timeout` (FR-030) legitimately contains the substring; `:!specs` excluded because this spec documents the superseded token.)*
 - CHECK-5 [AC-5]: `grep -q 'code-intel' schema/kb-schema.md` → exit 0.
 - CHECK-6 [AC-6]: manual — run `/roster-doctor preflight` in a fixture project with the pack installed and the binary absent; verify `READY` verdict + `pack degraded: tool-missing:arch-index` warning.
 - CHECK-7 [AC-8]: manual — run `/recruit` on a Rust fixture project; verify suggestion shape (ranking, none-default, verbatim install text, no execution).
