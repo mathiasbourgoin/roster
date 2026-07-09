@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 1.6.2
+version: 1.6.3
 domain: pipeline
 phase: review
 preamble: true
@@ -111,7 +111,7 @@ Spawn specialists based on scope. Each specialist receives:
 | `spec-compliance` | Always if KB exists (`kb/spec.md` present) | Skill — read `skills/kb/spec-compliance-auditor.md` and invoke via `Skill` tool or spawn as sub-agent with this content |
 | `code-quality-auditor` | Always if KB exists (`kb/properties.md` present) | Skill — read `skills/kb/code-quality-auditor.md`; provide diff + `kb/properties.md` + `kb/glossary.md` + reviewer.md |
 | `architect` | Medium or large blast radius (>3 files modified or public module) | `.claude/agents/architect.md` |
-| `terminal-ux-reviewer` | TUI scope detected in diff or brief | `.claude/agents/terminal-ux-reviewer.md` |
+| TUI pass (via `reviewer`) | TUI scope detected in diff or brief | Spawn the `reviewer` agent with a TUI checklist appended: rendering at 80x24/120x40/220x50, keyboard navigation paths, terminal-capability fallbacks, escape-sequence hygiene. (Deterministic tmux verification happens later in `/roster-qa`.) |
 | `reviewer` (agent) | Always | `.claude/agents/reviewer.md` |
 | `cross-runtime-reviewer` | **Mandatory** in Fast/Full when a runtime CLI other than the host is on `PATH` (`codex` or `opencode`); skip only by explicit human decision | See **Cross-Runtime Review** below — an independent second-model pass |
 
@@ -159,7 +159,7 @@ When findings have `category: "spec"` and severity CRITICAL or HIGH:
   "evidence": "File X line Y — exact code quote",
   "fix": "What to do",
   "fingerprint": "path:line:category",
-  "specialist": "architect|reviewer|spec-compliance|terminal-ux-reviewer"
+  "specialist": "architect|reviewer|spec-compliance|reviewer-tui"
 }
 ```
 

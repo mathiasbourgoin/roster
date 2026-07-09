@@ -249,7 +249,7 @@ Use index artifacts, not ad-hoc remote crawling.
    flow fails for every new user. After the team is written, offer:
 
    > Install the roster pipeline skills? They add `/roster-run` (entry point) and
-   > intake→spec→plan→implement→review→qa→ship as slash commands, plus `/roster-init`
+   > question→research→intake→spec→plan→implement→review→qa→ship as slash commands, plus `/roster-init`
    > for bootstrapping and `/roster-skill-health` for self-improvement. [Y/n]
 
    On approval (default yes), run the **New Skill Discovery** install procedure in

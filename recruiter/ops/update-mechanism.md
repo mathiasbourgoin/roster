@@ -189,13 +189,13 @@ Also check roster skills (`component_type: "skill"`, `source: "local"`) against 
 
 ```
 New skills available in roster:
-  - roster-run (v1.0.0) — Entry point du pipeline roster
-  - roster-init (v1.0.0) — Bootstrap greenfield or onboard existing project
+  - roster-run — Classifies an incoming task and routes it to the right pipeline skill
+  - roster-init — Bootstrap greenfield or onboard existing project
   - roster-intake, roster-plan, roster-implement, roster-review, roster-qa, roster-ship — Full pipeline
   - roster-investigate, roster-audit — Operational skills
   - roster-skill-health, roster-skill-evolve — Skill metabolism (self-improvement)
 
-Install the pipeline skills? They add intake→plan→implement→review→qa→ship as slash commands,
+Install the pipeline skills? They add question→research→intake→spec→plan→implement→review→qa→ship as slash commands,
 plus `/roster-init` for project bootstrapping and `/roster-skill-health` for self-improvement.
 [Y/n]
 ```
@@ -207,11 +207,19 @@ On approval, install using the following concrete procedure:
 mkdir -p .harness/skills .claude/commands .agents/skills
 ```
 
-**Step 2 — Fetch the shared preamble:**
+**Step 2 — Fetch the shared preamble and its frontmatter-gated fragments:**
 ```bash
 ROSTER_RAW="https://raw.githubusercontent.com/<roster_repo>/main"
 PREAMBLE=$(curl -sL "$ROSTER_RAW/skills/shared/preamble.md")
+PREAMBLE_PIPELINE=$(curl -sL "$ROSTER_RAW/skills/shared/preamble-pipeline.md")
+PREAMBLE_FRICTION=$(curl -sL "$ROSTER_RAW/skills/shared/preamble-friction.md")
 ```
+
+The two fragments are injected conditionally (mirroring `sync-harness.sh`):
+`preamble-pipeline.md` (the Pipeline State ledger contract) only into skills whose
+frontmatter `phase:` is non-null; `preamble-friction.md` (the canonical friction-log
+template) only into skills with `friction_log: true`. Installing without them breaks
+durable-state resume and the metabolism loop on the target project.
 
 **Step 3 — Install each skill:**
 
@@ -258,13 +266,27 @@ For each skill at path `<skill-path>` with filename `<name>.md`:
 ```bash
 SKILL_CONTENT=$(curl -sL "$ROSTER_RAW/<skill-path>")
 
-# Check if preamble: true in frontmatter
-if echo "$SKILL_CONTENT" | grep -q "^preamble: true"; then
-  PROJECTED="${PREAMBLE}
+# Split frontmatter (through the 2nd ---) from body; fragments inject body-only,
+# AFTER the frontmatter — same order sync-harness.sh renders.
+FM=$(printf '%s\n' "$SKILL_CONTENT"    | awk '{print} /^---$/{n++; if(n==2) exit}')
+BODY=$(printf '%s\n' "$SKILL_CONTENT"  | awk 'n==2{print} /^---$/{n++}')
+strip_fm() { printf '%s\n' "$1" | awk 'n==2{print} /^---$/{n++}'; }
 
----
+if printf '%s' "$FM" | grep -q "^preamble: true"; then
+  INJECT="$(strip_fm "$PREAMBLE")"
+  if printf '%s' "$FM" | grep -q '^phase:' && ! printf '%s' "$FM" | grep -q '^phase: null'; then
+    INJECT="${INJECT}
+$(strip_fm "$PREAMBLE_PIPELINE")"
+  fi
+  if printf '%s' "$FM" | grep -q '^friction_log: true'; then
+    INJECT="${INJECT}
+$(strip_fm "$PREAMBLE_FRICTION")"
+  fi
+  PROJECTED="${FM}
 
-${SKILL_CONTENT}"
+${INJECT}
+
+${BODY}"
 else
   PROJECTED="$SKILL_CONTENT"
 fi
@@ -290,10 +312,12 @@ find .agents/skills -maxdepth 2 -name SKILL.md
 If `.harness/` or `.claude/` do not exist (e.g., Codex-only environment), write only to the
 configured Codex runtime entrypoint and skip the other targets — do not fail.
 
-**Note on preamble injection:** The preamble (`skills/shared/preamble.md`) encodes the project's
-shared ethos (anti-sycophancy, completeness, user sovereignty, friction log instructions). It must
-be injected after frontmatter for all skills where `preamble: true` appears in the frontmatter YAML
-block. Skills without this field or with `preamble: false` are written as-is.
+**Note on preamble injection:** The core preamble (`skills/shared/preamble.md`) encodes the
+shared ethos (anti-sycophancy, completeness, user sovereignty, asking-questions protocol). The
+Pipeline State ledger contract lives in `preamble-pipeline.md` and the canonical friction-log
+template in `preamble-friction.md` — both injected only when the skill's frontmatter gates match
+(see Step 2). All injection happens after the skill's frontmatter, body-only. Skills without
+`preamble: true` are written as-is.
 
 **Runtime note:** OpenCode and Copilot each have a dedicated renderer in `sync-harness.sh`. Enable
 them in `.harness/harness.json` (`"enabled": true`) and re-run `sync-harness.sh`. OpenCode uses
