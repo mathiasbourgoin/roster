@@ -2,7 +2,7 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.3.5
+version: 1.3.6
 domain: pipeline
 phase: plan
 preamble: true
@@ -202,11 +202,13 @@ Present the sub-briefs with their paths. Request validation before spawning exec
 
 After approval, write `briefs/<task>-plan.json` atomically:
 
-1. **Detect critical mode:**
+1. **Detect the mode:**
 ```bash
-[ -f briefs/<task>-formal-triage.md ] && TASK_MODE="critical" || TASK_MODE="<mode from intake brief>"
+if [ -f briefs/<task>-formal-triage.md ]; then TASK_MODE="critical"
+else TASK_MODE=$(jq -r '.mode // "full"' briefs/<task>-state.json 2>/dev/null || echo "full")
+fi
 ```
-Use `$TASK_MODE` as the `"mode"` field. File existence is the signal — applies to both full triage briefs and minimal placeholder briefs from `--critical=rocq`/`--critical=quint`.
+Use `$TASK_MODE` as the `"mode"` field. Triage-brief existence is the critical signal — applies to both full triage briefs and minimal placeholder briefs from `--critical=rocq`/`--critical=quint`. Otherwise the mode comes from the state ledger (`mode` is set on the ledger's first write — pipeline preamble); a missing ledger defaults to `full`, the only non-critical route that reaches this skill.
 
 2. Build the JSON:
 ```json
