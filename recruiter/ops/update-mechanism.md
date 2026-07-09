@@ -324,6 +324,33 @@ them in `.harness/harness.json` (`"enabled": true`) and re-run `sync-harness.sh`
 flat `.md` files; Copilot uses `.github/copilot-instructions.md` + per-agent `.github/instructions/`
 files.
 
+### Code-Intel Pack Discovery
+
+Presented alongside the pipeline-skills offer (Mode 1 step 8 of the recruiter, and after New Skill
+Discovery on `/recruit update`). This is an **offer, not a clarification question** — it never
+consumes the recruiter's 3–5 focused-question budget. Deterministic procedure:
+
+1. **Languages:** reuse the languages the recruiter already detected during project analysis
+   (Mode 1 step 1 — `Cargo.toml`, `dune-project`, `go.mod`, `pyproject.toml`, `package.json`
+   plus `tsconfig.json`), mapped to the registry enum `go`/`rust`/`typescript`/`javascript`/`python`/`ocaml`.
+2. **Load the registry:** from a local roster checkout when running inside or alongside one
+   (`registry/code-intel.jsonl`); otherwise fetch
+   `https://raw.githubusercontent.com/mathiasbourgoin/roster/main/registry/code-intel.jsonl`
+   (20s timeout). On any failure, skip this offer silently — no question, no error.
+3. **Filter:** keep entries whose `languages` overlap the detected languages. Exclude
+   already-installed packs — run `node scripts/code-intel-resolve.js list` when the resolver is
+   available, otherwise grep `.agents/skills/*/SKILL.md` then `.opencode/skills/*/SKILL.md`
+   frontmatter for `capability: code-intel`.
+4. **Zero matches → skip the offer entirely** (never present a question whose only option is "none").
+5. **Present** via AskUserQuestion (or numbered options), ranked: `verified` tier first,
+   alphabetical within each tier; at most 3 pack options plus a mandatory "none of these" option,
+   which is the DEFAULT. If more than 3 entries match, note the overflow count in the question
+   text (e.g. "2 more matches not shown"). Label every community-tier option
+   "(community — not verified by roster)".
+6. **On approval of a pack:** present the entry's `install` field text verbatim in a fenced code
+   block for the user to run themselves — NEVER execute any of it. **On "none":** continue,
+   change nothing, and do not persist the decline (a re-run may re-ask).
+
 ---
 
 ## Team Re-Adaptation (major version updates)

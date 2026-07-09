@@ -107,7 +107,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | Skill | Version | Purpose |
 |-------|---------|---------|
 | roster-run | 1.8.0 | Classifies an incoming task and routes it to the right pipeline skill |
-| roster-init | 1.2.3 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
+| roster-init | 1.3.0 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
 | roster-intake | 1.1.3 | Turns a raw task description into a human-validated contractual brief |
 | roster-spec | 2.0.5 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.3.4 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
