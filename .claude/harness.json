@@ -157,7 +157,7 @@
       {
         "name": "code-quality-auditor",
         "source": "roster",
-        "version": "1.0.4",
+        "version": "1.1.0",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -260,7 +260,7 @@
       {
         "name": "roster-audit",
         "source": "roster",
-        "version": "1.3.2",
+        "version": "1.4.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -274,7 +274,7 @@
       {
         "name": "roster-doctor",
         "source": "roster",
-        "version": "1.2.2",
+        "version": "1.3.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -302,7 +302,7 @@
       {
         "name": "roster-init",
         "source": "roster",
-        "version": "1.2.3",
+        "version": "1.3.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -343,12 +343,13 @@
       {
         "name": "roster-qa",
         "source": "roster",
-        "version": "1.3.4",
+        "version": "1.4.0",
         "domain": "pipeline",
         "phase": "qa",
         "tunables": {
           "require_tmux_matrix_for_tui": true,
-          "run_full_suite": true
+          "run_full_suite": true,
+          "code_intel_gate_timeout": 120
         }
       },
       {
