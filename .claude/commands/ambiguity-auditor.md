@@ -2,7 +2,7 @@
 name: ambiguity-auditor
 description: Scans the KB for undefined terms, vague requirements, contradictions, and stale content.
 when_to_use: "Use before a spec review or KB migration to catch quality issues early. Trigger: 'audit the KB for ambiguity'."
-version: 1.0.2
+version: 1.0.3
 ---
 
 # Ambiguity Auditor
@@ -66,7 +66,7 @@ If specs found:
 4. For any AC in a new spec referencing an entity not defined in its `## Entities` section:
    - Report as WARNING: "AC references undefined entity `<name>`"
 
-Write findings to `kb/reports/ambiguity-report.md` under new section `## Cross-Spec Entities`.
+These findings go in the Step 8 report's `## Cross-Spec Entities` section.
 
 ### 8. Generate Report
 
@@ -98,6 +98,13 @@ status: N critical, N warnings, N info
 ### [I1] <Issue title>
 - **Location**: <file>, <line or section>
 - **Note**: <description>
+
+## Cross-Spec Entities
+
+- **CRITICAL**: Entity `<name>` defined differently in <file1> vs <file2> — <definition 1> / <definition 2>
+- **WARNING**: AC references undefined entity `<name>` in <spec file>
+
+(Omit this section if Step 7 found no specs or no findings.)
 ```
 
 **Severity mapping:**

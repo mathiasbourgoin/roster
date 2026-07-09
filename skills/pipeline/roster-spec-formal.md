@@ -2,7 +2,7 @@
 name: roster-spec-formal
 description: Extends a validated roster-spec into a formal Rocq (.v) or Quint (.qnt) specification.
 when_to_use: "Use after roster-spec on the critical-verification route. Trigger: 'formal spec', 'write the Rocq/Quint spec'."
-version: 1.0.2
+version: 1.0.3
 domain: pipeline
 phase: null
 preamble: true
@@ -107,23 +107,17 @@ val <invariant_name>: bool =
 
 **This quiz is generated fresh each run. It is NOT the same as the Stage-2 elicitation questions (those are fixed and have no consistency-check). This quiz follows human-validation.md in full.**
 
-**Why two quizzes:** `roster-spec` ran a quiz against the Markdown spec. This quiz gates a different artifact (the formal propositions in `.v`/`.qnt`). Because the formal file is unreadable by a non-expert, this quiz is the only way to verify the human understands what has been committed to. It is not redundant — it targets a qualitatively different risk.
-
 Build quiz questions from two sources, not one:
 - **ELI5 sentence** (from triage brief) — frames the property in plain language
 - **Parent user story** (from `specs/<slug>.md`) — at least one comprehension question per HIGH-priority property must be answerable from the user story text independently of the ELI5
 
 This breaks the circularity risk: if the ELI5 mistranslates the proposition, a question grounded in the user story will catch it.
 
-**Quiz structure (per human-validation.md):**
-- 3–5 questions
-- 1–2 comprehension questions (one grounded in ELI5, at least one in the user story for HIGH properties)
-- 1–2 clarification questions (decisions implicit in the spec that need making explicit)
-- 1 consistency-check question — a deliberately wrong recommendation targeting the highest-risk decision; varied framing each run; never labeled as a trap; uniform format with other questions
+**Quiz structure:** per the `human-validation.md` protocol. Formal-specific question targets: comprehension grounded one in the ELI5 and (for HIGH properties) at least one in the parent user story; clarification on decisions implicit in the formal spec; consistency-check targeting the highest-risk formalization decision.
 
-Gate on correct answers before proceeding. If a comprehension question is answered incorrectly, offer one clarification, then re-ask. If still wrong, stop — the spec is unclear and must be revised.
+Gate on correct answers before proceeding; if a comprehension question is still wrong after one clarification, stop — the spec is unclear and must be revised.
 
-**Residual risk (acknowledged):** If the ELI5 faithfully paraphrases the proposition but both are wrong (the proposition doesn't capture the story's intent), no mechanical check catches this. The story-grounded question is the primary mitigation. The ship artifact records that E0p/E0m claims are conditioned on the accuracy of the proposition-to-story mapping.
+The ship artifact must record that E0p/E0m claims are conditioned on the accuracy of the proposition-to-story mapping.
 
 ### 4. Write the formal spec artifact
 

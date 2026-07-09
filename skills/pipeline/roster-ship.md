@@ -2,7 +2,7 @@
 name: roster-ship
 description: Carries a reviewed, QA'd branch through to a merged PR.
 when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
-version: 1.4.2
+version: 1.4.3
 domain: pipeline
 phase: ship
 preamble: true
@@ -207,10 +207,9 @@ HARNESS=".harness/harness.json"
 [ -f "$HARNESS" ] && ./scripts/sync-harness.sh 2>/dev/null && git add -A && git commit -m "chore(harness): sync .claude projection after metabolism counter bump" || true
 ```
 
-If `jq` is not available or neither harness file exists, note the missed increment in the friction log without blocking. The sync-harness step is best-effort (`|| true`) — if it fails (e.g. no git or no sync-harness.sh), the increment was still written; the drift will be caught by the next `npm test`.
+If `jq` is not available or neither harness file exists, note the missed increment in the friction log without blocking. The sync-harness step is best-effort (`|| true`).
 
-**Friction reminder:** After incrementing, print the current friction log size.
-Substitute `tunables.friction_warn_threshold` for `THRESHOLD` before running:
+**Friction reminder:** After incrementing, print the friction log size (substitute `tunables.friction_warn_threshold` for `THRESHOLD`):
 
 ```bash
 # THRESHOLD = tunables.friction_warn_threshold (default 10)

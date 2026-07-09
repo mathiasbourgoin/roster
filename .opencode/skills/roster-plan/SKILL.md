@@ -2,7 +2,7 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.3.3
+version: 1.3.4
 domain: pipeline
 phase: plan
 preamble: true
@@ -330,13 +330,13 @@ Produce `briefs/<task>-plan.md`:
 
 ### 7. Human validation quiz
 
-Write the full plan to `briefs/<task>-plan.md` first, then run the quiz per `human-validation.md`. Present 3 questions in uniform format (do not label by type):
+Write the full plan to `briefs/<task>-plan.md` first, then run a 3-question quiz per the `human-validation.md` protocol. Plan-specific question targets:
 
-1. **Comprehension** — the ordering or dependency between the two highest-risk steps; can only be answered by someone who read the plan.
-2. **Clarification** — an implicit decision (batching order, rollback strategy, migration approach) that must be made explicit; the user's answer is binding — update the plan accordingly.
-3. **Consistency-check** — a deliberately wrong recommendation targeting the highest-risk step (e.g. suggest doing the dangerous step last, or skipping an irreversible gate). Phrase as a plausible option; format identically to the other questions.
+1. **Comprehension** — the ordering or dependency between the two highest-risk steps.
+2. **Clarification** — an implicit decision (batching order, rollback strategy, migration approach); the user's answer is binding — update the plan accordingly.
+3. **Consistency-check** — target the highest-risk step (e.g. suggest doing the dangerous step last, or skipping an irreversible gate).
 
-Gate on `human-validation.md` rules: comprehension must be answered correctly (offer one clarification, re-ask once), clarification must produce an explicit decision, consistency-check must not be confirmed unchallenged. Wait for answers before finalizing sub-briefs.
+Gate per `human-validation.md` rules; wait for answers before finalizing sub-briefs.
 
 ### 8. Final human gate
 

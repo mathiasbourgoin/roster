@@ -2,7 +2,7 @@
 name: roster-spec
 description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
 when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
-version: 2.0.4
+version: 2.0.5
 domain: pipeline
 phase: spec
 preamble: true
@@ -239,17 +239,7 @@ version: 1.0.0
 
 ## User Stories
 
-### US-1: <title> (Priority: P0|P1|P2)
-As a [role], I want [action] so that [outcome].
-**Why this priority**: ...
-**Scope**: This story does NOT cover [explicit exclusion].
-**Independent Test**: ...
-**Acceptance Scenarios**:
-1. **Given** [concrete state], **When** [action], **Then** [observable outcome]
-2. **Given** [concrete state], **When** [action], **Then** [observable outcome]
-3. **Given** [error/boundary state], **When** [action], **Then** [observable outcome]
-
-### US-2: ...
+### US-N: <title> (Priority: P0|P1|P2) — one full story block per story, format per Step 3
 
 ## Challenges
 

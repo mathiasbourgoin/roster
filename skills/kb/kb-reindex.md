@@ -2,7 +2,7 @@
 name: kb-reindex
 description: Builds or incrementally updates the LanceDB semantic search index over KB files.
 when_to_use: "Use when semantic search over the KB is enabled but the index is missing or stale. Trigger: 'reindex the KB', 'rebuild the search index'."
-version: 1.0.2
+version: 1.0.3
 ---
 
 # KB Reindex
@@ -14,7 +14,15 @@ The index is a search cache. Markdown files remain the primary source of truth. 
 ## Pre-conditions
 
 ```bash
-# Check opt-in flag (read from harness.json or inform user to set it)
+# Opt-in flag lives in the installed kb-agent's frontmatter tunables (the file /roster-config
+# edits) — NOT in .harness/harness.json, whose agents[].tunables carry no per-agent values.
+AGENT_FILE=""
+for f in .harness/agents/kb-agent.md .claude/agents/kb-agent.md .opencode/agents/kb-agent.md agents/management/kb-agent.md; do
+  [ -f "$f" ] && AGENT_FILE="$f" && break
+done
+grep -Eq '^[[:space:]]*search_index:[[:space:]]*true' "$AGENT_FILE" 2>/dev/null \
+  && echo "search_index: enabled ($AGENT_FILE)" \
+  || echo "search_index: disabled — enable via /roster-config (kb-agent › search_index), or proceed only on explicit user request"
 # Check LanceDB is available (Python: pip install lancedb; JS: npm install @lancedb/lancedb)
 [ -d kb ] && echo "KB present" || echo "KB absent — nothing to index"
 ```

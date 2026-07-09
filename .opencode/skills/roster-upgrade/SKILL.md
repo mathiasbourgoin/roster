@@ -1,7 +1,7 @@
 ---
 name: roster-upgrade
 description: Propose-only upgrader for roster-contract skills — evidence-mined, gate-checked, human-landed diffs.
-version: 0.1.1
+version: 0.1.2
 domain: meta
 phase: null
 preamble: true
@@ -112,15 +112,9 @@ bounty-skills, gstack skills, the roster pipeline skills, and **itself** — it 
 `SKILL.md` carrying the standard frontmatter (`name`, `version`, `phase`, `pipeline_role`,
 `friction_log`, `artifacts`, …), never on hardcoded paths.
 
-**You never land a change.** You propose a diff on a branch and stop. A human lands it through the
-quiz. You are not auto-discovered (`disable-model-invocation: true`, no `when_to_use`) — a maintainer
-invokes you on a cadence so you cannot be triggered by accident.
-
-**The wall (the one invariant).** Two flows pull in opposite directions and are never merged:
-target-specific learning goes **down** into a private campaign overlay (that is `/specialize`'s job,
-shipped in the pack — *not yours*); generalized, target-stripped improvement goes **up** into the
-generic skill (yours). Anything you find that only helps the current target is **not** a skill edit —
-route it to `/specialize` as an overlay and reject it here.
+**In one sentence:** you are propose-only behind two fail-closed gates, and the wall keeps
+target-specific learning out of the generic skill (it routes down to `/specialize` overlays) —
+the **Rules** section at the end is the canonical statement of all three.
 
 ## Input Contract
 
@@ -174,8 +168,8 @@ Classify each surviving candidate with roster's own Express/Fast/Full rule and r
 - a **new capability / contract change** (new `allowed_tools`, a new skill, structural change) → **Full**.
 
 **Altitude controls pipeline depth/cost only — never whether the quiz fires.** The quiz is run by
-**step 5 of this skill directly** (not left to the pipeline's `plan` phase, which is Full-only — that
-plan-phase dependency was the C1 finding). So a Fast candidate is just as quiz-gated as a Full one.
+**step 5 of this skill directly** (not left to the pipeline's `plan` phase, which is Full-only).
+So a Fast candidate is just as quiz-gated as a Full one.
 Batch coherent candidates; the §2 funnel (promote only evidence-backed, check-bearing candidates)
 keeps cost down without skipping the quiz.
 
@@ -218,8 +212,8 @@ Run both. A red gate kills the proposal — no green, no land.
 ### 5. Human lands — run the quiz HERE (altitude-independent)
 
 The quiz is run **by this step**, not delegated to the pipeline's `plan` phase (which only Full runs).
-Running it here is what makes pillar 3 hold for every candidate regardless of mode — the fix for the
-C1 review finding. Follow `rules/governance/human-validation.md`:
+Running it here is what makes the quiz fire for every candidate regardless of mode. Follow
+`rules/governance/human-validation.md`:
 
 1. **Write the proposal to a file** — `docs/plans/roster-upgrade-<slug>-<date>.md`: the diff + a
    rationale citing each candidate's evidence, its deterministic check or manual-judgment flag, both
@@ -243,7 +237,7 @@ C1 review finding. Follow `rules/governance/human-validation.md`:
 | No citation, or neither a check nor the manual-judgment flag | Reject the candidate — never propose ungrounded |
 | Either gate is red (generic or per-target validator) | Kill that proposal; do not land |
 | Target exposes no validator (no `validate_command`, no `scripts/validate.sh`) | **STOP — do not land.** Generic-gate-only is not enough; report and ask the human to declare a validator |
-| Editing `/roster-upgrade`'s OWN Rules/gates (self-upgrade) | Full only; require explicit human review of the **Rules/gate diff** specifically (see Enforcement status C3) |
+| Editing `/roster-upgrade`'s OWN Rules/gates (self-upgrade) | Full only; require explicit human review of the **Rules/gate diff** specifically (see Enforcement status) |
 | Maintainer fails the quiz on a proposal | Do not land — surface the ambiguity (the proposal or its evidence is unclear) |
 
 ## What Next
@@ -259,21 +253,21 @@ C1 review finding. Follow `rules/governance/human-validation.md`:
 
 ## Enforcement status — what is mechanical vs. what relies on this skill being followed
 
-An internal adversarial review (2026-06-05) established that **the real backstop is propose-only +
-human review of the diff before merge** — most of the "gates" are instructions to the running agent,
-not code that blocks. Be honest about which is which; do not present aspirational controls as enforced.
+**The real backstop is propose-only + human review of the diff before merge** — most of the "gates"
+are instructions to the running agent, not code that blocks. Be honest about which is which; do not
+present aspirational controls as enforced.
 
 | Safety claim | Status |
 |---|---|
 | Leak scan (literal secrets/credentials) | **Mechanical** — `check-leak.js`, fail-closed exit code, adversarially tested. |
 | "Scan every edited file" / "non-zero exit kills the proposal" | **Enforced for roster** — `scripts/check-leak-diff.sh` derives the file set from `git diff` and roster's CI runs it on every push/PR (`.github/workflows/ci.yml`), blocking the merge. For an EXTERNAL target, the same script must be wired into that target's CI/pre-land hook (the upgrader can't enforce a gate in a repo it doesn't control). |
 | The wall (no target data up) | **Mechanical only for literal leaks.** Semantic over-fit (a target invariant generalized with names filed off) is **human-judgment + quiz**, not gated. |
-| Quiz on every proposal | **Decoupled (fixed).** Step 5 runs the `human-validation.md` quiz directly against the proposal, so it fires for every candidate regardless of altitude (no longer dependent on the Full-only `plan` phase). Includes the mandated consistency-check (addresses M1). Still relies on the agent running step 5 honestly — the quiz itself is human-in-the-loop by construction. |
+| Quiz on every proposal | **Decoupled.** Step 5 runs the `human-validation.md` quiz directly against the proposal, so it fires for every candidate regardless of altitude (not dependent on the Full-only `plan` phase). Includes the mandated consistency-check. Still relies on the agent running step 5 honestly — the quiz itself is human-in-the-loop by construction. |
 | Evidence + check/flag per candidate | **Prose** — no script verifies a citation or flag exists. Human checks at the quiz. |
-| Self-upgrade can't weaken its own gates (C3) | **Enforced.** `scripts/check-roster-upgrade-invariants.test.js` (in `npm test`/CI) fails if this skill stops naming propose-only, both gates, the wall, the quiz, or maintainer-only — so a weakening self-edit can't land green. Plus the self-edit row in *When to Go Back* (Full + human Rules-diff review). |
+| Self-upgrade can't weaken its own gates | **Enforced.** `scripts/check-roster-upgrade-invariants.test.js` (in `npm test`/CI) fails if this skill stops naming propose-only, both gates, the wall, the quiz, or maintainer-only — so a weakening self-edit can't land green. Plus the self-edit row in *When to Go Back* (Full + human Rules-diff review). |
 | Generic per-target contract check | **Enforced (generic).** `scripts/check-skill-contract.js` validates the contract on any target's `SKILL.md` (buildless, per-file) — no longer roster-repo-scoped. |
 
-Most pillars are now mechanically backed (2026-06-05 hardening #1–#4). The residual honest caveat:
+Most pillars are mechanically backed. The residual honest caveat:
 the **wall's semantic half** (over-fit with names filed off) and **evidence/flag presence** remain
 human-judgment at the quiz — they are not, and likely cannot be, fully mechanized. The backstop for
 those is the quiz (now altitude-independent) + propose-only.

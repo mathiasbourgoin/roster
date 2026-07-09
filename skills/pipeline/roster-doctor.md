@@ -2,7 +2,7 @@
 name: roster-doctor
 description: Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling.
 when_to_use: "Use before starting work, or when unsure the toolchain actually runs. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.2.1
+version: 1.2.2
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -74,9 +74,7 @@ if ls workflows/*.cwr.json 2>/dev/null | grep -v '/templates/' | grep -q .; then
 fi
 ```
 
-**Capability tag check (formal skills).**
-
-Scan pipeline skills for a mismatch between description content and the presence of a `capability:` frontmatter field. A skill that mentions formal tools but omits the tag will be invisible to `roster-formal-verify`'s tool-resolution grep:
+**Capability tag check (formal skills).** Flag skills whose description mentions formal tools but whose frontmatter lacks a `capability:` tag — they are invisible to `roster-formal-verify`'s tool resolution:
 
 ```bash
 for f in skills/pipeline/*.md; do
@@ -94,7 +92,7 @@ for f in skills/pipeline/*.md; do
 done
 ```
 
-Report each match as a warning, not a failure. The fix is to add `capability: formal-rocq` or `capability: formal-quint` to the skill's frontmatter. If `formal-apparatus` was installed without this tag, patch it before running `roster-formal-verify`.
+Warnings, not failures. Fix: add `capability: formal-rocq` or `capability: formal-quint` to the skill's frontmatter (patch `formal-apparatus` before running `roster-formal-verify` if it was installed untagged).
 
 ### 2. Project dev-env readiness
 
