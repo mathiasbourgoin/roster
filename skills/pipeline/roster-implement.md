@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.5.3
+version: 1.5.4
 domain: pipeline
 phase: implement
 preamble: true
@@ -112,8 +112,6 @@ For each unit of work in the plan:
    - If still broken after N attempts → invoke `/improvement-loop` with bounded scope
    - If `/improvement-loop` fails → escalate to the human
 
-**Never** commit code that breaks existing gates.
-
 ### 5. Final verification
 
 ```bash
@@ -121,8 +119,6 @@ For each unit of work in the plan:
 <test command>      # must pass — all tests, not just new ones
 <format command>    # must pass
 ```
-
-If an existing test regresses → fix the implementation, never the test.
 
 ### 6. Write the impl brief
 
@@ -208,5 +204,3 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Never implement outside the brief's scope
 - Never modify a test to make it pass — fix the implementation
 - Never commit code that breaks existing gates
-- Escalate if the brief is contradictory or insufficient — do not assume
-- Out-of-scope improvements go in the Friction Log, not in the code

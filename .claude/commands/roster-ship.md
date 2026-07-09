@@ -2,7 +2,7 @@
 name: roster-ship
 description: Carries a reviewed, QA'd branch through to a merged PR.
 when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
-version: 1.4.1
+version: 1.4.2
 domain: pipeline
 phase: ship
 preamble: true
@@ -192,8 +192,8 @@ If `review.json.mode` is absent and the impl brief has no `Mode:` line, **requir
 confirmation before treating a missing `qa.md` as expected** — the mode cannot be safely
 inferred without an authoritative source.
 
-Block conditions (these are refusals to enter ship — they do **not** emit a
-`ship`/`BLOCKED` ledger event, which is reserved for the Output Contract's definition):
+Block conditions (refusals to enter ship — not a `ship`/`BLOCKED` ledger event; see the
+Output Contract for `BLOCKED` semantics):
 > ⛔ DO NOT SHIP: review.json is NO-GO or absent → resolve before shipping.
 > ⛔ DO NOT SHIP: qa.md is NO-GO, or absent on a non-express task → run /roster-qa first.
 
@@ -388,6 +388,5 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 
 - Never a merge commit — rebase-merge only
 - Never push without an explicit human gate
-- Never ship if review.json is NO-GO or absent, or if qa.md is NO-GO; qa.md may be absent **only** in express mode (which skips QA)
 - Never commit files outside the task scope
 - If CI fails after push → do not merge, report

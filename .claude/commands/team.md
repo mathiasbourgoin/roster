@@ -2,7 +2,7 @@
 name: team
 description: Build, review, or run the installed agent team via one dispatch skill.
 when_to_use: "Use to apply a team proposal, audit installed agents, or kick off a pipeline task. Trigger: '/team', 'apply the team proposal', 'audit my team', 'run the team on X'."
-version: 1.0.2
+version: 1.0.3
 domain: workflow
 phase: null
 preamble: true
@@ -69,21 +69,17 @@ Rules:
 
 # Team
 
-Manage the installed agent team. Detect the mode from `$ARGUMENTS`:
-
-- `team build` — apply an approved team proposal to the harness
-- `team review` — audit the installed team for gaps, staleness, and redundancy
-- `team run <task>` — start the full pipeline on a task via tech-lead
-
-If `$ARGUMENTS` is empty or not one of the above, ask once:
-
-> "Which mode? `build` (apply proposal), `review` (audit team), or `run <task>` (execute pipeline)"
+Manage the installed agent team.
 
 ## Steps
 
-1. Detect mode from `$ARGUMENTS` (see routing table above).
-2. If mode is ambiguous, ask once — then execute the selected mode section below.
-3. Follow the steps in the matching mode section: **build**, **review**, or **run**.
+1. Detect the mode from `$ARGUMENTS`:
+   - `team build` — apply an approved team proposal to the harness
+   - `team review` — audit the installed team for gaps, staleness, and redundancy
+   - `team run <task>` — start the full pipeline on a task via tech-lead
+2. If `$ARGUMENTS` is empty or not one of the above, ask once:
+   > "Which mode? `build` (apply proposal), `review` (audit team), or `run <task>` (execute pipeline)"
+3. Execute the matching mode section below: **build**, **review**, or **run**.
 
 ---
 

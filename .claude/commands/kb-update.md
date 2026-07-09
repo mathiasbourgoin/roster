@@ -2,7 +2,7 @@
 name: kb-update
 description: Synchronizes the KB with recent code changes, standalone from the KB agent's update mode.
 when_to_use: "Use after a merge to keep documentation current. Trigger: 'update the KB', 'post-merge doc sync'."
-version: 1.1.2
+version: 1.1.3
 ---
 
 # KB Update
@@ -63,8 +63,7 @@ If `kb/.index/` does not exist: skip silently — the index is opt-in.
 
 ## Rules
 
+- **Never** delete KB entries without explicit user approval — this covers all deletions, not only stale/no-code entries.
 - **Never** weaken `properties.md` — properties can only be strengthened or added, never relaxed.
-- **Never** change `spec.md` to match code — spec is the source of truth. If code diverges, flag it.
-- **Never** delete KB entries without explicit user approval.
 - **Never** add speculative content — only document what exists in code or is stated in spec.
 - All KB edits must be traceable to a specific code change or user request.

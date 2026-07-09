@@ -2,7 +2,7 @@
 name: roster-triage-critical
 description: Elicits formal-verification properties and proposes a backend for the critical route.
 when_to_use: "Use when roster-run dispatches a --critical task. Trigger: 'triage critical', '--critical route'."
-version: 1.0.1
+version: 1.0.2
 domain: pipeline
 phase: null
 preamble: true
@@ -167,7 +167,6 @@ The human's backend decision (or downgrade reason) is filled in by the intake ga
 ## Rules
 
 - Read-only scan only — never modify source files
-- Q3 is closed-choice; do not paraphrase or reinterpret the answer
 - The five elicitation questions are fixed; do not regenerate them
 - This skill does not run the intake validation quiz — that is roster-spec-formal's job
 - If the human declines --critical entirely, log `"event": "critical_declined"` in friction.jsonl (separate from suggestion_type)

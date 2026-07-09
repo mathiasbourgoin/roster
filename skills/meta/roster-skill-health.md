@@ -2,7 +2,7 @@
 name: roster-skill-health
 description: Clusters accumulated friction-log patterns into improvement proposals.
 when_to_use: "Use every 5-10 pipeline cycles or when a friction-count reminder fires. Trigger: 'analyze friction'."
-version: 1.3.1
+version: 1.3.2
 domain: meta
 phase: null
 preamble: true
@@ -238,5 +238,4 @@ Present the report and ask:
 > 💡 Run after every 5–10 pipeline cycles to maintain a healthy improvement metabolism.
 
 ## Rules
-- Cold start: create the file, query the user, do not block on missing data
 - Clean runs are a positive signal to name explicitly

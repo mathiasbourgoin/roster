@@ -2,7 +2,7 @@
 name: roster-spec-infer
 description: Reverse-engineers an evidence-tiered spec artifact from existing code, tests, docs, and git history.
 when_to_use: "Use on undocumented or legacy code to recover its actual behavior as a spec. Trigger: 'what does this code do', 'infer the spec', 'undocumented legacy code'."
-version: 1.0.3
+version: 1.0.4
 tunables:
   include_git_history: true
   conflict_policy: surface
@@ -275,11 +275,8 @@ version: 1.0.0
 1. Evidence labels: `[E1]`, `[E2]`, `[E3]` only — never "Tier 1/2/3" (reserved for Ralph Loop quality gates).
 2. **E1** requires: (a) a test assertion found in a test file AND (b) the test suite exits 0.
 3. **E2** is best-effort static inference. Not equivalent to E1.
-4. **E3** annotation `[E3: lowest confidence — verify against code]` is mandatory on every E3 claim.
-5. CONFLICT entries appear ONLY in `## Conflicts` — never in `## Claims`.
-6. Absence of conflicts does not certify correctness. Both analyzers may agree on a wrong claim if the bug exists in both code and docs simultaneously (TRACE blind spot — not a substitute for human review).
-7. Gap registration is mandatory — every uncovered public surface is a GAP-N entry. Silence never implies completeness.
-8. FRs derived from E3-only sources are prohibited — E3 claims are documentation assertions, not behavioral evidence.
-9. Output frontmatter must contain `type: inferred-spec` and filename must end in `-inferred.md`.
-10. This skill is read-only with respect to the target codebase. Only `specs/<slug>-inferred.md` is written.
-11. Cross-module behavioral invariants requiring simultaneous knowledge of multiple modules may not appear in E2 claims (V1 limitation).
+4. Absence of conflicts does not certify correctness. Both analyzers may agree on a wrong claim if the bug exists in both code and docs simultaneously (TRACE blind spot — not a substitute for human review).
+5. Gap registration is mandatory — every uncovered public surface is a GAP-N entry. Silence never implies completeness.
+6. FRs derived from E3-only sources are prohibited — E3 claims are documentation assertions, not behavioral evidence.
+7. Output frontmatter must contain `type: inferred-spec` and filename must end in `-inferred.md`.
+8. Cross-module behavioral invariants requiring simultaneous knowledge of multiple modules may not appear in E2 claims (V1 limitation).

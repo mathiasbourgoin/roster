@@ -2,7 +2,7 @@
 name: roster-spec-formal
 description: Extends a validated roster-spec into a formal Rocq (.v) or Quint (.qnt) specification.
 when_to_use: "Use after roster-spec on the critical-verification route. Trigger: 'formal spec', 'write the Rocq/Quint spec'."
-version: 1.0.1
+version: 1.0.2
 domain: pipeline
 phase: null
 preamble: true
@@ -142,7 +142,6 @@ These files are indexed as `component_type: "formal-spec"` by the build index �
 
 ## Rules
 
-- Never run instead of roster-spec — always after it
 - Never skip the human validation quiz — it is mandatory
 - The intake validation quiz (this skill) and the Stage-2 elicitation questions (roster-triage-critical) are two separate question sets; do not conflate them
 - Traceability (proposition → US-N) is required for every HIGH-priority property

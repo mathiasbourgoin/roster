@@ -2,7 +2,7 @@
 name: roster-investigate
 description: Analyzes a bug or unexpected behavior to find its root cause, read-only.
 when_to_use: "Use when a failure is unclear, flaky, or ambiguous and needs diagnosis before any fix. Trigger: 'why does X fail', 'investigate'."
-version: 1.3.1
+version: 1.3.2
 domain: pipeline
 phase: null
 preamble: true
@@ -275,7 +275,3 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Every causal claim must cite the file and line
 - "Looks like" is not a root cause — confirm or refute
 - If reproducible: reproduce before analyzing statically
-- Code-confirmed is not observed: if the symptom is reproducible, confirm by observation, not by reading alone
-- Anchor causal claims on ground-truth state, not on logs or intermediate reports
-- Find the empirical discriminator before theorizing; a clean reproduction may be the wrong scenario, not the absence of the bug
-- An investigation is not closed until its result — including ruled-out hypotheses — is folded into the KB (when one exists)

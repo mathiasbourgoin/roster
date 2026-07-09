@@ -2,7 +2,7 @@
 name: roster-formal-verify
 description: Formal verification gate that re-runs the deterministic checker itself and emits an evidence tier.
 when_to_use: "Use in place of the QA phase for --critical tasks needing machine-checked proof evidence. Trigger: 'formal verify', '--critical route QA'."
-version: 1.0.1
+version: 1.0.2
 domain: pipeline
 phase: null
 preamble: true
@@ -75,7 +75,9 @@ Options:
       Logged in the ship artifact with reason.
 ```
 
-Downgrade is always available, always explicit, always logged.
+Downgrade is always available, always explicit, always logged: on decline, record the E1
+tier and the reason in the ship artifact and continue to the standard review → qa → ship
+pipeline. This step owns the downgrade mechanics — other sections point here.
 
 ### Delegation + checker re-run
 
@@ -147,7 +149,7 @@ correspondence is a manual argument. Follow-up: write connect driver for <compon
 
 If the checker exits non-zero: escalate back to `/roster-implement` with the failure output. Do not continue to review/qa/ship.
 
-If E1 downgrade: log in the ship artifact and continue to standard review → qa → ship.
+If E1 downgrade: follow the scaffold-offer step's downgrade mechanics.
 
 ## Rules
 
@@ -155,7 +157,6 @@ If E1 downgrade: log in the ship artifact and continue to standard review → qa
 - E0p requires `coqchk` exit code 0 on the produced `.vo`
 - E0m requires connect bridge replay exit code 0 on a committed `.itf.json`
 - E0m-abstract is valid but must be flagged as incomplete in the ship artifact
-- Downgrade to E1 is always available, always explicit, always logged
 - A non-zero exit from the checker routes back to implement — never to ship
 
 ## When to Go Back
@@ -165,7 +166,7 @@ If E1 downgrade: log in the ship artifact and continue to standard review → qa
 | `specs/<slug>.v` or `specs/<slug>.qnt` absent | Stop — run `/roster-spec-formal` first |
 | `briefs/<slug>-formal-triage.md` absent | Stop — run `/roster-triage-critical` first |
 | Checker exits non-zero (coqchk failure or connect bridge replay failure) | Return to `/roster-implement` with the failure output; do not continue to review/ship |
-| No formal skill found and scaffold declined | Downgrade to E1 — log in ship artifact and continue to standard review → qa → ship |
+| No formal skill found and scaffold declined | E1 downgrade — per the scaffold-offer step's mechanics |
 
 ## What Next
 

@@ -2,7 +2,7 @@
 name: roster-question
 description: Decomposes a task into neutral research questions with the intent hidden.
 when_to_use: "Use as the first roster-run step before any research happens. Trigger: 'roster-run', new task with no scoping yet."
-version: 1.0.2
+version: 1.0.3
 domain: pipeline
 phase: question
 preamble: true
@@ -233,8 +233,6 @@ _DO NOT include the task description in this file or share it with the researche
 ...
 ```
 
-**Do not include the task description in this file.**
-
 Write `roster/<task-slug>/task.md` with the full task description (this is the durable record downstream phases read to recover the goal if context is lost):
 
 ```markdown
@@ -286,6 +284,5 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 
 ## Rules
 
-- Never include the task description or solution intent in `questions.md`
 - Never skip the human review gate — questions shape the quality of all downstream research
 - If the task is in a domain with no existing codebase (greenfield), note this and generate architectural questions about conventions and tooling instead

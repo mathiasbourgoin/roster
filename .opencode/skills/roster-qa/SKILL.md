@@ -2,7 +2,7 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.3.3
+version: 1.3.4
 domain: pipeline
 phase: qa
 preamble: true
@@ -204,7 +204,7 @@ If no intake brief (Fast/Express mode), read quality-gate commands from `briefs/
 
 ### 2. Deterministic quality gates
 
-Run in order. Each gate must pass before the next.
+Run the gates in sequence (order and pass/fail semantics: see Rules).
 
 ```bash
 # Gate 1: Build
