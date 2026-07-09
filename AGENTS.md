@@ -106,7 +106,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Pipeline (18)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.7.1 | Classifies an incoming task and routes it to the right pipeline skill |
+| roster-run | 1.8.0 | Classifies an incoming task and routes it to the right pipeline skill |
 | roster-init | 1.2.3 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
 | roster-intake | 1.1.3 | Turns a raw task description into a human-validated contractual brief |
 | roster-spec | 2.0.4 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
@@ -121,7 +121,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-question | 1.0.3 | Decomposes a task into neutral research questions with the intent hidden |
 | roster-research | 1.2.4 | Performs blind, file:line-grounded research from a questions file, never the task itself |
 | roster-workflow-build | 1.0.2 | Fills a CWR workflow template from a validated plan JSON via mechanical template-fill |
-| roster-triage-critical | 1.0.2 | Elicits formal-verification properties and proposes a backend for the critical route |
+| roster-triage-critical | 1.0.3 | Elicits formal-verification properties and proposes a backend for the critical route |
 | roster-spec-formal | 1.0.2 | Extends a validated roster-spec into a formal Rocq (.v) or Quint (.qnt) specification |
 | roster-formal-verify | 1.0.2 | Formal verification gate that re-runs the deterministic checker itself and emits an evidence tier |
 

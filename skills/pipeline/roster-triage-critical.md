@@ -2,7 +2,7 @@
 name: roster-triage-critical
 description: Elicits formal-verification properties and proposes a backend for the critical route.
 when_to_use: "Use when roster-run dispatches a --critical task. Trigger: 'triage critical', '--critical route'."
-version: 1.0.2
+version: 1.0.3
 domain: pipeline
 phase: null
 preamble: true
@@ -163,6 +163,49 @@ downgrade_reason: null
 ```
 
 The human's backend decision (or downgrade reason) is filled in by the intake gate, not here. Leave as `null`.
+
+## Flag-preselected backend (invoked from roster-run)
+
+When the user passes `--critical=rocq` or `--critical=quint` explicitly, `roster-run` skips this
+skill's interactive stages (the backend is pre-chosen) but must still **write a minimal triage
+brief** before entering the pipeline — downstream skills (`roster-spec-formal`,
+`roster-formal-verify`) hard-require `briefs/<slug>-formal-triage.md`:
+
+```markdown
+---
+slug: <slug>
+date: <ISO date>
+component: <target>
+backend_recommendation: <rocq|quint>
+human_decision: <rocq|quint>
+downgrade_reason: null
+---
+
+## Properties
+(to be elicited during the pipeline — triage abbreviated, backend pre-selected by flag)
+
+## Backend Argument
+Backend pre-selected by user via --critical=<backend> flag.
+
+## Q3 Answer
+(to be completed if full triage is later requested)
+```
+
+`roster-run` then routes directly to the full pipeline, skipping `roster-triage-critical`.
+
+### Post-choice pipeline route
+
+When `--critical` is chosen (via flag or roster-run's suggestion) and — on the interactive path —
+this skill has produced `briefs/<slug>-formal-triage.md` and the human has confirmed the backend,
+the pipeline routes:
+
+```
+roster-triage-critical
+  → question → research → intake → roster-spec → roster-spec-formal
+  → plan → implement → roster-formal-verify → review → ship
+```
+
+(E1 downgrade path, when formal verification is declined: `roster-formal-verify → review → qa → ship`)
 
 ## Rules
 

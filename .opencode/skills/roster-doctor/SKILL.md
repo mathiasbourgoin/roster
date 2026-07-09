@@ -256,14 +256,14 @@ For each selected ledger, print the timeline in **recorded (append) order** — 
 actually completed, which for a re-run after a NO-GO is e.g. `implement, review, implement,
 review` and is itself informative:
 
-Validate each ledger against the **byte-identical schema gate roster-run's Step 1.4 uses** (not
+Validate each ledger against the **byte-identical schema gate roster-run's Step 3 uses** (not
 just a JSON parse), so `status` flags exactly the ledgers a resume would reject — a
 valid-JSON-but-malformed ledger (empty `events`, bad `mode`, slug/`current_phase` mismatch,
 `current_phase` not in the mode's sequence, or an illegal last-event outcome) is a finding, not a
 clean render. The expected slug is the file's own basename (`briefs/<slug>-state.json`):
 
 ```bash
-# LEDGER_SCHEMA is the SAME predicate as roster-run Step 1.4 — keep the two copies identical.
+# LEDGER_SCHEMA is the SAME predicate as roster-run Step 3 — keep the two copies identical.
 # Byte-identity mechanically enforced by `scripts/check-pipeline-install.js`.
 LEDGER_SCHEMA='
   {express:["implement","review","ship"],

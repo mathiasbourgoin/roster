@@ -83,9 +83,29 @@ After the frontmatter, the hook body has two optional sections:
 
 ## 4. DSL Reference
 
+### Step-Type Dispatch (execution ownership)
+
+The hook executor (`scripts/run-hook.ts`, CLI: `node dist/scripts/run-hook.js <pre|post> <skill>`) enforces real execution for shell steps. `roster-run` calls it before routing for pre-hooks and after the skill completes for post-hooks.
+
+| Step operator | Executed by | Behaviour |
+|---|---|---|
+| `run: <cmd>` | **Runner (real shell)** | Enforced exit code, real timeout via AbortController, retry loop |
+| `test: <cmd>` | **Runner** | Real exit code → on_true / on_false branch |
+| `timeout: <ms>` | **Runner** | Updates shell timeout for all subsequent `run:` steps |
+| `retry: N` + `backoff:` | **Runner** | Real retry loop with setTimeout backoff |
+| `log: <text>` | **Runner** | process.stderr.write — always fires |
+| `label: <name>` | **Runner** | Jump target (index-based) |
+| `goto: <label>` | **Runner** (intra-hook) / **LLM** (pipeline) | Intra-hook: index jump. Pipeline target: returned in pending_llm_steps |
+| `on_error: stop/warn/skip/ignore` | **Runner** | Enforced by exit code logic |
+| `prompt:` + `agent:` | **LLM** (pending_llm_steps) | Returned by runner, executed by agent |
+| `loop:` | **LLM** (pending_llm_steps) | Returned by runner, executed by agent |
+| `parallel:` | **LLM** (pending_llm_steps) | Sequential in v1 |
+| `include:` | Build-time (sync-harness.sh) | Already inlined as `.inlined.md` variant |
+| `output:` | Metadata | Noted, not enforced |
+
 ### `run:`
 
-Execute a shell command via the Bash tool.
+Execute a shell command. Runner-executed: real shell process with enforced exit code and timeout.
 
 ```yaml
 - run: "npm test"
@@ -212,14 +232,14 @@ Jump to a named position in the same hook.
 
 ### `timeout:`
 
-Advisory time budget in milliseconds.
+Time budget in milliseconds for subsequent `run:` steps.
 
 ```yaml
 - timeout: 5000
 ```
 
-- **LLM best-effort only — not enforced.** The agent notes the budget and uses judgment.
-- No hard timer, no automatic abort.
+- **Runner-enforced for shell steps:** updates the shell timeout applied to all subsequent `run:` steps (real timer via AbortController).
+- For LLM-executed (`pending_llm_steps`) work it remains best-effort guidance — no hard timer there.
 
 ---
 
@@ -524,9 +544,9 @@ Hook lifecycle proposals also appear in health reports:
 
 `parallel:` steps execute listed agents **one at a time** in order. `first-wins` and `collect-all` modes are defined in the schema but are **no-ops in v1**. Do not design hooks that depend on true parallel execution.
 
-### `timeout:` Is Advisory
+### `timeout:` Is Only Enforced for Runner-Executed Steps
 
-`timeout: <ms>` sets a time budget that the LLM **notes and uses as best-effort guidance**. There is no enforced hard cutoff, no alarm, and no automatic abort. A slow hook step will run until the LLM decides to stop.
+For `run:` steps, `timeout: <ms>` is a real, runner-enforced cutoff (AbortController). For steps deferred to the LLM (`pending_llm_steps`), the budget is **best-effort guidance only** — no hard timer, no automatic abort; a slow LLM-executed step will run until the LLM decides to stop.
 
 ### Unbounded `loop:` Without `until:`
 
@@ -576,3 +596,33 @@ It returns the following exit codes, consumed by `roster-run` to decide whether 
 | **4** | `skip` — the re-entrance guard `ROSTER_HOOK_RUNNING` was set (hook called from within a hook) | Skip hook silently; dispatch the skill normally |
 
 **Rule of thumb for hook authors:** if your pre-hook must block the skill on failure, use `on_error: stop` on the `run:` step. Exit 1 is the only code that prevents dispatch.
+
+---
+
+## 12. roster-run Dispatch Protocol
+
+How `roster-run` executes hooks around a skill dispatch (moved here from `roster-run.md` — this is the operator reference; roster-run keeps only a compact summary).
+
+### Pre-Hook Execution
+
+1. Determine the `name:` frontmatter field of the target skill file in `.harness/skills/<skill-file>.md` — this is the lookup key, **not** the routing slug.
+2. Check if `.harness/hooks/skills/<name>/pre.md` exists; skip silently if `HOOK_RUNNING` is set in the current context (non-reentrance guard, §9).
+3. Read the hook `.md` file (use the `.inlined.md` variant if present, fall back to the original).
+4. Extract the `steps:` fenced YAML block and execute each step in order per the Step-Type Dispatch table (§4).
+5. If any step fails and `on_error:` (step-level, or hook-level default `stop` for pre-hooks) is `stop`:
+   - Print: `Hook <hook-name> aborted at step <N> (on_error: stop) — skill dispatch cancelled. Hook output: <stdout>`
+   - Do **not** dispatch the skill.
+6. If `on_error: warn` — log the failure and continue.
+7. If `on_error: skip` — suppress this step's failure and continue.
+8. If `on_error: ignore` — silently continue. (For a real retry loop use the dedicated `retry:` step type, not an `on_error` value.)
+
+### Post-Hook Execution
+
+1. After the skill completes (**regardless of skill outcome**), check for `.harness/hooks/skills/<name>/post.md`.
+2. If present and `HOOK_RUNNING` is not set: execute similarly to the pre-hook.
+3. Pass the skill outcome as implicit context (available in `prompt:` steps).
+4. Default `on_error:` for post-hooks is `warn` (log and continue — do not retroactively affect the skill outcome).
+
+### TASK environment
+
+`roster-run` exports `TASK=<task-slug>` on the runner invocation — pipeline hooks reference `${TASK}` to locate `briefs/<task>-*` artifacts (e.g. the spec/qa/ship gates). The runner inherits the environment, so it must be set on the same command; a hook that needs `$TASK` aborts with a clear message if it is unset.

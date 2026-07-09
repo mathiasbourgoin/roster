@@ -132,7 +132,7 @@ Rules for writing your event:
     `{ "phase": "ship", "outcome": "BLOCKED", "reason": "<why>", "by": "roster-ship" }`.
   - **Artifact writes happen BEFORE the event append.** Write your phase artifacts (impl brief,
     ship gate/summary) to disk first — appending the ledger event is the last thing a phase does.
-- **Resume semantics** (read by `/roster-run` Step 1.4): a latest event `implement`/`PARTIAL`
+- **Resume semantics** (read by `/roster-run` Step 3): a latest event `implement`/`PARTIAL`
   re-routes to `/roster-implement`; a latest event `ship`/`BLOCKED` halts the pipeline and
   surfaces the event's `reason` to the human.
 - **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.

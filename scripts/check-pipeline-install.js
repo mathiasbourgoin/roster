@@ -138,7 +138,7 @@ if (fs.existsSync(marketplace)) {
 }
 
 // ── Check 4: the durable-state LEDGER_SCHEMA jq predicate is identical in run + doctor ──
-// roster-run Step 1.4 (resume gate) and roster-doctor `status` mode must validate the ledger
+// roster-run Step 3 (resume gate) and roster-doctor `status` mode must validate the ledger
 // with the EXACT same predicate, else a ledger one accepts the other rejects. The predicate is
 // LLM-prose bash (`LEDGER_SCHEMA='…'`), so guard byte-identity deterministically here.
 const extractSchema = (file) => {
@@ -161,7 +161,7 @@ if (runSchema === null || docSchema === null) {
   );
 } else if (runSchema !== docSchema) {
   errors.push(
-    "ledger-schema: the LEDGER_SCHEMA jq predicate differs between roster-run.md (Step 1.4) and " +
+    "ledger-schema: the LEDGER_SCHEMA jq predicate differs between roster-run.md (Step 3) and " +
       "roster-doctor.md (status mode). They must be byte-identical so resume and status agree on which " +
       "ledgers are valid."
   );

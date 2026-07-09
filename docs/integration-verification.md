@@ -29,7 +29,7 @@ install path, Codex projection, preflight, or cross-runtime review:
 2. **Codex loads the agent team.**
    In a Codex project with the harness synced, confirm Codex discovers `.codex/agents/*.toml`
    as spawnable subagents and `.agents/skills/<agent>/SKILL.md` as `$name`-invocable skills.
-3. **`roster-run` Step 1.5 preflight halts a broken env.**
+3. **`roster-run` Step 4 preflight halts a broken env.**
    In a project whose test/lint tool is missing, start `/roster-run <impl task>` and confirm
    `/roster-doctor preflight` returns `NOT-READY` and the pipeline stops before implementation.
 4. **Cross-runtime review augments, never rewrites.**
