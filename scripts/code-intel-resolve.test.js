@@ -7,15 +7,39 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert");
+const crypto = require("crypto");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
 const SCRIPT = path.resolve(__dirname, "code-intel-resolve.js");
+const REPO_ROOT = path.resolve(__dirname, "..");
 
 function makeProject() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "code-intel-resolve-"));
+}
+
+function sha256Hex(bytes) {
+  return crypto.createHash("sha256").update(bytes).digest("hex");
+}
+
+// Hand-write the documented ack-file format (deliberately NOT via the ack
+// subcommand, so the format contract is cross-checked from both sides).
+function ackSkillDir(root, skillDir) {
+  const base = path.basename(skillDir);
+  const digest = sha256Hex(fs.readFileSync(path.join(skillDir, "SKILL.md")));
+  const ackPath = path.join(root, ".harness", "code-intel-ack.json");
+  let acks = [];
+  try {
+    acks = JSON.parse(fs.readFileSync(ackPath, "utf8")).acks;
+  } catch {
+    /* first ack in this fixture project */
+  }
+  acks = acks.filter((a) => a.skill !== base);
+  acks.push({ skill: base, sha256: digest });
+  fs.mkdirSync(path.dirname(ackPath), { recursive: true });
+  fs.writeFileSync(ackPath, JSON.stringify({ acks }, null, 2) + "\n");
 }
 
 // Write <root>/<runtime>/skills/<name>/SKILL.md with the given frontmatter lines.
@@ -26,8 +50,11 @@ function writeSkill(root, runtime, name, fmLines) {
   return dir;
 }
 
-function gatePack(root, name, entry, provides = "gate") {
-  return writeSkill(root, ".agents", name, [
+// Fixture packs are acked by default: these tests exercise gate/audit execution
+// semantics, and execution now requires acknowledgment. Pass ack: false for the
+// trust-model tests below.
+function gatePack(root, name, entry, provides = "gate", { ack = true } = {}) {
+  const dir = writeSkill(root, ".agents", name, [
     `name: ${name}`,
     "description: stub pack",
     "version: 1.0.0",
@@ -36,6 +63,8 @@ function gatePack(root, name, entry, provides = "gate") {
     `entry: ${entry}`,
     "requires_tools: []",
   ]);
+  if (ack) ackSkillDir(root, dir);
+  return dir;
 }
 
 function writeProperties(root, content) {
@@ -166,6 +195,16 @@ test("gate: malformed JSONL line → exit 2 with explicit message", () => {
   assert.match(r.stdout, /RESULT: malformed/);
 });
 
+test("gate: malformed block with no gate pack installed → skip", () => {
+  const root = makeProject();
+  writeProperties(root, "```code-intel\nnot json at all\n```\n");
+  const r = run(["gate"], root);
+  assert.strictEqual(r.status, 0);
+  assert.match(r.stdout, /SKIP: no installed gate packs/);
+  assert.match(r.stdout, /RESULT: skip/);
+  assert.doesNotMatch(r.stderr, /MALFORMED/);
+});
+
 test("gate: valid JSON but wrong shape (missing check) → exit 2", () => {
   const root = makeProject();
   gatePack(root, "alpha-gate", "bash -c 'exit 0'");
@@ -255,6 +294,17 @@ test("gate: timeout → treated as exit 3 / degraded", () => {
   assert.strictEqual(r.status, 0);
   assert.match(r.stdout, /GATE slow-gate: exit 3/);
   assert.match(r.stdout, /DEGRADED: slow-gate: timeout after 1s/);
+  assert.match(r.stdout, /RESULT: degraded/);
+});
+
+test("gate: exit 124 (coreutils timeout expiry) maps to degraded, exit 0", () => {
+  const root = makeProject();
+  gatePack(root, "sig-gate", "bash -c 'exit 124'");
+  writeProperties(root, VALID_BLOCK);
+  const r = run(["gate"], root);
+  assert.strictEqual(r.status, 0);
+  assert.match(r.stdout, /GATE sig-gate: exit 3/);
+  assert.match(r.stdout, /DEGRADED: sig-gate:/);
   assert.match(r.stdout, /RESULT: degraded/);
 });
 
@@ -351,6 +401,249 @@ test("doctor: no packs installed → factual line, exit 0", () => {
   const r = run(["doctor"], root);
   assert.strictEqual(r.status, 0);
   assert.match(r.stdout, /code-intel packs: none installed/);
+});
+
+// ---------------------------------------------------------------------------
+// execution trust — install-record hash or explicit ack (decision 2026-07-09)
+// ---------------------------------------------------------------------------
+
+// Write an extensions.json install record for a skill dir, as the extension
+// installer would (target project-relative, sha256 lowercase hex of file bytes).
+function recordInstall(root, skillDir, { sha256 } = {}) {
+  const skillFile = path.join(skillDir, "SKILL.md");
+  const target = path.relative(root, skillFile).replace(/\\/g, "/");
+  fs.mkdirSync(path.join(root, ".harness"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, ".harness", "extensions.json"),
+    JSON.stringify({
+      schema_version: "1.0",
+      extensions: [
+        {
+          name: "fixture-ext",
+          runtime_roots: [".agents/skills"],
+          installed_files: [
+            { source: "skills/fixture/SKILL.md", target, sha256: sha256 || sha256Hex(fs.readFileSync(skillFile)) },
+          ],
+        },
+      ],
+    }),
+  );
+}
+
+test("list: trusted flag — false for bare checkout, true after ack", () => {
+  const root = makeProject();
+  gatePack(root, "raw-gate", "bash -c 'exit 0'", "gate", { ack: false });
+  assert.strictEqual(runList(root)[0].trusted, false);
+  const ack = run(["ack", "raw-gate"], root);
+  assert.strictEqual(ack.status, 0, ack.stderr);
+  assert.strictEqual(runList(root)[0].trusted, true);
+});
+
+test("gate: unacknowledged pack is not executed — degraded with ack hint, exit 0", () => {
+  const root = makeProject();
+  gatePack(root, "raw-gate", "bash -c 'echo ENTRY-RAN; exit 1'", "gate", { ack: false });
+  writeProperties(root, VALID_BLOCK);
+  const r = run(["gate"], root);
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.match(
+    r.stdout,
+    /GATE raw-gate: unacknowledged — not executed \(run: node scripts\/code-intel-resolve\.js ack raw-gate\)/,
+  );
+  assert.doesNotMatch(r.stdout, /ENTRY-RAN/);
+  assert.match(r.stdout, /DEGRADED: raw-gate: unacknowledged — not executed/);
+  assert.match(r.stdout, /RESULT: degraded/);
+});
+
+test("gate: extension-installed pack with matching install hash executes without ack", () => {
+  const root = makeProject();
+  const dir = gatePack(root, "ext-gate", "bash -c 'echo ENTRY-RAN; exit 0'", "gate", { ack: false });
+  recordInstall(root, dir);
+  assert.strictEqual(runList(root)[0].trusted, true);
+  writeProperties(root, VALID_BLOCK);
+  const r = run(["gate"], root);
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.match(r.stdout, /GATE ext-gate: exit 0/);
+  assert.match(r.stdout, /ENTRY-RAN/);
+  assert.match(r.stdout, /RESULT: pass/);
+});
+
+test("gate: install-record hash drift → unacknowledged, degraded", () => {
+  const root = makeProject();
+  const dir = gatePack(root, "ext-gate", "bash -c 'exit 0'", "gate", { ack: false });
+  recordInstall(root, dir, { sha256: sha256Hex(Buffer.from("stale bytes")) });
+  writeProperties(root, VALID_BLOCK);
+  const r = run(["gate"], root);
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.match(r.stdout, /GATE ext-gate: unacknowledged — not executed/);
+  assert.match(r.stdout, /RESULT: degraded/);
+});
+
+test("ack: prints the consent surface, records {skill, sha256}, unlocks execution", () => {
+  const root = makeProject();
+  const dir = gatePack(root, "raw-gate", "bash -c 'exit 0'", "gate", { ack: false });
+  const ack = run(["ack", "raw-gate"], root);
+  assert.strictEqual(ack.status, 0, ack.stderr);
+  assert.ok(ack.stdout.includes(`skill dir: ${dir}`));
+  assert.match(ack.stdout, /entry: bash -c 'exit 0'/);
+  assert.match(ack.stdout, /requires_tools: \[\]/);
+  assert.match(ack.stdout, /ACKED raw-gate/);
+  const recorded = JSON.parse(fs.readFileSync(path.join(root, ".harness", "code-intel-ack.json"), "utf8"));
+  assert.deepStrictEqual(recorded, {
+    acks: [{ skill: "raw-gate", sha256: sha256Hex(fs.readFileSync(path.join(dir, "SKILL.md"))) }],
+  });
+  writeProperties(root, VALID_BLOCK);
+  const r = run(["gate"], root);
+  assert.strictEqual(r.status, 0, r.stderr);
+  assert.match(r.stdout, /GATE raw-gate: exit 0/);
+  assert.match(r.stdout, /RESULT: pass/);
+});
+
+test("ack: content change after ack → blocked again until re-acked", () => {
+  const root = makeProject();
+  const dir = gatePack(root, "raw-gate", "bash -c 'exit 0'", "gate", { ack: false });
+  assert.strictEqual(run(["ack", "raw-gate"], root).status, 0);
+  writeProperties(root, VALID_BLOCK);
+  assert.match(run(["gate"], root).stdout, /RESULT: pass/);
+  fs.appendFileSync(path.join(dir, "SKILL.md"), "\nedited after ack\n");
+  const blocked = run(["gate"], root);
+  assert.strictEqual(blocked.status, 0);
+  assert.match(blocked.stdout, /GATE raw-gate: unacknowledged — not executed/);
+  assert.match(blocked.stdout, /RESULT: degraded/);
+  assert.strictEqual(run(["ack", "raw-gate"], root).status, 0);
+  assert.match(run(["gate"], root).stdout, /RESULT: pass/);
+});
+
+test("ack: no matching pack → exit 64 with message", () => {
+  const root = makeProject();
+  const r = run(["ack", "no-such-pack"], root);
+  assert.strictEqual(r.status, 64);
+  assert.match(r.stderr, /no installed code-intel pack matches "no-such-pack"/);
+  const missingName = spawnSync(process.execPath, [SCRIPT, "ack"], { encoding: "utf8" });
+  assert.strictEqual(missingName.status, 64);
+});
+
+test("gate: aggregation — unacknowledged is degraded-only, verdict unaffected", () => {
+  const passRoot = makeProject();
+  gatePack(passRoot, "alpha-gate", "bash -c 'exit 0'");
+  gatePack(passRoot, "raw-gate", "bash -c 'exit 1'", "gate", { ack: false });
+  writeProperties(passRoot, VALID_BLOCK);
+  const pass = run(["gate"], passRoot);
+  assert.strictEqual(pass.status, 0, pass.stderr); // untrusted exit-1 pack cannot fail the gate
+  assert.match(pass.stdout, /GATE alpha-gate: exit 0/);
+  assert.match(pass.stdout, /GATE raw-gate: unacknowledged — not executed/);
+  assert.match(pass.stdout, /RESULT: degraded/);
+
+  const failRoot = makeProject();
+  gatePack(failRoot, "alpha-gate", "bash -c 'exit 1'");
+  gatePack(failRoot, "raw-gate", "bash -c 'exit 0'", "gate", { ack: false });
+  writeProperties(failRoot, VALID_BLOCK);
+  const fail = run(["gate"], failRoot);
+  assert.strictEqual(fail.status, 1); // a real violation still fails
+  assert.match(fail.stdout, /RESULT: fail/);
+});
+
+test("audit: unacknowledged audit-section pack → DEGRADED, not executed", () => {
+  const root = makeProject();
+  gatePack(root, "raw-audit", "bash -c 'echo ENTRY-RAN'", "audit-section", { ack: false });
+  const r = run(["audit"], root);
+  assert.strictEqual(r.status, 0);
+  assert.match(r.stdout, /DEGRADED raw-audit: unacknowledged — not executed \(run: node scripts\/code-intel-resolve\.js ack raw-audit\)/);
+  assert.doesNotMatch(r.stdout, /ENTRY-RAN|SECTION/);
+});
+
+test("doctor: WARN unacknowledged for untrusted packs only", () => {
+  const root = makeProject();
+  gatePack(root, "acked-gate", "bash -c 'exit 0'");
+  gatePack(root, "raw-gate", "bash -c 'exit 0'", "gate", { ack: false });
+  const r = run(["doctor"], root);
+  assert.strictEqual(r.status, 0);
+  assert.match(r.stdout, /WARN unacknowledged: raw-gate \(entry will not execute until acked\)/);
+  assert.doesNotMatch(r.stdout, /WARN unacknowledged: acked-gate/);
+});
+
+// ---------------------------------------------------------------------------
+// frontmatter parity — resolver CJS mirror vs scripts/lib/frontmatter.ts
+// ---------------------------------------------------------------------------
+
+test("frontmatter parity: mirror matches the shared parser except the documented lone-quote case", () => {
+  // Compiled by `npm run build:ts` (run it first if this require fails).
+  const shared = require(path.join(REPO_ROOT, "dist", "scripts", "lib", "frontmatter.js"));
+  const mirror = require(SCRIPT);
+  const fixture = [
+    "---",
+    "name: parity-pack",
+    'description: "double quoted"',
+    "version: '1.2.3'",
+    "capability: code-intel",
+    "provides: gate",
+    "entry: bash -c 'exit 3'",
+    "requires_tools: [alpha, \"beta\", 'gamma']",
+    "tunables:",
+    "  nested_key: nested_value",
+    "plain: unquoted value",
+    "---",
+    "",
+    "# body",
+    "",
+  ].join("\n");
+  const fromShared = shared.parseFrontmatter(fixture);
+  const fromMirror = mirror.parseFrontmatter(fixture);
+  // Documented divergence (resolver comment on stripMatchedQuotes): the shared
+  // parseScalar strips a LONE trailing/leading quote, mangling values that merely
+  // end in a quote; the mirror strips only matched pairs.
+  assert.strictEqual(fromShared.entry, "bash -c 'exit 3");
+  assert.strictEqual(fromMirror.entry, "bash -c 'exit 3'");
+  // Everything else must be byte-identical between the two parsers.
+  const withoutEntry = (fm) => {
+    const clone = Object.assign({}, fm);
+    delete clone.entry;
+    return clone;
+  };
+  assert.deepStrictEqual(withoutEntry(fromMirror), withoutEntry(fromShared));
+  // Pin the shared behaviors the seam relies on.
+  assert.strictEqual(fromMirror.description, "double quoted");
+  assert.strictEqual(fromMirror.version, "1.2.3");
+  assert.deepStrictEqual(fromMirror.requires_tools, ["alpha", "beta", "gamma"]);
+  assert.strictEqual(fromMirror.tunables, ""); // flat parser: indented YAML is skipped
+  assert.ok(!("nested_key" in fromMirror));
+  assert.strictEqual(fromMirror.plain, "unquoted value");
+});
+
+// ---------------------------------------------------------------------------
+// contract anchoring — consumer skill docs must stay in sync with the resolver
+// ---------------------------------------------------------------------------
+
+const CONSUMER_SKILLS = [
+  "skills/pipeline/roster-qa.md",
+  "skills/pipeline/roster-doctor.md",
+  "skills/pipeline/roster-audit.md",
+  "skills/kb/code-quality-auditor.md",
+];
+
+test("contract anchoring: every consumer skill names both runtime glob roots", () => {
+  for (const rel of CONSUMER_SKILLS) {
+    const text = fs.readFileSync(path.join(REPO_ROOT, rel), "utf8");
+    for (const glob of [".agents/skills/*/SKILL.md", ".opencode/skills/*/SKILL.md"]) {
+      assert.ok(
+        text.includes(glob),
+        `${rel} must contain the literal glob ${glob} — it drifted from the resolver's seam (FR-021)`,
+      );
+    }
+  }
+});
+
+test("contract anchoring: roster-doctor mirrors PROVIDES_VALUES and the degraded warning", () => {
+  const { PROVIDES_VALUES } = require(SCRIPT);
+  const text = fs.readFileSync(path.join(REPO_ROOT, "skills/pipeline/roster-doctor.md"), "utf8");
+  const providesAlternation = `(${PROVIDES_VALUES.join("|")})`;
+  assert.ok(
+    text.includes(providesAlternation),
+    `roster-doctor.md must contain the provides alternation ${providesAlternation} derived from the resolver's PROVIDES_VALUES`,
+  );
+  assert.ok(
+    text.includes("WARN pack degraded:"),
+    "roster-doctor.md must contain the literal warning prefix 'WARN pack degraded:' (FR-044)",
+  );
 });
 
 // ---------------------------------------------------------------------------

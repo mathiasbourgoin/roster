@@ -127,6 +127,13 @@ for a in .agents/skills/*/SKILL.md; do
 done
 ```
 
+The resolver additionally checks each pack's execution trust (execution trust model,
+`schema/skill-schema.md`): a pack whose SKILL.md matches neither an extension install
+record in `.harness/extensions.json` nor an explicit ack in `.harness/code-intel-ack.json`
+is reported as `WARN unacknowledged: <skill> (entry will not execute until acked)` — the
+fix is a one-time `node scripts/code-intel-resolve.js ack <skill>` after reviewing the
+pack. In the inline fallback, note untrusted packs factually if the ack file is absent.
+
 Report the pack list and every `WARN` line verbatim. Warnings, never failures. Doctor MUST NOT
 flag installed packs that are missing from the public registry — private and user-authored
 packs are legitimate and are silently tolerated (list them factually, no warning).
@@ -178,15 +185,15 @@ for f in .agents/skills/*/SKILL.md .opencode/skills/*/SKILL.md; do
   case " $seen " in *" $d "*) continue ;; esac; seen="$seen $d"
   tools=$(grep -m1 '^requires_tools:' "$f" | sed 's/^requires_tools:[[:space:]]*\[//; s/\].*//; s/,/ /g')
   for t in $tools; do
-    command -v "$t" >/dev/null 2>&1 || echo "ADVISORY pack degraded: tool-missing:$t ($d)"
+    command -v "$t" >/dev/null 2>&1 || echo "WARN pack degraded: tool-missing:$t ($d)"
   done
 done
 ```
 
-These lines are ADVISORY only: they MUST NOT contribute to a NOT-READY verdict. Code-intel
+These lines are advisory only: they MUST NOT contribute to a NOT-READY verdict. Code-intel
 packs are optional additions — a missing pack binary degrades that pack (its gate reports
 exit 3 and its audit section is skipped), it never blocks pipeline routing. Report the
-`ADVISORY pack degraded: tool-missing:<tool>` lines alongside the gate records, but compute
+`WARN pack degraded: tool-missing:<tool>` lines alongside the gate records, but compute
 READY/NOT-READY from the project's own gates exclusively.
 
 ### 3. Verdict + escalation

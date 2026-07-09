@@ -8,14 +8,23 @@
 // `requires_tools`) over the projected runtime skill dirs — never via the registry or
 // harness.json (FR-023), so private/user-authored packs are first-class (FR-024).
 //
+// Execution trust (human decision 2026-07-09): resolution and execution are separate
+// trust levels. Any seam-carrying SKILL.md is RESOLVED as a pack (FR-024), but its
+// `entry` only EXECUTES when the pack is acknowledged — extension-installed with an
+// intact install-record hash (.harness/extensions.json installed_files), or explicitly
+// acked via the `ack` subcommand (.harness/code-intel-ack.json). Checkout alone never
+// executes anything; unacknowledged packs are reported as degraded, never blocking.
+//
 // Usage:  node scripts/code-intel-resolve.js <list|gate|audit|doctor> [--root <dir>]
 //                                            [--timeout <sec>] [--properties <path>]
+//         node scripts/code-intel-resolve.js ack <skill-name> [--root <dir>]
 // Exit:   list/audit/doctor → 0 (doctor is advisory-only per FR-044)
 //         gate → 0 pass/skip/degraded, 1 invariant violated, 2 malformed declaration
-//         64 → usage error
+//         64 → usage error (incl. `ack` naming no installed pack)
 
 "use strict";
 
+const crypto = require("crypto");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -68,6 +77,59 @@ function parseFrontmatter(content) {
       value.startsWith("[") && value.endsWith("]") ? parseInlineArray(value) : stripMatchedQuotes(value);
   }
   return null; // unterminated frontmatter
+}
+
+// ---------------------------------------------------------------------------
+// execution trust — install-record hash match or explicit ack
+// ---------------------------------------------------------------------------
+
+const ACK_FILE = ".harness/code-intel-ack.json";
+
+function sha256Hex(bytes) {
+  return crypto.createHash("sha256").update(bytes).digest("hex");
+}
+
+// Absolute installed-target path → sha256 recorded by the extension installer.
+// Format mirror of scripts/extension/planner.ts plannedFile(): lowercase hex sha256
+// of the raw file bytes, target project-relative (registry.ts validates the shape).
+function installedFileHashes(root) {
+  const map = new Map();
+  let raw;
+  try {
+    raw = JSON.parse(fs.readFileSync(path.join(root, ".harness/extensions.json"), "utf8"));
+  } catch {
+    return map; // absent or malformed extensions.json is silently tolerated
+  }
+  const extensions = Array.isArray(raw && raw.extensions) ? raw.extensions : [];
+  for (const ext of extensions) {
+    const files = Array.isArray(ext && ext.installed_files) ? ext.installed_files : [];
+    for (const file of files) {
+      if (file && typeof file.target === "string" && typeof file.sha256 === "string") {
+        map.set(path.resolve(root, file.target), file.sha256.toLowerCase());
+      }
+    }
+  }
+  return map;
+}
+
+// {"acks": [{"skill": "<dir-basename>", "sha256": "<hex of SKILL.md bytes>"}]}
+function readAcks(root) {
+  let raw;
+  try {
+    raw = JSON.parse(fs.readFileSync(path.join(root, ACK_FILE), "utf8"));
+  } catch {
+    return [];
+  }
+  const acks = Array.isArray(raw && raw.acks) ? raw.acks : [];
+  return acks.filter((a) => a && typeof a.skill === "string" && typeof a.sha256 === "string");
+}
+
+// Trusted = the winning SKILL.md's CURRENT bytes match either the installer's
+// install record or an explicit ack. Any content drift → untrusted (re-ack required).
+function isTrusted(candidate, installHashes, acks) {
+  const digest = sha256Hex(Buffer.from(candidate.content, "utf8"));
+  if (installHashes.get(path.resolve(candidate.file)) === digest) return true;
+  return acks.some((a) => a.skill === candidate.base && a.sha256 === digest);
 }
 
 // ---------------------------------------------------------------------------
@@ -148,11 +210,15 @@ function listPacks(root) {
     if (!winner) byBase.set(candidate.base, candidate);
     else if (candidate.content !== winner.content) winner.drift = true;
   }
+  const installHashes = installedFileHashes(root);
+  const acks = readAcks(root);
   const packs = [];
   for (const candidate of byBase.values()) {
     const fm = parseFrontmatter(candidate.content);
     if (!fm || fm.capability !== "code-intel") continue;
-    packs.push(buildPackRecord(candidate, fm));
+    const record = buildPackRecord(candidate, fm);
+    record.trusted = isTrusted(candidate, installHashes, acks);
+    packs.push(record);
   }
   return packs.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
@@ -177,16 +243,33 @@ function resolveEntryCommand(entry, skillDir) {
   return entry;
 }
 
+// Feature-detect coreutils `timeout` once: when available, entry commands are wrapped
+// with it inside `bash -c` so timeout kills the whole process group (spawnSync's own
+// timeout only kills the direct bash child — grandchildren would leak).
+let coreutilsTimeoutAvailable = null;
+function hasCoreutilsTimeout() {
+  if (coreutilsTimeoutAvailable === null) coreutilsTimeoutAvailable = toolOnPath("timeout");
+  return coreutilsTimeoutAvailable;
+}
+
 function runEntry(pack, args, root, timeoutSec) {
   const command = resolveEntryCommand(pack.entry, pack.dir);
-  const result = spawnSync("bash", ["-c", `${command} "$@"`, "bash", ...args], {
+  const wrapWithTimeout = hasCoreutilsTimeout();
+  const shellCommand = wrapWithTimeout
+    ? `timeout --foreground -k 5 ${timeoutSec}s ${command} "$@"`
+    : `${command} "$@"`;
+  const result = spawnSync("bash", ["-c", shellCommand, "bash", ...args], {
     cwd: root,
     env: Object.assign({}, process.env, { SKILL_DIR: pack.dir }),
     encoding: "utf8",
-    timeout: timeoutSec * 1000,
+    // With the coreutils wrapper the node-level timeout is only a backstop (+10s slack);
+    // without it, fall back to node enforcing the timeout itself.
+    timeout: (wrapWithTimeout ? timeoutSec + 10 : timeoutSec) * 1000,
     killSignal: "SIGKILL",
   });
-  const timedOut = Boolean(result.error && result.error.code === "ETIMEDOUT");
+  const timedOut =
+    Boolean(result.error && result.error.code === "ETIMEDOUT") ||
+    (wrapWithTimeout && result.status === 124); // coreutils timeout exits 124 on expiry
   if (timedOut) {
     return { exit: 3, reason: `timeout after ${timeoutSec}s`, stdout: result.stdout || "", stderr: result.stderr || "" };
   }
@@ -260,9 +343,19 @@ function normalizeGateExit(exit) {
   return exit === 0 || exit === 1 || exit === 2 || exit === 3 ? exit : 3;
 }
 
+function ackHint(pack) {
+  return `run: node scripts/code-intel-resolve.js ack ${path.basename(pack.dir)}`;
+}
+
 function runGatePacks(gatePacks, blockPath, root, timeoutSec) {
   const outcome = { sawViolation: false, sawMalformed: false, degraded: [] };
   for (const pack of gatePacks) {
+    if (!pack.trusted) {
+      // Unacknowledged → never executed, never blocking: degraded only.
+      console.log(`GATE ${pack.name}: unacknowledged — not executed (${ackHint(pack)})`);
+      outcome.degraded.push({ name: pack.name, reason: "unacknowledged — not executed" });
+      continue;
+    }
     const run = runEntry(pack, [blockPath], root, timeoutSec);
     const exit = normalizeGateExit(run.exit);
     console.log(`GATE ${pack.name}: exit ${exit}`);
@@ -283,6 +376,14 @@ function cmdGate(opts) {
     console.log("RESULT: skip");
     return 0;
   }
+  // FR-027: the gate only runs when a gate pack is installed — with no valid gate
+  // pack the step is a skip even if the block is malformed, so resolve packs first.
+  const gatePacks = listPacks(opts.root).filter((p) => p.valid && p.provides === "gate");
+  if (gatePacks.length === 0) {
+    console.log("SKIP: no installed gate packs");
+    console.log("RESULT: skip");
+    return 0;
+  }
   const validated = validateInvariantLines(block.lines);
   if (!validated.ok) {
     console.error(`MALFORMED: code-intel declaration in ${propertiesPath} — ${validated.error}`);
@@ -290,12 +391,6 @@ function cmdGate(opts) {
     return 2;
   }
   if (validated.count === 0) console.log("NOTE: 0 invariants declared — gate packs still run");
-  const gatePacks = listPacks(opts.root).filter((p) => p.valid && p.provides === "gate");
-  if (gatePacks.length === 0) {
-    console.log("SKIP: no installed gate packs");
-    console.log("RESULT: skip");
-    return 0;
-  }
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "code-intel-gate-"));
   const blockPath = path.join(tmpDir, "invariants.jsonl");
   fs.writeFileSync(blockPath, block.lines.join("\n") + "\n");
@@ -338,6 +433,10 @@ function hasFreshnessHeader(stdout) {
 function cmdAudit(opts) {
   const auditPacks = listPacks(opts.root).filter((p) => p.valid && p.provides === "audit-section");
   for (const pack of auditPacks) {
+    if (!pack.trusted) {
+      console.log(`DEGRADED ${pack.name}: unacknowledged — not executed (${ackHint(pack)})`);
+      continue;
+    }
     const run = runEntry(pack, [], opts.root, opts.timeout);
     if (run.exit !== 0) {
       console.log(`DEGRADED ${pack.name}: ${run.reason}`);
@@ -375,10 +474,41 @@ function cmdDoctor(opts) {
   for (const pack of packs) {
     for (const violation of pack.violations) console.log(`WARN contract: ${pack.name}: ${violation}`);
     if (pack.drift) console.log(`WARN drift: ${pack.name}`);
+    if (!pack.trusted) {
+      console.log(`WARN unacknowledged: ${path.basename(pack.dir)} (entry will not execute until acked)`);
+    }
     for (const tool of pack.requires_tools) {
       if (!toolOnPath(tool)) console.log(`WARN pack degraded: tool-missing:${tool} (${pack.name})`);
     }
   }
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// ack — the deliberate human consent act for user-authored packs
+// ---------------------------------------------------------------------------
+
+function cmdAck(skillName, opts) {
+  const packs = listPacks(opts.root);
+  const pack =
+    packs.find((p) => path.basename(p.dir) === skillName) || packs.find((p) => p.name === skillName);
+  if (!pack) {
+    console.error(`ack: no installed code-intel pack matches "${skillName}"`);
+    return EXIT_USAGE;
+  }
+  const base = path.basename(pack.dir);
+  const digest = sha256Hex(fs.readFileSync(pack.file));
+  // Surface exactly what is being consented to before recording the ack.
+  console.log(`skill dir: ${pack.dir}`);
+  console.log(`entry: ${pack.entry || "(missing)"}`);
+  console.log(`requires_tools: [${pack.requires_tools.join(", ")}]`);
+  const acks = readAcks(opts.root).filter((a) => a.skill !== base);
+  acks.push({ skill: base, sha256: digest });
+  acks.sort((a, b) => (a.skill < b.skill ? -1 : a.skill > b.skill ? 1 : 0));
+  const ackPath = path.join(opts.root, ACK_FILE);
+  fs.mkdirSync(path.dirname(ackPath), { recursive: true });
+  fs.writeFileSync(ackPath, JSON.stringify({ acks }, null, 2) + "\n");
+  console.log(`ACKED ${base}: entry may now execute (recorded in ${ACK_FILE})`);
   return 0;
 }
 
@@ -406,12 +536,22 @@ function parseOpts(args) {
 
 function usage() {
   console.error(
-    "usage: node scripts/code-intel-resolve.js <list|gate|audit|doctor> [--root <dir>] [--timeout <sec>] [--properties <path>]",
+    "usage: node scripts/code-intel-resolve.js <list|gate|audit|doctor> [--root <dir>] [--timeout <sec>] [--properties <path>]\n" +
+      "       node scripts/code-intel-resolve.js ack <skill-name> [--root <dir>]",
   );
 }
 
 function main(argv) {
   const [command, ...rest] = argv.slice(2);
+  if (command === "ack") {
+    const skillName = rest[0] && !rest[0].startsWith("--") ? rest[0] : null;
+    const ackOpts = skillName ? parseOpts(rest.slice(1)) : null;
+    if (!skillName || !ackOpts) {
+      usage();
+      return EXIT_USAGE;
+    }
+    return cmdAck(skillName, ackOpts);
+  }
   const opts = parseOpts(rest);
   if (!opts) {
     usage();
@@ -428,6 +568,13 @@ function main(argv) {
   return EXIT_USAGE;
 }
 
-module.exports = { parseFrontmatter, listPacks, extractCodeIntelBlock, validateInvariantLines, main };
+module.exports = {
+  PROVIDES_VALUES,
+  parseFrontmatter,
+  listPacks,
+  extractCodeIntelBlock,
+  validateInvariantLines,
+  main,
+};
 
 if (require.main === module) process.exit(main(process.argv));

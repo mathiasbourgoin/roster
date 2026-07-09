@@ -95,7 +95,7 @@ entry: bash gate.sh          # interpreter-prefixed shell command, script path r
                              # the skill directory. ALWAYS prefix the interpreter (`bash`,
                              # `python3`, …): installers copy files without preserving the
                              # executable bit, so a bare `./gate.sh` would fail after
-                             # install. Consumers run the command via `sh -c` from the
+                             # install. Consumers run the command via `bash -c` from the
                              # project root with `SKILL_DIR` set to the absolute skill
                              # directory; the script token is resolved against the skill
                              # dir.
@@ -108,6 +108,24 @@ requires_tools: [tool1, tool2]
                              # silently read as empty.
 ---
 ```
+
+**Execution trust model.** Resolution and execution are separate trust levels (human
+decision 2026-07-09). Any SKILL.md carrying the seam quadruple is *resolved* as a
+first-class pack (FR-024), but its `entry` is *executed* by the qa/audit consumers only
+when the pack is acknowledged, via one of two trusted paths:
+
+1. **Extension-installed:** the SKILL.md's current bytes match the sha256 the extension
+   installer recorded in `.harness/extensions.json` `installed_files` — installing via the
+   extension CLI *is* the consent act; no further step is needed.
+2. **Explicit ack:** a human has run `node scripts/code-intel-resolve.js ack <skill>`,
+   which shows the pack's dir, `entry`, and `requires_tools`, then records
+   `{"skill": "<dir-basename>", "sha256": "<hex of SKILL.md bytes>"}` in
+   `.harness/code-intel-ack.json`. This is the one-time consent act for user-authored packs.
+
+Checkout alone no longer executes anything: an unacknowledged pack is reported as
+degraded (`gate`/`audit`) or `WARN unacknowledged` (`doctor`) and its `entry` is never
+run — it never blocks a verdict. Any edit to an acknowledged SKILL.md invalidates the
+hash and returns the pack to unacknowledged; re-run `ack` after reviewing the change.
 
 ## Friction Log Entry Schema
 

@@ -224,7 +224,11 @@ arguments, cwd = project root, `SKILL_DIR` set (lexicographic skill-name order).
   `briefs/audit-<date>.md` as a distinct section `## Code-intel: <pack> (deterministic)`.
   The existing Summary table columns are **unchanged**.
 - For each `DEGRADED <pack>: <reason>` line: write a single-line degraded notice in
-  place of that pack's section. The audit always continues.
+  place of that pack's section. The audit always continues. An unacknowledged pack
+  (execution trust model, `schema/skill-schema.md`) surfaces here as
+  `DEGRADED <pack>: unacknowledged — not executed (...)` — write the degraded notice
+  like any other; its entry only runs after an extension-install hash match or a
+  one-time `node scripts/code-intel-resolve.js ack <pack>`.
 - **Read-only w.r.t. any pack index:** never run a pack's `init` or regenerate an index —
   a stale index is disclosed by the fragment's mandatory freshness header, not fixed here.
 - **Severity stays model-judged:** you may cite fragment rows as evidence in Actionable

@@ -48,7 +48,11 @@ run_query() { # $1 = SQL → rows on stdout (one per line); non-zero = no data f
 
 section() { # $1 = title, $2 = SQL — emitted only when the query returns data
   local rows
-  rows=$(run_query "$2") || return 0
+  if ! rows=$(run_query "$2"); then
+    echo
+    echo "<!-- section '$1' unavailable: query failed -->"
+    return 0
+  fi
   [ -n "$rows" ] || return 0
   echo
   echo "### $1"

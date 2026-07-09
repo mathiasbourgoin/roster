@@ -223,7 +223,7 @@ Human gate: wait for explicit validation.
 
 This step is not part of the interview — it consumes none of the interview question budget. It is a deterministic suggestion procedure:
 
-1. **Detect languages** from manifest files: `dune-project` → `ocaml`; `Cargo.toml` → `rust`; `go.mod` → `go`; `pyproject.toml` → `python`; `package.json` → `javascript`, plus `typescript` when `tsconfig.json` is also present. These map to the registry `languages` enum (`go`/`rust`/`typescript`/`javascript`/`python`/`ocaml`).
+1. **Detect languages** from manifest files: `dune-project` → `ocaml`; `Cargo.toml` → `rust`; `go.mod` → `go`; `pyproject.toml` → `python`; `package.json` → `javascript`, plus `typescript` when `tsconfig.json` is also present. These map to the registry `languages` enum (`go`/`rust`/`typescript`/`javascript`/`python`/`ocaml`). In Mode A (greenfield — manifests may not exist yet), merge in the language(s) the user gave in Q1; manifests confirm rather than gate.
 2. **Load the registry:** when running inside or alongside a roster checkout, read `registry/code-intel.jsonl` from it; otherwise fetch `https://raw.githubusercontent.com/mathiasbourgoin/roster/main/registry/code-intel.jsonl` (20s timeout). On any failure, skip this step silently — no question, no error.
 3. **Filter:** keep entries whose `languages` overlap the detected languages. Exclude already-installed packs — run `node scripts/code-intel-resolve.js list` when the resolver is available, otherwise grep `.agents/skills/*/SKILL.md` and `.opencode/skills/*/SKILL.md` frontmatter for `capability: code-intel`.
 4. **Zero matches** → skip the step entirely (never present a question whose only option is "none").
