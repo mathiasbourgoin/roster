@@ -209,6 +209,13 @@ function projectPackByHand(root) {
   }
 }
 
+// Hand-projected packs have no install record, so executing their entries needs
+// the one-time explicit consent act (execution trust model, decision 2026-07-09).
+function ackPack(root, name) {
+  const r = spawnSync(process.execPath, [RESOLVER, "ack", name, "--root", root], { encoding: "utf8" });
+  assert.strictEqual(r.status, 0, r.stderr + r.stdout);
+}
+
 function writeProperties(root) {
   fs.mkdirSync(path.join(root, "kb"), { recursive: true });
   fs.writeFileSync(
@@ -228,6 +235,7 @@ function runResolverGate(root, rows) {
 test("resolver gate: pass end-to-end via projected pack", () => {
   const root = makeProjectWithDb();
   projectPackByHand(root);
+  ackPack(root, "arch-index-gate");
   writeProperties(root);
   const r = runResolverGate(root, "[]");
   assert.strictEqual(r.status, 0, r.stderr + r.stdout);
@@ -238,6 +246,7 @@ test("resolver gate: pass end-to-end via projected pack", () => {
 test("resolver gate: violation maps to resolver exit 1 (NO-GO)", () => {
   const root = makeProjectWithDb();
   projectPackByHand(root);
+  ackPack(root, "arch-index-gate");
   writeProperties(root);
   const r = runResolverGate(root, '[{"caller":"main.run"}]');
   assert.strictEqual(r.status, 1);
@@ -257,7 +266,7 @@ function makeHarnessProject() {
     JSON.stringify({
       runtimes: [
         { name: "codex", enabled: true, entrypoint: ".agents/skills" },
-        { name: "opencode", enabled: false, entrypoint: ".opencode" },
+        { name: "opencode", enabled: true, entrypoint: ".opencode" },
       ],
     }),
   );
@@ -291,6 +300,23 @@ test("install round-trip: three skills + sibling scripts projected, recorded, re
   assert.deepStrictEqual(packs.map((p) => p.name), SKILL_NAMES);
   assert.deepStrictEqual(packs.map((p) => p.provides), ["audit-section", "gate", "init"]);
   assert.ok(packs.every((p) => p.valid && p.requires_tools.includes("arch-index")));
+
+  // Key UX property of the trust model: extension install IS the consent —
+  // the installer's recorded sha256 hashes make every pack trusted with NO
+  // manual ack, and the gate executes end-to-end without an ack file.
+  assert.ok(packs.every((p) => p.trusted === true), "installer hashes must confer trust (path 1)");
+  assert.ok(
+    !fs.existsSync(path.join(root, ".harness", "code-intel-ack.json")),
+    "no explicit ack may be needed after an extension install",
+  );
+  fs.mkdirSync(path.join(root, ".arch-index"), { recursive: true });
+  fs.writeFileSync(path.join(root, ".arch-index", "index.db"), "");
+  writeProperties(root);
+  const trustedGate = runResolverGate(root, "[]");
+  assert.strictEqual(trustedGate.status, 0, trustedGate.stderr + trustedGate.stdout);
+  assert.match(trustedGate.stdout, /GATE arch-index-gate: exit 0/);
+  assert.match(trustedGate.stdout, /RESULT: pass/);
+  assert.doesNotMatch(trustedGate.stdout, /unacknowledged/);
 
   // Uninstall: consumers revert to skip (AC-11).
   const removed = runCli(["remove", "arch-index", "--target", root]);
@@ -334,6 +360,7 @@ test("audit: exit 3 index-missing when the DB is absent", () => {
 test("audit: accepted end-to-end by the resolver audit command", () => {
   const root = makeProjectWithDb();
   projectPackByHand(root);
+  ackPack(root, "arch-index-audit");
   const env = Object.assign({}, process.env, {
     PATH: `${makeStubBin()}:${process.env.PATH}`,
     ARCH_INDEX_ROWS: '[{"callee":"core.dispatch","fan_in":12}]',

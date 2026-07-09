@@ -135,7 +135,9 @@ Outcome semantics (mirror the resolver's exit codes and `RESULT:` line):
 | Exit 1 (`RESULT: fail` — invariant violated) | Immediate **NO-GO** — stop, include the full raw gate log in the report, keeping the per-pack `GATE <pack>: exit N` attribution lines. |
 | Exit 2 (`RESULT: malformed`) | Immediate **NO-GO** with the explicit malformed-declaration message — a malformed `code-intel` block is a loud failure, never a skip. |
 | Exit 0 with `RESULT: degraded` (crash, timeout, missing index) | Record `Code-intel gate: DEGRADED (<reason>)` from the `DEGRADED:` line(s); verdict unaffected. |
+| Exit 0 with `GATE <pack>: unacknowledged — not executed` (execution trust model, `schema/skill-schema.md`) | Record `Code-intel gate: DEGRADED (<pack> unacknowledged — run: node scripts/code-intel-resolve.js ack <pack>)`; verdict unaffected. Extension-installed packs with intact install hashes execute automatically; a user-authored pack needs the one-time `ack` before its entry runs. |
 | Exit 0 with `RESULT: pass` | Record pass; include the `0 invariants` note when the resolver emits it. |
+| Any other exit (incl. 64 usage error, e.g. non-numeric `code_intel_gate_timeout`) | Record `Code-intel gate: DEGRADED (resolver error <N> — check code_intel_gate_timeout and resolver availability)`; verdict unaffected. |
 
 Multiple gate packs: the resolver already runs all of them in lexicographic order — the
 report MUST attribute the result per pack (the `GATE <name>: exit N` lines).

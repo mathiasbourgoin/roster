@@ -159,10 +159,10 @@ As a roster maintainer, I want a complete arch-index pack at `extensions/arch-in
 
 #### Consumer Seam Contract
 - **FR-020** [US-2]: A code-intel pack skill MUST declare in its SKILL.md frontmatter: `capability: code-intel`, `provides` (one of `gate`, `audit-section`, `init`), `entry` (a shell command relative to the skill directory), and `requires_tools` (list of binaries).
-- **FR-021** [US-2]: Consumers (roster-qa, roster-doctor, roster-audit, code-quality-auditor) MUST resolve installed code-intel packs by scanning projected runtime skill directories: `.agents/skills/*/SKILL.md` first, then `.opencode/skills/*/SKILL.md`, deduplicated by directory name.
+- **FR-021** [US-2]: Consumers (roster-qa, roster-doctor, roster-audit, code-quality-auditor) MUST resolve installed code-intel packs by scanning projected runtime skill directories: `.agents/skills/*/SKILL.md` first, then `.opencode/skills/*/SKILL.md`, deduplicated by directory name. *(Errata 2026-07-09, plan decision: consumers additionally scan any `runtime_roots` recorded in `.harness/extensions.json` when present — covers custom runtime entrypoints written by the extension installer (scripts/extension/cli.ts:189); absent/malformed file is silently tolerated, FR-024 unaffected.)*
 - **FR-022** [US-2]: When the two runtime projections of the same skill directory differ, consumers MUST use the `.agents` copy, and the drift MUST surface as a roster-doctor warning.
 - **FR-023** [US-2]: Consumers MUST NOT consult the registry or `harness.json` for pack resolution.
-- **FR-024** [US-2]: A user-authored skill carrying the seam contract frontmatter MUST be treated as a first-class code-intel pack; an `extensions.json` record MUST NOT be required for consumer recognition.
+- **FR-024** [US-2]: A user-authored skill carrying the seam contract frontmatter MUST be treated as a first-class code-intel pack; an `extensions.json` record MUST NOT be required for consumer recognition. *(Errata 2026-07-09, human decision: user-authored packs remain first-class for RESOLUTION (list/doctor/report), but EXECUTION of their `entry` requires a one-time acknowledgment — an `extensions.json` install-record hash match or an explicit `node scripts/code-intel-resolve.js ack <skill>` recorded in `.harness/code-intel-ack.json`; see the execution trust model in `schema/skill-schema.md`.)*
 
 #### QA Gate
 - **FR-025** [US-2]: roster-qa MUST accept invariant declarations in `kb/properties.md` as a fenced block tagged `code-intel` containing JSONL lines with fields `id`, `type`, `description`, and an opaque pack-specific `check` object.
@@ -174,7 +174,7 @@ As a roster maintainer, I want a complete arch-index pack at `extensions/arch-in
 - **FR-031** [US-2]: On gate exit code 0, roster-qa MUST record the gate as passed.
 - **FR-032** [US-2]: On gate exit code 1 (invariant violated), roster-qa MUST return NO-GO, stop, and include the full raw gate log in the report.
 - **FR-033** [US-2]: On gate exit code 2 (malformed declaration), roster-qa MUST return NO-GO with an explicit malformed-declaration message.
-- **FR-034** [US-2]: On gate exit code 3 (missing index, binary crash, or timeout), roster-qa MUST record the gate as DEGRADED with the reason, and the QA verdict MUST NOT be affected.
+- **FR-034** [US-2]: On gate exit code 3 (missing index, binary crash, or timeout), roster-qa MUST record the gate as DEGRADED with the reason, and the QA verdict MUST NOT be affected. *(Errata 2026-07-09: an unacknowledged pack — execution trust model, `schema/skill-schema.md` — also counts as degraded: its entry is not executed, the resolver reports `GATE <pack>: unacknowledged — not executed (...)`, and the verdict is unaffected.)*
 - **FR-035** [US-2]: The gate MUST be placed as a new conditional step after the existing Gate 4 and before the tmux step in roster-qa.
 - **FR-036** [US-2]: When multiple gate-providing packs are installed, roster-qa MUST run all of them in lexicographic skill-name order; any exit 1 or 2 MUST produce NO-GO; the report MUST attribute results per pack.
 - **FR-037** [US-2]: roster-qa's cross-runtime re-verification MUST include the code-intel gate, running the same `entry` command.
