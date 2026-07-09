@@ -2,12 +2,12 @@
 name: roster-investigate
 description: Analyzes a bug or unexpected behavior to find its root cause, read-only.
 when_to_use: "Use when a failure is unclear, flaky, or ambiguous and needs diagnosis before any fix. Trigger: 'why does X fail', 'investigate'."
-version: 1.3.2
+version: 1.3.3
 domain: pipeline
 phase: null
 preamble: true
 friction_log: true
-allowed_tools: [Read, Bash, AskUserQuestion]
+allowed_tools: [Read, Write, Bash, AskUserQuestion]
 isolation: fork
 human_gate: before
 tunables:

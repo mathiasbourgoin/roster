@@ -2,12 +2,12 @@
 name: roster-ship
 description: Carries a reviewed, QA'd branch through to a merged PR.
 when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
-version: 1.4.3
+version: 1.4.4
 domain: pipeline
 phase: ship
 preamble: true
 friction_log: true
-allowed_tools: [Read, Bash, AskUserQuestion]
+allowed_tools: [Read, Write, Bash, AskUserQuestion]
 human_gate: both
 tunables:
   merge_strategy: rebase-merge

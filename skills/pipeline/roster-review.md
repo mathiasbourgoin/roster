@@ -2,12 +2,12 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 1.6.4
+version: 1.6.5
 domain: pipeline
 phase: review
 preamble: true
 friction_log: true
-allowed_tools: [Read, Edit, Bash, Agent, AskUserQuestion]
+allowed_tools: [Read, Edit, Write, Bash, Agent, Skill, AskUserQuestion]
 human_gate: after
 tunables:
   auto_fix_threshold_lines: 20
