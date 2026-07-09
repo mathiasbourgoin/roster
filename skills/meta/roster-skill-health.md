@@ -2,7 +2,7 @@
 name: roster-skill-health
 description: Clusters accumulated friction-log patterns into improvement proposals.
 when_to_use: "Use every 5-10 pipeline cycles or when a friction-count reminder fires. Trigger: 'analyze friction'."
-version: 1.3.2
+version: 1.3.3
 domain: meta
 phase: null
 preamble: true
@@ -129,7 +129,7 @@ Impacted section: <Steps N / Rules / Input Contract>
 
 #### D. Skill hooks
 
-Signal: `min_entries_for_signal` (default: 3) friction entries on the same skill with `type: workaround`, where the workaround pattern is a guard check (validate precondition before running), a post-run cleanup, or a feedback loop (run → check → fix → retry).
+Signal: `min_entries_for_signal` (default: 3) friction entries on the same skill whose `frictions[]` strings describe a manual workaround, where the workaround pattern is a guard check (validate precondition before running), a post-run cleanup, or a feedback loop (run → check → fix → retry). (The friction record has no `type` field — classify from the `frictions[]` text.)
 
 ```
 **[HOOK] .harness/hooks/skills/<skill-name>/<pre|post>.md**
@@ -141,7 +141,7 @@ Expected friction reduction: <count> workaround entries eliminated
 ```
 
 **`[HOOK]` trigger signals:**
-- ≥ `min_entries_for_signal` friction entries on the same skill with `type: workaround`
+- ≥ `min_entries_for_signal` friction entries on the same skill whose `frictions[]` strings describe the same manual workaround
 - The workaround is a guard check (`effort_estimate: small`) or feedback loop (`effort_estimate: medium`)
 - A linter pass or metric-based signal is a bonus, not required
 
