@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "name": "arch-index",
+  "version": "1.0.0",
+  "type": "skill-pack",
+  "description": "Code-intel pack wrapping arch-index (github.com/epure-team/arch-index) — a SQLite call-graph + symbol index. Provides init (index bootstrap), gate (roster-qa invariant gate), and audit-section (deterministic audit fragment) skills.",
+  "runtime_targets": ["codex"]
+}
