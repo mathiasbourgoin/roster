@@ -2,7 +2,7 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.3.6
+version: 1.3.7
 domain: pipeline
 phase: plan
 preamble: true
@@ -214,7 +214,7 @@ Use `$TASK_MODE` as the `"mode"` field. Triage-brief existence is the critical s
 ```json
 {
   "task": "<slug>",
-  "mode": "express|fast|full|critical",
+  "mode": "full|critical",
   "schema_version": "1.0",
   "steps": [
     {

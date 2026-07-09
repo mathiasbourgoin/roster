@@ -2,7 +2,7 @@
 name: roster-workflow-build
 description: Fills a CWR workflow template from a validated plan JSON via mechanical template-fill.
 when_to_use: "Use automatically once a plan is COMPLETED and no workflow file exists yet. Trigger: internal roster-run dispatch, not directly user-invoked."
-version: 1.0.2
+version: 1.0.3
 domain: pipeline
 phase: null
 capability: workflow-builder
@@ -49,6 +49,13 @@ Confirm the mode template exists:
 ```
 
 If any check fails: stop. Do not write any file.
+
+**Template reachability:** the pipeline only produces plan.json on the Full and
+critical routes, so only `full.cwr.json` and `critical.cwr.json` are reachable via
+roster-run dispatch. `express.cwr.json` and `fast.cwr.json` encode those routes'
+canonical sequences but are currently **manual-invocation-only**: hand-author a
+`briefs/<task>-plan.json` with `"mode": "express"|"fast"` and invoke this skill
+directly. They are kept (and CI-validated) for future route expansion.
 
 ## Steps
 
