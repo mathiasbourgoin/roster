@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/mathiasbourgoin/roster/main/registry/code-intel.schema.json",
+  "title": "code-intel pack registry entry",
+  "description": "One entry per line of registry/code-intel.jsonl (JSONL). This schema is the documentation-of-record for the entry shape (FR-002..008); enforcement is hand-rolled in scripts/check-code-intel-registry.js — no validator dependency (C-9). Keep the two in sync.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "tool", "repo", "languages", "provides", "install", "tier"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Kebab-case pack name. Unique across the registry (uniqueness enforced by the checker, FR-010)."
+    },
+    "tool": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Underlying tool/binary the pack wraps. Unique across the registry (uniqueness enforced by the checker, FR-010)."
+    },
+    "repo": {
+      "description": "Where the pack lives: an http(s) URL, or a path relative to the roster repo root (must exist in the repo — existence enforced by the checker, FR-011). Exactly one of the two shapes (FR-004).",
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^https?://.+"
+        },
+        {
+          "type": "string",
+          "pattern": "^(?!https?://)(?!.*\\.\\.)[^/].*$"
+        }
+      ]
+    },
+    "languages": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Languages the pack supports. Closed enum, extensible only by editing this schema (FR-005).",
+      "items": {
+        "enum": ["go", "rust", "typescript", "javascript", "python", "ocaml"]
+      }
+    },
+    "provides": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Consumer-seam capabilities the pack's skills provide (must match the SKILL.md `provides:` enum).",
+      "items": {
+        "enum": ["gate", "audit-section", "init"]
+      }
+    },
+    "install": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Free-text install command block (FR-007). Presented verbatim to the user by discovery — never executed."
+    },
+    "tier": {
+      "enum": ["verified", "community"],
+      "description": "verified = roster-maintained, CI-covered install+contract; community = schema-valid via PR, not verified by roster (FR-016). Tier changes only via maintainer-merged PR (FR-017)."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-text notes. Optional for community entries; required non-empty for verified entries (FR-008)."
+    }
+  },
+  "if": {
+    "properties": { "tier": { "const": "verified" } },
+    "required": ["tier"]
+  },
+  "then": {
+    "required": ["notes"],
+    "properties": {
+      "notes": { "type": "string", "minLength": 1 }
+    }
+  }
+}
