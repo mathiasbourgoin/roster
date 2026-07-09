@@ -2,7 +2,7 @@
 name: roster-init
 description: Bootstraps the roster harness, KB, and pipeline into a new or existing project.
 when_to_use: "Use the first time roster is installed in a repo. Trigger: 'set up roster here', 'greenfield onboard'."
-version: 1.2.3
+version: 1.3.0
 domain: pipeline
 phase: null
 preamble: true
@@ -219,7 +219,18 @@ Validate or correct before I install anything.
 
 Human gate: wait for explicit validation.
 
-### A4. Install (after validation)
+### A4. Code-intel tools step (after validation, before install)
+
+This step is not part of the interview — it consumes none of the interview question budget. It is a deterministic suggestion procedure:
+
+1. **Detect languages** from manifest files: `dune-project` → `ocaml`; `Cargo.toml` → `rust`; `go.mod` → `go`; `pyproject.toml` → `python`; `package.json` → `javascript`, plus `typescript` when `tsconfig.json` is also present. These map to the registry `languages` enum (`go`/`rust`/`typescript`/`javascript`/`python`/`ocaml`).
+2. **Load the registry:** when running inside or alongside a roster checkout, read `registry/code-intel.jsonl` from it; otherwise fetch `https://raw.githubusercontent.com/mathiasbourgoin/roster/main/registry/code-intel.jsonl` (20s timeout). On any failure, skip this step silently — no question, no error.
+3. **Filter:** keep entries whose `languages` overlap the detected languages. Exclude already-installed packs — run `node scripts/code-intel-resolve.js list` when the resolver is available, otherwise grep `.agents/skills/*/SKILL.md` and `.opencode/skills/*/SKILL.md` frontmatter for `capability: code-intel`.
+4. **Zero matches** → skip the step entirely (never present a question whose only option is "none").
+5. **Present the suggestion** via the runtime's interactive question tool (AskUserQuestion or equivalent), ranked: `verified` tier first, alphabetical within each tier; at most 3 pack options plus a mandatory "none of these" option, which is the DEFAULT. If more than 3 entries match, note the overflow count in the question text (e.g. "2 more matches not shown"). Label every community-tier option "(community — not verified by roster)".
+6. **On approval of a pack:** present the entry's `install` field text verbatim in a fenced code block for the user to run themselves — NEVER execute any of it. **On "none":** continue to the install step, change nothing, and do not persist the decline (a re-run may re-ask).
+
+### A5. Install (after validation)
 
 1. `git init` if not already done
 2. Create a minimal `.gitignore` adapted to detected languages
@@ -326,7 +337,11 @@ Validate before I write anything.
 
 Human gate: wait for explicit validation.
 
-### B4. Non-destructive install (after validation)
+### B4. Code-intel tools step (after validation, before install)
+
+Run the Code-intel tools step exactly as in Mode A (A4) — same registry load chain, filtering, ranking, option cap, labels, "none" default, verbatim install presentation, and no-execution/no-persistence rules. Language detection reuses the B1 findings instead of a fresh manifest scan. Outside the interview question budget.
+
+### B5. Non-destructive install (after validation)
 
 1. Merge the harness (do not overwrite): recruiter Mode 2 if team exists, Mode 1 if not.
 2. Propose the KB in the terminal (infer from README, docs, tests):
@@ -334,7 +349,7 @@ Human gate: wait for explicit validation.
    - Gate: "Here is the KB draft — shall I write it?"
 3. If a domain lacks an adapted roster skill: ask "Shall I create these via skill-creator?" If yes → spawn `skill-creator` if available; otherwise describe manually and open a roster issue.
 4. Create `skills-meta/friction.jsonl` (empty). Add `skills-meta/` to `.gitignore` if absent.
-5. Bootstrap episodic memory (non-destructive): if `memory/` absent, create it with `memory/sessions`, `memory/agents`, and `memory/index.md` (same structure as A4 step 9); otherwise skip silently. Add `kb/.index/` to `.gitignore` if absent.
+5. Bootstrap episodic memory (non-destructive): if `memory/` absent, create it with `memory/sessions`, `memory/agents`, and `memory/index.md` (same structure as A5 step 9); otherwise skip silently. Add `kb/.index/` to `.gitignore` if absent.
 6. Create `briefs/project-intake.md` with project state and first objective.
 7. Project the harness to runtimes.
 
