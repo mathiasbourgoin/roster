@@ -2,7 +2,7 @@
 name: roster-spec
 description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
 when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
-version: 2.1.0
+version: 2.1.1
 domain: pipeline
 phase: spec
 preamble: true
@@ -100,9 +100,7 @@ Use the research output to pre-populate the spec's context — do not re-investi
 
 ### 2. Clarification Elicitor
 
-Spawn a sub-agent with this prompt (substitute the resolved value of
-`tunables.min_challenges_per_story` for the placeholder before sending — the sub-agent
-runs in a fresh context and cannot read this skill's frontmatter):
+Spawn a sub-agent with this prompt:
 
 ```
 You are a requirements clarifier. Surface and resolve every material ambiguity before story drafting begins.
@@ -195,9 +193,7 @@ If unresolved challenges exceed the remaining budget: write `briefs/<task>-spec.
 
 ### 6. Requirements Formalizer
 
-Spawn a sub-agent with this prompt (substitute the resolved value of
-`tunables.min_challenges_per_story` for the placeholder before sending — the sub-agent
-runs in a fresh context and cannot read this skill's frontmatter):
+Spawn a sub-agent with this prompt:
 
 ```
 You are a requirements formalizer. Produce FR-NNN MUST/MUST NOT statements — one normative requirement per distinct behavioral obligation, grouped by story.
