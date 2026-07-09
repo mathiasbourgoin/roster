@@ -113,10 +113,10 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-plan | 1.3.4 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
 | roster-implement | 1.5.5 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
 | roster-review | 1.6.3 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
-| roster-qa | 1.3.4 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
+| roster-qa | 1.4.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
 | roster-ship | 1.4.3 | Carries a reviewed, QA'd branch through to a merged PR |
 | roster-investigate | 1.3.2 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
-| roster-audit | 1.3.2 | Combines code-quality and spec-compliance checks into one actionable audit report |
+| roster-audit | 1.4.0 | Combines code-quality and spec-compliance checks into one actionable audit report |
 | roster-doctor | 1.3.0 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
 | roster-question | 1.0.3 | Decomposes a task into neutral research questions with the intent hidden |
 | roster-research | 1.2.4 | Performs blind, file:line-grounded research from a questions file, never the task itself |
@@ -137,7 +137,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 |-------|---------|---------|
 | kb-update | 1.1.3 | Synchronizes the KB with recent code changes, standalone from the KB agent's update mode |
 | ambiguity-auditor | 1.0.3 | Scans the KB for undefined terms, vague requirements, contradictions, and stale content |
-| code-quality-auditor | 1.0.4 | Checks implementation code against KB-defined properties, invariants, and naming conventions |
+| code-quality-auditor | 1.1.0 | Checks implementation code against KB-defined properties, invariants, and naming conventions |
 | spec-compliance-auditor | 1.0.3 | Compares the implementation against kb/spec.md to verify spec/code parity |
 | harness-validator | 1.0.2 | Meta-auditor that verifies the KB harness's own structural and operational integrity |
 | roster-spec-infer | 1.0.4 | Reverse-engineers an evidence-tiered spec artifact from existing code, tests, docs, and git history |
