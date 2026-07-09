@@ -2,7 +2,7 @@
 name: roster-triage-critical
 description: Elicits formal-verification properties and proposes a backend for the critical route.
 when_to_use: "Use when roster-run dispatches a --critical task. Trigger: 'triage critical', '--critical route'."
-version: 1.0.3
+version: 1.0.4
 domain: pipeline
 phase: null
 preamble: true
@@ -19,7 +19,13 @@ You run Stages 2–5 of the `--critical` pipeline route: property elicitation, p
 ## Input Contract
 
 - The target component (file path, module, or description) provided as your argument.
-- Task slug (derive from the component name: lowercase kebab-case, ≤4 significant words).
+- Task slug: **reuse the pipeline task slug** — the one already present on existing
+  `briefs/<task>-*` artifacts or passed by roster-run (the preamble's Pipeline State rule
+  requires it byte-identical across every phase; roster-run and roster-plan look up
+  `briefs/<slug>-formal-triage.md` / `briefs/<slug>-formal-verify.md` by that slug).
+  Only if no pipeline slug exists yet (direct invocation, no prior artifacts): derive one
+  from the component name (lowercase kebab-case, ≤4 significant words) — it becomes the
+  pipeline slug from then on.
 
 ## Steps
 
@@ -138,7 +144,7 @@ Write `briefs/<slug>-formal-triage.md` before exiting. Schema:
 
 ```markdown
 ---
-slug: <component-slug>
+slug: <task-slug — the pipeline slug from the Input Contract>
 date: <ISO date>
 component: <file or module path>
 backend_recommendation: <rocq|quint|both>
