@@ -149,7 +149,7 @@
       {
         "name": "ambiguity-auditor",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.3",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -157,7 +157,7 @@
       {
         "name": "code-quality-auditor",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.4",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -165,7 +165,7 @@
       {
         "name": "harness-validator",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -173,7 +173,7 @@
       {
         "name": "kb-migrate",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -181,7 +181,7 @@
       {
         "name": "kb-reindex",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.0.3",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -189,7 +189,7 @@
       {
         "name": "kb-search",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.0.2",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -197,7 +197,7 @@
       {
         "name": "kb-update",
         "source": "roster",
-        "version": "1.1.1",
+        "version": "1.1.3",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -205,7 +205,7 @@
       {
         "name": "roster-spec-infer",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.4",
         "domain": "kb",
         "phase": null,
         "tunables": {
@@ -217,7 +217,7 @@
       {
         "name": "spec-compliance-auditor",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.3",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -225,7 +225,7 @@
       {
         "name": "image-generation",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.4",
         "domain": "media",
         "phase": null,
         "tunables": {}
@@ -233,7 +233,7 @@
       {
         "name": "roster-skill-evolve",
         "source": "roster",
-        "version": "1.3.0",
+        "version": "1.4.1",
         "domain": "meta",
         "phase": null,
         "tunables": {}
@@ -241,7 +241,7 @@
       {
         "name": "roster-skill-health",
         "source": "roster",
-        "version": "1.2.1",
+        "version": "1.3.2",
         "domain": "meta",
         "phase": null,
         "tunables": {
@@ -252,7 +252,7 @@
       {
         "name": "roster-upgrade",
         "source": "roster",
-        "version": "0.1.0",
+        "version": "0.1.2",
         "domain": "meta",
         "phase": null,
         "tunables": {}
@@ -260,7 +260,7 @@
       {
         "name": "roster-audit",
         "source": "roster",
-        "version": "1.1.1",
+        "version": "1.3.2",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -274,7 +274,7 @@
       {
         "name": "roster-doctor",
         "source": "roster",
-        "version": "1.2.0",
+        "version": "1.2.2",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -282,7 +282,7 @@
       {
         "name": "roster-formal-verify",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.0.2",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -290,7 +290,7 @@
       {
         "name": "roster-implement",
         "source": "roster",
-        "version": "1.5.0",
+        "version": "1.5.4",
         "domain": "pipeline",
         "phase": "implement",
         "tunables": {
@@ -302,7 +302,7 @@
       {
         "name": "roster-init",
         "source": "roster",
-        "version": "1.2.1",
+        "version": "1.2.3",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -316,7 +316,7 @@
       {
         "name": "roster-intake",
         "source": "roster",
-        "version": "1.1.0",
+        "version": "1.1.3",
         "domain": "pipeline",
         "phase": "intake",
         "tunables": {}
@@ -324,7 +324,7 @@
       {
         "name": "roster-investigate",
         "source": "roster",
-        "version": "1.3.0",
+        "version": "1.3.2",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -335,7 +335,7 @@
       {
         "name": "roster-plan",
         "source": "roster",
-        "version": "1.3.0",
+        "version": "1.3.4",
         "domain": "pipeline",
         "phase": "plan",
         "tunables": {}
@@ -343,7 +343,7 @@
       {
         "name": "roster-qa",
         "source": "roster",
-        "version": "1.3.1",
+        "version": "1.3.4",
         "domain": "pipeline",
         "phase": "qa",
         "tunables": {
@@ -354,7 +354,7 @@
       {
         "name": "roster-question",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.0.3",
         "domain": "pipeline",
         "phase": "question",
         "tunables": {}
@@ -362,7 +362,7 @@
       {
         "name": "roster-research",
         "source": "roster",
-        "version": "1.2.0",
+        "version": "1.2.4",
         "domain": "pipeline",
         "phase": "research",
         "tunables": {
@@ -373,7 +373,7 @@
       {
         "name": "roster-review",
         "source": "roster",
-        "version": "1.5.0",
+        "version": "1.6.2",
         "domain": "pipeline",
         "phase": "review",
         "tunables": {
@@ -384,7 +384,7 @@
       {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.7.0",
+        "version": "1.8.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -392,20 +392,22 @@
       {
         "name": "roster-ship",
         "source": "roster",
-        "version": "1.3.0",
+        "version": "1.4.3",
         "domain": "pipeline",
         "phase": "ship",
         "tunables": {
           "merge_strategy": "rebase-merge",
           "commit_convention": "conventional",
           "pre_pr_checks": "",
-          "friction_warn_threshold": 10
+          "friction_warn_threshold": 10,
+          "push_mode": "pr",
+          "push_target": "main"
         }
       },
       {
         "name": "roster-spec-formal",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.0.3",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -413,7 +415,7 @@
       {
         "name": "roster-spec",
         "source": "roster",
-        "version": "2.0.0",
+        "version": "2.0.5",
         "domain": "pipeline",
         "phase": "spec",
         "tunables": {
@@ -427,7 +429,7 @@
       {
         "name": "roster-triage-critical",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.0.3",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -435,15 +437,33 @@
       {
         "name": "roster-workflow-build",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.0.2",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
       },
       {
+        "name": "roster-preamble-friction",
+        "source": "roster",
+        "version": "1.1.0",
+        "domain": "shared",
+        "phase": null,
+        "tunables": {},
+        "file": "preamble-friction"
+      },
+      {
+        "name": "roster-preamble-pipeline",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "shared",
+        "phase": null,
+        "tunables": {},
+        "file": "preamble-pipeline"
+      },
+      {
         "name": "roster-preamble",
         "source": "roster",
-        "version": "1.5.0",
+        "version": "1.7.0",
         "domain": "shared",
         "phase": null,
         "tunables": {},
@@ -452,7 +472,7 @@
       {
         "name": "tdd-workflow",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "domain": "testing",
         "phase": null,
         "tunables": {}
@@ -460,7 +480,7 @@
       {
         "name": "git-conventions",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.3",
         "domain": "workflow",
         "phase": null,
         "tunables": {}
@@ -468,7 +488,7 @@
       {
         "name": "improvement-loop-planner",
         "source": "roster",
-        "version": "1.2.0",
+        "version": "1.2.2",
         "domain": "workflow",
         "phase": null,
         "tunables": {}
@@ -476,7 +496,7 @@
       {
         "name": "improvement-loop",
         "source": "roster",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "domain": "workflow",
         "phase": null,
         "tunables": {}
@@ -484,7 +504,7 @@
       {
         "name": "roster-config",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "domain": "workflow",
         "phase": null,
         "tunables": {}
@@ -492,7 +512,7 @@
       {
         "name": "team",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.3",
         "domain": "workflow",
         "phase": null,
         "tunables": {}
