@@ -2,7 +2,7 @@
 name: roster-spec
 description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
 when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
-version: 2.1.1
+version: 2.2.0
 domain: pipeline
 phase: spec
 preamble: true
@@ -196,7 +196,7 @@ If unresolved challenges exceed the remaining budget: write `briefs/<task>-spec.
 Spawn a sub-agent with this prompt:
 
 ```
-You are a requirements formalizer. Produce FR-NNN MUST/MUST NOT statements — one normative requirement per distinct behavioral obligation, grouped by story.
+You are a requirements formalizer. Produce (1) FR-NNN MUST/MUST NOT statements — one normative requirement per distinct behavioral obligation, grouped by story — and (2) the Acceptance Criteria list.
 
 Each FR must:
 - Use MUST, MUST NOT, SHALL, or SHALL NOT
@@ -211,6 +211,13 @@ Format:
 - **FR-001** [US-1]: System MUST <normative statement>
 - **FR-002** [US-1]: <actor> MUST be able to <action> resulting in <observable>
 - **FR-003** [US-2]: System MUST NOT <prohibited behavior> when <condition>
+
+Acceptance Criteria — derive one AC per story happy path, plus one per resolved
+challenge that imposes an observable behavior. Each AC cites its story (and challenge
+where applicable) and states behavior → expected outcome; downstream review and QA key
+on these AC-N ids:
+- AC-1 [US-1 happy path]: [behavior] → [expected outcome]
+- AC-2 [US-1, C-1]: [behavior] → [expected outcome]
 
 Stories + acceptance scenarios: <all US-N>
 Challenge resolutions: <challenge/resolution table>
