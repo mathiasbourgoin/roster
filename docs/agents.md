@@ -30,7 +30,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| implementer | 1.3.0 | sonnet | Executes scoped feature/fix tasks in isolated worktrees with deterministic verification before handoff |
+| implementer | 1.4.0 | sonnet | Executes scoped feature/fix tasks in isolated worktrees with deterministic verification before handoff |
 | ocaml-implementer | 1.2.0 | sonnet | Implements OCaml changes with eio_posix, Caqti, Result-style errors, and mandatory .mli discipline |
 
 > **Note:** `ocaml-implementer` and `ocaml-dune-specialist` are OCaml/Dune specific. They are included in the default catalog as useful general patterns but require OCaml tooling.
@@ -39,7 +39,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| reviewer | 1.4.0 | opus | Performs structured code review focused on correctness, security, and regression risk |
+| reviewer | 1.5.0 | opus | Performs structured code review focused on correctness, security, and regression risk |
 | qa | 1.3.0 | haiku | Verifies implemented behavior through deterministic test execution and focused scenario checks |
 
 ### DevOps (2)
