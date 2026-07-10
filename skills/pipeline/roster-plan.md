@@ -2,7 +2,7 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.3.7
+version: 1.3.8
 domain: pipeline
 phase: plan
 preamble: true
@@ -150,7 +150,7 @@ Produce `briefs/<task>-plan.md`:
 # Plan — <task-slug>
 
 **Date:** <ISO-8601>
-**Status:** DRAFT
+**Status: DRAFT**
 
 ## Sequential steps
 
@@ -196,7 +196,7 @@ Gate per `human-validation.md` rules; wait for answers before finalizing sub-bri
 
 ### 8. Final human gate
 
-Present the sub-briefs with their paths. Request validation before spawning execution agents. After approval, set `**Status:** VALIDATED` in `briefs/<task>-plan.md` **and** in each sub-brief — the Output Contract and roster-run's routing both key on a validated plan.md.
+Present the sub-briefs with their paths. Request validation before spawning execution agents. After approval, set `**Status: VALIDATED**` in `briefs/<task>-plan.md` **and** in each sub-brief — the Output Contract and roster-run's routing both key on a validated plan.md.
 
 ### 8.5. Write plan JSON (after VALIDATED only)
 
