@@ -2,7 +2,7 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.5.0
+version: 1.5.1
 domain: pipeline
 phase: qa
 preamble: true
@@ -327,9 +327,10 @@ command -v codex >/dev/null 2>&1 && echo "codex available"
 command -v opencode >/dev/null 2>&1 && echo "opencode available"
 ```
 
-If none is present (or the only one is the host runtime), **skip silently**. Otherwise shell
-out non-interactively (`codex exec` / `opencode run`, as in `skills/media/image-generation.md`)
-and have the second runtime **independently re-run the deterministic gates** (step 2's
+If none is present (or the only one is the host runtime), **skip silently**. Otherwise invoke
+via the wrapper `bash scripts/xruntime-exec.sh <runtime> "<prompt>" --write` (closes stdin,
+sets the runtime's flags, file-captures output, and tree-integrity-snapshots the run — exit 3
+means the second runtime mutated the tree) and have the second runtime **independently re-run the deterministic gates** (step 2's
 commands and, if it ran in the primary pass, the step 3.5 code-intel gate command —
 `node scripts/code-intel-resolve.js gate --timeout ${code_intel_gate_timeout:-120}`) and
 re-check the implementer's handoff claims — it does not see the primary QA

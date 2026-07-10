@@ -24,21 +24,32 @@ interface LintRun {
   output: string; // stdout + stderr combined
 }
 
-function runLinter(dir: string): Promise<LintRun> {
+function runLinterOnce(dir: string): Promise<LintRun & { silentErr: boolean }> {
   return new Promise((resolve) => {
     execFile("node", [LINTER, dir], { cwd: REPO_ROOT }, (err, stdout, stderr) => {
       const code = err && typeof (err as { code?: unknown }).code === "number" ? (err as { code: number }).code : 0;
       let output = `${stdout}\n${stderr}`;
+      const silentErr = Boolean(err) && output.trim() === "";
       // Surface spawn/exec failures so regex assertions fail with a diagnosis instead
       // of an empty string — under some sandboxes the child produced no output at all
       // and every assertion failed opaquely with `actual: '\n'`.
-      if (err && output.trim() === "") {
+      if (silentErr) {
         const e = err as { code?: unknown; message?: string };
         output = `[runLinter: child produced no output — execFile error code=${String(e.code)} message=${e.message ?? "?"}]`;
       }
-      resolve({ code, output });
+      resolve({ code, output, silentErr });
     });
   });
+}
+
+async function runLinter(dir: string): Promise<LintRun> {
+  // Transient sandbox flake (codex workspace-write): the child intermittently spawns
+  // with no output at all, then succeeds on an immediate identical re-run (observed
+  // 3× across 2026-07-09/10 — health P2). Retry ONCE only for that silent-spawn
+  // signature; deterministic linter failures produce output and are never retried.
+  const first = await runLinterOnce(dir);
+  if (!first.silentErr) return first;
+  return runLinterOnce(dir);
 }
 
 let fixtureCounter = 0;
