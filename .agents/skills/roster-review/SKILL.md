@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 1.7.0
+version: 1.7.1
 domain: pipeline
 phase: review
 preamble: true
@@ -307,11 +307,15 @@ If neither is present (or only the host runtime), **skip silently**.
 
 **Mandatory for Fast/Full reviews when a second runtime CLI is on `PATH`.** This pass may be skipped **only by explicit human decision** — never silently. If skipped, record the human decision in the verdict.
 
-**Invocation notes:**
-- `codex exec` needs `--skip-git-repo-check` when invoked outside trusted directories.
-- When the pass must run builds, use `--sandbox workspace-write` and take a **before/after tree-integrity snapshot** (e.g. `git status --porcelain` + `git diff --stat` before and after) to verify the second runtime did not mutate the tree.
+**Invocation:** use the wrapper — it closes stdin (bare `codex exec` hangs), sets
+`--skip-git-repo-check`, file-captures output (survives output-mangling shell wrappers), and
+takes the before/after tree-integrity snapshot automatically (exit 3 = tree mutated):
 
-Shell out non-interactively (e.g. `codex exec "<prompt>"`). Pass the diff and `briefs/<task>-review.json`; instruct it to return **only findings the primary missed**, as JSON in the standard finding schema with `specialist: "<runtime>-xruntime"`. Verification prompts must state claims in **behavioral terms** (observable behavior, not implementation phrasing) — disputes over phrasing are not findings.
+```bash
+bash scripts/xruntime-exec.sh codex "<prompt>" [--write] [--timeout <sec>]
+```
+
+Pass `--write` only when the pass must run builds (workspace-write sandbox). Pass the diff and `briefs/<task>-review.json`; instruct it to return **only findings the primary missed**, as JSON in the standard finding schema with `specialist: "<runtime>-xruntime"`. Verification prompts must state claims in **behavioral terms** (observable behavior, not implementation phrasing) — disputes over phrasing are not findings.
 
 **Augment, never rewrite.** Append returned objects to `cross_runtime_findings`. Do **not** edit primary `findings` entries.
 
