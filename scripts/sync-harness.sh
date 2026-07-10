@@ -7,10 +7,12 @@
 set -euo pipefail
 
 CHECK=0
+ADOPT=0
 PROJECT_ROOT=""
 for _arg in "$@"; do
     case "$_arg" in
         --check) CHECK=1 ;;
+        --adopt) ADOPT=1 ;;
         *) [ -z "$PROJECT_ROOT" ] && PROJECT_ROOT="$_arg" ;;
     esac
 done
@@ -599,6 +601,45 @@ sync_skill_hooks() {
         printf '%s\n' "$result" > "$inlined_file"
     done
 }
+
+# Canonical-hook adoption check (health 2026-07-10 P6): sync converges .harness/ → runtimes
+# but never adopts NEW canonical hooks from hooks/{safety,quality}/ into an existing
+# .harness/hooks/ — a new safety hook silently doesn't install. Warn on the gap; copy with
+# --adopt. Warn-only (never fatal): adoption is profile-dependent in host projects, and
+# hooks/ only exists in the roster repo itself (skipped silently elsewhere).
+# Limitation: runs on real syncs only — the --check path re-invokes into a sandbox and
+# exits before reaching this point, so gap warnings appear on `sync`, not on `--check`.
+check_canonical_hooks() {
+    local canon_dir missing=()
+    for canon_dir in "$PROJECT_ROOT/hooks/safety" "$PROJECT_ROOT/hooks/quality"; do
+        [ -d "$canon_dir" ] || continue
+        local f base
+        for f in "$canon_dir"/*.md; do
+            [ -f "$f" ] || continue
+            base="$(basename "$f")"
+            if [ ! -f "$HARNESS_DIR/hooks/$base" ]; then
+                missing+=("$f")
+            elif ! cmp -s "$f" "$HARNESS_DIR/hooks/$base"; then
+                # stale content counts as a gap too — a canonical fix that never
+                # reconverges leaves the installed hook running the old logic
+                missing+=("$f")
+            fi
+        done
+    done
+    [ "${#missing[@]}" -eq 0 ] && return 0
+    if [ "$ADOPT" -eq 1 ] && [ "$CHECK" -eq 0 ]; then
+        local m
+        for m in "${missing[@]}"; do
+            cp "$m" "$HARNESS_DIR/hooks/$(basename "$m")"
+            echo "✓ adopted canonical hook: $(basename "$m") → .harness/hooks/" >&2
+        done
+    else
+        echo "⚠ canonical hook(s) not in .harness/hooks/ (will NOT install until adopted):" >&2
+        printf '    %s\n' "${missing[@]}" >&2
+        echo "  Adopt with: bash scripts/sync-harness.sh --adopt" >&2
+    fi
+}
+check_canonical_hooks
 
 # Inline shared skill-hook fragments before any runtime projection
 sync_skill_hooks
