@@ -290,7 +290,7 @@
       {
         "name": "roster-implement",
         "source": "roster",
-        "version": "1.5.5",
+        "version": "1.6.0",
         "domain": "pipeline",
         "phase": "implement",
         "tunables": {
@@ -374,7 +374,7 @@
       {
         "name": "roster-review",
         "source": "roster",
-        "version": "1.6.5",
+        "version": "1.7.0",
         "domain": "pipeline",
         "phase": "review",
         "tunables": {
