@@ -48,7 +48,7 @@ done
 case "$RUNTIME" in
   codex)
     CMD=("${XRUNTIME_BIN:-codex}" exec --skip-git-repo-check)
-    [ "$WRITE" -eq 1 ] && CMD+=(--sandbox workspace-write)
+    if [ "$WRITE" -eq 1 ]; then CMD+=(--sandbox workspace-write); else CMD+=(--sandbox read-only); fi
     CMD+=("$PROMPT")
     ;;
   opencode)
