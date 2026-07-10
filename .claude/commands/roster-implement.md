@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.6.0
+version: 1.6.1
 domain: pipeline
 phase: implement
 preamble: true
@@ -312,7 +312,18 @@ constraint; the review scope gate remains the backstop.
 
 **If mixed scope:** sequence — OCaml first, rest after.
 
-**Note — worktree isolation:** the `implementer` sub-agent type isolates in a git worktree; it cannot see uncommitted changes in the main working tree. For tasks operating on uncommitted working-tree files, use a non-isolated general agent instead. **Base freshness:** before delegating tree-wide edits to a worktree-isolated agent, verify the worktree is based on the *current* HEAD (a stale base silently applies the sweep to old sources); if it is not, have the agent rebase first or use a non-isolated agent.
+**Isolation decision rule (choose BEFORE spawning):**
+
+| Condition | Sub-agent isolation |
+|---|---|
+| Task operates on uncommitted working-tree files | non-isolated general agent (worktree cannot see them) |
+| A file manifest is active (`briefs/ACTIVE_TASK` set) | non-isolated general agent (control files are gitignored — absent in worktrees, freeze hook fail-opens there) |
+| Committed base + disjoint write scope | worktree-isolated `implementer` — with the base-freshness check below |
+
+When a worktree agent is used while a manifest exists, pass the manifest entries in the
+sub-brief as a prose scope constraint — the review scope gate is the backstop.
+
+**Note — worktree isolation:** the `implementer` sub-agent type isolates in a git worktree; it cannot see uncommitted changes in the main working tree. **Base freshness:** before delegating tree-wide edits to a worktree-isolated agent, verify the worktree is based on the *current* HEAD (a stale base silently applies the sweep to old sources); if it is not, have the agent rebase first or use a non-isolated agent.
 
 ### 3. TDD if required
 
