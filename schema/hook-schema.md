@@ -65,7 +65,16 @@ When installed, hooks become entries in `settings.json`:
 }
 ```
 
-For `PreToolUse` hooks, a non-zero exit code blocks the tool call. Stdout from the hook is shown to the model as feedback.
+For `PreToolUse` hooks in Claude Code, the deny contract is (verified against
+https://code.claude.com/docs/en/hooks.md, 2026-07-10):
+
+- **Exit 0 + JSON on stdout** — the preferred form:
+  `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"…"}}`.
+  The reason is shown to the model. Allow = exit 0 with no output.
+- **Exit 2** — blocking error; **stderr** (not stdout) is fed back to the model.
+- **Exit 1 does NOT block** — it is a non-blocking error and the tool call proceeds.
+  Never use bare `exit 1` as a deny path (this schema documented the opposite until 2026-07-10;
+  hooks written against that contract were silently non-blocking).
 
 ## Example
 
@@ -95,8 +104,9 @@ Blocked patterns:
 INPUT=$(cat -)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 if echo "$COMMAND" | grep -qE 'git\s+(push\s+(-f|--force)|reset\s+--hard|clean\s+-f|checkout\s+\.|restore\s+\.)'; then
-  echo "BLOCKED: Destructive git command detected. Ask the user for explicit confirmation."
-  exit 1
+  jq -n --arg reason "BLOCKED: Destructive git command detected. Ask the user for explicit confirmation." \
+    '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$reason}}'
+  exit 0
 fi
 exit 0
 ```
