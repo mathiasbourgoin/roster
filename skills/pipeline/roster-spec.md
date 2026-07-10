@@ -2,7 +2,7 @@
 name: roster-spec
 description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
 when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
-version: 2.2.0
+version: 2.2.1
 domain: pipeline
 phase: spec
 preamble: true
@@ -52,7 +52,7 @@ Read `briefs/<task>-intake.md`. Find the `**Type:**` line.
 
 - If Type is `fix`, `chore`, `docs`, or `refactor`:
   > ℹ️ Spec phase skipped for `<type>` tasks. Writing completion marker.
-  Write `briefs/<task>-spec.md` with `**Status:** SKIPPED — type: <type>`.
+  Write `briefs/<task>-spec.md` with `**Status: SKIPPED — type: <type>**`.
   Stop.
 
 - If Type is `feature` or `api-change`: continue.
@@ -150,7 +150,7 @@ As a [role], I want [action] so that [outcome].
 3. **Given** [error/boundary state], **When** [action], **Then** [observable outcome]
 ```
 
-If fewer than `tunables.min_user_stories` independent stories are derivable: write `briefs/<task>-spec.md` with `**Status:** BOUNCED`, report what is missing, and stop.
+If fewer than `tunables.min_user_stories` independent stories are derivable: write `briefs/<task>-spec.md` with `**Status: BOUNCED**`, report what is missing, and stop.
 
 ### 4. Challenge Sub-Agent (adversarial)
 
@@ -189,7 +189,7 @@ Classify each challenge:
 
 Ask questions **one at a time**. Remaining budget: `tunables.max_questions_to_user − questions_asked_step2`. Do NOT ask questions answerable by reading code or the brief.
 
-If unresolved challenges exceed the remaining budget: write `briefs/<task>-spec.md` with `**Status:** BOUNCED — unresolved challenges: [list]` and stop.
+If unresolved challenges exceed the remaining budget: write `briefs/<task>-spec.md` with `**Status: BOUNCED — unresolved challenges: [list]**` and stop.
 
 ### 6. Requirements Formalizer
 
@@ -306,7 +306,7 @@ Write `briefs/<task>-spec.md` **only after Step 9 approval**:
 ```markdown
 # Spec Brief — <task-slug>
 **Date:** <ISO-8601>
-**Status:** VALIDATED
+**Status: VALIDATED**
 **Spec file:** specs/<task-slug>.md
 **User stories:** <count>
 **Clarifications:** <count>
