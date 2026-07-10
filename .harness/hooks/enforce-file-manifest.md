@@ -30,6 +30,9 @@ blocks. Allow = exit 0 with no output.
 | Path matches a manifest entry (exact, or `dir/` prefix) | allow |
 | Anything else | **deny** with escalation + recovery instructions |
 
+The hook deliberately skips header validation (it needs only the entries after `---`); a
+malformed manifest fails loudly in the review gate (`check-scope-diff.sh` exit 2), not here.
+
 ## Known gaps — best-effort defense-in-depth, NOT a security boundary
 
 Same trust model as `block-dangerous-commands`: this hook catches *accidental* scope drift; the
