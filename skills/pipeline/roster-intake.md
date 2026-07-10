@@ -2,7 +2,7 @@
 name: roster-intake
 description: Turns a raw task description into a human-validated contractual brief.
 when_to_use: "Use as the first pipeline step for any new task. Trigger: '/roster-run', 'start work on X'."
-version: 1.1.3
+version: 1.2.0
 domain: pipeline
 phase: intake
 preamble: true
@@ -104,7 +104,7 @@ Example: "add webhook support" → `webhook-support`
 # Intake Brief — <task-slug>
 
 **Date:** <ISO-8601>
-**Status:** DRAFT — pending validation
+**Status: DRAFT — pending validation**
 **Type:** feature|api-change|fix|chore|docs|refactor  ← delete all but the applicable type
 
 ## Goal
@@ -153,7 +153,12 @@ _(empty if everything is resolved)_
 Present the brief and ask:
 > "Brief ready. Validate or correct before I proceed. Confirm the Type field reflects the correct task type."
 
-Wait for explicit validation. Apply corrections if requested, then set `**Status:** VALIDATED` in the brief.
+Wait for explicit validation. Apply corrections if requested, then set `**Status: VALIDATED**` in the brief.
+
+> **Format contract (load-bearing):** the status line MUST read exactly `**Status: VALIDATED**`
+> — colon INSIDE the bold. The roster-spec pre-hook gates on `grep -q 'Status: VALIDATED'`, which
+> the `**Status:** VALIDATED` form does not match (both recorded hook aborts, 2026-07-09 and
+> 2026-07-10, were this exact mismatch).
 
 ## Output Contract
 
