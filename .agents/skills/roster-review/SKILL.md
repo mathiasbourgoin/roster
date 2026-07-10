@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 1.6.5
+version: 1.7.0
 domain: pipeline
 phase: review
 preamble: true
@@ -240,12 +240,47 @@ Apply the following mechanical corrections without asking:
 
 After each auto-fix, verify that quality gates still pass.
 
+### 2.5 Deterministic scope gate
+
+Runs **after** auto-fixes, so the gated state is the state that ships.
+
+**Branch on mode first** (from `briefs/<task>-impl.md`): in **Express/Fast**, skip this gate
+unconditionally and silently — even if a stale `briefs/<task>-manifest.txt` exists (no manifest
+is derived in those modes by design; a leftover file must not produce findings). Only in **Full
+mode** continue:
+
+```bash
+[ -f "briefs/<task>-manifest.txt" ] && echo "manifest: present" || echo "manifest: absent"
+```
+
+- **Manifest present** → run the gate script:
+  ```bash
+  bash scripts/check-scope-diff.sh "briefs/<task>-manifest.txt"
+  ```
+  Exit 0 → no violations. Exit 1 → stdout is a JSON array of findings (`severity: HIGH`,
+  `category: "scope"`, `line: 0`, fingerprint `<path>:0:scope`) — merge them **verbatim** into
+  `findings`. Any OPEN scope finding sets `status: NO-GO` with
+  `no_go_reason.type = "out-of-scope-change"`. A human may ACCEPT a scope finding in the grouped
+  ambiguity pass (step 5) — an ACCEPTED scope finding unblocks like any other; acceptance is the
+  scope escape hatch. Exit 2 (manifest malformed) → treat as absent below.
+- **Manifest absent** (Full mode — corroborated by `briefs/<task>-implementer.md` existing) →
+  emit one MEDIUM informational finding "scope gate skipped — no manifest"; never NO-GO for this.
+
+Auto-fixes (step 2) must stay within manifest entries when a manifest is present — this gate
+runs after them and flags any excursion regardless of author. Known blind spots (documented in
+the script): a task edit to a pre-task-dirty file is excluded; a mid-phase third-party file is
+attributed to the task and must be human-ACCEPTED.
+
+When spawning the `reviewer` agent (step 3), state in its instructions whether this gate ran —
+when it ran, the agent defers scope assessment to it and emits no scope findings of its own.
+
 ### 3. Conditional specialists
 
 Spawn specialists based on scope. Each specialist receives:
 - The complete diff
 - The `briefs/<task>-reviewer.md`
 - Their own instructions (path below)
+- Whether the deterministic scope gate (§2.5) ran — the `reviewer` agent defers scope assessment to it when it did
 
 **Uncommitted-tree work:** when reviewing work done on uncommitted working-tree files, capture the **pre-task tree state** (`git diff --stat` + `git status` snapshot recorded at task start — e.g. from the intake/impl brief) and pass it to every specialist, so scope-discipline claims are verifiable without session history.
 
@@ -301,12 +336,12 @@ When findings have `category: "spec"` and severity CRITICAL or HIGH:
   "confidence": 1-5,
   "path": "file/path.ml",
   "line": 42,
-  "category": "correctness|security|architecture|ux|spec|style",
+  "category": "correctness|security|architecture|ux|spec|style|scope",
   "summary": "Short problem description",
   "evidence": "File X line Y — exact code quote",
   "fix": "What to do",
   "fingerprint": "path:line:category",
-  "specialist": "architect|reviewer|spec-compliance|reviewer-tui"
+  "specialist": "architect|reviewer|spec-compliance|reviewer-tui|scope-gate"
 }
 ```
 
@@ -399,7 +434,7 @@ Produce `briefs/<task>-review.json`:
   "mode": "express|fast|full",
   "escalation_needed": false,
   "escalation_reason": null
-  // type values: null | "spec-ac-failure" | "code-plan-failure" | "cross-runtime-finding"
+  // type values: null | "spec-ac-failure" | "code-plan-failure" | "cross-runtime-finding" | "out-of-scope-change"
   // escalation_reason: null | "new-public-api" | "implicit-design-decision" | "spec-update-needed" | "behaviour-change"
   // cross_runtime_findings: appended by the cross-runtime reviewer (augment-only); omit the key entirely if no second runtime ran
 }

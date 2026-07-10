@@ -58,7 +58,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 ### Backend (2)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| implementer | 1.3.0 | sonnet | Executes scoped feature/fix tasks in isolated worktrees with deterministic verification before handoff |
+| implementer | 1.4.0 | sonnet | Executes scoped feature/fix tasks in isolated worktrees with deterministic verification before handoff |
 | ocaml-implementer | 1.2.0 | sonnet | Implements OCaml changes with eio_posix, Caqti, Result-style errors, and mandatory .mli discipline |
 
 > **Note:** `ocaml-implementer` and `ocaml-dune-specialist` are OCaml/Dune specific. They are included in the default catalog as useful general patterns but require OCaml tooling.
@@ -66,7 +66,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 ### Testing (3)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| reviewer | 1.4.0 | opus | Performs structured code review focused on correctness, security, and regression risk |
+| reviewer | 1.5.0 | opus | Performs structured code review focused on correctness, security, and regression risk |
 | qa | 1.3.0 | haiku | Verifies implemented behavior through deterministic test execution and focused scenario checks |
 | architect | 1.5.0 | sonnet | Code quality and architecture guardian — spawned by `reviewer` on medium/large blast radius diffs |
 
@@ -111,8 +111,8 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-intake | 1.1.3 | Turns a raw task description into a human-validated contractual brief |
 | roster-spec | 2.2.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.3.7 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
-| roster-implement | 1.5.5 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
-| roster-review | 1.6.5 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
+| roster-implement | 1.6.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
+| roster-review | 1.7.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
 | roster-qa | 1.5.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
 | roster-ship | 1.4.4 | Carries a reviewed, QA'd branch through to a merged PR |
 | roster-investigate | 1.3.3 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
@@ -175,13 +175,14 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 
 Two distinct hook systems — do not conflate:
 
-### Tool-level hooks (2)
+### Tool-level hooks (3)
 
 Fire on runtime tool events (`PreToolUse` / `PostToolUse`). Shell commands only. Installed into `settings.json`.
 
 | Hook | Event | Matcher |
 |------|-------|---------|
 | block-dangerous-commands | PreToolUse | Bash |
+| enforce-file-manifest | PreToolUse | Edit\|Write |
 | post-edit-lint | PostToolUse | Edit\|Write |
 
 ### Skill-level hooks (DSL)
