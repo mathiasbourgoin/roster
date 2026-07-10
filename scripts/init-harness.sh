@@ -169,6 +169,7 @@ CORE_RULES=(
 
 CORE_HOOKS=(
     "hooks/safety/block-dangerous-commands.md"
+    "hooks/safety/enforce-file-manifest.md"
 )
 
 DEVELOPER_HOOKS=(
