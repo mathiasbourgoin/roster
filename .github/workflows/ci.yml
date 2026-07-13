@@ -5,6 +5,11 @@ name: CI
 # check-hook-structure / check-kb-links / check-recruiter-sync / check-pipeline-install,
 # and `sync-harness.sh --check` (source↔projection drift). A red check blocks the merge —
 # this is what makes "deterministic and guarded" true rather than aspirational.
+#
+# `npm run test:review-bundle` runs separately, right after `npm test` (F-10,
+# specs/review-tool-distribution.md) — the review-bundle scratch install/upgrade/removal
+# integration test is heavier than the rest of the suite (real curl/file:// fetches, real
+# tool invocations) and follows the test-install.sh precedent of staying out of the main chain.
 
 on:
   push:
@@ -28,6 +33,8 @@ jobs:
           bash --version | head -1
       - run: npm ci
       - run: npm test
+      - name: Review bundle scratch install/upgrade/removal (F-10 — outside the npm test chain)
+        run: npm run test:review-bundle
       - name: Verify skill manifest is current (H16 — prevent populate-manifest-skills drift)
         run: node scripts/populate-manifest-skills.js --check
       - name: Leak scan changed files (enforce check-leak via git diff, not agent-supplied)
