@@ -2,7 +2,7 @@
 name: roster-intake
 description: Turns a raw task description into a human-validated contractual brief.
 when_to_use: "Use as the first pipeline step for any new task. Trigger: '/roster-run', 'start work on X'."
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: intake
 preamble: true
@@ -93,6 +93,20 @@ From `AGENTS.md`, README, or KB — find the exact commands for:
 
 If no gate is documented, explicitly note "not documented" — do not invent.
 
+### 4.5 Trust-boundary keyword heuristic
+
+Run this deterministic check against the task description before writing the brief — grep/keyword
+only, no LLM judgment:
+
+```bash
+echo "<task description>" | grep -qiE "auth|attest|evidence|authority|permission|token|signature|custody|integrity" && echo "TRUST_BOUNDARY_HIT"
+```
+
+If it fires, propose `**Trust boundary:** yes` in the brief; otherwise propose `no`. This is a
+proposal, not a verdict — the human gate (step 6) must explicitly confirm it before the brief can
+be VALIDATED. A false positive (e.g. "token" hit in an LLM-focused repo) is expected and
+acceptable: the human confirmation is what bounds the cost, not heuristic precision.
+
 ### 5. Write the brief
 
 Produce `briefs/<task>-intake.md` in the exact format below.
@@ -106,6 +120,7 @@ Example: "add webhook support" → `webhook-support`
 **Date:** <ISO-8601>
 **Status: DRAFT — pending validation**
 **Type:** feature|api-change|fix|chore|docs|refactor  ← delete all but the applicable type
+**Trust boundary:** yes|no  ← proposed by the step 4.5 keyword heuristic; human confirms at step 6
 
 ## Goal
 
@@ -151,7 +166,8 @@ _(empty if everything is resolved)_
 ### 6. Human gate
 
 Present the brief and ask:
-> "Brief ready. Validate or correct before I proceed. Confirm the Type field reflects the correct task type."
+> "Brief ready. Validate or correct before I proceed. Confirm the Type field reflects the correct
+> task type, and confirm the proposed Trust boundary value (`yes`/`no`)."
 
 Wait for explicit validation. Apply corrections if requested, then set `**Status: VALIDATED**` in the brief.
 

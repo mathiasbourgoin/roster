@@ -2,7 +2,7 @@
 name: roster-spec
 description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
 when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
-version: 2.2.1
+version: 2.3.0
 domain: pipeline
 phase: spec
 preamble: true
@@ -192,19 +192,71 @@ If required sections are missing (Goal, Scope Boundary, Relevant Files, Quality 
 
 ## Trigger Check
 
-Read `briefs/<task>-intake.md`. Find the `**Type:**` line.
+Read `briefs/<task>-intake.md`. Find the `**Type:**` line and the `**Trust boundary:**` line.
 
-- If Type is `fix`, `chore`, `docs`, or `refactor`:
-  > ℹ️ Spec phase skipped for `<type>` tasks. Writing completion marker.
+**Escalation-entry exception (A-10):** if you were routed here by a `design-not-converging`
+verdict (roster-review/roster-run passed that context explicitly), skip the risk-based branching
+below entirely and go straight to the **Minimal-Freeze Profile** — the un-encodable finding IS the
+invariant gap to spec, regardless of the brief's Type or Trust boundary value.
+
+- If Type is `feature` or `api-change`: continue to the full spec flow (Steps 0–11 below).
+
+- If Type is `fix`, `chore`, `docs`, or `refactor` **and** `**Trust boundary:** yes`: do **not**
+  skip. Continue to the **Minimal-Freeze Profile** (below) instead of the full flow.
+
+- If Type is `fix`, `chore`, `docs`, or `refactor` **and** `**Trust boundary:** no`:
+  > ℹ️ Spec phase skipped for `<type>` tasks (Trust boundary: no). Writing completion marker.
   Write `briefs/<task>-spec.md` with `**Status: SKIPPED — type: <type>**`.
   Stop.
 
-- If Type is `feature` or `api-change`: continue.
+- If Type is `fix`, `chore`, `docs`, or `refactor` **and** the `**Trust boundary:**` line is
+  **absent** (legacy brief — predates this field):
+  > ⚠️ Legacy brief has no Trust boundary field — skipping as today. A trust-boundary task may be
+  > passing through unfrozen; consider re-running `/roster-intake` to backfill the field.
+  Write `briefs/<task>-spec.md` with `**Status: SKIPPED — type: <type>**`.
+  Stop. (Fail-open by design — FR-003, EC-1: a fail-closed default would break every in-flight or
+  legacy task.)
 
 - If `**Type:**` line is missing:
   > ⛔ Intake brief has no Type field. Re-run `/roster-intake` and ensure
   > the Type field is set before proceeding.
   Stop.
+
+### Minimal-Freeze Profile
+
+For a trust-boundary task that does not warrant full user-story ceremony (FR-004/FR-005): derive
+the invariants at risk (from the brief's Goal + Relevant Files + the trust-boundary keyword that
+fired at intake) and write `specs/<task-slug>.md` marked `**Profile: minimal-freeze**` containing
+only:
+
+- **Invariants** — the properties this task must not violate, one per bullet.
+- **Runnable Checks** — `CHECK-N` entries, one per invariant, each with a red-command
+  (see the exit convention below).
+- **Acceptance Criteria** — exactly one `AC-N` paired 1:1 with each `CHECK-N` (mechanical pairing —
+  `CHECK-1` ↔ `AC-1`, `CHECK-2` ↔ `AC-2`, ...), preserving the `failed_acs` traceability that
+  review/QA key on.
+
+`tunables.min_user_stories` and `tunables.min_gwtscenarios_per_story` **do not apply** to a
+minimal-freeze spec — no User Stories or Challenges sections are required (FR-005).
+
+**Existing spec file (EC-3, FR-006):** if `specs/<task-slug>.md` already exists, **extend** it —
+add the new invariants and their paired CHECK-N/AC-N — never skip on the grounds that the file
+exists.
+
+**No derivable invariant (FR-007):** if no invariant can be derived from the brief for this task,
+write `briefs/<task>-spec.md` with `**Status: BOUNCED — no derivable invariant**` and stop. Do not
+write a spec file.
+
+**Red-command exit convention (A-6):** every `CHECK-N` red command in a minimal-freeze (and every
+ordinary) spec MUST honor 0 = check passes, 1 = assertion fired, ≥2 = error — a plain
+self-contained script (e.g. `node <check>.js`), never relying on a test runner's own exit codes
+(`node --test`/jest exit 1 for both an assertion failure and a load error). This convention is
+distinct from the gate script's own exit convention (`scripts/check-review-convergence.js`, where
+2 = degraded input, not error).
+
+Skip Steps 1–8 (Research/Clarification/Story/Challenge/Formalizer/Cross-Spec/Write) for the
+minimal-freeze path — go directly to Step 9 (Human validation) with the minimal spec content, then
+Step 10 (Write Completion Artifact).
 
 ## Idempotency Check
 
