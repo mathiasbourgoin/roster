@@ -2,8 +2,17 @@
 // check-review-convergence.js — CommonJS
 // Read-only mechanical gate deciding whether a NO-GO route-back is permitted
 // (spec: specs/pipeline-loop-convergence.md, FR-021..FR-039; extended by
-// specs/review-fanout-convergence.md FR-050..FR-085 + Amendments B-1..B-9).
-// Patterned on scripts/check-scope-diff.sh's exit contract.
+// specs/review-fanout-convergence.md FR-050..FR-085 + Amendments B-1..B-9;
+// specs/review-v2-corrections.md Amendments E-1/E-3/E-4). Patterned on
+// scripts/check-scope-diff.sh's exit contract.
+//
+// Override-aware (E-1): a `streak_override` on review.json with
+// `round == review.round` and `by == "human"` suppresses the current round's
+// novel-finding-streak strike (round-cap is never suppressible) — see
+// scripts/lib/review-convergence-rules.js's computeStrikeMap. Reopened-strike
+// rule (E-4): a round also strikes when it reopens >=1 HIGH+ finding
+// (`reopened_at_round == round`), not only on a novel one. checks[] entries
+// are keyed by (check, fid) with a fingerprint fallback (E-3).
 //
 // Usage: node scripts/check-review-convergence.js <review.json path>
 //   [--static] [--max-rounds N] [--timeout S] [--strikes N]
@@ -295,7 +304,10 @@ function verifyFinding(f, repoRoot, timeoutMs) {
   });
 
   return {
-    checkEntry: Object.assign({ check: f.check, fingerprint: f.fingerprint }, result),
+    // E-3: checks[] is keyed by (check, fid) with a fingerprint fallback for
+    // legacy findings that predate fid — the normalizer's gate-report lookup
+    // (buildGateCheckIndex) uses this exact same key shape.
+    checkEntry: Object.assign({ check: f.check, fingerprint: f.fingerprint, fid: f.fid || null }, result),
     violations: buildRedGreenViolations(result, f),
     inconclusive: !!result.inconclusive,
   };

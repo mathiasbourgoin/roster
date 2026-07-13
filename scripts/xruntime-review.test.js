@@ -1,5 +1,6 @@
 // Tests for scripts/xruntime-review.js (spec: specs/review-skill-slimming.md US-1,
-// FR-086..098, Amendments D-2/D-3/D-8/D-9). Uses a bash stub runtime (XRUNTIME_BIN,
+// FR-086..098, Amendments D-2/D-3/D-8/D-9; specs/review-v2-corrections.md
+// INV-4/6/7, Amendments E-5/E-8/E-10). Uses a bash stub runtime (XRUNTIME_BIN,
 // matching xruntime-exec.sh's own testing hook) so scenarios are deterministic without
 // a real codex/opencode CLI on PATH.
 "use strict";
@@ -11,6 +12,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { computeDigest } = require("./lib/xruntime-digest");
+const { isSpawnError } = require("./lib/xruntime-classify");
 
 const SCRIPT = path.resolve(__dirname, "xruntime-review.js");
 
@@ -63,8 +65,17 @@ function makeRepo() {
   return { dir, run, stubPath };
 }
 
+// INV-6: the prompt is never positional — this harness writes it to a scratch
+// file and passes --prompt-file so existing call sites (`["codex", "hello",
+// "--task", ...]`) keep reading naturally as "runtime, prompt-text, ...".
 function runHelper(repo, args, env) {
-  const result = spawnSync("node", [SCRIPT, ...args], {
+  const runtime = args[0];
+  const promptText = args[1];
+  const rest = args.slice(2);
+  const promptFile = path.join(repo.dir, `prompt-${Math.random().toString(36).slice(2)}.txt`);
+  fs.writeFileSync(promptFile, promptText === undefined ? "" : promptText);
+  const finalArgs = [runtime, "--prompt-file", promptFile, ...rest];
+  const result = spawnSync("node", [SCRIPT, ...finalArgs], {
     cwd: repo.dir,
     encoding: "utf8",
     env: Object.assign({}, process.env, { XRUNTIME_BIN: repo.stubPath }, env || {}),
@@ -225,6 +236,19 @@ test("FR-098: --skip journals an explicit human-skip entry, wrapper never invoke
   assert.strictEqual(journal[0].outcome, "skipped-human");
 });
 
+test("E-10/INV-7: --skip result carries the first-class {actor, round, ts} shape", () => {
+  const repo = makeRepo();
+  const { stdout } = runHelper(
+    repo,
+    ["codex", "hello", "--task", "demo-task", "--round", "2", "--skip", "human decided to skip"],
+    { STUB_MODE: "healthy" }
+  );
+  const parsed = JSON.parse(stdout);
+  assert.strictEqual(parsed.actor, "human");
+  assert.strictEqual(parsed.round, 2);
+  assert.strictEqual(typeof parsed.ts, "string");
+});
+
 test("FR-096: task slug with '/' -> exit 2, never healthy, no journal written", () => {
   const repo = makeRepo();
   const { code, stderr } = runHelper(repo, ["codex", "hello", "--task", "bad/slug"], { STUB_MODE: "healthy" });
@@ -264,8 +288,107 @@ test("D-8: warns on stderr when briefs/ is not git-ignored", () => {
   assert.match(stderr, /not git-ignored/);
 });
 
-test("usage error: missing prompt -> exit 2", () => {
+test("usage error: missing runtime -> exit 2", () => {
   const repo = makeRepo();
-  const { code } = runHelper(repo, ["codex"], {});
+  const result = spawnSync("node", [SCRIPT], { cwd: repo.dir, encoding: "utf8" });
+  assert.strictEqual(result.status, 2);
+});
+
+// ── INV-6: transport (prompt-file/stdin, never positional) ──────────────
+
+test("INV-6: --prompt-file transport — a large prompt never appears in the process argv", () => {
+  const repo = makeRepo();
+  const bigPrompt = "x".repeat(50000);
+  const { stdout } = runHelper(repo, ["codex", bigPrompt, "--task", "demo-task"], { STUB_MODE: "healthy" });
+  const parsed = JSON.parse(stdout);
+  assert.strictEqual(parsed.status, "healthy");
+});
+
+test("INV-6: stdin transport works when --prompt-file is omitted", () => {
+  const repo = makeRepo();
+  fs.mkdirSync(path.join(repo.dir, "briefs"), { recursive: true });
+  const result = spawnSync("node", [SCRIPT, "codex", "--task", "demo-task"], {
+    cwd: repo.dir,
+    input: "the diff and prior state",
+    encoding: "utf8",
+    env: Object.assign({}, process.env, { XRUNTIME_BIN: repo.stubPath, STUB_MODE: "healthy" }),
+  });
+  const parsed = JSON.parse(result.stdout);
+  assert.strictEqual(parsed.status, "healthy");
+});
+
+test("INV-6: journal records the prompt digest, never the prompt content", () => {
+  const repo = makeRepo();
+  runHelper(repo, ["codex", "a secret diff nobody should see verbatim", "--task", "demo-task"], { STUB_MODE: "healthy" });
+  const journal = readJournal(repo, "demo-task");
+  assert.strictEqual(typeof journal[0].prompt_digest, "string");
+  const raw = fs.readFileSync(path.join(repo.dir, "briefs", "demo-task-xruntime.jsonl"), "utf8");
+  assert.ok(!raw.includes("a secret diff"), "the journal must never contain the prompt text");
+});
+
+test("INV-6: empty prompt (no --prompt-file, empty stdin) -> exit 2", () => {
+  const repo = makeRepo();
+  const result = spawnSync("node", [SCRIPT, "codex", "--task", "demo-task"], {
+    cwd: repo.dir,
+    input: "",
+    encoding: "utf8",
+    env: Object.assign({}, process.env, { XRUNTIME_BIN: repo.stubPath }),
+  });
+  assert.strictEqual(result.status, 2);
+});
+
+// ── INV-6: spawn-error classification (never conflated with empty-output) ─
+
+test("INV-6: isSpawnError classifies a spawn-layer failure (E2BIG/ENOENT), excludes ETIMEDOUT", () => {
+  assert.strictEqual(isSpawnError({ error: { code: "E2BIG" } }), true);
+  assert.strictEqual(isSpawnError({ error: { code: "ENOENT" } }), true);
+  assert.strictEqual(isSpawnError({ error: { code: "ETIMEDOUT" } }), false, "ETIMEDOUT is the wrapper timeout path, not spawn-error");
+  assert.strictEqual(isSpawnError({}), false);
+  assert.strictEqual(isSpawnError({ status: 0 }), false);
+});
+
+// ── E-8: malformed persisted verdict fails closed ─────────────────────────
+
+test("E-8: a malformed briefs/<task>-review.json -> status blocked, reason malformed-verdict, exit 2", () => {
+  const repo = makeRepo();
+  fs.mkdirSync(path.join(repo.dir, "briefs"), { recursive: true });
+  fs.writeFileSync(path.join(repo.dir, "briefs", "demo-task-review.json"), "{not valid json");
+  const { code, stdout } = runHelper(repo, ["codex", "hello", "--task", "demo-task"], { STUB_MODE: "healthy" });
   assert.strictEqual(code, 2);
+  const parsed = JSON.parse(stdout);
+  assert.strictEqual(parsed.status, "blocked");
+  assert.strictEqual(parsed.reason, "malformed-verdict");
+  assert.ok(!fs.existsSync(path.join(repo.dir, "invoked.marker")), "the wrapper must never run against unverifiable state");
+});
+
+test("E-8: an absent review.json is NOT malformed — a fresh task still probes normally", () => {
+  const repo = makeRepo();
+  const { code, stdout } = runHelper(repo, ["codex", "hello", "--task", "demo-task"], { STUB_MODE: "healthy" });
+  assert.strictEqual(code, 0);
+  assert.strictEqual(JSON.parse(stdout).status, "healthy");
+});
+
+// ── INV-4/E-5: journal-driven refusal for crash-before-persist ───────────
+
+test("INV-4/E-5: crash-before-persist — no review.json was ever written, but the journal shows THIS cycle degraded -> refuse re-probe", () => {
+  const repo = makeRepo();
+  // First invocation: degrades, journals it under cycle 1, but (simulating a
+  // crash) no review.json is ever persisted afterward.
+  const first = runHelper(repo, ["codex", "hello", "--task", "demo-task", "--cycle", "1"], { STUB_MODE: "empty" });
+  assert.strictEqual(JSON.parse(first.stdout).status, "degraded");
+  assert.ok(!fs.existsSync(path.join(repo.dir, "briefs", "demo-task-review.json")), "simulated crash-before-persist");
+
+  const second = runHelper(repo, ["codex", "hello", "--task", "demo-task", "--cycle", "1"], { STUB_MODE: "healthy" });
+  const parsed = JSON.parse(second.stdout);
+  assert.strictEqual(parsed.status, "skipped-degraded");
+  const journal = readJournal(repo, "demo-task");
+  assert.strictEqual(journal.length, 2, "the refusal itself is journaled too, not a silent no-op");
+});
+
+test("INV-4/E-5: a PRIOR cycle's degraded journal entry is stale — a new cycle re-probes", () => {
+  const repo = makeRepo();
+  runHelper(repo, ["codex", "hello", "--task", "demo-task", "--cycle", "1"], { STUB_MODE: "empty" });
+  const second = runHelper(repo, ["codex", "hello", "--task", "demo-task", "--cycle", "2"], { STUB_MODE: "healthy" });
+  const parsed = JSON.parse(second.stdout);
+  assert.strictEqual(parsed.status, "healthy", "a fresh cycle must re-probe even if the prior cycle degraded");
 });

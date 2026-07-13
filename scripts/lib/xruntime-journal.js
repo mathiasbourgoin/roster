@@ -1,7 +1,8 @@
 // scripts/lib/xruntime-journal.js — CommonJS.
 //
 // Journal + persisted-state I/O for scripts/xruntime-review.js
-// (FR-095..098, Amendment D-2, D-8). The journal is append-forever per task
+// (FR-095..098, Amendment D-2, D-8; specs/review-v2-corrections.md
+// INV-4/E-5/E-8). The journal is append-forever per task
 // (briefs/<task>-xruntime.jsonl); review.json state is read-only here — the
 // helper reads only the PERSISTED briefs/<task>-review.json, never a
 // `.draft` file (V-1).
@@ -53,29 +54,88 @@ function appendJournalLine(root, task, entry) {
   return { ok: true, line };
 }
 
-// Reads the persisted review.json. Absent or malformed both resolve to
-// `null` (treated as "no prior state" — a malformed file must not be able to
-// force a refusal the human never asked for).
+// E-8: reads the persisted review.json, distinguishing three states instead
+// of collapsing "absent" and "malformed" into one silent `null`. INV-4: a
+// malformed verdict is explicit degraded-input — the caller (xruntime-review.js)
+// fails closed on "malformed" rather than treating it as "no prior state".
+//   - "absent": no file — legitimately no prior cycle yet.
+//   - "malformed": file exists but is not parseable JSON — unverifiable
+//     round state, never silently treated as fresh.
+//   - "valid": parsed successfully; `value` carries the parsed object.
 function readReviewJson(root, task) {
   const p = reviewJsonPath(root, task);
-  if (!fs.existsSync(p)) return null;
+  if (!fs.existsSync(p)) return { state: "absent", value: null };
   try {
-    return JSON.parse(fs.readFileSync(p, "utf8"));
+    return { state: "valid", value: JSON.parse(fs.readFileSync(p, "utf8")) };
   } catch (e) {
-    return null;
+    return { state: "malformed", value: null };
   }
 }
 
-// D-2: FR-097 refusal applies ONLY when the persisted review.json has
-// `status: "NO-GO"` (mid-cycle) — a persisted GO or an absent file means a
-// fresh cycle is starting, so a prior degraded state is stale and must not
-// permanently ban the runtime (O-2). `--human-retry` always bypasses.
-function shouldRefuseDegraded(reviewJson, runtime, currentDigest, humanRetry) {
+// INV-4/E-5: scans the append-forever journal for the LAST entry matching
+// this exact (runtime, digest) pair — the crash-before-persist enforcement
+// input. Absent/unreadable journal or no match -> null (caller treats that
+// as "nothing to refuse against").
+function readLatestJournalEntry(root, task, runtime, digest) {
+  const p = journalPath(root, task);
+  if (!fs.existsSync(p)) return null;
+  let lines;
+  try {
+    lines = fs
+      .readFileSync(p, "utf8")
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+  } catch (e) {
+    return null;
+  }
+  for (let i = lines.length - 1; i >= 0; i--) {
+    let entry;
+    try {
+      entry = JSON.parse(lines[i]);
+    } catch (e) {
+      continue; // a corrupt line never masks an earlier valid one
+    }
+    if (entry.runtime === runtime && entry.digest === digest) return entry;
+  }
+  return null;
+}
+
+// D-2/INV-4/E-5: refuses a repeat probe when EITHER of two independent
+// enforcement inputs shows an unchanged-digest degraded state:
+//   (1) the persisted review.json (legacy path, D-2 unchanged): a mid-cycle
+//       NO-GO with this runtime's cross_runtime entry degraded at this exact
+//       digest. A persisted GO or an absent file means a fresh cycle, so a
+//       prior degraded state there is stale (O-2).
+//   (2) the journal (INV-4, new): the LAST journal entry for this exact
+//       (runtime, digest) degraded IN THE SAME CYCLE as the current
+//       invocation — this is what makes a crash-before-persist refuse a
+//       repeat probe even though no review.json was ever written to check
+//       against. A journal entry from a PRIOR cycle is stale (deterministic
+//       separation) and never refuses. `currentCycle` is supplied by the
+//       caller (roster-review passes --cycle) — when unknown (null), this
+//       branch never fires (nothing to prove "same cycle" against; falls
+//       back to (1) only, preserving pre-E-5 behavior).
+// `--human-retry` always bypasses both.
+function shouldRefuseDegraded({ reviewJson, journalEntry, runtime, digest, humanRetry, currentCycle }) {
   if (humanRetry) return false;
-  if (!reviewJson || reviewJson.status !== "NO-GO") return false;
-  const entry = reviewJson.cross_runtime && reviewJson.cross_runtime[runtime];
-  if (!entry || entry.status !== "degraded") return false;
-  return entry.config_digest === currentDigest;
+
+  if (reviewJson && reviewJson.status === "NO-GO") {
+    const entry = reviewJson.cross_runtime && reviewJson.cross_runtime[runtime];
+    if (entry && entry.status === "degraded" && entry.config_digest === digest) return true;
+  }
+
+  if (
+    journalEntry &&
+    journalEntry.outcome === "degraded" &&
+    currentCycle !== null &&
+    currentCycle !== undefined &&
+    journalEntry.cycle === currentCycle
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 module.exports = {
@@ -85,5 +145,6 @@ module.exports = {
   warnIfBriefsNotIgnored,
   appendJournalLine,
   readReviewJson,
+  readLatestJournalEntry,
   shouldRefuseDegraded,
 };

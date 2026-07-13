@@ -27,10 +27,31 @@ function isNovelStrikeFinding(f, round) {
   return true;
 }
 
+// E-4: a round also strikes when it reopened >=1 HIGH+ finding (regardless of
+// which round first raised it) — a regression-heavy loop-back round must not
+// be invisible to two-strike escalation just because nothing is "novel" this
+// round.
+function isReopenedStrikeFinding(f, round) {
+  if (!f || typeof f !== "object") return false;
+  if (!HIGH_PLUS.has(f.severity)) return false;
+  return f.reopened_at_round === round;
+}
+
+// E-1: a valid streak_override is scoped to the CURRENT round only — stale
+// the moment the next verdict increments `round` (round-cap escalation is
+// never overridable and is untouched by this check).
+function isValidStreakOverride(review, currentRound) {
+  const o = review && review.streak_override;
+  return !!o && typeof o === "object" && o.round === currentRound && o.by === "human";
+}
+
 // B-1: past strikes are read from rounds_audit[].strike — journaled by
 // roster-review, never recomputed here. Only the CURRENT round's strike is
 // computed fresh, from findings, since that is point-in-time correct at gate
-// time. Returns a round -> strike boolean map covering every round seen.
+// time — UNLESS a valid current-round streak_override is present (E-1), in
+// which case the journaled/forced `strike: false` is respected instead of
+// recomputing (the override's whole purpose is to force this round to not
+// strike). Returns a round -> strike boolean map covering every round seen.
 // FIX-5: this non-recomputation invariant is what
 // scripts/check-review-convergence-rules.test.js's "streak read from
 // rounds_audit[].strike is not recomputed" fixture proves — a late ACCEPT of
@@ -43,7 +64,11 @@ function computeStrikeMap(review, currentRound, findings) {
       strikeByRound.set(entry.round, entry.strike);
     }
   }
-  const currentStrike = currentRound >= 2 && findings.some((f) => isNovelStrikeFinding(f, currentRound));
+  const overridden = isValidStreakOverride(review, currentRound);
+  const currentStrike =
+    !overridden &&
+    currentRound >= 2 &&
+    findings.some((f) => isNovelStrikeFinding(f, currentRound) || isReopenedStrikeFinding(f, currentRound));
   strikeByRound.set(currentRound, currentStrike);
   return { strikeByRound, currentStrike };
 }
@@ -146,6 +171,8 @@ function selectCause(violations) {
 module.exports = {
   HIGH_PLUS,
   isNovelStrikeFinding,
+  isReopenedStrikeFinding,
+  isValidStreakOverride,
   computeStrikeMap,
   computeStreakViolation,
   computeMissingStrikeWarnings,
