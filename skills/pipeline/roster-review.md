@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 1.7.1
+version: 1.8.0
 domain: pipeline
 phase: review
 preamble: true
@@ -12,10 +12,12 @@ human_gate: after
 tunables:
   auto_fix_threshold_lines: 20
   always_run_spec_compliance: true
+  max_no_go_rounds: 5
 artifacts:
   reads:
     - briefs/<task>-impl.md
     - briefs/<task>-reviewer.md
+    - briefs/<task>-review.json (prior round, if present — cumulative findings + no_go_round source)
     - git diff (current)
   writes:
     - briefs/<task>-review.json
@@ -233,6 +235,93 @@ Never ask multiple separate questions. One single pass.
 > batch, and drip-feeding them wastes the human's attention. This grouped ask is the
 > only sanctioned exception; everywhere else in this skill the preamble rule stands.
 
+### 5.5 Invariant ratchet + convergence gate
+
+This applies to every round of a task, not just loop-backs — the gate runs on **every** verdict
+emission, GO included (A-1): the ratchet is enforced most strictly on the round that ends the loop.
+
+**Cumulative findings (FR-010).** Read the prior `briefs/<task>-review.json` if it exists.
+`findings` is cumulative across a task's rounds: carry every prior entry forward **verbatim**,
+updating only `status` (and the round-tracking fields below) — never re-derive a fingerprint or
+drop an entry because a specialist didn't re-report it this round. **Reset `findings` to empty on
+a GO verdict** (after the promotion in the GO-verdict step below).
+
+**Per-finding round-tracking fields (FR-011).** Every finding — old and new — carries these seven
+fields in addition to the existing schema:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `first_seen_round` | int | the round this finding first appeared |
+| `resolved_round` | int \| null | the round it was marked RESOLVED, if any |
+| `check` | string \| null | path to the linked ratchet check (see below) |
+| `check_encodable` | bool | default `true`; `false` = implementer proposes no deterministic check is possible |
+| `red_verified` | bool \| null | set by the gate's full-mode red/green run |
+| `pre_fix_sha` | string \| null | HEAD at the round this finding was first recorded as a NO-GO driver |
+| `check_blob` | string \| null | `git hash-object` of the check file at last verification |
+
+**The ratchet rule (FR-012/FR-013).** A HIGH+ finding whose `resolved_round > first_seen_round`
+(i.e. it survived at least one loop-back) MUST carry a non-null `check` before it can be marked
+RESOLVED. Exempt: findings raised and resolved within the **same** round (never crossed a
+loop-back), and findings the human marks `ACCEPTED`. Two findings that reveal the same invariant
+MAY share one check.
+
+**Consuming the `## Ratchet` section (FR-017).** The implementer declares each new check in a
+`## Ratchet` section of `briefs/<task>-impl.md` (finding reference, check path, red command,
+proposed `check_encodable` + reason if false). Read it and populate the corresponding finding's
+`check`/`check_encodable` fields from it — this is the only channel; do not infer a check path
+from the diff.
+
+**Permanent-waiver ACCEPT prompt (FR-014).** When the human ACCEPTs a HIGH+ finding in the step 5
+grouped ask, the prompt text MUST state that accepting **permanently waives** the invariant — no
+check will ever guard it. Do not phrase acceptance as "skip for now".
+
+**Cross-runtime mirroring (FR-015).** When a `cross_runtime_findings` entry is CRITICAL/HIGH and
+drives the NO-GO, mirror it into the primary `findings` array (with the same seven fields,
+`first_seen_round` = this round) so it enters the ratchet. The original entry in
+`cross_runtime_findings` is never edited — augment-only.
+
+**`no_go_round` (FR-021, FR-026).** Read the prior value (0 if absent/first round). Increment it
+by exactly 1 when this verdict is NO-GO **and** at least one OPEN HIGH+ finding outside
+`category: "scope"` drove it (a scope-only NO-GO does not increment — the scope gate is a separate
+mechanism). Reset to 0 on GO. Compare against `tunables.max_no_go_rounds` (default 5) — reaching or
+exceeding it is a gate violation (`cause: "round-cap"`), independent of the finding-level checks.
+
+**`pre_fix_sha` recording (FR-033, amended A-3).** At NO-GO verdict emission, for each **new**
+HIGH+ finding recorded this round, verify the tree is clean (`git status --porcelain` empty) —
+roster-implement commits each round's work before handoff (FR-040). If clean: `pre_fix_sha` =
+current `HEAD`. If dirty: `pre_fix_sha` = `null` with reason `"dirty-tree"` — never record a
+confidently wrong SHA. When `pre_fix_sha` is `null` (dirty tree or genuinely uncommitted-tree
+task), `red_verified` stays `null`; the gate accepts this but flags it in the one-liner (FR-034).
+
+**Gate invocation — fixed order (A-2).** Compose the draft verdict (fields above populated) BEFORE
+writing anything to disk. Then invoke the gate:
+
+```bash
+node scripts/check-review-convergence.js briefs/<task>-review.json.draft --max-rounds <tunables.max_no_go_rounds> --timeout 120
+```
+
+(Write the draft verdict to a `.draft` suffix first so the gate has a file to read without
+touching the real artifact yet.) The gate runs full mode here — it executes red/green verification
+for any check needing it and reports results as JSON on stdout. Merge the gate's `checks[]` results
+(`red_verified`, `check_blob`) back into the corresponding findings, and merge any blocking outcome
+into the verdict:
+
+- Gate exit 0 → no change to the verdict's status.
+- Gate exit 1 or 2 → **the verdict becomes NO-GO regardless of what step 6 computed**, with
+  `no_go_reason.type = "design-not-converging"` and `no_go_reason.cause` taken from the gate's
+  violation (`"round-cap"` or `"unencodable-finding"` — the gate's `checks[]`/`violations[]`
+  reports which). This applies even to a round that would otherwise be GO (A-1) — vacuous checks,
+  RESOLVED-without-check, and blob-weakening findings all invalidate a GO.
+
+Only then write `briefs/<task>-review.json` **once** (rename the draft or write the merged object)
+— there is no post-write crash window, and the file is never in a half-written or unverified state.
+
+**GO-verdict promotion (FR-042, A-8).** Before resetting `findings` on a GO verdict, promote every
+`red_verified: true` check to a permanent home: if `specs/<task-slug>.md` exists, append it as a
+new `CHECK-N` entry (with its paired `AC-N` describing the now-permanent invariant); otherwise it
+stays in the test suite as an ordinary test (documented residual — post-GO weakening protection
+degrades to normal test discipline once the ratchet's round-scoped bookkeeping resets).
+
 ### 6. Write the verdict
 
 Produce `briefs/<task>-review.json`:
@@ -262,7 +351,14 @@ Produce `briefs/<task>-review.json`:
       "fix": "...",
       "fingerprint": "file.ml:42:correctness",
       "specialist": "reviewer",
-      "status": "OPEN|RESOLVED|ACCEPTED"
+      "status": "OPEN|RESOLVED|ACCEPTED",
+      "first_seen_round": 1,
+      "resolved_round": null,
+      "check": null,
+      "check_encodable": true,
+      "red_verified": null,
+      "pre_fix_sha": null,
+      "check_blob": null
     }
   ],
   "cross_runtime_findings": [
@@ -289,29 +385,39 @@ Produce `briefs/<task>-review.json`:
   },
   "no_go_reason": {
     "type": null,
+    "cause": null,
     "failed_acs": []
   },
+  "no_go_round": 0,
   "mode": "express|fast|full",
   "escalation_needed": false,
   "escalation_reason": null
-  // type values: null | "spec-ac-failure" | "code-plan-failure" | "cross-runtime-finding" | "out-of-scope-change"
+  // type values: null | "spec-ac-failure" | "code-plan-failure" | "cross-runtime-finding" | "out-of-scope-change" | "design-not-converging"
+  // cause values (only set when type == "design-not-converging"): null | "round-cap" | "unencodable-finding"
   // escalation_reason: null | "new-public-api" | "implicit-design-decision" | "spec-update-needed" | "behaviour-change"
   // cross_runtime_findings: appended by the cross-runtime reviewer (augment-only); omit the key entirely if no second runtime ran
 }
 ```
 
-**GO status if:** no CRITICAL or HIGH OPEN finding **in either `findings` or `cross_runtime_findings`**.
-**NO-GO status if:** at least one CRITICAL or HIGH OPEN finding (primary or cross-runtime) not resolved or explicitly accepted. A cross-runtime CRITICAL/HIGH sets `no_go_reason.type = "cross-runtime-finding"`.
+**GO status if:** no CRITICAL or HIGH OPEN finding **in either `findings` or `cross_runtime_findings`**, AND the convergence gate (§5.5) reports no violation.
+**NO-GO status if:** at least one CRITICAL or HIGH OPEN finding (primary or cross-runtime) not resolved or explicitly accepted, OR the convergence gate reports a violation. A cross-runtime CRITICAL/HIGH sets `no_go_reason.type = "cross-runtime-finding"`; a gate violation sets `no_go_reason.type = "design-not-converging"` with `cause` per §5.5.
 
 ### 7. Human gate
 
-Present a one-line summary: auto-fixes applied, finding counts by severity, GO/NO-GO status. If NO-GO, name the HIGH+ findings to resolve. Wait for explicit human confirmation before proceeding.
+Present a one-line summary: auto-fixes applied, finding counts by severity, GO/NO-GO status,
+**`no_go_round` and the checks added this round** (FR-031) — e.g. "round 2/5, 1 new ratcheted
+check (`checks/foo.test.js`, red-verified)". If a finding's `pre_fix_sha` is null, flag it
+explicitly (uncommitted-tree or dirty-tree residual, FR-034/A-3). If NO-GO, name the HIGH+
+findings to resolve. Wait for explicit human confirmation before proceeding.
+
+**Known residual (FR-032):** the review-GO → QA-NO-GO → implement loop is not bounded by the
+convergence gate — `/roster-qa` is explicitly out of scope for this mechanism.
 
 ## Output Contract
 
 `briefs/<task>-review.json` with GO or NO-GO status and all findings documented.
 
-**If GO:** `/roster-qa` can start. **If NO-GO:** return to `/roster-implement` with OPEN findings. **If `no_go_reason.type == "spec-ac-failure"`:** return to `/roster-spec` — spec ACs were not met.
+**If GO:** `/roster-qa` can start. **If NO-GO:** return to `/roster-implement` with OPEN findings. **If `no_go_reason.type == "spec-ac-failure"`:** return to `/roster-spec` — spec ACs were not met. **If `no_go_reason.type == "design-not-converging"`:** return to `/roster-spec` (forces the minimal-freeze profile, A-10) — the round cap was reached or a finding cannot be encoded as a check.
 
 ## When to Go Back
 
@@ -321,6 +427,7 @@ Present a one-line summary: auto-fixes applied, finding counts by severity, GO/N
 | Research reveals a design flaw missed in planning | Stop — re-run `/roster-plan` or `/roster-intake` before fixes |
 | `code-quality-auditor` returns Critical KB violations | Auto-classify as HIGH finding → NO-GO unless immediately auto-fixable |
 | `escalation_needed: true` in Express/Fast mode | Present to human — they decide whether to loop back to `/roster-spec` or accept as-is |
+| Convergence gate reports a violation (§5.5) | The draft verdict becomes NO-GO with `no_go_reason.type: "design-not-converging"` — never silently keep a GO |
 
 ## What Next
 
@@ -345,3 +452,6 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Verify quality gates after each auto-fix
 - Specialists must produce JSON findings — reject free-form text
 - Do not auto-fix visible behavior changes even if under the line threshold
+- Never write `briefs/<task>-review.json` before the convergence gate (§5.5) has run and its outcome is merged — gate-before-write is not optional, even on a GO round
+- Never mark a HIGH+ finding RESOLVED across a loop-back round without a linked `check`, unless it is ACCEPTED or was raised and resolved within the same round
+- The ACCEPT prompt for a HIGH+ finding must state the waiver is permanent — never phrase it as temporary

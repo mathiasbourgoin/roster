@@ -2,7 +2,7 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.8.0
+version: 1.9.0
 ---
 
 # Roster Run
@@ -86,6 +86,24 @@ before downgrading. Otherwise infer the mode from the signals below.
 **If `--critical` is passed explicitly:** strip the flag, skip the critical suggestion check below, and dispatch directly to `/roster-triage-critical`. The human flag is the only thing that changes routing.
 
 **If `--critical=rocq` or `--critical=quint` is passed explicitly:** skip triage (backend pre-chosen) but **write the minimal triage brief per roster-triage-critical §Flag-preselected backend (invoked from roster-run)** — downstream skills (`roster-spec-formal`, `roster-formal-verify`) hard-require it. Then route directly to the full pipeline, skipping `roster-triage-critical`.
+
+**Trust-boundary heuristic (FR-009).** Run this deterministic keyword check against the task
+description for **every** task, before mode is recorded — it feeds a full-mode recommendation, not
+an automatic upgrade:
+
+```bash
+echo "<task>" | grep -qiE "auth|attest|evidence|authority|permission|token|signature|custody|integrity" && echo "TRUST_BOUNDARY_HIT"
+```
+
+If it fires and the task would not already route to Full: recommend Full mode to the human before
+the mode is recorded (so `/roster-intake` and `/roster-spec` run and the trust boundary is
+minimally frozen — see roster-spec's Trigger Check).
+
+**Combined-prompt rule (A-9):** if this heuristic fires **and** the Tier A `--critical` check below
+also fires on the same task, present **one single combined prompt** covering both signals — do not
+ask twice. The critical route takes precedence (it already implies full mode), so the combined
+prompt's options are exactly the Tier A options below; the trust-boundary signal is folded into
+the rationale text shown above them.
 
 Run the following deterministic Tier A checks against the task description and target path. These are grep/file-presence checks only — no LLM judgment. If any Tier A check fires AND the task would route to Full or Fast (not Express), emit a suggestion before routing.
 
@@ -258,7 +276,7 @@ If Full mode: check briefs/ state and use the routing table below.
 | Detected signal | Route to |
 |---|---|
 | No brief, new feature, vague or multi-file task | `/roster-question` (then research → intake) |
-| `briefs/<task>-intake.md` VALIDATED + `**Type:**` is feature/api-change + `briefs/<task>-spec.md` absent | `/roster-spec` |
+| `briefs/<task>-intake.md` VALIDATED + (`**Type:**` is feature/api-change OR `**Trust boundary:** yes`) + `briefs/<task>-spec.md` absent | `/roster-spec` |
 | `briefs/<task>-intake.md` exists and is validated | `/roster-plan` |
 | `briefs/<task>-plan.md` exists and is validated | workflow dispatch (if `briefs/<task>-plan.json` present) → `/roster-implement` — see Post-plan workflow dispatch below |
 | Implementation complete, branch ready | `/roster-review` |
@@ -273,6 +291,23 @@ If Full mode: check briefs/ state and use the routing table below.
 One table owns every verdict edge. Fresh Full-mode detection (above) and Step 3 resume both
 route through it; on resume, scope rows to the ledger's recorded mode.
 
+**Convergence gate invocation (FR-024, A-1/A-2).** Before applying any `review`-phase row below —
+on both the fresh-detection path and the Step 3 resume edge — invoke the mechanical gate in
+`--static` mode (structural checks only, no command execution; roster-review already ran full-mode
+verification and persisted results at verdict time):
+
+```bash
+node scripts/check-review-convergence.js briefs/<task>-review.json --static
+```
+
+- Exit 0 → apply the table below normally.
+- Exit 1 or 2 → the route-back is **blocked** regardless of the recorded verdict (this closes the
+  resume bypass, C-14/AC-14). Treat it as `design-not-converging` for routing purposes (row below)
+  in Fast/Full. **In Express/Fast when no `/roster-spec` phase exists for this mode**, do not route
+  anywhere — **stop** and instruct the human to restart the task under full mode; make **zero**
+  ledger writes and do **not** upgrade the mode automatically (FR-029). This is a distinct,
+  binding stop — separate from the informational Mode Escalation Check in roster-review.
+
 | Phase verdict | Mode scope | Route to |
 |---|---|---|
 | `intake` VALIDATED | all | Next phase in sequence (intake has no other terminal status) |
@@ -281,9 +316,13 @@ route through it; on resume, scope rows to the ledger's recorded mode.
 | `review` GO | express | `/roster-ship` |
 | `review` GO | fast, full | `/roster-qa` — unless the critical E0 exception below applies, in which case `/roster-ship` |
 | `review` NO-GO with `no_go_reason.type == "spec-ac-failure"` | full only (express/fast have no spec phase — their NO-GO always routes to implement) | `/roster-spec` — spec ACs were not met; revise the spec |
+| `review` NO-GO with `no_go_reason.type == "design-not-converging"` **or** the convergence gate blocked the route-back | full (express/fast: stop + restart-under-full per above) | `/roster-spec` — the escalation context forces the minimal-freeze profile regardless of Trust boundary/Type (A-10); the un-encodable finding or round cap IS the invariant gap to spec |
 | `review` NO-GO (any other reason) | all | `/roster-implement` — pass review.json as context |
 | `qa` GO | fast, full | `/roster-ship` |
 | `qa` NO-GO | fast, full | `/roster-implement` |
+
+**Known residual (FR-032):** the review-GO → QA-NO-GO → implement loop is not bounded by this
+gate — `/roster-qa` is out of scope for the convergence mechanism.
 
 **Exception — critical E0 path (single authoritative statement):** on `review` GO, if
 `briefs/<task>-formal-verify.md` exists and its `**Evidence tier:**` line is `E0p`, `E0m`, or
