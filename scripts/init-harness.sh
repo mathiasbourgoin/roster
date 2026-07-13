@@ -349,6 +349,14 @@ jq -n \
 
 "$REPO_ROOT/scripts/sync-harness.sh" "$PROJECT_ROOT"
 
+# Review-tool bundle (F-1): install from this dev checkout, warn-on-drift (FR-132 — the
+# checkout is truth here; a mismatch against ITS OWN committed manifest is a warning, never an
+# abort). Only when a bundle-requiring skill was just projected into the target.
+if grep -rl '^requires_review_bundle:' "$PROJECT_ROOT/.claude/commands" "$PROJECT_ROOT/.agents/skills" >/dev/null 2>&1; then
+    bash "$REPO_ROOT/scripts/review-bundle-install.sh" install --from-checkout "$REPO_ROOT" --target "$PROJECT_ROOT" \
+        || echo "review-bundle-install: WARN — bundle install failed; run it manually before using bundle-requiring skills." >&2
+fi
+
 validate_harness() {
     local root="$1"
     local errors=0
