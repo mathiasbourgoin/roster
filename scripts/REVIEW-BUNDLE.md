@@ -19,9 +19,11 @@ entire lifecycle — nothing else in this repo re-implements it):
 # Verify the installed bundle is complete and unmodified (no network calls).
 bash scripts/review-bundle-install.sh verify
 
-# Install (first time) or upgrade (already installed) from the roster repo.
-bash scripts/review-bundle-install.sh install --from-raw https://raw.githubusercontent.com/mathiasbourgoin/roster/main
-bash scripts/review-bundle-install.sh upgrade --from-raw https://raw.githubusercontent.com/mathiasbourgoin/roster/main
+# Install (first time) or upgrade (already installed) from a roster checkout's raw URL.
+# Replace OWNER, REPOSITORY, and REF with the source repository coordinates.
+RAW_PREFIX='https://raw.githubusercontent.com/OWNER/REPOSITORY/REF'
+bash scripts/review-bundle-install.sh install --from-raw "$RAW_PREFIX"
+bash scripts/review-bundle-install.sh upgrade --from-raw "$RAW_PREFIX"
 
 # Remove the bundle (the shared wrapper, scripts/xruntime-exec.sh, is kept — other
 # tools may still depend on it).

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.3.0",
+  "bundle_version": "1.3.1",
   "channel": "stable",
   "source_ref": "main",
   "files": [
@@ -63,7 +63,7 @@
     },
     {
       "path": "scripts/REVIEW-BUNDLE.md",
-      "sha256": "272a11ef97e046b59dc1269e71e564990e4b167c99d1de8be84b36c64d8d933d",
+      "sha256": "118a3c158e3b443bf937f67ceaca43cd73e0befdad4c12f07e63e3f3a4f1461f",
       "kind": "doc"
     },
     {

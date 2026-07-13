@@ -39,6 +39,26 @@ function readManifest(target) {
   return JSON.parse(fs.readFileSync(path.join(target, MANIFEST_REL), "utf8"));
 }
 
+// Mirrors bounty-skills' tracked-file personal-handle policy. The exact public upstream
+// repository identifier is allowed; any suffix (for example a branch embedded in a raw URL)
+// turns the token into a consumer-visible personal handle and must fail the installed bundle.
+function trackedPersonalHandleLeaks(target) {
+  const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: target })
+    .toString()
+    .split("\0")
+    .filter(Boolean);
+  const leaks = [];
+  for (const rel of tracked) {
+    const lines = fs.readFileSync(path.join(target, rel), "utf8").split("\n");
+    lines.forEach((line, index) => {
+      for (const token of line.match(/mathiasbourgoin[A-Za-z0-9._/-]*/g) || []) {
+        if (token !== "mathiasbourgoin/roster") leaks.push(`${rel}:${index + 1}:${token}`);
+      }
+    });
+  }
+  return leaks;
+}
+
 /** Scan a tree for any *.bak file — the F-8 no-.bak tripwire, scoped to the installer's own
  *  behavior (install.sh's separate .bak idiom is explicitly out of scope, F-8). */
 function findBakFiles(root) {
@@ -81,6 +101,15 @@ test("verify: happy path after install", () => {
   run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   const r = run(["verify", "--target", target]);
   assert.equal(r.code, 0, r.stderr);
+});
+
+test("installed tracked bundle satisfies the consumer personal-handle leak gate", () => {
+  const target = mkScratch("tracked-leak-gate");
+  const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+  assert.equal(installed.code, 0, installed.stderr);
+  gitRepo(target);
+  execFileSync("git", ["add", "-A"], { cwd: target });
+  assert.deepEqual(trackedPersonalHandleLeaks(target), []);
 });
 
 test("verify: a deleted bundle file yields a non-zero exit with a runbook", () => {
