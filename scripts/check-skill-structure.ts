@@ -16,6 +16,13 @@
  *     7. `## Friction Log` section exists
  *     8. Friction Log section contains a ```jsonl fence
  *
+ *   SIZE RATCHET (specs/review-skill-slimming.md US-4, FR-117..122): budgeted
+ *   files (see BUDGETS below) are word-counted with the pinned counter
+ *   (CRLF normalized, frontmatter/fenced-code/Friction-Log stripped) and must
+ *   stay under budget. A budget-map entry matching zero files on disk fails
+ *   closed (guards a silent rename). This ratchet is upstream-only — it MUST
+ *   NOT be added to the portable scripts/check-skill-contract.js (FR-121).
+ *
  * Skipped: skills/shared/preamble.md (injected fragment, not a standalone skill)
  *
  * Exit 0 = clean. Exit 1 = violations found.
@@ -25,12 +32,88 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as yaml from "js-yaml";
 
-const SKILLS_DIR = path.resolve(__dirname, "../../skills");
+// SKILLS_DIR injection (D-5): overridable via env var so the ratchet's fixture
+// test can point at a scratch directory instead of the repo's real skills/.
+export const SKILLS_DIR = process.env.SKILLS_DIR
+  ? path.resolve(process.env.SKILLS_DIR)
+  : path.resolve(__dirname, "../../skills");
 const SKIP_FILES = new Set(["preamble.md", "preamble-pipeline.md", "preamble-friction.md"]);
+
+// Budget map keyed by repo-relative path (FR-118). Raising a budget requires
+// commit-message justification (FR-120, EC-10) — this is not a knob to bump
+// silently when a file grows.
+export const BUDGETS: Record<string, number> = {
+  "skills/pipeline/roster-review.md": 4000,
+};
+
+// FR-117: normalize CRLF -> LF, strip frontmatter, strip fenced code blocks,
+// strip the `## Friction Log` section, split on whitespace filtering empties.
+// V-1: fence-stripping MUST fail loudly (throw) on an unbalanced fence count —
+// silently tolerating it would undercount by stripping past the real boundary.
+export function countSkillWords(raw: string): number {
+  const normalized = raw.replace(/\r\n/g, "\n");
+  const noFrontmatter = normalized.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  const noFences = stripFencedBlocks(noFrontmatter);
+  const noFriction = stripFrictionLogSection(noFences);
+  return noFriction.split(/\s+/).filter(Boolean).length;
+}
+
+function stripFencedBlocks(text: string): string {
+  const markers = text.match(/```/g) || [];
+  if (markers.length % 2 !== 0) {
+    throw new Error(`unbalanced fenced code blocks (found ${markers.length} \`\`\` markers — must be even)`);
+  }
+  return text.replace(/```[\s\S]*?```/g, "");
+}
+
+function stripFrictionLogSection(text: string): string {
+  const marker = "\n## Friction Log";
+  const start = text.indexOf(marker);
+  if (start === -1) return text;
+  const next = text.indexOf("\n## ", start + marker.length);
+  return next === -1 ? text.slice(0, start) : text.slice(0, start) + text.slice(next);
+}
+
+// FR-119: a budget-map entry matching zero files fails the check (fail-closed
+// against renames) rather than silently skipping. FR-120: exceeding a budget
+// states that raising it requires commit-message justification.
+export async function checkBudgetForRepo(repoRoot: string): Promise<Violation[]> {
+  const violations: Violation[] = [];
+  for (const [relPath, budget] of Object.entries(BUDGETS)) {
+    const full = path.resolve(repoRoot, relPath);
+    let raw: string;
+    try {
+      raw = await fs.readFile(full, "utf-8");
+    } catch {
+      violations.push({
+        file: relPath,
+        message: `word-count ratchet budget entry matches no file on disk (fail-closed against a silent rename) — budget: ${budget} words`,
+      });
+      continue;
+    }
+    let words: number;
+    try {
+      words = countSkillWords(raw);
+    } catch (e) {
+      violations.push({ file: relPath, message: `word-count ratchet: ${(e as Error).message}` });
+      continue;
+    }
+    if (words > budget) {
+      violations.push({
+        file: relPath,
+        message:
+          `word-count ratchet: ${words} words exceeds the budget of ${budget} (FR-118) — ` +
+          "raising the budget requires commit-message justification (FR-120); compress the file " +
+          "deliberately rather than silently raising the number",
+      });
+    }
+  }
+  return violations;
+}
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
-type Violation = { file: string; message: string };
+export type Violation = { file: string; message: string };
 
 function parseFrontmatter(content: string): { raw: string; body: string } | null {
   // Match --- ... --- at the very start of the file (CRLF-safe)
@@ -201,6 +284,10 @@ async function main(): Promise<void> {
     }
   }
 
+  // US-4 size ratchet (FR-117..122) — runs via this same check-skill-structure
+  // invocation, no new npm test chain entry (FR-122).
+  violations.push(...(await checkBudgetForRepo(path.resolve(SKILLS_DIR, ".."))));
+
   if (violations.length === 0) {
     console.log(`✓ all ${files.length} skill files pass structure checks`);
     process.exit(0);
@@ -214,7 +301,11 @@ async function main(): Promise<void> {
   process.exit(1);
 }
 
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+// D-5: guarded so this module can be `require()`d by its fixture test
+// without re-running main() as a side effect.
+if (require.main === module) {
+  main().catch((err: unknown) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

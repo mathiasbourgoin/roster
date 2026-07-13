@@ -219,6 +219,11 @@ if (fs.existsSync(installSh)) {
 // today: both scope gates must exist on disk and stay referenced from the
 // skill prose that invokes them, so drift (script renamed/removed without
 // updating the skill, or vice versa) fails loudly instead of silently.
+// FR-115 (specs/review-skill-slimming.md, US-3): the slimmed roster-review.md
+// delegates cross-runtime probing and finding normalization to two new
+// scripts — both must stay present on disk and referenced, exactly like the
+// two pre-existing gate scripts, so a stale distribution (script fetched
+// without the skill update, or vice versa) fails loudly (B-4 pattern).
 const GATE_SCRIPTS = [
   { script: "scripts/check-scope-diff.sh", referencedIn: ["skills/pipeline/roster-review.md"] },
   {
@@ -228,6 +233,8 @@ const GATE_SCRIPTS = [
     // resume edge before the verdict-table route-back. Both must reference it.
     referencedIn: ["skills/pipeline/roster-review.md", "skills/pipeline/roster-run.md"],
   },
+  { script: "scripts/xruntime-review.js", referencedIn: ["skills/pipeline/roster-review.md"] },
+  { script: "scripts/review-normalize.js", referencedIn: ["skills/pipeline/roster-review.md"] },
 ];
 for (const { script, referencedIn } of GATE_SCRIPTS) {
   const scriptPath = path.resolve(root, script);
@@ -249,6 +256,33 @@ for (const { script, referencedIn } of GATE_SCRIPTS) {
 }
 if (!errors.some((e) => e.includes("pipeline gate script") || e.includes("no longer references"))) {
   console.log(`✓ pipeline-install: ${GATE_SCRIPTS.length} pipeline gate script(s) present and referenced.`);
+}
+
+// FR-115 (schema half): schema/review-finding.schema.json must exist and both
+// new scripts must load it via require() (FR-109 — never an embedded copy).
+const FINDING_SCHEMA = "schema/review-finding.schema.json";
+const SCHEMA_CONSUMERS = ["scripts/lib/finding-schema.js"];
+const schemaPath = path.resolve(root, FINDING_SCHEMA);
+if (!fs.existsSync(schemaPath)) {
+  errors.push(`canonical finding schema missing on disk: ${FINDING_SCHEMA}`);
+} else {
+  let consumersOk = true;
+  for (const consumer of SCHEMA_CONSUMERS) {
+    const consumerPath = path.resolve(root, consumer);
+    if (!fs.existsSync(consumerPath)) {
+      errors.push(`${consumer} not found — cannot verify it loads ${FINDING_SCHEMA}`);
+      consumersOk = false;
+      continue;
+    }
+    const text = fs.readFileSync(consumerPath, "utf8");
+    if (!/require\(.*review-finding\.schema\.json/.test(text)) {
+      errors.push(`${consumer} no longer require()s ${FINDING_SCHEMA} — schema/tool link is orphaned or drifted`);
+      consumersOk = false;
+    }
+  }
+  if (consumersOk) {
+    console.log(`✓ pipeline-install: ${FINDING_SCHEMA} present and require()'d by its consumer(s).`);
+  }
 }
 
 if (errors.length) {

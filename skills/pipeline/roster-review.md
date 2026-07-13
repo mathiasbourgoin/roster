@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 1.9.0
+version: 2.0.0
 domain: pipeline
 phase: review
 preamble: true
@@ -34,6 +34,12 @@ pipeline_role:
 You conduct a structured, fix-first review. Mechanical corrections are applied without asking. Ambiguities are grouped into one question. You produce a structured JSON verdict.
 
 **Golden rule:** every claim must cite the file and line. Never "probably" or "likely".
+
+Deterministic mechanics live in tools, not in this prose: `scripts/check-scope-diff.sh` (scope gate),
+`scripts/check-review-convergence.js` (ratchet + convergence gate), `scripts/xruntime-review.js`
+(cross-runtime probe/journal), `scripts/review-normalize.js` (finding validation/dedup), and
+`schema/review-json-schema.md` (the full `briefs/<task>-review.json` shape). This skill covers
+orchestration, judgment, and the human gate.
 
 ## Mode Awareness
 
@@ -102,12 +108,9 @@ After each auto-fix, verify that quality gates still pass.
 
 ### 2.5 Deterministic scope gate
 
-Runs **after** auto-fixes, so the gated state is the state that ships.
-
-**Branch on mode first** (from `briefs/<task>-impl.md`): in **Express/Fast**, skip this gate
-unconditionally and silently — even if a stale `briefs/<task>-manifest.txt` exists (no manifest
-is derived in those modes by design; a leftover file must not produce findings). Only in **Full
-mode** continue:
+Runs **after** auto-fixes, so the gated state is the state that ships. **Branch on mode first**
+(from `briefs/<task>-impl.md`): in **Express/Fast**, skip this gate unconditionally and silently —
+even if a stale `briefs/<task>-manifest.txt` exists. Only in **Full mode** continue:
 
 ```bash
 [ -f "briefs/<task>-manifest.txt" ] && echo "manifest: present" || echo "manifest: absent"
@@ -118,31 +121,29 @@ mode** continue:
   bash scripts/check-scope-diff.sh "briefs/<task>-manifest.txt"
   ```
   Exit 0 → no violations. Exit 1 → stdout is a JSON array of findings (`severity: HIGH`,
-  `category: "scope"`, `line: 0`, fingerprint `<path>:0:scope`) — merge them **verbatim** into
-  `findings`. Any OPEN scope finding sets `status: NO-GO` with
-  `no_go_reason.type = "out-of-scope-change"`. A human may ACCEPT a scope finding in the grouped
-  ambiguity pass (step 5) — an ACCEPTED scope finding unblocks like any other; acceptance is the
-  scope escape hatch. Exit 2 (manifest malformed) → treat as absent below.
-- **Manifest absent** (Full mode — corroborated by `briefs/<task>-implementer.md` existing) →
-  emit one MEDIUM informational finding "scope gate skipped — no manifest"; never NO-GO for this.
+  `category: "scope"`, `line: 0`) — merge them **verbatim** into `findings`. Any OPEN scope finding
+  sets `status: NO-GO` with `no_go_reason.type = "out-of-scope-change"`. A human may ACCEPT a scope
+  finding in the grouped ambiguity pass (step 5) — acceptance is the scope escape hatch. Exit 2
+  (manifest malformed) → treat as absent below.
+- **Manifest absent** (Full mode — corroborated by `briefs/<task>-implementer.md` existing) → emit
+  one MEDIUM informational finding "scope gate skipped — no manifest"; never NO-GO for this.
 
-Auto-fixes (step 2) must stay within manifest entries when a manifest is present — this gate
-runs after them and flags any excursion regardless of author. Known blind spots (documented in
-the script): a task edit to a pre-task-dirty file is excluded; a mid-phase third-party file is
-attributed to the task and must be human-ACCEPTED.
+Auto-fixes (step 2) must stay within manifest entries when a manifest is present — this gate runs
+after them and flags any excursion regardless of author. A task edit to a pre-task-dirty file is
+excluded by design; a mid-phase third-party file is attributed to the task and must be
+human-ACCEPTED (documented blind spots, see the script).
 
-When spawning the `reviewer` agent (step 3), state in its instructions whether this gate ran —
-when it ran, the agent defers scope assessment to it and emits no scope findings of its own.
+When spawning the `reviewer` agent (step 3), state whether this gate ran — when it did, the agent
+defers scope assessment to it and emits no scope findings of its own.
 
 ### 3. Conditional specialists
 
-Spawn specialists based on scope. Each specialist receives:
-- The complete diff
-- The `briefs/<task>-reviewer.md`
-- Their own instructions (path below)
-- Whether the deterministic scope gate (§2.5) ran — the `reviewer` agent defers scope assessment to it when it did
+Spawn specialists based on scope. Each receives: the complete diff, `briefs/<task>-reviewer.md`,
+their own instructions (path below), and whether the scope gate (§2.5) ran.
 
-**Uncommitted-tree work:** when reviewing work done on uncommitted working-tree files, capture the **pre-task tree state** (`git diff --stat` + `git status` snapshot recorded at task start — e.g. from the intake/impl brief) and pass it to every specialist, so scope-discipline claims are verifiable without session history.
+**Uncommitted-tree work:** capture the pre-task tree state (`git diff --stat` + `git status`
+recorded at task start) and pass it to every specialist, so scope-discipline claims are verifiable
+without session history.
 
 | Specialist | Condition | Path / Invocation |
 |---|---|---|
@@ -152,120 +153,91 @@ Spawn specialists based on scope. Each specialist receives:
 | `architect` | Medium or large blast radius (>3 files modified or public module) | `.claude/agents/architect.md` |
 | TUI pass (via `reviewer`) | TUI scope detected in diff or brief | Spawn the `reviewer` agent with a TUI checklist appended: rendering at 80x24/120x40/220x50, keyboard navigation paths, terminal-capability fallbacks, escape-sequence hygiene. (Deterministic tmux verification happens later in `/roster-qa`.) |
 | `reviewer` (agent) | Always | `.claude/agents/reviewer.md` |
-| `cross-runtime-reviewer` | **Mandatory** in Fast/Full when a runtime CLI other than the host is on `PATH` (`codex` or `opencode`); skip only by explicit human decision | See **Cross-Runtime Review** below — an independent second-model pass |
+| `cross-runtime-reviewer` | **Mandatory** in Fast/Full when a runtime CLI other than the host is on `PATH` (`codex` or `opencode`); skip only by explicit human decision | See **Cross-Runtime Review** below |
 
-### Delta-Scoped Loop-Back Reviewer Selection (US-3)
+#### Delta-Scoped Loop-Back Reviewer Selection
 
-This table governs round 1. On a **loop-back round** (physical `round` ≥ 2, §5.5), narrow selection
-per below instead — safe because the ratchet + every-round gate (§5.5) hold the floor regardless of
-which specialists re-run.
+This table governs round 1. On a loop-back round (physical `round` ≥ 2), narrow selection per
+below — safe because the ratchet + every-round gate (§5.5) hold the floor regardless of which
+specialists re-run.
 
-**Round 1 or legacy review.json missing `round` (FR-071).** Apply the table above unchanged. The
-`rounds_audit` entry is not mandatory here — the gate downgrades a missing entry to a warning
-(FR-030 pattern, EC-7) rather than a violation.
+**Round 1, or legacy `review.json` missing `round`.** Apply the table above unchanged. A missing
+`rounds_audit` entry here downgrades to a warning, not a violation.
 
-**Loop-back rounds — `round` ≥ 2 (FR-072..FR-076):**
+**Loop-back rounds — `round` ≥ 2:**
 
-- The owner `reviewer` agent **always** re-runs (FR-072).
+- The owner `reviewer` agent **always** re-runs.
 - A specialist re-runs **iff** it is named in an OPEN finding's `specialist` field, **or** a
   trust-boundary surface (authority, custody, isolation, publication) changed since the round's
-  `reviewed_sha` (FR-073). Otherwise it does not run this round.
-- Cross-runtime participation on loop-back rounds is governed exclusively by the US-2 circuit
-  breaker state (FR-074): healthy + owns an OPEN finding it raised → re-runs; degraded → never runs.
-  This table's cross-runtime row does not apply on loop-back rounds.
-- **Full fan-out** (every specialist from the round-1 table, plus the cross-runtime pass when
-  healthy) re-triggers when either:
-  - the correction changes public behavior, authority, custody, isolation, or publication semantics
-    — record the judgment in the audit entry's `selection_reason` (FR-075); or
-  - the **immediately preceding round** recorded a strike (`rounds_audit[].strike == true`) — the
-    anti-starvation rule (FR-076): strike 2 of a two-strike escalation is always measured under
-    full scrutiny, never narrowed away by delta selection.
-- **Deduped findings (EC-9):** when two findings converged on one shared invariant and only one
-  specialist survives the dedup (§4), that surviving specialist's name is what selection keys on —
-  the converged twin need not re-run.
+  `reviewed_sha`. Otherwise it sits out this round.
+- Cross-runtime participation on loop-back rounds is governed exclusively by the circuit-breaker
+  state below — this table's cross-runtime row does not apply here.
+- **Full fan-out** (every specialist, plus the cross-runtime pass when healthy) re-triggers when
+  either: the correction changes public behavior/authority/custody/isolation/publication semantics
+  (record the judgment in `selection_reason`); or the **immediately preceding round** recorded a
+  strike — the anti-starvation rule: strike 2 of a two-strike escalation is always measured under
+  full scrutiny, never narrowed away by delta selection.
+- **Deduped findings:** when two findings converged on one shared invariant and only one specialist
+  survives the dedup (§4), that surviving specialist's name is what selection keys on.
 
-**`rounds_audit` (FR-077).** Append **one entry per round — including GO drafts** — to an
-append-only `rounds_audit` array before invoking the gate (§5.5), shaped:
+Append **one entry per round — including GO drafts** — to `rounds_audit` (append-only, carried
+forward, **retained on GO**) before invoking the gate (§5.5), with `round`, `reviewed_sha`,
+`fix_sha` (or `null` + `fix_sha_reason: "dirty-tree"`), `specialists_run: [{name,
+selection_reason}]` (every entry needs a non-empty reason — "why did this specialist run this
+round" must always be answerable), and `strike` (populated **after** the gate reports it, §5.5 —
+never computed here). Full shape: `schema/review-json-schema.md`.
 
-```json
-{
-  "round": 2,
-  "reviewed_sha": "<HEAD at the PREVIOUS round's verdict emission>",
-  "fix_sha": "<HEAD at THIS round's draft composition, or null if the tree is dirty>",
-  "fix_sha_reason": "dirty-tree",
-  "specialists_run": [
-    { "name": "reviewer", "selection_reason": "owner reviewer always runs (FR-072)" },
-    { "name": "architect", "selection_reason": "named in OPEN finding lib.ml:40:architecture" }
-  ],
-  "strike": false
-}
-```
+### Cross-Runtime Review
 
-Every `specialists_run` entry MUST carry a non-empty `selection_reason` — "why did this specialist
-run this round" must always be answerable from the artifact. Full fan-out entries read
-`"full-fanout: <trigger>"` (e.g. `"full-fanout: authority semantics changed"` or
-`"full-fanout: prior round strike (anti-starvation)"`). `fix_sha_reason` accompanies a null
-`fix_sha` (dirty tree, EC-8) — pass-with-flag, not a violation. `strike` is populated **after** the
-gate reports it (§5.5, B-1) — never computed by roster-review itself. `rounds_audit` carries forward
-and is **retained** on GO (B-3) — reset only at the next cycle's round 1.
+When a different runtime CLI is available, run an independent adversarial pass — **mandatory** for
+Fast/Full when a second runtime is on `PATH`, skippable only by explicit human decision (record it
+in the verdict if skipped).
 
-### Cross-Runtime Review (US-2, circuit breaker)
-
-When a **different** runtime CLI is available, run an independent adversarial pass. Detection:
+Invoke the helper — it owns the wrapper subprocess, exit-code corroboration, output validation,
+`config_digest`, the invocation journal, and the probe-once/degrade-once breaker state:
 
 ```bash
-command -v codex >/dev/null 2>&1 && echo "codex available"
-command -v opencode >/dev/null 2>&1 && echo "opencode available"
+[ -f scripts/xruntime-review.js ] && node scripts/xruntime-review.js codex "<prompt>" --task <task-slug> --round <round> [--write] [--timeout <tunables.cross_runtime_probe_timeout>] || echo "xruntime-review.js missing — stale install"
 ```
 
-If neither is present (or only the host runtime), **skip silently**.
+Pass the diff and `briefs/<task>-review.json` in `<prompt>`; instruct it to return **only findings
+the primary missed**, in the standard finding schema with `specialist: "<runtime>-xruntime"`.
+Verification prompts must state claims in **behavioral terms** — disputes over phrasing are not
+findings.
 
-**Mandatory for Fast/Full reviews when a second runtime CLI is on `PATH`.** This pass may be skipped **only by explicit human decision** — never silently. If skipped, record the human decision in the verdict.
+The helper's JSON result is `{status, reason, config_digest, findings[], journal_line}`.
+`status: "healthy"` → merge `findings[]` into `cross_runtime_findings` (augment-only — never edit
+primary `findings`) and persist the digest/round into `cross_runtime`. `status: "degraded"` →
+discard the run's output entirely (it can never contribute a novel finding); persist the
+degradation with its `reason`. `status: "skipped-degraded"` → the breaker refused a re-probe this
+cycle (never a permanent ban — a fresh cycle, i.e. prior GO or no prior file, always re-probes).
+`status: "skipped-human"` → an explicit human decision to skip, already journaled.
 
-**Participation precedence (FR-060..FR-068, B-2)** — highest first:
+**Precedence** (highest first): a degraded runtime never re-runs within or after the round it
+degraded, short of a digest change or `--human-retry`. Round 1 or a full-fan-out round runs a
+healthy runtime unconditionally. A delta (loop-back, non-full-fan-out) round runs a healthy runtime
+only if it owns an OPEN finding it originally raised.
 
-1. **Degraded → never runs.** The breaker overrides everything else; a degraded runtime is never re-invoked within or after the round it degraded, unless its `config_digest` changes or the human explicitly requests a retry (FR-066).
-2. **Round 1 or a full-fan-out round → a healthy runtime runs.** Full fan-out (see §3 selection rules) always includes the cross-runtime pass when the runtime is healthy.
-3. **A delta (loop-back, non-full-fan-out) round → a healthy runtime runs iff it owns an OPEN finding** it originally raised (FR-074). Otherwise it does not run that round — this is not degradation, just non-selection.
+**GO authority:** any `cross_runtime_findings` entry that is CRITICAL or HIGH (OPEN) sets
+`status: NO-GO` with `no_go_reason.type = "cross-runtime-finding"`. When such an entry drives the
+NO-GO, mirror it into primary `findings` (gaining the round-tracking fields, `first_seen_round` =
+this round) so it enters the ratchet — the `cross_runtime_findings` original is never edited.
 
-**Probe-once, degrade-once (FR-060, FR-065 as amended by B-2).** The first real cross-runtime pass IS the probe. `cross_runtime` in review.json is an object keyed by runtime name: `{status: "healthy"|"degraded", reason, config_digest, round}`. Healthy status is recorded, not only degraded — a probe-once rule is unimplementable without recording the healthy case too. A healthy runtime keeps running on every round **on which it is selected** (per the precedence above) until its first failure, at which point it flips to `degraded` at that round and is never retried on any later round (FR-065 amended by B-2) — except for the config_digest/human-request re-probe path (FR-066).
-
-**Degraded taxonomy (FR-061).** Mark a runtime degraded on: hard timeout (tunable `cross_runtime_probe_timeout`, default 120s, passed to `xruntime-exec.sh --timeout`), empty/banner-only output, refusal, schema-invalid or truncated output, or a wrapper tree-mutation exit (`xruntime-exec.sh` exit 3) — reason `"tree-mutation"`, human-flagged. Schema-valid output with an **empty** findings array is `healthy`, never degraded by itself (FR-062).
-
-**Discard on degrade (FR-063, FR-070).** A degraded run's output is discarded entirely — it is never merged into `cross_runtime_findings` and therefore can never contribute a novel finding to strike computation (§5.5 two-strike escalation). Findings recorded while the runtime was healthy retain full GO-blocking authority even after it later degrades (FR-064) — degrading does not retroactively waive prior findings.
-
-**`config_digest` (FR-067).** Hash the runtime name, the CLI's `--version` output (10-second timeout; a hang is itself degraded, reason `"version-probe-timeout"`), and the wrapper flags. Prompt/diff content is deliberately excluded — including it would change the digest every round and void the no-retry rule.
-
-**Carry-forward and reset (FR-068, B-3).** `cross_runtime` carries forward across rounds of one review cycle and is **retained** (not reset) on a GO verdict — see §5.5's B-3 retain-on-GO rule. A QA-driven return is a fresh review cycle: it re-probes once, at round 1 of the new cycle, deliberately (post-QA re-review deserves full scrutiny).
-
-**Invocation:** use the wrapper — it closes stdin (bare `codex exec` hangs), sets
-`--skip-git-repo-check`, file-captures output (survives output-mangling shell wrappers), and
-takes the before/after tree-integrity snapshot automatically (exit 3 = tree mutated):
-
-```bash
-bash scripts/xruntime-exec.sh codex "<prompt>" [--write] [--timeout <sec>]
-```
-
-Pass `--write` only when the pass must run builds (workspace-write sandbox). Pass the diff and `briefs/<task>-review.json`; instruct it to return **only findings the primary missed**, as JSON in the standard finding schema with `specialist: "<runtime>-xruntime"`. Verification prompts must state claims in **behavioral terms** (observable behavior, not implementation phrasing) — disputes over phrasing are not findings.
-
-**Augment, never rewrite.** Append returned objects to `cross_runtime_findings`. Do **not** edit primary `findings` entries.
-
-**GO authority:** any `cross_runtime_findings` entry that is CRITICAL or HIGH (OPEN) sets `status: NO-GO` with `no_go_reason.type = "cross-runtime-finding"`.
-
-**Gate warning (FR-069).** The convergence gate (§5.5) structurally warns when a `degraded` `cross_runtime` entry lacks `reason` or `config_digest`. Surface any such warning in the human-gate one-liner (§7) — it means the breaker's bookkeeping is incomplete, not that a finding was missed. Beyond this structural warning and the config echo (§5.5, B-4), probe-once/discard/no-retry compliance is prose-level (accepted residual R-4, B-9) — the breaker's primary value is revoking the mandate to retry that the old rule imposed.
+**Gate warning:** the convergence gate structurally warns when a `degraded` `cross_runtime` entry
+lacks `reason` or `config_digest` — surface it verbatim in the human-gate one-liner (§7); it means
+the breaker's bookkeeping is incomplete, not that a finding was missed.
 
 **KB-conditional check:** `[ -d kb ] && [ -f kb/properties.md ] && echo "KB present" || echo "KB absent"`
 
-If KB is present, `code-quality-auditor` findings are merged into the review table. Critical KB violations are auto-classified as HIGH severity.
+If KB is present, `code-quality-auditor` findings are merged into the review table. Critical KB
+violations are auto-classified as HIGH severity.
 
-When findings have `category: "spec"` and severity CRITICAL or HIGH:
-- Set `no_go_reason.type = "spec-ac-failure"` in the verdict
-- Populate `no_go_reason.failed_acs` from each finding's `acs` array (the
-  spec-compliance-auditor's embedded mode supplies it — `AC-N`/`FR-NNN` ids when the
-  spec source is a `specs/<task-slug>.md` contract, `S<N>` claim ids when auditing
-  against `kb/spec.md`, which has no AC section)
+When findings have `category: "spec"` and severity CRITICAL or HIGH: set
+`no_go_reason.type = "spec-ac-failure"` and populate `no_go_reason.failed_acs` from each finding's
+`acs` array (`AC-N`/`FR-NNN` for a `specs/<task-slug>.md` contract, `S<N>` claim ids for `kb/spec.md`).
 
-**Expected findings format from each specialist:**
+**Expected findings format from each specialist** (validated against
+`schema/review-finding.schema.json`):
 
 ```json
 {
@@ -282,11 +254,20 @@ When findings have `category: "spec"` and severity CRITICAL or HIGH:
 }
 ```
 
-### 4. Deduplication
+### 4. Normalize and deduplicate
 
-If two specialists report the same finding (same `fingerprint` or same path+line+category):
-- Keep the finding with the highest severity
-- Note that both specialists converged (confidence signal)
+Run the normalizer over every specialist's raw findings plus the prior cumulative ledger:
+
+```bash
+[ -f scripts/review-normalize.js ] && node scripts/review-normalize.js <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> || echo "review-normalize.js missing — stale install"
+```
+
+It validates each new finding, canonically fingerprints it, merges exact duplicates (highest
+severity wins; convergence recorded), surfaces `probable_duplicates` for your adjudication (never
+auto-merged), separates re-observations of an already-carried finding (`reobservations[]` — no
+false novel-finding strike) from genuinely new findings, and routes cross-runtime findings
+separately. Schema-invalid input lands in `rejected[]` with a reason — never silently dropped.
+Merge its output into the draft verdict; stamp `normalized_by` with its `normalizer_version`.
 
 ### 5. Group ambiguities
 
@@ -312,294 +293,116 @@ Never ask multiple separate questions. One single pass.
 
 ### 5.5 Invariant ratchet + convergence gate
 
-This applies to every round of a task, not just loop-backs — the gate runs on **every** verdict
-emission, GO included (A-1): the ratchet is enforced most strictly on the round that ends the loop.
+Runs on **every** verdict emission of every round, GO included — the ratchet is enforced most
+strictly on the round that ends the loop. Full field shapes: `schema/review-json-schema.md`.
 
-**Cumulative findings (FR-010).** Read the prior `briefs/<task>-review.json` if it exists.
-`findings` is cumulative across a task's rounds: carry every prior entry forward **verbatim**,
-updating only `status` (and the round-tracking fields below) — never re-derive a fingerprint or
-drop an entry because a specialist didn't re-report it this round. **Reset `findings` to empty on
-a GO verdict** (after the promotion in the GO-verdict step below).
+**Cumulative findings.** Read the prior `briefs/<task>-review.json` if it exists. `findings` is
+cumulative: carry every prior entry forward **verbatim**, updating only `status` and the
+round-tracking fields — never re-derive a fingerprint or drop an entry the normalizer didn't
+re-report this round. **Reset `findings` to empty on a GO verdict**, after promoting checks below.
 
-**Per-finding round-tracking fields (FR-011).** Every finding — old and new — carries these seven
-fields in addition to the existing schema:
+**The ratchet rule.** A HIGH+ finding whose `resolved_round` is greater than `first_seen_round`
+(it survived at least one loop-back) MUST carry a non-null `check` before RESOLVED. Exempt: same-
+round raise+resolve, and human-`ACCEPTED` findings. Two findings revealing the same invariant may
+share one check. The implementer declares each new check in a `## Ratchet` section of
+`briefs/<task>-impl.md` (finding reference, check path, red command, `check_encodable` + reason if
+false) — read it to populate the corresponding finding's fields; do not infer a check path from the
+diff. A `check` is always a node-runnable file path (invoked as `node <path>`); a spec-level
+`CHECK-N` id with no file is recorded for traceability but not red/green-executed.
 
-| Field | Type | Meaning |
-|---|---|---|
-| `first_seen_round` | int | the round this finding first appeared |
-| `resolved_round` | int \| null | the round it was marked RESOLVED, if any |
-| `check` | string \| null | path to the linked ratchet check (see below) |
-| `check_encodable` | bool | default `true`; `false` = implementer proposes no deterministic check is possible |
-| `red_verified` | bool \| null | set by the gate's full-mode red/green run |
-| `pre_fix_sha` | string \| null | HEAD at the round this finding was first recorded as a NO-GO driver |
-| `check_blob` | string \| null | `git hash-object` of the check file at last verification |
+**ACCEPT prompt.** When the human ACCEPTs a HIGH+ finding in step 5, state that acceptance
+**permanently waives** the invariant — never phrase it as "skip for now".
 
-**The ratchet rule (FR-012/FR-013).** A HIGH+ finding whose `resolved_round > first_seen_round`
-(i.e. it survived at least one loop-back) MUST carry a non-null `check` before it can be marked
-RESOLVED. Exempt: findings raised and resolved within the **same** round (never crossed a
-loop-back), and findings the human marks `ACCEPTED`. Two findings that reveal the same invariant
-MAY share one check.
+**Two counters, never conflated.** `no_go_round` (reset to 0 on GO, incremented when a finding-
+driving NO-GO occurs outside `category: "scope"`, compared against `tunables.max_no_go_rounds`) is
+the qualifying-only round-cap backstop. The physical `round` counter (**no reset-on-GO** — it
+persists across the whole task) counts every verdict emission and is the cohort key for two-strike
+escalation, loop-back detection, and `rounds_audit`. Determine this draft's `round` from the prior
+verdict: absent prior file or prior `status: "GO"` → `1` (fresh cycle, `rounds_audit`/`cross_runtime`
+reset); prior `NO-GO` with a numeric `round` → `prior.round + 1` (carry `rounds_audit`/
+`cross_runtime` forward); prior `NO-GO` with `round` absent (legacy) → stay legacy for this cycle.
+A repaired draft re-gated after an exit-3 violation does **not** bump `round` again.
 
-**Consuming the `## Ratchet` section (FR-017).** The implementer declares each new check in a
-`## Ratchet` section of `briefs/<task>-impl.md` (finding reference, check path, red command,
-proposed `check_encodable` + reason if false). Read it and populate the corresponding finding's
-`check`/`check_encodable` fields from it — this is the only channel; do not infer a check path
-from the diff.
+**Two-strike novel-finding escalation.** Pass `tunables.novel_finding_strikes` to the gate as
+`--strikes`. The gate computes the current round's strike (a physical round ≥ 2 with ≥1 novel
+HIGH+ non-scope, non-ACCEPTED, non-same-round-resolved finding; round 1 never strikes) — persist it
+into this round's `rounds_audit` entry. **Human override (streak only):** when the gate's `cause`
+is `novel-finding-streak`, offer an explicit "override — one more implement round" option alongside
+the default `/roster-spec` routing; if exercised, record `streak_override: {round, by: "human"}`,
+force this round's `strike: false`, and route to `/roster-implement` instead — a **new** streak
+must fully re-accumulate before the option returns. The round-cap escalation is **never**
+overridable.
 
-**Check-value contract.** The gate always invokes a finding's `check` as `node <path>` (A-6 — the
-check file itself is the red/green command). A `check` value MUST therefore be a node-runnable
-file path. A spec-level `CHECK-N` id with no corresponding file is recorded in `review.json` (for
-traceability) but is **not** red/green-executed by the gate — it is out of scope for mechanical
-verification, not a violation; do not expect the gate's `checks[]` report to cover it.
+**`pre_fix_sha`.** At NO-GO emission, for each new HIGH+ finding this round: if the tree is clean,
+`pre_fix_sha` = current HEAD; if dirty, `pre_fix_sha` = `null` with `"dirty-tree"` — never record a
+confidently wrong SHA. When null, `red_verified` stays null; flag it in the one-liner (§7).
 
-**Permanent-waiver ACCEPT prompt (FR-014).** When the human ACCEPTs a HIGH+ finding in the step 5
-grouped ask, the prompt text MUST state that accepting **permanently waives** the invariant — no
-check will ever guard it. Do not phrase acceptance as "skip for now".
-
-**Cross-runtime mirroring (FR-015).** When a `cross_runtime_findings` entry is CRITICAL/HIGH and
-drives the NO-GO, mirror it into the primary `findings` array (with the same seven fields,
-`first_seen_round` = this round) so it enters the ratchet. The original entry in
-`cross_runtime_findings` is never edited — augment-only.
-
-**`no_go_round` (FR-021, FR-026).** Read the prior value (0 if absent/first round). Increment it
-by exactly 1 when this verdict is NO-GO **and** at least one OPEN HIGH+ finding outside
-`category: "scope"` drove it (a scope-only NO-GO does not increment — the scope gate is a separate
-mechanism). Reset to 0 on GO. Compare against `tunables.max_no_go_rounds` (default 5) — reaching or
-exceeding it is a gate violation (`cause: "round-cap"`), independent of the finding-level checks.
-**This is unchanged by review-fanout-convergence** — `no_go_round` remains the qualifying-only
-round-cap backstop (it counts only finding-driving NO-GOs). It is a **distinct counter** from the
-physical `round` below — never conflate the two, and never derive one from the other.
-
-**The physical `round` counter (US-1, FR-050/FR-051/FR-052, amended B-3).** `round` counts every
-verdict emission of the current review cycle, qualifying or not — it is the cohort key for
-two-strike escalation, loop-back detection (§3), and `rounds_audit` entries. Unlike `no_go_round`,
-**there is no reset-on-GO.** Determine this verdict's `round` at draft composition, from the prior
-`briefs/<task>-review.json` (if any):
-
-| Prior state | This draft's `round` | `rounds_audit` | `cross_runtime` |
-|---|---|---|---|
-| No prior file (first-ever round) | `1` | `[]` | `{}` |
-| Prior `status == "GO"` (a **new** review cycle is starting — e.g. a QA-driven return) | `1` | `[]` (fresh) | `{}` (fresh — one re-probe, per US-2) |
-| Prior `status == "NO-GO"` and prior `round` is a number (continuing this cycle) | `prior.round + 1` | carried forward, append this round's entry | carried forward, updated per US-2 probe rules |
-| Prior `status == "NO-GO"` and prior `round` is **absent** (legacy — this cycle predates the feature) | **absent** (stay legacy for the rest of this cycle) | not written | not written |
-
-The persisted GO verdict **retains** its cycle-final `round`/`rounds_audit`/`cross_runtime` — do
-**not** zero them out when writing a GO. The reset only happens implicitly, at the **next** cycle's
-first round, per the table above (B-3) — this is what keeps the write single and crash-safe (A-2):
-the gate always validates exactly the object being persisted, never a value that gets rewritten
-after the fact. `round` increments **exactly once per persisted verdict** — a repaired draft that
-is re-gated after an exit-3 process-incomplete violation (below) does **not** bump `round` again;
-it is still the same verdict being composed.
-
-Do not confuse this with `no_go_round`'s FR-021 reset-on-GO — that rule is unchanged and applies
-only to `no_go_round`. `first_seen_round`/`resolved_round` on findings stamp from **this** physical
-`round`, never from `no_go_round`.
-
-**Two-strike novel-finding escalation (US-1, FR-053..FR-059).** Pass
-`tunables.novel_finding_strikes` to the gate as `--strikes` (FR-057). The gate computes the
-**current round's** strike classification from the draft's `findings` (a physical round ≥ 2 with
-≥1 novel HIGH+ non-scope, non-ACCEPTED, non-same-round-resolved finding); round 1 never strikes.
-**Past strikes are never recomputed** — the gate reads them from `rounds_audit[].strike`, which you
-persisted from its own report in an earlier round (B-1). After the gate runs, persist its computed
-`current_round_strike` value into this round's `rounds_audit` entry's `strike` field (§3). A same-round-resolved or ACCEPTED novel finding never counts as a strike — which is exactly what makes a
-clean GO round strike-free by construction (FR-058): the streak can never flip a GO round to NO-GO
-via the streak mechanism itself (though other gate violations still can, per A-1).
-
-**Human override of a streak escalation (B-6).** When the gate's top-level `cause` is
-`"novel-finding-streak"`, the verdict does **not** unconditionally route to `/roster-spec` — at the
-§7 human gate, present an explicit **"override — one more implement round"** option alongside the
-default design-not-converging routing. If the human overrides: record
-`streak_override: {round: <this round>, by: "human"}` in review.json, force this round's
-`rounds_audit` entry `strike: false` (overriding what the gate computed), and route back to
-`/roster-implement` for one more round instead of escalating to spec. This resets the streak — a
-**new** streak must fully re-accumulate before the option is offered again (bounding the cost to
-one human decision per streak occurrence). The **round-cap** escalation (`cause: "round-cap"`)
-remains **non-overridable** — this override applies only to the streak cause.
-
-**`pre_fix_sha` recording (FR-033, amended A-3).** At NO-GO verdict emission, for each **new**
-HIGH+ finding recorded this round, verify the tree is clean (`git status --porcelain` empty) —
-roster-implement commits each round's work before handoff (FR-040). If clean: `pre_fix_sha` =
-current `HEAD`. If dirty: `pre_fix_sha` = `null` with reason `"dirty-tree"` — never record a
-confidently wrong SHA. When `pre_fix_sha` is `null` (dirty tree or genuinely uncommitted-tree
-task), `red_verified` stays `null`; the gate accepts this but flags it in the one-liner (FR-034).
-
-**Gate invocation — fixed order (A-2, extended by B-4/B-5).** Compose the draft verdict (fields
-above populated, including this round's `rounds_audit` entry and any `cross_runtime` updates)
-BEFORE writing anything to disk. Then invoke the gate:
+**Gate invocation — fixed order.** Compose the full draft (including this round's `rounds_audit`
+entry and any `cross_runtime` updates) and write it to a `.draft` suffix BEFORE invoking:
 
 ```bash
 node scripts/check-review-convergence.js briefs/<task>-review.json.draft --max-rounds <tunables.max_no_go_rounds> --strikes <tunables.novel_finding_strikes> --timeout 120
 ```
 
-(Write the draft verdict to a `.draft` suffix first so the gate has a file to read without
-touching the real artifact yet.) The gate runs full mode here — it executes red/green verification
-for any check needing it and reports results as JSON on stdout.
+This runs full mode: red/green verification for any check needing it, JSON report on stdout.
+Before trusting any other field, check `report.config.strikes` is present — its absence means a
+stale gate script; do not persist, surface "gate script out of date" to the human, and stop.
 
-**Config-echo verification (B-4).** Before trusting any other field of the report, check that
-`report.config.strikes` is present. Its **absence** means the installed gate script predates this
-feature (a stale distribution) — treat this as degraded input: do not persist the draft, surface
-"gate script out of date — scripts/check-review-convergence.js needs upgrading" to the human, and
-stop. This check applies on every invocation, including an otherwise-clean exit 0.
+**Exit-3 bounded repair loop.** Exit 3 means the only violations are `process-incomplete`
+(currently: an incomplete/absent `rounds_audit` entry) — a bookkeeping defect, not a design one.
+Repair the draft's `rounds_audit` entry per `violations[].detail` and re-invoke (do not bump
+`round`), bounded to 2 attempts total; if still exit 3, stop and surface to the human. This cause
+must **never** reach routing — `process-incomplete` is always repaired pre-persist or surfaced
+directly, never treated as design-not-converging.
 
-**Exit-3 bounded repair loop (B-5, FR-079).** Exit 3 means the **only** violations are
-`process-incomplete` (currently: `missing-loopback-audit` — an incomplete or absent `rounds_audit`
-entry for this round). This is a **bookkeeping** defect, not a design one: repair the draft's
-`rounds_audit` entry (fill the missing field(s) the report's `violations[].detail` names) and
-re-invoke the gate — **do not increment `round`** for the retry, it is the same verdict. Bound this
-to **2 repair attempts total**; if the gate still reports exit 3 after the second attempt, stop and
-surface to the human — do not persist, do not route. Exit 3 must **never** reach routing logic:
-design-not-converging routing (below) applies only to design causes (`round-cap`,
-`unencodable-finding`, `novel-finding-streak`) — never to `process-incomplete`.
+Once the gate reports anything other than exit 3, merge `checks[]` (`red_verified`, `check_blob`)
+back into findings, merge `current_round_strike` into this round's `rounds_audit.strike`, and merge
+the outcome into the verdict: exit 0 → no change. Exit 1 → **the verdict becomes NO-GO regardless
+of step 6**, `no_go_reason.type = "design-not-converging"`, `cause` from the gate's top-level
+`cause` (precedence unencodable-finding > novel-finding-streak > round-cap) — even on an otherwise-
+GO round. Exit 2 → degraded input — fail-closed: block the route-back and surface to the human.
 
-Once the gate reports something other than exit 3, merge the gate's `checks[]` results
-(`red_verified`, `check_blob`) back into the corresponding findings, merge `current_round_strike`
-into this round's `rounds_audit` entry (`strike` field), and merge any blocking outcome into the
-verdict:
+Only then write `briefs/<task>-review.json` **once** (never before the gate has run and merged) and
+remove the `.draft` file — no half-written state, no orphan drafts.
 
-- Gate exit 0 → no change to the verdict's status.
-- Gate exit 1 → **the verdict becomes NO-GO regardless of what step 6 computed**, with
-  `no_go_reason.type = "design-not-converging"` and `no_go_reason.cause` taken from the gate's
-  top-level `cause` field (`"round-cap"` | `"unencodable-finding"` | `"novel-finding-streak"` —
-  precedence unencodable-finding > novel-finding-streak > round-cap, FR-059). This applies even to
-  a round that would otherwise be GO (A-1) — vacuous checks, RESOLVED-without-check, blob-weakening
-  findings, and a novel-finding streak all invalidate a GO.
-- Gate exit 2 → degraded input (malformed review.json, unknown flag, or an inconclusive red/green
-  run) — fail-closed: block the route-back and surface to the human, unchanged from pipeline-loop-convergence's original contract.
-
-Only then write `briefs/<task>-review.json` **once** (rename the draft or write the merged object)
-— there is no post-write crash window, and the file is never in a half-written or unverified state.
-**Remove the `.draft` file after the merged write** (whether you renamed it or wrote a fresh
-object) — no orphan draft artifacts should remain in `briefs/`.
-
-**GO-verdict promotion (FR-042, A-8).** Before resetting `findings` on a GO verdict, promote every
-`red_verified: true` check to a permanent home: if `specs/<task-slug>.md` exists, append it as a
-new `CHECK-N` entry (with its paired `AC-N` describing the now-permanent invariant); otherwise it
-stays in the test suite as an ordinary test (documented residual — post-GO weakening protection
-degrades to normal test discipline once the ratchet's round-scoped bookkeeping resets).
+**GO-verdict promotion.** Before resetting `findings` on GO, promote every `red_verified: true`
+check to a permanent home: append it as a new `CHECK-N`/`AC-N` pair in `specs/<task-slug>.md` if it
+exists, otherwise it stays an ordinary test (post-GO weakening protection then degrades to normal
+test discipline).
 
 ### 6. Write the verdict
 
-Produce `briefs/<task>-review.json`:
+Produce `briefs/<task>-review.json` per `schema/review-json-schema.md` — `task`, `date`, `status`,
+`auto_fixes_applied`, `findings` (base shape: `schema/review-finding.schema.json`, plus the seven
+round-tracking fields), `cross_runtime_findings`, `summary`, `no_go_reason`, `no_go_round`, `round`,
+`rounds_audit`, `cross_runtime`, `streak_override`, `mode`, `escalation_needed`,
+`escalation_reason`, `normalized_by`.
 
-```json
-{
-  "task": "<task-slug>",
-  "date": "<ISO-8601>",
-  "status": "GO|NO-GO",
-  "auto_fixes_applied": [
-    {
-      "path": "file.ml",
-      "line": 10,
-      "category": "dead-code",
-      "description": "Removed unused variable `x`"
-    }
-  ],
-  "findings": [
-    {
-      "severity": "HIGH",
-      "confidence": 4,
-      "path": "file.ml",
-      "line": 42,
-      "category": "correctness",
-      "summary": "...",
-      "evidence": "...",
-      "fix": "...",
-      "fingerprint": "file.ml:42:correctness",
-      "specialist": "reviewer",
-      "status": "OPEN|RESOLVED|ACCEPTED",
-      "first_seen_round": 1,
-      "resolved_round": null,
-      "check": null,
-      "check_encodable": true,
-      "red_verified": null,
-      "pre_fix_sha": null,
-      "check_blob": null
-    }
-  ],
-  "cross_runtime_findings": [
-    {
-      "severity": "HIGH",
-      "confidence": 4,
-      "path": "file.ml",
-      "line": 42,
-      "category": "correctness",
-      "summary": "...",
-      "evidence": "...",
-      "fix": "...",
-      "fingerprint": "file.ml:42:correctness",
-      "specialist": "codex-xruntime",
-      "status": "OPEN"
-    }
-  ],
-  "summary": {
-    "critical": 0,
-    "high": 0,
-    "medium": 0,
-    "low": 0,
-    "auto_fixed": 0
-  },
-  "no_go_reason": {
-    "type": null,
-    "cause": null,
-    "failed_acs": []
-  },
-  "no_go_round": 0,
-  "round": 1,
-  "rounds_audit": [
-    {
-      "round": 1,
-      "reviewed_sha": null,
-      "fix_sha": "<HEAD at draft composition>",
-      "fix_sha_reason": null,
-      "specialists_run": [
-        { "name": "reviewer", "selection_reason": "round 1: full fan-out (initial round)" }
-      ],
-      "strike": false
-    }
-  ],
-  "cross_runtime": {
-    "codex": { "status": "healthy", "reason": null, "config_digest": "<hash>", "round": 1 }
-  },
-  "streak_override": null,
-  "mode": "express|fast|full",
-  "escalation_needed": false,
-  "escalation_reason": null
-  // type values: null | "spec-ac-failure" | "code-plan-failure" | "cross-runtime-finding" | "out-of-scope-change" | "design-not-converging"
-  // cause values (only set when type == "design-not-converging"; persisted, PERSISTED cause is never
-  // "process-incomplete" — that gate-internal cause is repaired pre-persist per FR-079, B-5):
-  // null | "round-cap" | "unencodable-finding" | "novel-finding-streak"
-  // escalation_reason: null | "new-public-api" | "implicit-design-decision" | "spec-update-needed" | "behaviour-change"
-  // cross_runtime_findings: appended by the cross-runtime reviewer (augment-only); omit the key entirely if no second runtime ran
-  // round/rounds_audit/cross_runtime: absent entirely on a legacy task (predates review-fanout-convergence, B-8) — never write them mid-cycle if the prior review.json lacked `round`
-  // streak_override: null unless the human exercised the B-6 override this round — then {round, by: "human"}
-}
-```
-
-**GO status if:** no CRITICAL or HIGH OPEN finding **in either `findings` or `cross_runtime_findings`**, AND the convergence gate (§5.5) reports no violation.
-**NO-GO status if:** at least one CRITICAL or HIGH OPEN finding (primary or cross-runtime) not resolved or explicitly accepted, OR the convergence gate reports a violation. A cross-runtime CRITICAL/HIGH sets `no_go_reason.type = "cross-runtime-finding"`; a gate violation sets `no_go_reason.type = "design-not-converging"` with `cause` per §5.5.
+**GO status if:** no CRITICAL or HIGH OPEN finding in either `findings` or `cross_runtime_findings`,
+AND the convergence gate (§5.5) reports no violation.
+**NO-GO status if:** at least one such finding not resolved/accepted, OR the gate reports a
+violation. A cross-runtime CRITICAL/HIGH sets `no_go_reason.type = "cross-runtime-finding"`; a gate
+violation sets `"design-not-converging"` with `cause` per §5.5.
 
 ### 7. Human gate
 
 Present a one-line summary: auto-fixes applied, finding counts by severity, GO/NO-GO status,
-**`no_go_round` and the checks added this round** (FR-031) — e.g. "round 2/5, 1 new ratcheted
-check (`checks/foo.test.js`, red-verified)". If a finding's `pre_fix_sha` is null, flag it
-explicitly (uncommitted-tree or dirty-tree residual, FR-034/A-3). If NO-GO, name the HIGH+
-findings to resolve. Surface any gate `warnings[]` verbatim (FR-069 degraded cross-runtime entries
-missing `reason`/`config_digest`; the B-7 round/first_seen_round carry-forward inconsistency).
-Wait for explicit human confirmation before proceeding.
+`no_go_round` and the checks added this round (e.g. "round 2/5, 1 new ratcheted check
+(`checks/foo.test.js`, red-verified)"). If a finding's `pre_fix_sha` is null, flag it explicitly. If
+NO-GO, name the HIGH+ findings to resolve. Surface any gate `warnings[]` verbatim. Wait for
+explicit human confirmation before proceeding.
 
-**Streak-escalation override (B-6).** When `no_go_reason.cause == "novel-finding-streak"`, present
-the "override — one more implement round" option alongside the default routing (see §5.5). Do not
-offer this option for `cause == "round-cap"` — the cap escalation is never overridable.
+**Streak-escalation override.** When `no_go_reason.cause == "novel-finding-streak"`, present the
+override option (§5.5). Never offer it for `cause == "round-cap"` — non-overridable.
 
-**Known residual (FR-032):** the review-GO → QA-NO-GO → implement loop is not bounded by the
-convergence gate — `/roster-qa` is explicitly out of scope for this mechanism.
+**Known residual:** the review-GO → QA-NO-GO → implement loop is not bounded by the convergence
+gate — `/roster-qa` is explicitly out of scope for this mechanism.
 
 ## Output Contract
 
 `briefs/<task>-review.json` with GO or NO-GO status and all findings documented.
 
-**If GO:** `/roster-qa` can start. **If NO-GO:** return to `/roster-implement` with OPEN findings. **If `no_go_reason.type == "spec-ac-failure"`:** return to `/roster-spec` — spec ACs were not met. **If `no_go_reason.type == "design-not-converging"`:** return to `/roster-spec` (forces the minimal-freeze profile, A-10) — the round cap was reached or a finding cannot be encoded as a check.
+**If GO:** `/roster-qa` can start. **If NO-GO:** return to `/roster-implement` with OPEN findings. **If `no_go_reason.type == "spec-ac-failure"`:** return to `/roster-spec` — spec ACs were not met. **If `no_go_reason.type == "design-not-converging"`:** return to `/roster-spec` (forces the minimal-freeze profile) — the round cap was reached or a finding cannot be encoded as a check.
 
 ## When to Go Back
 
@@ -611,7 +414,7 @@ convergence gate — `/roster-qa` is explicitly out of scope for this mechanism.
 | `escalation_needed: true` in Express/Fast mode | Present to human — they decide whether to loop back to `/roster-spec` or accept as-is |
 | Convergence gate reports a violation (§5.5) | The draft verdict becomes NO-GO with `no_go_reason.type: "design-not-converging"` — never silently keep a GO |
 | Gate exit 3 (`process-incomplete`) | Repair the draft's `rounds_audit` entry and re-gate (max 2 attempts, §5.5) — never route; surface to human if still failing after 2 attempts |
-| `no_go_reason.cause == "novel-finding-streak"` and human exercises the override (B-6) | Route to `/roster-implement` for one more round instead of `/roster-spec`; record `streak_override` and reset this round's `strike` to `false` |
+| `no_go_reason.cause == "novel-finding-streak"` and human exercises the override | Route to `/roster-implement` for one more round instead of `/roster-spec`; record `streak_override` and reset this round's `strike` to `false` |
 
 ## What Next
 
@@ -639,6 +442,6 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Never write `briefs/<task>-review.json` before the convergence gate (§5.5) has run and its outcome is merged — gate-before-write is not optional, even on a GO round
 - Never mark a HIGH+ finding RESOLVED across a loop-back round without a linked `check`, unless it is ACCEPTED or was raised and resolved within the same round
 - The ACCEPT prompt for a HIGH+ finding must state the waiver is permanent — never phrase it as temporary
-- Never conflate `round` (physical, no reset-on-GO) with `no_go_round` (qualifying-only backstop, reset-on-GO) — they are separate counters with separate reset rules (B-3)
+- Never conflate `round` (physical, no reset-on-GO) with `no_go_round` (qualifying-only backstop, reset-on-GO) — they are separate counters with separate reset rules
 - Never let the gate's own `process-incomplete` cause escape to routing — it is always repaired pre-persist (max 2 attempts) or surfaced to the human directly, never treated as design-not-converging
-- Never persist a draft verdict when the gate's report is missing `config.strikes` — treat it as a stale gate script and surface it, never silently proceed (B-4)
+- Never persist a draft verdict when the gate's report is missing `config.strikes` — treat it as a stale gate script and surface it, never silently proceed
