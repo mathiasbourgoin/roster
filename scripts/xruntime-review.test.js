@@ -38,6 +38,9 @@ case "$mode" in
     : ;;
   non-conforming)
     echo "I refuse to comply." ;;
+  banner-non-conforming)
+    echo "Welcome to stub-runtime!"
+    echo "I am unable to comply with this request." ;;
   tree-mutate)
     date > mutated.txt
     echo "done" ;;
@@ -98,6 +101,7 @@ test("EC-5: banner + fenced valid JSON -> healthy (banner tolerated)", () => {
   const parsed = JSON.parse(stdout);
   assert.strictEqual(parsed.status, "healthy");
   assert.strictEqual(parsed.findings.length, 1);
+  assert.ok(!("excerpt" in parsed), "a healthy result must not carry an excerpt key");
 });
 
 test("empty output classifies degraded empty-output", () => {
@@ -114,6 +118,21 @@ test("non-conforming output classifies degraded non-conforming-output", () => {
   const parsed = JSON.parse(stdout);
   assert.strictEqual(parsed.status, "degraded");
   assert.strictEqual(parsed.reason, "non-conforming-output");
+});
+
+test("FR-091: a banner-only (non-conforming) run carries the excerpt in both stdout and the journal", () => {
+  const repo = makeRepo();
+  const { stdout } = runHelper(repo, ["codex", "hello", "--task", "demo-task"], {
+    STUB_MODE: "banner-non-conforming",
+  });
+  const parsed = JSON.parse(stdout);
+  assert.strictEqual(parsed.status, "degraded");
+  assert.strictEqual(parsed.reason, "non-conforming-output");
+  assert.ok(typeof parsed.excerpt === "string" && parsed.excerpt.includes("Welcome to stub-runtime!"));
+
+  const journal = readJournal(repo, "demo-task");
+  assert.strictEqual(journal.length, 1);
+  assert.ok(typeof journal[0].excerpt === "string" && journal[0].excerpt.includes("Welcome to stub-runtime!"));
 });
 
 test("tree mutation (corroborated exit 3 + TREE-MUTATED marker) classifies degraded tree-mutation", () => {

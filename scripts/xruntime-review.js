@@ -100,7 +100,16 @@ function runWrapper(args) {
   if (classification.outcome === "healthy") {
     return { status: "healthy", reason: null, findings: classification.findings, runtimeExit: exitCode, durationS };
   }
-  return { status: "degraded", reason: classification.outcome, findings: [], runtimeExit: exitCode, durationS };
+  // FR-091: non-conforming-output carries an excerpt for human inspection —
+  // thread it through to both the journal and the stdout result (below).
+  return {
+    status: "degraded",
+    reason: classification.outcome,
+    findings: [],
+    runtimeExit: exitCode,
+    durationS,
+    excerpt: classification.excerpt,
+  };
 }
 
 // Appends the journal entry, then emits the helper's stdout JSON. Journal
@@ -118,6 +127,9 @@ function finish(root, args, digest, outcome) {
     duration_s: outcome.durationS === undefined ? null : outcome.durationS,
     runtime_exit: outcome.runtimeExit === undefined ? null : outcome.runtimeExit,
   };
+  // FR-091: excerpt is present only for non-conforming-output — never a key
+  // with a null/undefined value cluttering every other journal line.
+  if (outcome.excerpt !== undefined) entry.excerpt = outcome.excerpt;
   const appended = appendJournalLine(root, args.task, entry);
   if (!appended.ok) fail(2, `journal append failed: ${appended.error}`);
 
@@ -128,6 +140,7 @@ function finish(root, args, digest, outcome) {
     findings: outcome.status === "healthy" ? outcome.findings : [],
     journal_line: appended.line,
   };
+  if (outcome.excerpt !== undefined) result.excerpt = outcome.excerpt;
   process.stdout.write(JSON.stringify(result) + "\n");
   process.exit(0);
 }

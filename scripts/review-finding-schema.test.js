@@ -97,3 +97,37 @@ test("additionalProperties: false rejects unknown keys when set", () => {
   assert.strictEqual(valid, false);
   assert.ok(errors.some((e) => e.includes("additional property")));
 });
+
+test("posture: the canonical finding schema is closed (additionalProperties: false) — a future edit cannot silently flip it open", () => {
+  const schema = require(SCHEMA_PATH);
+  assert.strictEqual(schema.additionalProperties, false);
+});
+
+test("posture: all known optional fields (ratchet fields, convergence, fingerprint_v2, acs) remain valid under the closed schema", () => {
+  const validator = loadFindingSchema();
+  const finding = validFinding({
+    status: "RESOLVED",
+    boundary: "custody",
+    invariant: "no-double-spend",
+    failure_mode: "silent-drop",
+    acs: ["AC-1", "FR-042"],
+    convergence: ["reviewer", "architect"],
+    fingerprint_v2: "custody|no-double-spend|silent-drop",
+    first_seen_round: 1,
+    resolved_round: 2,
+    check: "checks/foo.test.js",
+    check_encodable: true,
+    red_verified: true,
+    pre_fix_sha: "a".repeat(40),
+    check_blob: "b".repeat(40),
+  });
+  const { valid, errors } = validator.validate(finding);
+  assert.strictEqual(valid, true, JSON.stringify(errors));
+});
+
+test("posture: an unknown/unexpected property is rejected under the closed schema", () => {
+  const validator = loadFindingSchema();
+  const { valid, errors } = validator.validate(validFinding({ totally_unexpected_field: "x" }));
+  assert.strictEqual(valid, false);
+  assert.ok(errors.some((e) => e.includes("additional property")));
+});

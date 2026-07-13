@@ -156,6 +156,12 @@ function normalize({ newFindings, ledger, round }) {
   for (const f of valid) (isCrossRuntime(f) ? crossRuntimeFindings : primaryCandidates).push(f);
 
   const canonicalized = canonicalizeFindings(primaryCandidates);
+  // D-1 status-agnostic reading: splitReobservations() matches on fingerprint alone,
+  // regardless of the ledger entry's status (OPEN/RESOLVED/ACCEPTED). A re-report of a
+  // RESOLVED finding is a reobservation, not a regression: its ratcheted check already
+  // guards the defect class deterministically — if that check is green, the re-report is
+  // specialist noise. A genuinely new variant of the defect lands on a different line,
+  // which yields a different fingerprint and therefore a new finding, not a reobservation.
   const { reobservations, genuinelyNew } = splitReobservations(canonicalized, ledgerArr, round);
 
   const settled = mergeExactDuplicates(genuinelyNew);
