@@ -135,7 +135,12 @@ test("EC-6: two null-line findings, byte-identical summary -> exact merge", () =
 });
 
 test("D-1: new finding matching a ledger fingerprint is a reobservation — never merged, never a fresh finding, never dropped", () => {
-  const ledgerEntry = { fingerprint: "lib/foo.ml:42:correctness", status: "OPEN", first_seen_round: 1 };
+  const ledgerEntry = {
+    fingerprint: "lib/foo.ml:42:correctness",
+    summary: "Off-by-one",
+    status: "OPEN",
+    first_seen_round: 1,
+  };
   const f = finding();
   const result = normalize({ newFindings: [f], ledger: [ledgerEntry], round: 3 });
   assert.strictEqual(result.findings.length, 1);
@@ -151,7 +156,7 @@ test("D-1: new finding matching a ledger fingerprint is a reobservation — neve
 });
 
 test("D-1: reobservation round is null when --round was not passed", () => {
-  const ledgerEntry = { fingerprint: "lib/foo.ml:42:correctness" };
+  const ledgerEntry = { fingerprint: "lib/foo.ml:42:correctness", summary: "Off-by-one" };
   const result = normalize({ newFindings: [finding()], ledger: [ledgerEntry] });
   assert.strictEqual(result.reobservations[0].round, null);
 });

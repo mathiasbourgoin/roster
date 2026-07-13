@@ -14,6 +14,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert");
+const crypto = require("node:crypto");
 const { normalize } = require("./review-normalize");
 
 function finding(overrides) {
@@ -63,7 +64,7 @@ test("mutation (b): same-round-resolved, no-check finding reappearing next round
     resolved_round: 1, // same-round-resolved -> ratchet exempt, never had a check
     check: null,
   });
-  const reappeared = finding({ summary: "Missing auth check (regressed)" });
+  const reappeared = finding();
 
   const result = normalize({ newFindings: [reappeared], ledger: [ledgerEntry], round: 2 });
 
@@ -77,7 +78,70 @@ test("mutation (b): same-round-resolved, no-check finding reappearing next round
   assert.ok(result.dispositions, "normalize() must emit a dispositions object (E-2/E-4)");
   assert.strictEqual(result.dispositions.reopened.length, 1);
   const reopened = result.dispositions.reopened[0];
-  assert.strictEqual(reopened.summary, "Missing auth check (regressed)", "full re-observed body must be preserved");
+  assert.strictEqual(reopened.summary, "Missing auth check", "full re-observed body must be preserved");
   assert.strictEqual(reopened.reopened_from_round, 1);
   assert.strictEqual(reopened.reopened_at_round, 2);
+});
+
+test("mutation (c): a legacy v1 collision cannot absorb a distinct modern finding", () => {
+  const legacy = finding({
+    summary: "SQL injection via unescaped user input",
+    status: "OPEN",
+    first_seen_round: 1,
+  });
+  delete legacy.fid;
+
+  const distinct = finding({
+    summary: "Missing authorization check on the same line",
+    specialist: "architect",
+  });
+  const result = normalize({ newFindings: [distinct], ledger: [legacy], round: 2 });
+
+  assert.strictEqual(result.reobservations.length, 0, "a v1-only collision is not proof of identity");
+  assert.strictEqual(result.findings.length, 2, "the legacy entry and distinct new finding must both survive");
+  assert.ok(result.findings.some((entry) => entry.summary === distinct.summary));
+  assert.strictEqual(result.probable_duplicates.length, 1, "the identity miss must be visible for adjudication");
+});
+
+test("mutation (d): a legacy entry with the same summary remains addressable after fid migration", () => {
+  const legacy = finding({ status: "OPEN", first_seen_round: 1 });
+  delete legacy.fid;
+
+  const result = normalize({ newFindings: [finding()], ledger: [legacy], round: 2 });
+
+  assert.strictEqual(result.reobservations.length, 1, "same semantic identity should migrate without duplicate noise");
+  assert.strictEqual(result.findings.length, 1);
+});
+
+test("mutation (e): same summary with different v2 semantics cannot be suppressed", () => {
+  const legacy = finding({ boundary: "admin", invariant: "admin-only", failure_mode: "bypass" });
+  const distinct = finding({ boundary: "tenant", invariant: "tenant-isolation", failure_mode: "bypass" });
+
+  const result = normalize({ newFindings: [distinct], ledger: [legacy], round: 2 });
+
+  assert.strictEqual(result.reobservations.length, 0);
+  assert.strictEqual(result.findings.length, 2);
+  assert.strictEqual(result.probable_duplicates.length, 1);
+});
+
+test("mutation (f): a stale or forged fid cannot override direct semantic comparison", () => {
+  const distinct = finding({ summary: "Missing authorization check on the same line" });
+  const legacy = finding({
+    summary: "SQL injection via unescaped user input",
+    fid: `${distinct.fingerprint}#${crypto.createHash("sha256").update(distinct.summary.toLowerCase()).digest("hex").slice(0, 8)}`,
+  });
+
+  const result = normalize({ newFindings: [distinct], ledger: [legacy], round: 2 });
+
+  assert.strictEqual(result.reobservations.length, 0);
+  assert.strictEqual(result.findings.length, 2);
+});
+
+test("mutation (g): an incomplete fingerprint-only legacy row cannot suppress a modern finding", () => {
+  const legacy = { fingerprint: "lib/auth.ml:88:security", status: "OPEN" };
+
+  const result = normalize({ newFindings: [finding()], ledger: [legacy], round: 2 });
+
+  assert.strictEqual(result.reobservations.length, 0);
+  assert.strictEqual(result.findings.length, 2);
 });
