@@ -6,7 +6,7 @@
 **Agent-roster base:** `f3c81eb` (`next`, two local commits ahead of `origin/next` at audit start)  
 **Entries analyzed:** 93 total (64 with frictions, 29 clean runs)  
 **Targeted cross-runtime entries:** 15  
-**Decision:** READY TO ADOPT (`670df6b`)
+**Decision:** READY TO ADOPT (`c14f6da`, including `670df6b..c14f6da`)
 
 ## Executive conclusion
 
@@ -41,9 +41,20 @@ from bounty-skills even though the hook itself was present. The runtime is now b
 self-contained `.harness/bin/run-hook.js`, installed by harness sync whenever skill hooks exist,
 and verified in a dependency-free scratch consumer.
 
+The same authentic consumer then exposed two more distribution defects that source-checkout tests
+had hidden. First, harness sync treated nested installed-skill companion documents as stale and a
+normal sync removed them; native skill sibling resources could also be overprojected as standalone
+skills. Sync now preserves nested companions, projects native sibling resources beside `SKILL.md`,
+and continues to flag genuinely stale flat projections. Second, the review bundle installed a
+schema into a consumer whose schema validator requires both passing and failing fixtures, but the
+bundle did not ship those fixtures. Bundle v1.3.0 now includes both and proves them through the
+installed zero-dependency validator. Consumer manifest validation also accepts the three canonical
+source layouts used in practice: root domain-flat, installed `.harness/skills`, and native skill
+directories.
+
 ## Strong signal and implemented adaptation
 
-### **IMPLEMENTED — [ADAPT] roster-qa → v1.8.0 / review bundle → v1.2.0**
+### **IMPLEMENTED — [ADAPT] roster-qa → v1.8.1 / review bundle → v1.3.0**
 
 **Signal:** 15 cross-runtime-related friction entries, including repeated timeout, banner-only,
 stdout-capture, and invocation-boundary failures. The most recent review and QA entries explicitly
@@ -81,6 +92,20 @@ The installed-consumer smoke test proves the runner works without target `node_m
 the canonical `**Status: VALIDATED**` intake marker, and rejects the stale `**Status:** VALIDATED`
 spelling.
 
+### **IMPLEMENTED — [FIX] lossless consumer projection and schema validation closure**
+
+**Signal:** running bounty-skills' real validation after adoption found that sync recommended
+deleting required companion documents, normal sync removed those documents, and the newly installed
+review schema had no valid/invalid fixture pair for the consumer's auto-discovered schema suite.
+
+**Adaptation:** `sync-harness.sh` now distinguishes nested companion resources from owned flat
+projections, preserves those resources on repeat sync, and supports native skill directories with
+direct sibling resources. Bundle v1.3.0 adds one valid and one deliberately invalid
+`review-finding` JSONL fixture. The consumer manifest check accepts installed flat/native sources
+without weakening the missing-source failure. Scratch tests exercise Codex and OpenCode projection,
+repeat sync, stale-flat detection, native resource placement, bundle installation, and fixture
+validation.
+
 ## Finding disposition
 
 | Prior finding | Current disposition | Evidence |
@@ -91,6 +116,10 @@ spelling.
 | AR-L-04 corrupt journal lines skipped | CLOSED | Malformed line produces durable `blocked/malformed-journal`; repeated calls remain blocked. |
 | Review/QA availability state not shared | CLOSED | QA check consumes GO review degradation across read-only/workspace-write modes before provider invocation. |
 | Installed skill-hook runner absent | CLOSED | Harness sync installs a self-contained runner; full-profile scratch consumer executes the real intake guard without target dependencies. |
+| Nested companion docs deleted or reported stale | CLOSED | Repeat-sync tests preserve Codex/OpenCode companions while stale flat projections still fail with cleanup guidance. |
+| Native skill resources projected as standalone skills | CLOSED | Native sibling-resource test projects resources beside `SKILL.md` and proves no standalone skill is created. |
+| Installed review schema lacks consumer fixtures | CLOSED | Bundle v1.3.0 ships valid/invalid JSONL fixtures and validates both through the installed bundle. |
+| Installed consumer manifest rejected | CLOSED | Sync check accepts domain-flat, `.harness/skills`, and native `skills/<name>/SKILL.md` canonical sources; missing sources still fail. |
 | Review churn / finding re-observation | SUBSTANTIALLY CLOSED | Semantic identity, probable-duplicate surfacing, two-event lifecycle, round audit, strike routing, and delta specialist selection are all executable or schema-backed. Benchmark real multi-round tasks before changing the five-review cap. |
 | Skill sizing | HEALTHY | All 37 structure checks pass. `roster-qa` remains a focused 1,881-word gate skill; no new skill or further split is justified. |
 
@@ -99,7 +128,9 @@ spelling.
 - `node --test scripts/xruntime-review.test.js`: PASS (38 tests after corrupt-journal coverage).
 - Identity/normalizer focused suite: PASS (all mutation and normalization tests).
 - `node --test scripts/review-bundle-install.test.js`: PASS (15 integration tests).
+- `node --test scripts/sync-harness-guard.test.js`: PASS (8 authentic projection tests).
 - `node scripts/check-pipeline-install.js`: PASS, including bundle closure and digests.
+- `npm run test:review-bundle`: PASS (15 integration tests; 17-file bundle).
 - `bash scripts/sync-harness.sh --check`: PASS.
 - `npm run check:init-harness`: PASS, including the dependency-free installed hook consumer.
 - `npm run check:hook-runtime`: PASS; generated runner matches a fresh deterministic bundle.
