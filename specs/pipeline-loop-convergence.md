@@ -112,7 +112,7 @@ As a reviewer, I want each new ratcheted check proven to fail (assertion-red) ag
 
 #### Trust-Boundary Tasks Never Skip the Invariant Freeze [US-1]
 
-- **FR-001** [US-1]: roster-intake MUST emit a `**Trust boundary:** yes|no` field in the brief, proposed via the keyword heuristic (auth/attest/evidence/authority/permission/token/signature/custody/integrity) and confirmed by the human at the intake gate.
+- **FR-001** [US-1]: roster-intake MUST emit a `**Trust boundary:** yes|no` field in the brief, proposed via the keyword heuristic (auth, attest, evidence, authority, permission, token, signature, custody, integrity) and confirmed by the human at the intake gate.
 - **FR-002** [US-1]: roster-spec's Trigger Check MUST route a task with Type fix/refactor/chore/docs AND `Trust boundary: yes` to the minimal-freeze profile; it MUST NOT skip the spec phase for such a task.
 - **FR-003** [US-1]: When the Trust boundary field is `no` or absent, roster-spec MUST skip as today; when the field is absent (legacy brief), roster-spec MUST emit a warning before skipping.
 - **FR-004** [US-1]: The minimal-freeze profile MUST write `specs/<task-slug>.md` marked `**Profile: minimal-freeze**` containing Invariants, Runnable Checks (CHECK-N), and one AC-N paired 1:1 with each CHECK-N.
