@@ -1,18 +1,25 @@
 #!/usr/bin/env node
 // check-review-convergence.js — CommonJS
 // Read-only mechanical gate deciding whether a NO-GO route-back is permitted
-// (spec: specs/pipeline-loop-convergence.md, FR-021..FR-039). Patterned on
-// scripts/check-scope-diff.sh's exit contract.
+// (spec: specs/pipeline-loop-convergence.md, FR-021..FR-039; extended by
+// specs/review-fanout-convergence.md FR-050..FR-085 + Amendments B-1..B-9).
+// Patterned on scripts/check-scope-diff.sh's exit contract.
 //
 // Usage:
 //   node scripts/check-review-convergence.js <review.json path> [--static]
-//     [--max-rounds N] [--timeout S]
+//     [--max-rounds N] [--timeout S] [--strikes N]
 //
 // Exit contract:
 //   0 = pass (no violations, no degraded input)
-//   1 = violation(s) found — JSON report on stdout (`violations` array)
-//   2 = degraded input (absent/malformed review.json, or an inconclusive
-//       red/green verification — fail-closed; see FR-023, FR-036)
+//   1 = design violation(s) found — JSON report on stdout (`violations`
+//       array); top-level `cause` is one of round-cap | unencodable-finding |
+//       novel-finding-streak (precedence: unencodable-finding >
+//       novel-finding-streak > round-cap; B-5/FR-059)
+//   2 = degraded input (absent/malformed review.json, an unknown flag, or an
+//       inconclusive red/green verification — fail-closed; see FR-023, FR-036)
+//   3 = process-incomplete-only (missing/incomplete rounds_audit entry for the
+//       current round, B-5/FR-079) — repair the draft and re-gate, do NOT
+//       route; top-level `cause` is never "process-incomplete"
 //
 // Read-only guarantee (FR-022, amended A-2): this script MUST NOT modify any
 // repo file or `.git` state. Pre-fix trees are extracted via
@@ -26,6 +33,13 @@
 // corresponding file is recorded by roster-review but is NOT red/green
 // executed by this gate (see roster-review.md §5.5) — it is out of scope for
 // mechanical verification, not a violation.
+//
+// Legacy handling (B-8): when review.json lacks the `round` key (the physical
+// per-cycle counter introduced by review-fanout-convergence), strike
+// classification and the rounds_audit completeness check are SKIPPED
+// entirely with a warning — the 17 pre-existing fixtures (keyed on
+// `no_go_round` only) therefore pass unmodified. New behavior activates only
+// once `round` is present in review.json.
 "use strict";
 
 const fs = require("fs");
@@ -34,9 +48,13 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 const HIGH_PLUS = new Set(["CRITICAL", "HIGH"]);
+const KNOWN_FLAGS = new Set(["--static", "--max-rounds", "--timeout", "--strikes"]);
+const DEFAULT_STRIKES = 2;
 
+// B-4: unknown flags are rejected (exit 2) so a stale/mismatched invocation
+// fails loudly instead of silently ignoring a new flag.
 function parseArgs(argv) {
-  const out = { reviewPath: null, static: false, maxRounds: 5, timeout: 120 };
+  const out = { reviewPath: null, static: false, maxRounds: 5, timeout: 120, strikes: DEFAULT_STRIKES, unknownFlag: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--static") {
@@ -45,8 +63,14 @@ function parseArgs(argv) {
       out.maxRounds = parseInt(argv[++i], 10);
     } else if (a === "--timeout") {
       out.timeout = parseInt(argv[++i], 10);
+    } else if (a === "--strikes") {
+      out.strikes = parseInt(argv[++i], 10);
+    } else if (a.startsWith("--") && !KNOWN_FLAGS.has(a)) {
+      out.unknownFlag = a;
     } else if (!out.reviewPath) {
       out.reviewPath = a;
+    } else {
+      out.unknownFlag = a;
     }
   }
   return out;
@@ -70,14 +94,16 @@ function findingFingerprint(f) {
 // on any usage or degraded-input error — never returns in that case.
 function validateArgsAndReview(argv) {
   const args = parseArgs(argv);
-  if (!args.reviewPath) fail(2, "usage: <review.json path> [--static] [--max-rounds N] [--timeout S]");
+  if (args.unknownFlag) fail(2, `unknown flag or extra argument: ${args.unknownFlag}`);
+  if (!args.reviewPath) fail(2, "usage: <review.json path> [--static] [--max-rounds N] [--timeout S] [--strikes N]");
   if (Number.isNaN(args.maxRounds) || args.maxRounds < 1) fail(2, "--max-rounds must be a positive integer");
   if (Number.isNaN(args.timeout) || args.timeout < 1) fail(2, "--timeout must be a positive integer (seconds)");
+  if (Number.isNaN(args.strikes) || args.strikes < 1) fail(2, "--strikes must be a positive integer");
 
   const review = readReviewJson(path.resolve(process.cwd(), args.reviewPath), args.reviewPath);
   const roundState = deriveRoundState(review);
 
-  return Object.assign({ args }, roundState);
+  return Object.assign({ args, review }, roundState);
 }
 
 // Reads and parses review.json. Exits (via fail) on any absent/unreadable/
@@ -107,8 +133,9 @@ function readReviewJson(reviewPath, displayPath) {
   return review;
 }
 
-// Derives no_go_round (FR-030 legacy handling), the findings array, and the
-// A-11 carry-forward-inconsistency warning from a validated review object.
+// Derives no_go_round (FR-030 legacy handling), the physical `round` counter
+// (B-8 legacy handling), the findings array, and the B-7 re-keyed
+// carry-forward-inconsistency warning from a validated review object.
 function deriveRoundState(review) {
   const warnings = [];
 
@@ -125,17 +152,35 @@ function deriveRoundState(review) {
     warnings.push("legacy review.json: no_go_round key absent — treating as round 0");
   }
 
+  // B-8: `round` (physical per-cycle verdict counter) is a distinct field from
+  // `no_go_round` (qualifying-only backstop). Its absence means legacy
+  // review.json — strike classification and the rounds_audit completeness
+  // check are skipped entirely (below, in main()), not just defaulted.
+  let round = null;
+  let legacyRound = false;
+  if (Object.prototype.hasOwnProperty.call(review, "round")) {
+    if (typeof review.round !== "number" || !Number.isFinite(review.round) || review.round < 0) {
+      fail(2, "review.json field round must be a non-negative number");
+      return;
+    }
+    round = review.round;
+  } else {
+    legacyRound = true;
+    warnings.push("legacy review.json: round key absent — skipping strike and rounds_audit checks (B-8)");
+  }
+
   const findings = Array.isArray(review.findings) ? review.findings : [];
 
-  // A-11: warn when no_go_round is 0 while a finding carries first_seen_round > 0
-  // (unverifiable-carry-forward inconsistency — accepted residual, cheap mitigation).
-  if (noGoRound === 0 && findings.some((f) => typeof f.first_seen_round === "number" && f.first_seen_round > 0)) {
+  // B-7: A-11 re-keyed to the physical `round` counter (retiring the old
+  // no_go_round-based form) — warn when round is absent/0 while a finding
+  // carries first_seen_round > 0 (unverifiable carry-forward inconsistency).
+  if ((round === null || round === 0) && findings.some((f) => typeof f.first_seen_round === "number" && f.first_seen_round > 0)) {
     warnings.push(
-      "inconsistency: no_go_round is 0 but a finding carries first_seen_round > 0 (unverifiable carry-forward, A-11)"
+      "inconsistency: round is absent/0 but a finding carries first_seen_round > 0 (unverifiable carry-forward, A-11/B-7)"
     );
   }
 
-  return { findings, warnings, noGoRound, legacyNoGoRound };
+  return { findings, warnings, noGoRound, legacyNoGoRound, round, legacyRound };
 }
 
 // ── structural finding checks ────────────────────────────────────────────
@@ -189,6 +234,112 @@ function computeFindingViolations(findings) {
   }
 
   return violations;
+}
+
+// ── two-strike novel-finding escalation (US-1, B-1) ──────────────────────
+// A physical round r >= 2 is a strike iff it contains >=1 novel HIGH+
+// non-scope finding (first_seen_round == r) that is neither same-round-
+// resolved nor ACCEPTED (FR-053). Round 1 never strikes (FR-053, AC-4).
+function isNovelStrikeFinding(f, round) {
+  if (!f || typeof f !== "object") return false;
+  if (!HIGH_PLUS.has(f.severity)) return false;
+  if (f.category === "scope") return false; // EC-4: scope findings never strike
+  if (f.status === "ACCEPTED") return false; // EC-1
+  if (typeof f.first_seen_round !== "number" || f.first_seen_round !== round) return false;
+  if (f.status === "RESOLVED" && f.resolved_round === f.first_seen_round) return false; // same-round-resolved
+  return true;
+}
+
+// B-1: past strikes are read from rounds_audit[].strike — journaled by
+// roster-review, never recomputed here. Only the CURRENT round's strike is
+// computed fresh, from findings, since that is point-in-time correct at gate
+// time. Returns a round -> strike boolean map covering every round seen.
+function computeStrikeMap(review, currentRound, findings) {
+  const strikeByRound = new Map();
+  const roundsAudit = Array.isArray(review.rounds_audit) ? review.rounds_audit : [];
+  for (const entry of roundsAudit) {
+    if (entry && typeof entry.round === "number" && typeof entry.strike === "boolean") {
+      strikeByRound.set(entry.round, entry.strike);
+    }
+  }
+  const currentStrike = currentRound >= 2 && findings.some((f) => isNovelStrikeFinding(f, currentRound));
+  strikeByRound.set(currentRound, currentStrike);
+  return { strikeByRound, currentStrike };
+}
+
+// FR-054/FR-055: violation when the last `strikesRequired` consecutive
+// physical rounds (all >= 2) each classify as a strike; a strike-free round
+// resets the streak (non-consecutive strikes never accumulate).
+function computeStreakViolation(strikeByRound, currentRound, strikesRequired) {
+  if (currentRound < 2) return null;
+  for (let r = currentRound; r > currentRound - strikesRequired; r--) {
+    if (r < 2 || strikeByRound.get(r) !== true) return null;
+  }
+  return {
+    type: "novel-finding-streak",
+    cause: "novel-finding-streak",
+    detail: `${strikesRequired} consecutive round(s) (>= round 2) each classified as a strike, ending at round ${currentRound}`,
+  };
+}
+
+// ── delta-scoped loop-back rounds_audit completeness (US-3, B-8) ────────
+// FR-078/FR-079: on round >= 2, the current round's rounds_audit entry must
+// be present and complete (reviewed_sha, fix_sha|fix_sha_reason,
+// non-empty specialists_run with non-empty selection_reason each). Missing
+// or incomplete -> process-incomplete (exit 3), never routed (B-5).
+function computeMissingAuditViolation(review, currentRound) {
+  if (currentRound < 2) return null;
+  const roundsAudit = Array.isArray(review.rounds_audit) ? review.rounds_audit : [];
+  const entry = roundsAudit.find((e) => e && e.round === currentRound);
+  const incomplete = (detail) => ({ type: "missing-loopback-audit", cause: "process-incomplete", detail });
+
+  if (!entry) return incomplete(`no rounds_audit entry for round ${currentRound}`);
+  if (typeof entry.reviewed_sha === "undefined") {
+    return incomplete(`rounds_audit entry for round ${currentRound} missing reviewed_sha`);
+  }
+  if (typeof entry.fix_sha === "undefined") {
+    return incomplete(`rounds_audit entry for round ${currentRound} missing fix_sha`);
+  }
+  if (entry.fix_sha === null && (typeof entry.fix_sha_reason !== "string" || entry.fix_sha_reason.trim() === "")) {
+    // EC-8: dirty tree -> fix_sha null + fix_sha_reason passes with a flag;
+    // null without a reason is incomplete.
+    return incomplete(`rounds_audit entry for round ${currentRound} has null fix_sha without fix_sha_reason`);
+  }
+  if (!Array.isArray(entry.specialists_run) || entry.specialists_run.length === 0) {
+    return incomplete(`rounds_audit entry for round ${currentRound} has empty specialists_run`);
+  }
+  for (const s of entry.specialists_run) {
+    if (!s || typeof s.selection_reason !== "string" || s.selection_reason.trim() === "") {
+      return incomplete(`rounds_audit entry for round ${currentRound} has an empty selection_reason`);
+    }
+  }
+  return null;
+}
+
+// ── cross-runtime circuit breaker structural warning (US-2, FR-069) ─────
+// The breaker's mechanical teeth are limited to this structural warning plus
+// the config echo (B-9, accepted residual R-4) — probe-once/discard/no-retry
+// compliance is prose-level, enforced by roster-review.
+function computeCrossRuntimeWarnings(review) {
+  const warnings = [];
+  const crossRuntime = review.cross_runtime;
+  if (!crossRuntime || typeof crossRuntime !== "object" || Array.isArray(crossRuntime)) return warnings;
+  for (const [name, entry] of Object.entries(crossRuntime)) {
+    if (!entry || entry.status !== "degraded") continue;
+    if (!entry.reason) warnings.push(`cross_runtime.${name}: degraded entry missing reason`);
+    if (!entry.config_digest) warnings.push(`cross_runtime.${name}: degraded entry missing config_digest`);
+  }
+  return warnings;
+}
+
+// FR-059/B-5: precedence unencodable-finding > novel-finding-streak >
+// round-cap; process-incomplete is never a top-level cause.
+function selectCause(violations) {
+  const causes = new Set(violations.map((v) => v.cause));
+  if (causes.has("unencodable-finding")) return "unencodable-finding";
+  if (causes.has("novel-finding-streak")) return "novel-finding-streak";
+  if (causes.has("round-cap")) return "round-cap";
+  return null;
 }
 
 // ── red-before-green verification (full mode only) ──────────────────────
@@ -282,7 +433,9 @@ function buildRedGreenViolations(result, f) {
 
 // ── main ─────────────────────────────────────────────────────────────────
 function main() {
-  const { args, findings, warnings, noGoRound, legacyNoGoRound } = validateArgsAndReview(process.argv.slice(2));
+  const { args, review, findings, warnings, noGoRound, legacyNoGoRound, round, legacyRound } = validateArgsAndReview(
+    process.argv.slice(2)
+  );
 
   const violations = [];
 
@@ -297,14 +450,38 @@ function main() {
 
   violations.push(...computeFindingViolations(findings));
 
+  // US-1/US-3 (B-8): only evaluated when `round` is present — legacy
+  // review.json skips strike classification and the audit check entirely.
+  let currentRoundStrike = null;
+  if (!legacyRound) {
+    const { strikeByRound, currentStrike } = computeStrikeMap(review, round, findings);
+    currentRoundStrike = currentStrike;
+    const streakViolation = computeStreakViolation(strikeByRound, round, args.strikes);
+    if (streakViolation) violations.push(streakViolation);
+
+    const auditViolation = computeMissingAuditViolation(review, round);
+    if (auditViolation) violations.push(auditViolation);
+  }
+
+  warnings.push(...computeCrossRuntimeWarnings(review));
+
   const redGreen = runRedGreenVerification(findings, args);
   violations.push(...redGreen.violations);
+
+  const cause = selectCause(violations);
+  const hasDesignViolation = violations.some((v) => v.cause !== "process-incomplete");
+  const hasProcessIncompleteOnly = !hasDesignViolation && violations.some((v) => v.cause === "process-incomplete");
 
   const report = {
     mode: args.static ? "static" : "full",
     no_go_round: noGoRound,
     max_rounds: args.maxRounds,
     legacy_no_go_round: legacyNoGoRound,
+    round,
+    legacy_round: legacyRound,
+    current_round_strike: currentRoundStrike,
+    config: { max_rounds: args.maxRounds, strikes: args.strikes, static: args.static },
+    cause,
     warnings,
     violations,
     checks: redGreen.checks,
@@ -317,7 +494,8 @@ function main() {
   process.stdout.write(JSON.stringify(report, null, 2) + "\n");
 
   if (redGreen.anyInconclusive) process.exit(2);
-  if (violations.length > 0) process.exit(1);
+  if (hasDesignViolation) process.exit(1);
+  if (hasProcessIncompleteOnly) process.exit(3);
   process.exit(0);
 }
 
@@ -474,4 +652,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { parseArgs, isFullSha };
+module.exports = { parseArgs, isFullSha, isNovelStrikeFinding, computeStrikeMap, computeStreakViolation, selectCause };

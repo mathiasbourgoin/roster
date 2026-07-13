@@ -145,6 +145,12 @@ As a reviewer, I want each new ratcheted check proven to fail (assertion-red) ag
 - **FR-025** [US-3]: The gate MUST report a violation (exit 1) when any HIGH+ finding has `resolved_round > first_seen_round` and a null `check`.
 - **FR-026** [US-3]: The gate MUST report a violation when `no_go_round >= tunables.max_no_go_rounds` (roster-review frontmatter, default 5).
 - **FR-027** [US-3]: When a HIGH+ finding has `check_encodable: false` and is not human-ACCEPTED, roster-review MUST emit `no_go_reason.type = "design-not-converging"` with `no_go_reason.cause` set to `"unencodable-finding"` or `"round-cap"`, and the verdict MUST route to /roster-spec (full mode).
+  > **Cross-reference (specs/review-fanout-convergence.md v1.1.0):** the `no_go_reason.cause` enum
+  > is extended with a third value, `"novel-finding-streak"` (US-1, FR-054), and the gate's exit
+  > contract gains a fourth exit code, `3` (process-incomplete-only, B-5) — see that spec for the
+  > full precedence rule (`unencodable-finding` > `novel-finding-streak` > `round-cap`, FR-059)
+  > and the process-incomplete repair loop. This file's enum documentation above is the base set;
+  > it is not amended in place to avoid rewriting FR-027 itself.
 - **FR-028** [US-3]: roster-run's verdict table MUST contain a design-not-converging row placed above the catch-all row.
 - **FR-029** [US-3]: When an Express/Fast task hits escalation, the pipeline MUST stop and instruct the human to restart the task under full mode; it MUST NOT mutate the ledger and MUST NOT upgrade the mode automatically.
 - **FR-030** [US-3]: The gate MUST treat a legacy review.json lacking the `no_go_round` key as round 0 with a warning (not exit 2); an absent or otherwise-malformed review.json MUST produce exit 2.
