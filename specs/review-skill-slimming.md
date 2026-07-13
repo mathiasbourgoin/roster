@@ -222,6 +222,23 @@ Nine objections (three blocking) + Voice-1 ground-truth corrections. Amendments 
   Check-6/slimming/ratchet land atomically (one commit) per the `&&`-chain coupling; stray
   untracked dir `specs/review-skill-slimming.md--dry-run/` cleaned before work.
 
+## Errata (specs/review-v2-corrections.md v1.1.0, 2026-07-13)
+
+- **D-1 shape supersession:** the `reobservations[]` shape here (`{fingerprint, specialist, round}`)
+  is superseded — review-v2-corrections.md E-3/E-4 add `fid` to that shape and introduce two
+  additional dispositions (`dispositions.reopened[]`, `dispositions.pending_check[]`) for a ledger
+  match that is RESOLVED but not check-confirmed-green (INV-2). D-1's "never merged / never a fresh
+  finding / never dropped" invariant is unchanged; only the classification granularity grew.
+- **FR-097 journal input:** FR-097 already required reading "journal + review.json state", but the
+  shipped helper only read review.json — review-v2-corrections.md INV-4/E-5 close that gap
+  (`readLatestJournalEntry`); this is an implementation catch-up to the existing FR text, not a
+  spec change.
+- **CHECK-7 range scoping:** this check's `<base>..HEAD` is scoped to THIS spec's own
+  implementation window (a scope guard against this task touching the wrapper/router) — it is not
+  a standing "these files never change again" contract. review-v2-corrections.md's E-1 deliberately
+  adds one routing row to `skills/pipeline/roster-run.md` in a later window; that is in scope for
+  that spec, not a violation of this one.
+
 ## Entities
 
 - `XruntimeHelper`: `scripts/xruntime-review.js` — subprocess wrapper owning probe/state/validation/journal; the breaker's mechanical arm.
