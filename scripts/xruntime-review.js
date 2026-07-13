@@ -108,36 +108,23 @@ function promptDigest(prompt) {
   return crypto.createHash("sha256").update(prompt).digest("hex").slice(0, 16);
 }
 
-// Invokes the unmodified wrapper as a subprocess, capturing stdout and
-// stderr SEPARATELY (D-3 — exit-code corroboration needs the stderr marker
-// without it ever reaching the helper's own stdout, FR-087).
-function runWrapper(args) {
-  const start = Date.now();
-  const cmdArgs = [WRAPPER, args.runtime, args.prompt];
-  if (args.write) cmdArgs.push("--write");
-  cmdArgs.push("--timeout", String(args.timeout));
+// INV-6: a spawn-layer failure never reaches output inspection — it is never
+// runtime "empty output", it's a distinct pre-runtime failure the breaker
+// must not blame on the model.
+function classifySpawnFailure(result, durationS) {
+  return {
+    status: "degraded",
+    reason: "spawn-error",
+    findings: [],
+    runtimeExit: null,
+    durationS,
+    spawnErrorCode: result.error.code,
+  };
+}
 
-  const result = spawnSync("bash", cmdArgs, {
-    encoding: "utf8",
-    timeout: (args.timeout + 15) * 1000,
-    env: process.env,
-  });
-  const durationS = (Date.now() - start) / 1000;
-
-  // INV-6: a spawn-layer failure never reaches output inspection — it is
-  // never runtime "empty output", it's a distinct pre-runtime failure the
-  // breaker must not blame on the model.
-  if (isSpawnError(result)) {
-    return {
-      status: "degraded",
-      reason: "spawn-error",
-      findings: [],
-      runtimeExit: null,
-      durationS,
-      spawnErrorCode: result.error.code,
-    };
-  }
-
+// Translates a completed (non-spawn-failed) spawnSync result into the
+// helper's outcome shape via the mechanical classifier.
+function classifyWrapperResult(result, durationS, timeoutS) {
   // spawnSync reports status: null when ITS OWN timeout fires (a harness-level
   // backstop above the wrapper's own `timeout` call) — treat as exit 124.
   const exitCode = result.status === null ? 124 : result.status;
@@ -146,7 +133,7 @@ function runWrapper(args) {
     exitCode,
     stderr: result.stderr || "",
     durationS,
-    timeoutS: args.timeout,
+    timeoutS,
     stdout: result.stdout || "",
   });
 
@@ -163,6 +150,26 @@ function runWrapper(args) {
     durationS,
     excerpt: classification.excerpt,
   };
+}
+
+// Invokes the unmodified wrapper as a subprocess, capturing stdout and
+// stderr SEPARATELY (D-3 — exit-code corroboration needs the stderr marker
+// without it ever reaching the helper's own stdout, FR-087).
+function runWrapper(args) {
+  const start = Date.now();
+  const cmdArgs = [WRAPPER, args.runtime, args.prompt];
+  if (args.write) cmdArgs.push("--write");
+  cmdArgs.push("--timeout", String(args.timeout));
+
+  const result = spawnSync("bash", cmdArgs, {
+    encoding: "utf8",
+    timeout: (args.timeout + 15) * 1000,
+    env: process.env,
+  });
+  const durationS = (Date.now() - start) / 1000;
+
+  if (isSpawnError(result)) return classifySpawnFailure(result, durationS);
+  return classifyWrapperResult(result, durationS, args.timeout);
 }
 
 // Appends the journal entry, then emits the helper's stdout JSON. Journal
@@ -237,8 +244,7 @@ function finishBlocked(root, args, digest) {
   process.exit(2);
 }
 
-function main(argv) {
-  const args = parseArgs(argv);
+function validateArgsOrFail(args) {
   if (!args.runtime) {
     fail(
       2,
@@ -247,9 +253,55 @@ function main(argv) {
     );
   }
   if (!validSlug(args.task)) fail(2, `--task slug invalid or missing (must match [a-z0-9-]+): ${args.task}`);
-
   args.prompt = readPrompt(args.promptFile);
   if (!args.prompt) fail(2, "prompt is empty — pass --prompt-file <path> or pipe it via stdin");
+}
+
+// Handles every "finish early, never invoke the wrapper" branch: explicit
+// skip, a hung version probe, a malformed persisted verdict (E-8), and the
+// degraded-refusal breaker (D-2/E-5). Returns true once one of these has
+// already called finish()/finishBlocked() and exited — main() should stop.
+function tryFinishEarly(root, args, digest, versionProbeTimedOut) {
+  if (args.skip) {
+    finish(root, args, digest, { status: "skipped-human", reason: args.skip, runtimeExit: null, durationS: 0 });
+    return true;
+  }
+  if (versionProbeTimedOut) {
+    finish(root, args, digest, { status: "degraded", reason: "version-probe-timeout", runtimeExit: null, durationS: null });
+    return true;
+  }
+
+  const reviewJsonResult = readReviewJson(root, args.task);
+  if (reviewJsonResult.state === "malformed") {
+    finishBlocked(root, args, digest); // E-8: fail closed, never a silent no-state
+    return true;
+  }
+
+  const currentCycle = args.cycle === null || Number.isNaN(args.cycle) ? null : args.cycle;
+  const journalEntry = readLatestJournalEntry(root, args.task, args.runtime, digest);
+  const refuse = shouldRefuseDegraded({
+    reviewJson: reviewJsonResult.value,
+    journalEntry,
+    runtime: args.runtime,
+    digest,
+    humanRetry: args.humanRetry,
+    currentCycle,
+  });
+  if (refuse) {
+    finish(root, args, digest, {
+      status: "skipped-degraded",
+      reason: "runtime degraded this cycle with unchanged digest (D-2/E-5)",
+      runtimeExit: null,
+      durationS: 0,
+    });
+    return true;
+  }
+  return false;
+}
+
+function main(argv) {
+  const args = parseArgs(argv);
+  validateArgsOrFail(args);
 
   const root = process.cwd();
   warnIfBriefsNotIgnored(root);
@@ -258,49 +310,11 @@ function main(argv) {
   const sandboxFlag = args.write ? "workspace-write" : "read-only";
   const { digest, versionProbeTimedOut } = computeDigest(args.runtime, runtimeBin, sandboxFlag);
 
-  // --skip is journaled as an explicit human decision — distinguishable from
-  // never-attempted (FR-098) — and never invokes the wrapper.
-  if (args.skip) {
-    return finish(root, args, digest, { status: "skipped-human", reason: args.skip, runtimeExit: null, durationS: 0 });
-  }
-
-  if (versionProbeTimedOut) {
-    return finish(root, args, digest, {
-      status: "degraded",
-      reason: "version-probe-timeout",
-      runtimeExit: null,
-      durationS: null,
-    });
-  }
-
-  const reviewJsonResult = readReviewJson(root, args.task);
-  if (reviewJsonResult.state === "malformed") {
-    return finishBlocked(root, args, digest); // E-8: fail closed, never a silent no-state
-  }
-
-  const currentCycle = args.cycle === null || Number.isNaN(args.cycle) ? null : args.cycle;
-  const journalEntry = readLatestJournalEntry(root, args.task, args.runtime, digest);
-  if (
-    shouldRefuseDegraded({
-      reviewJson: reviewJsonResult.value,
-      journalEntry,
-      runtime: args.runtime,
-      digest,
-      humanRetry: args.humanRetry,
-      currentCycle,
-    })
-  ) {
-    return finish(root, args, digest, {
-      status: "skipped-degraded",
-      reason: "runtime degraded this cycle with unchanged digest (D-2/E-5)",
-      runtimeExit: null,
-      durationS: 0,
-    });
-  }
+  if (tryFinishEarly(root, args, digest, versionProbeTimedOut)) return;
 
   const outcome = runWrapper(args);
   outcome.promptDigest = promptDigest(args.prompt);
-  return finish(root, args, digest, outcome);
+  finish(root, args, digest, outcome);
 }
 
 module.exports = { parseArgs, runWrapper, finish, main };
