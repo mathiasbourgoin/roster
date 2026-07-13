@@ -6,7 +6,7 @@
 **Agent-roster base:** `f3c81eb` (`next`, two local commits ahead of `origin/next` at audit start)  
 **Entries analyzed:** 93 total (64 with frictions, 29 clean runs)  
 **Targeted cross-runtime entries:** 15  
-**Decision:** READY TO ADOPT (`c14f6da`, including `670df6b..c14f6da`)
+**Decision:** READY TO ADOPT (review bundle v1.3.1; includes `670df6b..c14f6da`)
 
 ## Executive conclusion
 
@@ -52,9 +52,18 @@ installed zero-dependency validator. Consumer manifest validation also accepts t
 source layouts used in practice: root domain-flat, installed `.harness/skills`, and native skill
 directories.
 
+A post-adoption validation run found one last tracked-state-only defect. The bundle runbook's raw
+GitHub examples appended `/main` to the otherwise allowed public repository identifier. The
+bounty-skills personal-handle gate intentionally allows only the exact repository token, so it
+rejected the two examples once the bundle was committed; pre-commit validation could not see the
+untracked files. Bundle v1.3.1 uses a neutral `OWNER/REPOSITORY/REF` raw-prefix placeholder. Its
+installer test now stages the installed bundle in a scratch Git repository and applies the
+consumer's exact token policy, and a clean temporary clone of bounty-skills passes its real
+`scripts/validate.sh` after upgrade.
+
 ## Strong signal and implemented adaptation
 
-### **IMPLEMENTED — [ADAPT] roster-qa → v1.8.1 / review bundle → v1.3.0**
+### **IMPLEMENTED — [ADAPT] roster-qa → v1.8.1 / review bundle → v1.3.1**
 
 **Signal:** 15 cross-runtime-related friction entries, including repeated timeout, banner-only,
 stdout-capture, and invocation-boundary failures. The most recent review and QA entries explicitly
@@ -120,6 +129,7 @@ validation.
 | Native skill resources projected as standalone skills | CLOSED | Native sibling-resource test projects resources beside `SKILL.md` and proves no standalone skill is created. |
 | Installed review schema lacks consumer fixtures | CLOSED | Bundle v1.3.0 ships valid/invalid JSONL fixtures and validates both through the installed bundle. |
 | Installed consumer manifest rejected | CLOSED | Sync check accepts domain-flat, `.harness/skills`, and native `skills/<name>/SKILL.md` canonical sources; missing sources still fail. |
+| Bundle runbook rejected after files become tracked | CLOSED | Bundle v1.3.1 neutralizes raw-source coordinates; installed tracked-scratch regression and bounty-skills' real validator both pass. |
 | Review churn / finding re-observation | SUBSTANTIALLY CLOSED | Semantic identity, probable-duplicate surfacing, two-event lifecycle, round audit, strike routing, and delta specialist selection are all executable or schema-backed. Benchmark real multi-round tasks before changing the five-review cap. |
 | Skill sizing | HEALTHY | All 37 structure checks pass. `roster-qa` remains a focused 1,881-word gate skill; no new skill or further split is justified. |
 
@@ -127,10 +137,10 @@ validation.
 
 - `node --test scripts/xruntime-review.test.js`: PASS (38 tests after corrupt-journal coverage).
 - Identity/normalizer focused suite: PASS (all mutation and normalization tests).
-- `node --test scripts/review-bundle-install.test.js`: PASS (15 integration tests).
 - `node --test scripts/sync-harness-guard.test.js`: PASS (8 authentic projection tests).
 - `node scripts/check-pipeline-install.js`: PASS, including bundle closure and digests.
-- `npm run test:review-bundle`: PASS (15 integration tests; 17-file bundle).
+- `npm run test:review-bundle`: PASS (16 integration tests; 17-file bundle v1.3.1).
+- Clean bounty-skills clone + bundle upgrade + `bash scripts/validate.sh`: PASS (21 skills).
 - `bash scripts/sync-harness.sh --check`: PASS.
 - `npm run check:init-harness`: PASS, including the dependency-free installed hook consumer.
 - `npm run check:hook-runtime`: PASS; generated runner matches a fresh deterministic bundle.
