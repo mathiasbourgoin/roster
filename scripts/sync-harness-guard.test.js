@@ -50,6 +50,15 @@ async function runSync(root) {
   }
 }
 
+async function runCheck(root) {
+  try {
+    const { stdout, stderr } = await execFileAsync("bash", [SYNC_SCRIPT, root, "--check"]);
+    return { code: 0, stdout, stderr };
+  } catch (error) {
+    return { code: error.code ?? 1, stdout: error.stdout ?? "", stderr: error.stderr ?? "" };
+  }
+}
+
 function registryOwning(target) {
   return JSON.stringify({
     schema_version: "1.0",
@@ -107,6 +116,82 @@ describe("sync-harness extension-ownership guard", () => {
     const projected = await fs.readFile(path.join(root, `.agents/skills/${SKILL_NAME}/SKILL.md`), "utf8");
     assert.match(projected, /name: guard-skill/);
     assert.ok(await fs.stat(path.join(root, `.agents/skills/${SKILL_NAME}/.roster-managed`)));
+  });
+
+  it("sync and check preserve installed-consumer companion docs nested beside projected skills", async () => {
+    const root = await makeFixture();
+    const manifestPath = path.join(root, ".harness/harness.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+    manifest.runtimes.find((runtime) => runtime.name === "opencode").enabled = true;
+    await fs.writeFile(manifestPath, JSON.stringify(manifest));
+
+    const synced = await runSync(root);
+    assert.equal(synced.code, 0, synced.stderr);
+    for (const runtimeRoot of [".agents/skills", ".opencode/skills"]) {
+      await write(
+        path.join(root, runtimeRoot, SKILL_NAME, "required-companion.md"),
+        "# Required installed companion\n",
+      );
+    }
+
+    const resynced = await runSync(root);
+    assert.equal(resynced.code, 0, resynced.stderr);
+    for (const runtimeRoot of [".agents/skills", ".opencode/skills"]) {
+      assert.equal(
+        await fs.readFile(path.join(root, runtimeRoot, SKILL_NAME, "required-companion.md"), "utf8"),
+        "# Required installed companion\n",
+      );
+    }
+
+    const checked = await runCheck(root);
+    assert.equal(checked.code, 0, checked.stderr);
+    assert.doesNotMatch(checked.stderr, /stale projection/);
+  });
+
+  it("check still detects an ownership-safe stale flat projection", async () => {
+    const root = await makeFixture();
+    const manifestPath = path.join(root, ".harness/harness.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+    manifest.runtimes.find((runtime) => runtime.name === "opencode").enabled = true;
+    await fs.writeFile(manifestPath, JSON.stringify(manifest));
+    const synced = await runSync(root);
+    assert.equal(synced.code, 0, synced.stderr);
+    await write(path.join(root, ".opencode/agents/stale-agent.md"), "# Stale projection\n");
+
+    const checked = await runCheck(root);
+    assert.notEqual(checked.code, 0);
+    assert.match(checked.stderr, /stale projection/);
+    assert.match(checked.stderr, /\.opencode\/agents\/stale-agent\.md/);
+  });
+
+  it("projects native skill siblings as resources, never standalone skills", async () => {
+    const root = await makeFixture();
+    const manifestPath = path.join(root, ".harness/harness.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+    manifest.runtimes.find((runtime) => runtime.name === "opencode").enabled = true;
+    await fs.writeFile(manifestPath, JSON.stringify(manifest));
+    await write(
+      path.join(root, "skills/native-skill/SKILL.md"),
+      "---\nname: native-skill\ndescription: Native fixture skill.\n---\n# Native skill\n",
+    );
+    await write(path.join(root, "skills/native-skill/required-companion.md"), "# Companion\n");
+    await write(path.join(root, "skills/native-skill/handoff.json"), "{\"ok\":true}\n");
+
+    const synced = await runSync(root);
+    assert.equal(synced.code, 0, synced.stderr);
+    for (const runtimeRoot of [".agents/skills", ".opencode/skills"]) {
+      assert.equal(
+        await fs.readFile(path.join(root, runtimeRoot, "native-skill/required-companion.md"), "utf8"),
+        "# Companion\n",
+      );
+      assert.equal(
+        await fs.readFile(path.join(root, runtimeRoot, "native-skill/handoff.json"), "utf8"),
+        "{\"ok\":true}\n",
+      );
+      await assert.rejects(fs.stat(path.join(root, runtimeRoot, "required-companion/SKILL.md")));
+    }
+    const checked = await runCheck(root);
+    assert.equal(checked.code, 0, checked.stderr);
   });
 
   // Inverted 2026-07-02 (extension-installer-refactor R6 / audit M4): a corrupt

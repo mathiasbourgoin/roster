@@ -97,11 +97,20 @@ if [ "$CHECK" -eq 1 ]; then
             _out="$(printf '%s\n' "$_all_diff" | { grep -v -- "Only in $_real" || true; })"
             # Stale projection detection: files that exist in the real tree but NOT in the generated
             # tree are lingering projections from deleted or renamed sources. Report them with a
-            # cleanup command so they can be removed deliberately.
+            # cleanup command so they can be removed deliberately. Only flat runtime projections
+            # are ownership-safe here. Nested skill directories may contain required companion
+            # docs installed by a campaign/extension, so an absent regenerated companion is never
+            # evidence that it is stale (and must never produce an `rm` recommendation).
             _stale="$(printf '%s\n' "$_all_diff" \
                 | { grep -- "Only in $_real" || true; } \
                 | sed "s|Only in ${_real}/\(.*\): \(.*\)|\1/\2|" \
-                | { grep '\.md$' || true; })"
+                | awk -F/ -v runtime="$_rel" '
+                    /\.md$/ {
+                        companion = ((runtime == ".agents" || runtime == ".opencode") &&
+                                     $1 == "skills" && NF == 3 && $3 != "SKILL.md")
+                        if (!companion) print
+                    }
+                  ')"
         fi
         if [ -n "$_out" ]; then
             echo "✗ harness-sync: $_rel drifts from .harness source:" >&2
@@ -385,11 +394,21 @@ copy_skill_resources() {
     # scans subdirs and would register each resource as an invocable command, so
     # we deliberately skip resources there.
     [ "$kind" = "dir" ] || return 0
-    local res_dir="${src%.md}.resources"
-    [ -d "$res_dir" ] || return 0
     local target="$out_dir/$name"
     mkdir -p "$target"
-    find "$res_dir" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' f; do
+    local res_dir="${src%.md}.resources"
+    local find_args=(-maxdepth 1 -type f -name '*.md')
+    if [ "$(basename "$src")" = "SKILL.md" ]; then
+        # Native Agent Skills layout: skills/<name>/SKILL.md with sibling
+        # resources. Copy every direct sibling (docs, JSON handoffs, helper
+        # scripts) beside the projected SKILL.md, but never the source
+        # entrypoint itself. This is also what prevents sibling docs from being
+        # mis-projected as standalone skills.
+        res_dir="$(dirname "$src")"
+        find_args=(-maxdepth 1 -type f ! -name 'SKILL.md')
+    fi
+    [ -d "$res_dir" ] || return 0
+    find "$res_dir" "${find_args[@]}" -print0 | while IFS= read -r -d '' f; do
         local rbase; rbase="$(basename "$f")"
         reject_traversal "$rbase"
         cp "$f" "$target/$rbase"
@@ -424,9 +443,17 @@ sync_skill_sources_to_skill_dir() {
 
     mkdir -p "$out_dir"
     find "$out_dir" -maxdepth 1 -type f -name '*.md' -delete
+    # Clear only files whose ownership is unambiguous. A roster-managed skill
+    # directory may also contain required companion docs installed by a campaign
+    # or extension after the main SKILL.md was projected. Deleting the whole
+    # directory destroys those files. Removing the generated entrypoint + marker
+    # makes removed skills non-invocable while preserving co-installed resources;
+    # current skills are rendered again below.
     find "$out_dir" -mindepth 2 -maxdepth 2 -type f -name '.roster-managed' -print0 |
         while IFS= read -r -d '' marker; do
-            rm -rf "$(dirname "$marker")"
+            skill_dir="$(dirname "$marker")"
+            rm -f "$skill_dir/SKILL.md" "$marker"
+            rmdir "$skill_dir" 2>/dev/null || true
         done
 
     for src in "$@"; do
@@ -495,6 +522,13 @@ collect_skill_sources() {
 
     if [ -d "$ROSTER_SKILLS_DIR" ]; then
         while IFS= read -r -d '' file; do
+            # Support both roster's domain-flat layout
+            # (skills/<domain>/<name>.md) and native Agent Skills directories
+            # (skills/<name>/SKILL.md + sibling resources). In a native
+            # directory only SKILL.md is invocable; siblings are resources.
+            if [ -f "$(dirname "$file")/SKILL.md" ] && [ "$(basename "$file")" != "SKILL.md" ]; then
+                continue
+            fi
             files+=("$file")
         done < <(find "$ROSTER_SKILLS_DIR" -mindepth 2 -maxdepth 2 -type f -name '*.md' -print0 | sort -z)
     fi
