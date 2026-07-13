@@ -2,7 +2,7 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.9.0
+version: 1.10.0
 ---
 
 # Roster Run
@@ -316,6 +316,7 @@ node scripts/check-review-convergence.js briefs/<task>-review.json --static
 | `review` GO | express | `/roster-ship` |
 | `review` GO | fast, full | `/roster-qa` — unless the critical E0 exception below applies, in which case `/roster-ship` |
 | `review` NO-GO with `no_go_reason.type == "spec-ac-failure"` | full only (express/fast have no spec phase — their NO-GO always routes to implement) | `/roster-spec` — spec ACs were not met; revise the spec |
+| `review` NO-GO with `no_go_reason.cause == "novel-finding-streak"` **and** a `streak_override` valid for the CURRENT `round` (`{round, by: "human"}`, matching — E-1) | full | `/roster-implement` — one bounded extra round; the gate itself suppresses the streak violation on re-check (§ convergence gate invocation below still passes), so this row is reachable; stale (non-matching-round) overrides fall through to the row below |
 | `review` NO-GO with `no_go_reason.type == "design-not-converging"` **or** the convergence gate blocked the route-back | full (express/fast: stop + restart-under-full per above) | `/roster-spec` — the escalation context forces the minimal-freeze profile regardless of Trust boundary/Type (A-10); the un-encodable finding or round cap IS the invariant gap to spec |
 | `review` NO-GO (any other reason) | all | `/roster-implement` — pass review.json as context |
 | `qa` GO | fast, full | `/roster-ship` |

@@ -31,8 +31,9 @@ ingests it, and the envelope around the findings arrays.
   "no_go_reason": { "type": null, "cause": null, "failed_acs": [] },
   "no_go_round": 0,
   "round": 1,
+  "cycle": 1,
   "rounds_audit": ["<see below>"],
-  "cross_runtime": { "<runtime>": { "status": "healthy|degraded", "reason": null, "config_digest": "string", "round": 1 } },
+  "cross_runtime": { "<runtime>": { "status": "healthy|degraded|skipped-human", "reason": null, "config_digest": "string", "round": 1 } },
   "streak_override": null,
   "mode": "express|fast|full",
   "escalation_needed": false,
@@ -57,21 +58,37 @@ ingests it, and the envelope around the findings arrays.
 ### Legacy / omission rules
 
 - `cross_runtime_findings`: omit the key entirely if no second runtime ran this cycle.
-- `round` / `rounds_audit` / `cross_runtime`: absent entirely on a legacy task (predates
+- `round` / `cycle` / `rounds_audit` / `cross_runtime`: absent entirely on a legacy task (predates
   `review-fanout-convergence`) — never write them mid-cycle if the prior `review.json` lacked
   `round`.
 - `streak_override`: `null` unless the human exercised the B-6 streak override this round, then
   `{round, by: "human"}`.
 
+### `cycle` (INV-3/E-5)
+
+Int, incremented at each fresh-cycle initialization (a persisted GO, or an absent prior file) and
+retained unchanged across every NO-GO round within that cycle. Distinct from `round`, which resets
+to 1 at each fresh cycle — `cycle` is what tells two same-numbered rounds in different cycles apart.
+See `scripts/lib/review-lifecycle.js` (`deriveRoundState`) for the executable rule.
+
+### Human-skip cross_runtime entry shape (E-10/INV-7)
+
+`{ "status": "skipped-human", "reason": "string", "config_digest": "string", "round": "int", "ts": "ISO-8601", "actor": "human" }`
+— the explicit human-skip decision, schema-valid and distinguishable from `degraded`/`healthy`.
+`shouldRefuseDegraded` matches only `status: "degraded"` — a skip entry can never arm the breaker.
+
 ## Finding round-tracking fields (added on top of `schema/review-finding.schema.json`)
 
-Every entry in `findings[]` — old and new — carries these seven fields in addition to the base
-finding shape:
+Every entry in `findings[]` — old and new — carries these fields in addition to the base finding
+shape:
 
 | Field | Type | Meaning |
 |---|---|---|
+| `fid` | string | E-3: `fingerprint + "#" + sha8(summary)` — addressable identity for reobservation matching, probable-duplicate records, and gate `checks[]` keying |
 | `first_seen_round` | int | the round this finding first appeared |
 | `resolved_round` | int \| null | the round it was marked RESOLVED, if any |
+| `reopened_from_round` | int \| null | E-4: the `resolved_round` it was reopened FROM, when a re-report regressed a RESOLVED entry |
+| `reopened_at_round` | int \| null | E-4: the round the reopen was detected — also the reopened-strike input (§5.5) |
 | `check` | string \| null | path to the linked ratchet check (invoked as `node <path>`) |
 | `check_encodable` | bool | default `true`; `false` = implementer proposes no deterministic check is possible |
 | `red_verified` | bool \| null | set by the gate's full-mode red/green run |
@@ -79,8 +96,17 @@ finding shape:
 | `check_blob` | string \| null | `git hash-object` of the check file at last verification |
 
 `cross_runtime_findings[]` entries carry the base finding shape only (no round-tracking fields) —
-they are mirrored into `findings` (gaining the seven fields) only when they drive a NO-GO
-(FR-015).
+they are mirrored into `findings` (gaining these fields) only when they drive a NO-GO (FR-015).
+They ARE canonicalized (fingerprint + `fid`) and deduped within their own array at normalize time
+(INV-5/E-7) — "never rewritten" applies to what happens after that point, not before it.
+
+## `briefs/<task>-gate-report.json` (E-2)
+
+The convergence gate's full stdout JSON, persisted verbatim by roster-review after every gate
+invocation (overwritten each round). Consumed read-only by the normalizer's next invocation
+(`--gate-report`) to resolve a carried RESOLVED finding's disposition via its `checks[]` array —
+`{check, fid, fingerprint, red_verified, check_blob, ...}` per entry, keyed by `(check, fid)` with
+the `fingerprint` fallback for legacy entries.
 
 ## `rounds_audit[]` entry shape
 
@@ -107,4 +133,5 @@ roster-review itself.
 ```
 
 `config_digest` hashes the runtime name, `--version` output (10s timeout), and sandbox-mode
-flags — never the review timeout or prompt/diff content (FR-093/FR-067).
+flags — never the review timeout or prompt/diff content (FR-093/FR-067). See the human-skip
+variant above (E-10/INV-7) for the `skipped-human` status shape.

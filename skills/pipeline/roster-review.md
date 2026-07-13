@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 2.0.0
+version: 2.1.0
 domain: pipeline
 phase: review
 preamble: true
@@ -194,24 +194,31 @@ Fast/Full when a second runtime is on `PATH`, skippable only by explicit human d
 in the verdict if skipped).
 
 Invoke the helper — it owns the wrapper subprocess, exit-code corroboration, output validation,
-`config_digest`, the invocation journal, and the probe-once/degrade-once breaker state:
+`config_digest`, the invocation journal, and the probe-once/degrade-once breaker state. Write the
+diff + `briefs/<task>-review.json` to a scratch file and pass its path as `--prompt-file` (never
+positional — INV-6, a large diff can exceed a shell argv limit):
 
 ```bash
-[ -f scripts/xruntime-review.js ] && node scripts/xruntime-review.js codex "<prompt>" --task <task-slug> --round <round> [--write] [--timeout <tunables.cross_runtime_probe_timeout>] || echo "xruntime-review.js missing — stale install"
+[ -f scripts/xruntime-review.js ] && node scripts/xruntime-review.js codex --task <task-slug> --prompt-file <scratch-file> --round <round> --cycle <cycle> [--write] [--timeout <tunables.cross_runtime_probe_timeout>] || echo "xruntime-review.js missing — stale install"
 ```
 
-Pass the diff and `briefs/<task>-review.json` in `<prompt>`; instruct it to return **only findings
-the primary missed**, in the standard finding schema with `specialist: "<runtime>-xruntime"`.
-Verification prompts must state claims in **behavioral terms** — disputes over phrasing are not
-findings.
+Instruct it to return **only findings the primary missed**, in the standard finding schema with
+`specialist: "<runtime>-xruntime"`. Verification prompts must state claims in **behavioral terms**
+— disputes over phrasing are not findings.
 
 The helper's JSON result is `{status, reason, config_digest, findings[], journal_line}`.
-`status: "healthy"` → merge `findings[]` into `cross_runtime_findings` (augment-only — never edit
-primary `findings`) and persist the digest/round into `cross_runtime`. `status: "degraded"` →
+`status: "healthy"` → merge `findings[]` into `cross_runtime_findings` (the normalizer, step 4,
+canonicalizes and dedupes this array at intake — INV-5/E-7; augment-only and never rewritten
+thereafter) and persist the digest/round into `cross_runtime`. `status: "degraded"` →
 discard the run's output entirely (it can never contribute a novel finding); persist the
-degradation with its `reason`. `status: "skipped-degraded"` → the breaker refused a re-probe this
-cycle (never a permanent ban — a fresh cycle, i.e. prior GO or no prior file, always re-probes).
-`status: "skipped-human"` → an explicit human decision to skip, already journaled.
+degradation with its `reason` (`spawn-error` is a distinct pre-runtime transport failure, never
+`empty-output`). `status: "skipped-degraded"` → the breaker refused a re-probe this cycle (never a
+permanent ban — a fresh cycle, i.e. prior GO or no prior file, always re-probes). `status:
+"skipped-human"` → an explicit human decision to skip, already journaled — carries
+`{actor, round, ts}`; persist it into `cross_runtime.<runtime>` as
+`{status:"skipped-human", reason, config_digest, round, ts, actor}` (schema/review-json-schema.md)
+— it can never arm the breaker. `status: "blocked"` (`reason: "malformed-verdict"`) → the prior
+verdict was unreadable; fail closed, surface it to the human, never treat as fresh/no-state.
 
 **Precedence** (highest first): a degraded runtime never re-runs within or after the round it
 degraded, short of a digest change or `--human-retry`. Round 1 or a full-fan-out round runs a
@@ -256,18 +263,26 @@ When findings have `category: "spec"` and severity CRITICAL or HIGH: set
 
 ### 4. Normalize and deduplicate
 
-Run the normalizer over every specialist's raw findings plus the prior cumulative ledger:
+Run the normalizer over every specialist's raw findings plus the prior cumulative ledger, passing
+the LAST persisted `briefs/<task>-gate-report.json` if one exists (absent on round 1):
 
 ```bash
-[ -f scripts/review-normalize.js ] && node scripts/review-normalize.js <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> || echo "review-normalize.js missing — stale install"
+[ -f scripts/review-normalize.js ] && node scripts/review-normalize.js <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> --gate-report briefs/<task>-gate-report.json || echo "review-normalize.js missing — stale install"
 ```
 
-It validates each new finding, canonically fingerprints it, merges exact duplicates (highest
-severity wins; convergence recorded), surfaces `probable_duplicates` for your adjudication (never
-auto-merged), separates re-observations of an already-carried finding (`reobservations[]` — no
-false novel-finding strike) from genuinely new findings, and routes cross-runtime findings
-separately. Schema-invalid input lands in `rejected[]` with a reason — never silently dropped.
-Merge its output into the draft verdict; stamp `normalized_by` with its `normalizer_version`.
+It validates each new finding, canonically fingerprints it (plus `fid`, E-3), merges exact
+duplicates by SEMANTIC identity — a shared v1 fingerprint with a different summary/v2 field is
+NEVER merged, only listed as a `probable_duplicate` for your adjudication (INV-1) — and
+canonicalizes/dedupes cross-runtime findings within their own array (see above). A re-report
+matching the ledger is disposed into `reobservations[]` (confirmed noise — no false novel-finding
+strike), `dispositions.reopened[]` (a RESOLVED, check-linked entry the gate report shows failed, or
+any RESOLVED entry with no linked check at all — INV-2: flip its `status` back to `OPEN`, set
+`resolved_round: null`, and stamp `reopened_from_round`/`reopened_at_round` from the entry it
+returns), or `dispositions.pending_check[]` (a RESOLVED, check-linked entry the report doesn't
+cover yet — resolve it after THIS round's gate run from THIS round's fresh report, one bounded
+re-gate if it turns out to be a reopen, §5.5). Schema-invalid input lands in `rejected[]` with a
+reason — never silently dropped. Merge its output into the draft verdict; stamp `normalized_by`
+with its `normalizer_version`.
 
 ### 5. Group ambiguities
 
@@ -313,25 +328,34 @@ diff. A `check` is always a node-runnable file path (invoked as `node <path>`); 
 **ACCEPT prompt.** When the human ACCEPTs a HIGH+ finding in step 5, state that acceptance
 **permanently waives** the invariant — never phrase it as "skip for now".
 
-**Two counters, never conflated.** `no_go_round` (reset to 0 on GO, incremented when a finding-
-driving NO-GO occurs outside `category: "scope"`, compared against `tunables.max_no_go_rounds`) is
-the qualifying-only round-cap backstop. The physical `round` counter (**no reset-on-GO** — it
-persists across the whole task) counts every verdict emission and is the cohort key for two-strike
-escalation, loop-back detection, and `rounds_audit`. Determine this draft's `round` from the prior
-verdict: absent prior file or prior `status: "GO"` → `1` (fresh cycle, `rounds_audit`/`cross_runtime`
-reset); prior `NO-GO` with a numeric `round` → `prior.round + 1` (carry `rounds_audit`/
-`cross_runtime` forward); prior `NO-GO` with `round` absent (legacy) → stay legacy for this cycle.
-A repaired draft re-gated after an exit-3 violation does **not** bump `round` again.
+**Two-event lifecycle (INV-3).** The physical `round` counter follows exactly two events, stated
+once here and nowhere else with different words: (1) a persisted GO verdict retains its cycle-final
+`round`/`rounds_audit`/`cross_runtime` for auditability — nothing resets in place; (2) the next
+review cycle then initializes fresh — round 1, full fan-out, empty `rounds_audit`, a new
+cross-runtime probe, and `cycle` (int, envelope field) incremented. `scripts/lib/review-lifecycle.js`
+(`deriveRoundState`) is the executable witness — read the prior verdict through it, never
+re-derive the rule ad hoc. Determine this draft's `round`/`cycle` from the prior verdict:
+absent prior file or prior `status: "GO"` → event 2 (round `1`, `cycle` + 1, `rounds_audit`/
+`cross_runtime` reset); prior `NO-GO` with a numeric `round` → same cycle, `prior.round + 1`
+(carry `rounds_audit`/`cross_runtime` forward); prior `NO-GO` with `round` absent (legacy) → stay
+legacy for this cycle. A repaired draft re-gated after an exit-3 violation does **not** bump
+`round` again. **Two counters, never conflated:** `no_go_round` (reset to 0 on GO, incremented on a
+finding-driving NO-GO outside `category: "scope"`, compared against `tunables.max_no_go_rounds`) is
+the qualifying-only round-cap backstop — separate from `round`.
 
 **Two-strike novel-finding escalation.** Pass `tunables.novel_finding_strikes` to the gate as
-`--strikes`. The gate computes the current round's strike (a physical round ≥ 2 with ≥1 novel
-HIGH+ non-scope, non-ACCEPTED, non-same-round-resolved finding; round 1 never strikes) — persist it
-into this round's `rounds_audit` entry. **Human override (streak only):** when the gate's `cause`
-is `novel-finding-streak`, offer an explicit "override — one more implement round" option alongside
-the default `/roster-spec` routing; if exercised, record `streak_override: {round, by: "human"}`,
-force this round's `strike: false`, and route to `/roster-implement` instead — a **new** streak
-must fully re-accumulate before the option returns. The round-cap escalation is **never**
-overridable.
+`--strikes`. The gate computes the current round's strike — a physical round ≥ 2 with ≥1 novel
+HIGH+ non-scope, non-ACCEPTED, non-same-round-resolved finding, OR ≥1 HIGH+ finding this round
+reopened (`reopened_at_round == round`, E-4: a regression-heavy loop-back round strikes too; round
+1 never strikes) — persist it into this round's `rounds_audit` entry. **Human override (streak
+only):** when the gate's `cause` is `novel-finding-streak`, offer an explicit "override — one more
+implement round" option alongside the default `/roster-spec` routing; if exercised, record
+`streak_override: {round, by: "human"}` and route to `/roster-implement` instead — the GATE itself
+is override-aware (E-1: a `streak_override` valid for the CURRENT round forces that round's
+`strike: false` instead of recomputing it, so a later `--static` re-check, e.g. by roster-run,
+still passes) — a **new** streak must fully re-accumulate before the option returns; staleness is
+current-round-only (the next verdict's `round` increment retires it). The round-cap escalation is
+**never** overridable.
 
 **`pre_fix_sha`.** At NO-GO emission, for each new HIGH+ finding this round: if the tree is clean,
 `pre_fix_sha` = current HEAD; if dirty, `pre_fix_sha` = `null` with `"dirty-tree"` — never record a
@@ -355,12 +379,22 @@ Repair the draft's `rounds_audit` entry per `violations[].detail` and re-invoke 
 must **never** reach routing — `process-incomplete` is always repaired pre-persist or surfaced
 directly, never treated as design-not-converging.
 
-Once the gate reports anything other than exit 3, merge `checks[]` (`red_verified`, `check_blob`)
-back into findings, merge `current_round_strike` into this round's `rounds_audit.strike`, and merge
-the outcome into the verdict: exit 0 → no change. Exit 1 → **the verdict becomes NO-GO regardless
-of step 6**, `no_go_reason.type = "design-not-converging"`, `cause` from the gate's top-level
-`cause` (precedence unencodable-finding > novel-finding-streak > round-cap) — even on an otherwise-
-GO round. Exit 2 → degraded input — fail-closed: block the route-back and surface to the human.
+Once the gate reports anything other than exit 3, merge `checks[]` (`red_verified`, `check_blob`,
+keyed by `(check, fid)` — E-3) back into findings, merge `current_round_strike` into this round's
+`rounds_audit.strike`, and merge the outcome into the verdict: exit 0 → no change. Exit 1 → **the
+verdict becomes NO-GO regardless of step 6**, `no_go_reason.type = "design-not-converging"`, `cause`
+from the gate's top-level `cause` (precedence unencodable-finding > novel-finding-streak >
+round-cap) — even on an otherwise-GO round. Exit 2 → degraded input — fail-closed: block the
+route-back and surface to the human.
+
+**Gate-report persistence + pending-check resolution (E-2).** Persist the gate's stdout JSON
+verbatim to `briefs/<task>-gate-report.json` (overwritten each round — it already has the report,
+this is a straight write, no re-execution). Step 4's `dispositions.pending_check[]` entries were
+provisional (last round's report didn't yet cover their check); resolve them now from THIS round's
+freshly persisted report: covered + `red_verified: true` → reobserved (metadata only); otherwise →
+reopen (§ step 4's reopen mutation). A reopen mutation discovered here changes strike/violation
+inputs, so re-invoke the gate exactly once more on the corrected draft (bounded — this is not the
+exit-3 repair loop) before the write below.
 
 Only then write `briefs/<task>-review.json` **once** (never before the gate has run and merged) and
 remove the `.draft` file — no half-written state, no orphan drafts.
@@ -373,9 +407,9 @@ test discipline).
 ### 6. Write the verdict
 
 Produce `briefs/<task>-review.json` per `schema/review-json-schema.md` — `task`, `date`, `status`,
-`auto_fixes_applied`, `findings` (base shape: `schema/review-finding.schema.json`, plus the seven
+`auto_fixes_applied`, `findings` (base shape: `schema/review-finding.schema.json`, plus the
 round-tracking fields), `cross_runtime_findings`, `summary`, `no_go_reason`, `no_go_round`, `round`,
-`rounds_audit`, `cross_runtime`, `streak_override`, `mode`, `escalation_needed`,
+`cycle`, `rounds_audit`, `cross_runtime`, `streak_override`, `mode`, `escalation_needed`,
 `escalation_reason`, `normalized_by`.
 
 **GO status if:** no CRITICAL or HIGH OPEN finding in either `findings` or `cross_runtime_findings`,
@@ -442,6 +476,6 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Never write `briefs/<task>-review.json` before the convergence gate (§5.5) has run and its outcome is merged — gate-before-write is not optional, even on a GO round
 - Never mark a HIGH+ finding RESOLVED across a loop-back round without a linked `check`, unless it is ACCEPTED or was raised and resolved within the same round
 - The ACCEPT prompt for a HIGH+ finding must state the waiver is permanent — never phrase it as temporary
-- Never conflate `round` (physical, no reset-on-GO) with `no_go_round` (qualifying-only backstop, reset-on-GO) — they are separate counters with separate reset rules
+- Never conflate `round` (physical, two-event lifecycle — resets only at the next cycle's start, INV-3) with `no_go_round` (qualifying-only backstop, reset-on-GO) — they are separate counters with separate reset rules
 - Never let the gate's own `process-incomplete` cause escape to routing — it is always repaired pre-persist (max 2 attempts) or surfaced to the human directly, never treated as design-not-converging
 - Never persist a draft verdict when the gate's report is missing `config.strikes` — treat it as a stale gate script and surface it, never silently proceed
