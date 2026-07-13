@@ -209,6 +209,40 @@ if (fs.existsSync(installSh)) {
   console.log("✓ pipeline-install: no scripts/install.sh — skipping installer recruit-source check.");
 }
 
+// ── Check 6: deterministic pipeline gate scripts are on disk and wired ──────
+// FR-041: scripts/check-review-convergence.js MUST be registered in the
+// pipeline install path, mirroring scripts/check-scope-diff.sh. Neither gate
+// script currently has a dedicated consumer-repo distribution/copy step
+// (install.sh only fetches the recruiter; recruiter/init-harness do not
+// enumerate scripts/*.sh|*.js individually) — that is a pre-existing gap,
+// not introduced here. This check is the mechanical parity guard available
+// today: both scope gates must exist on disk and stay referenced from the
+// skill prose that invokes them, so drift (script renamed/removed without
+// updating the skill, or vice versa) fails loudly instead of silently.
+const GATE_SCRIPTS = [
+  { script: "scripts/check-scope-diff.sh", referencedIn: "skills/pipeline/roster-review.md" },
+  { script: "scripts/check-review-convergence.js", referencedIn: "skills/pipeline/roster-review.md" },
+];
+for (const { script, referencedIn } of GATE_SCRIPTS) {
+  const scriptPath = path.resolve(root, script);
+  const refPath = path.resolve(root, referencedIn);
+  if (!fs.existsSync(scriptPath)) {
+    errors.push(`pipeline gate script missing on disk: ${script}`);
+    continue;
+  }
+  if (!fs.existsSync(refPath)) {
+    errors.push(`${referencedIn} not found — cannot verify it references ${script}`);
+    continue;
+  }
+  const refText = fs.readFileSync(refPath, "utf8");
+  if (!refText.includes(script)) {
+    errors.push(`${referencedIn} no longer references ${script} — gate script is orphaned or the reference drifted`);
+  }
+}
+if (!errors.some((e) => e.includes("pipeline gate script") || e.includes("no longer references"))) {
+  console.log(`✓ pipeline-install: ${GATE_SCRIPTS.length} pipeline gate script(s) present and referenced.`);
+}
+
 if (errors.length) {
   console.error(`\n✗ pipeline-install: ${errors.length} issue(s):`);
   for (const e of errors) console.error(`    - ${e}`);
