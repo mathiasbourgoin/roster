@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 1.8.0
+version: 1.9.0
 domain: pipeline
 phase: review
 preamble: true
@@ -13,6 +13,8 @@ tunables:
   auto_fix_threshold_lines: 20
   always_run_spec_compliance: true
   max_no_go_rounds: 5
+  novel_finding_strikes: 2
+  cross_runtime_probe_timeout: 120
 artifacts:
   reads:
     - briefs/<task>-impl.md
@@ -152,7 +154,62 @@ Spawn specialists based on scope. Each specialist receives:
 | `reviewer` (agent) | Always | `.claude/agents/reviewer.md` |
 | `cross-runtime-reviewer` | **Mandatory** in Fast/Full when a runtime CLI other than the host is on `PATH` (`codex` or `opencode`); skip only by explicit human decision | See **Cross-Runtime Review** below — an independent second-model pass |
 
-### Cross-Runtime Review
+### Delta-Scoped Loop-Back Reviewer Selection (US-3)
+
+This table governs round 1. On a **loop-back round** (physical `round` ≥ 2, §5.5), narrow selection
+per below instead — safe because the ratchet + every-round gate (§5.5) hold the floor regardless of
+which specialists re-run.
+
+**Round 1 or legacy review.json missing `round` (FR-071).** Apply the table above unchanged. The
+`rounds_audit` entry is not mandatory here — the gate downgrades a missing entry to a warning
+(FR-030 pattern, EC-7) rather than a violation.
+
+**Loop-back rounds — `round` ≥ 2 (FR-072..FR-076):**
+
+- The owner `reviewer` agent **always** re-runs (FR-072).
+- A specialist re-runs **iff** it is named in an OPEN finding's `specialist` field, **or** a
+  trust-boundary surface (authority, custody, isolation, publication) changed since the round's
+  `reviewed_sha` (FR-073). Otherwise it does not run this round.
+- Cross-runtime participation on loop-back rounds is governed exclusively by the US-2 circuit
+  breaker state (FR-074): healthy + owns an OPEN finding it raised → re-runs; degraded → never runs.
+  This table's cross-runtime row does not apply on loop-back rounds.
+- **Full fan-out** (every specialist from the round-1 table, plus the cross-runtime pass when
+  healthy) re-triggers when either:
+  - the correction changes public behavior, authority, custody, isolation, or publication semantics
+    — record the judgment in the audit entry's `selection_reason` (FR-075); or
+  - the **immediately preceding round** recorded a strike (`rounds_audit[].strike == true`) — the
+    anti-starvation rule (FR-076): strike 2 of a two-strike escalation is always measured under
+    full scrutiny, never narrowed away by delta selection.
+- **Deduped findings (EC-9):** when two findings converged on one shared invariant and only one
+  specialist survives the dedup (§4), that surviving specialist's name is what selection keys on —
+  the converged twin need not re-run.
+
+**`rounds_audit` (FR-077).** Append **one entry per round — including GO drafts** — to an
+append-only `rounds_audit` array before invoking the gate (§5.5), shaped:
+
+```json
+{
+  "round": 2,
+  "reviewed_sha": "<HEAD at the PREVIOUS round's verdict emission>",
+  "fix_sha": "<HEAD at THIS round's draft composition, or null if the tree is dirty>",
+  "fix_sha_reason": "dirty-tree",
+  "specialists_run": [
+    { "name": "reviewer", "selection_reason": "owner reviewer always runs (FR-072)" },
+    { "name": "architect", "selection_reason": "named in OPEN finding lib.ml:40:architecture" }
+  ],
+  "strike": false
+}
+```
+
+Every `specialists_run` entry MUST carry a non-empty `selection_reason` — "why did this specialist
+run this round" must always be answerable from the artifact. Full fan-out entries read
+`"full-fanout: <trigger>"` (e.g. `"full-fanout: authority semantics changed"` or
+`"full-fanout: prior round strike (anti-starvation)"`). `fix_sha_reason` accompanies a null
+`fix_sha` (dirty tree, EC-8) — pass-with-flag, not a violation. `strike` is populated **after** the
+gate reports it (§5.5, B-1) — never computed by roster-review itself. `rounds_audit` carries forward
+and is **retained** on GO (B-3) — reset only at the next cycle's round 1.
+
+### Cross-Runtime Review (US-2, circuit breaker)
 
 When a **different** runtime CLI is available, run an independent adversarial pass. Detection:
 
@@ -164,6 +221,22 @@ command -v opencode >/dev/null 2>&1 && echo "opencode available"
 If neither is present (or only the host runtime), **skip silently**.
 
 **Mandatory for Fast/Full reviews when a second runtime CLI is on `PATH`.** This pass may be skipped **only by explicit human decision** — never silently. If skipped, record the human decision in the verdict.
+
+**Participation precedence (FR-060..FR-068, B-2)** — highest first:
+
+1. **Degraded → never runs.** The breaker overrides everything else; a degraded runtime is never re-invoked within or after the round it degraded, unless its `config_digest` changes or the human explicitly requests a retry (FR-066).
+2. **Round 1 or a full-fan-out round → a healthy runtime runs.** Full fan-out (see §3 selection rules) always includes the cross-runtime pass when the runtime is healthy.
+3. **A delta (loop-back, non-full-fan-out) round → a healthy runtime runs iff it owns an OPEN finding** it originally raised (FR-074). Otherwise it does not run that round — this is not degradation, just non-selection.
+
+**Probe-once, degrade-once (FR-060, FR-065 as amended by B-2).** The first real cross-runtime pass IS the probe. `cross_runtime` in review.json is an object keyed by runtime name: `{status: "healthy"|"degraded", reason, config_digest, round}`. Healthy status is recorded, not only degraded — a probe-once rule is unimplementable without recording the healthy case too. A healthy runtime keeps running on every round **on which it is selected** (per the precedence above) until its first failure, at which point it flips to `degraded` at that round and is never retried on any later round (FR-065 amended by B-2) — except for the config_digest/human-request re-probe path (FR-066).
+
+**Degraded taxonomy (FR-061).** Mark a runtime degraded on: hard timeout (tunable `cross_runtime_probe_timeout`, default 120s, passed to `xruntime-exec.sh --timeout`), empty/banner-only output, refusal, schema-invalid or truncated output, or a wrapper tree-mutation exit (`xruntime-exec.sh` exit 3) — reason `"tree-mutation"`, human-flagged. Schema-valid output with an **empty** findings array is `healthy`, never degraded by itself (FR-062).
+
+**Discard on degrade (FR-063, FR-070).** A degraded run's output is discarded entirely — it is never merged into `cross_runtime_findings` and therefore can never contribute a novel finding to strike computation (§5.5 two-strike escalation). Findings recorded while the runtime was healthy retain full GO-blocking authority even after it later degrades (FR-064) — degrading does not retroactively waive prior findings.
+
+**`config_digest` (FR-067).** Hash the runtime name, the CLI's `--version` output (10-second timeout; a hang is itself degraded, reason `"version-probe-timeout"`), and the wrapper flags. Prompt/diff content is deliberately excluded — including it would change the digest every round and void the no-retry rule.
+
+**Carry-forward and reset (FR-068, B-3).** `cross_runtime` carries forward across rounds of one review cycle and is **retained** (not reset) on a GO verdict — see §5.5's B-3 retain-on-GO rule. A QA-driven return is a fresh review cycle: it re-probes once, at round 1 of the new cycle, deliberately (post-QA re-review deserves full scrutiny).
 
 **Invocation:** use the wrapper — it closes stdin (bare `codex exec` hangs), sets
 `--skip-git-repo-check`, file-captures output (survives output-mangling shell wrappers), and
@@ -178,6 +251,8 @@ Pass `--write` only when the pass must run builds (workspace-write sandbox). Pas
 **Augment, never rewrite.** Append returned objects to `cross_runtime_findings`. Do **not** edit primary `findings` entries.
 
 **GO authority:** any `cross_runtime_findings` entry that is CRITICAL or HIGH (OPEN) sets `status: NO-GO` with `no_go_reason.type = "cross-runtime-finding"`.
+
+**Gate warning (FR-069).** The convergence gate (§5.5) structurally warns when a `degraded` `cross_runtime` entry lacks `reason` or `config_digest`. Surface any such warning in the human-gate one-liner (§7) — it means the breaker's bookkeeping is incomplete, not that a finding was missed. Beyond this structural warning and the config echo (§5.5, B-4), probe-once/discard/no-retry compliance is prose-level (accepted residual R-4, B-9) — the breaker's primary value is revoking the mandate to retry that the old rule imposed.
 
 **KB-conditional check:** `[ -d kb ] && [ -f kb/properties.md ] && echo "KB present" || echo "KB absent"`
 
@@ -291,6 +366,55 @@ by exactly 1 when this verdict is NO-GO **and** at least one OPEN HIGH+ finding 
 `category: "scope"` drove it (a scope-only NO-GO does not increment — the scope gate is a separate
 mechanism). Reset to 0 on GO. Compare against `tunables.max_no_go_rounds` (default 5) — reaching or
 exceeding it is a gate violation (`cause: "round-cap"`), independent of the finding-level checks.
+**This is unchanged by review-fanout-convergence** — `no_go_round` remains the qualifying-only
+round-cap backstop (it counts only finding-driving NO-GOs). It is a **distinct counter** from the
+physical `round` below — never conflate the two, and never derive one from the other.
+
+**The physical `round` counter (US-1, FR-050/FR-051/FR-052, amended B-3).** `round` counts every
+verdict emission of the current review cycle, qualifying or not — it is the cohort key for
+two-strike escalation, loop-back detection (§3), and `rounds_audit` entries. Unlike `no_go_round`,
+**there is no reset-on-GO.** Determine this verdict's `round` at draft composition, from the prior
+`briefs/<task>-review.json` (if any):
+
+| Prior state | This draft's `round` | `rounds_audit` | `cross_runtime` |
+|---|---|---|---|
+| No prior file (first-ever round) | `1` | `[]` | `{}` |
+| Prior `status == "GO"` (a **new** review cycle is starting — e.g. a QA-driven return) | `1` | `[]` (fresh) | `{}` (fresh — one re-probe, per US-2) |
+| Prior `status == "NO-GO"` and prior `round` is a number (continuing this cycle) | `prior.round + 1` | carried forward, append this round's entry | carried forward, updated per US-2 probe rules |
+| Prior `status == "NO-GO"` and prior `round` is **absent** (legacy — this cycle predates the feature) | **absent** (stay legacy for the rest of this cycle) | not written | not written |
+
+The persisted GO verdict **retains** its cycle-final `round`/`rounds_audit`/`cross_runtime` — do
+**not** zero them out when writing a GO. The reset only happens implicitly, at the **next** cycle's
+first round, per the table above (B-3) — this is what keeps the write single and crash-safe (A-2):
+the gate always validates exactly the object being persisted, never a value that gets rewritten
+after the fact. `round` increments **exactly once per persisted verdict** — a repaired draft that
+is re-gated after an exit-3 process-incomplete violation (below) does **not** bump `round` again;
+it is still the same verdict being composed.
+
+Do not confuse this with `no_go_round`'s FR-021 reset-on-GO — that rule is unchanged and applies
+only to `no_go_round`. `first_seen_round`/`resolved_round` on findings stamp from **this** physical
+`round`, never from `no_go_round`.
+
+**Two-strike novel-finding escalation (US-1, FR-053..FR-059).** Pass
+`tunables.novel_finding_strikes` to the gate as `--strikes` (FR-057). The gate computes the
+**current round's** strike classification from the draft's `findings` (a physical round ≥ 2 with
+≥1 novel HIGH+ non-scope, non-ACCEPTED, non-same-round-resolved finding); round 1 never strikes.
+**Past strikes are never recomputed** — the gate reads them from `rounds_audit[].strike`, which you
+persisted from its own report in an earlier round (B-1). After the gate runs, persist its computed
+`current_round_strike` value into this round's `rounds_audit` entry's `strike` field (§3). A same-round-resolved or ACCEPTED novel finding never counts as a strike — which is exactly what makes a
+clean GO round strike-free by construction (FR-058): the streak can never flip a GO round to NO-GO
+via the streak mechanism itself (though other gate violations still can, per A-1).
+
+**Human override of a streak escalation (B-6).** When the gate's top-level `cause` is
+`"novel-finding-streak"`, the verdict does **not** unconditionally route to `/roster-spec` — at the
+§7 human gate, present an explicit **"override — one more implement round"** option alongside the
+default design-not-converging routing. If the human overrides: record
+`streak_override: {round: <this round>, by: "human"}` in review.json, force this round's
+`rounds_audit` entry `strike: false` (overriding what the gate computed), and route back to
+`/roster-implement` for one more round instead of escalating to spec. This resets the streak — a
+**new** streak must fully re-accumulate before the option is offered again (bounding the cost to
+one human decision per streak occurrence). The **round-cap** escalation (`cause: "round-cap"`)
+remains **non-overridable** — this override applies only to the streak cause.
 
 **`pre_fix_sha` recording (FR-033, amended A-3).** At NO-GO verdict emission, for each **new**
 HIGH+ finding recorded this round, verify the tree is clean (`git status --porcelain` empty) —
@@ -299,25 +423,48 @@ current `HEAD`. If dirty: `pre_fix_sha` = `null` with reason `"dirty-tree"` — 
 confidently wrong SHA. When `pre_fix_sha` is `null` (dirty tree or genuinely uncommitted-tree
 task), `red_verified` stays `null`; the gate accepts this but flags it in the one-liner (FR-034).
 
-**Gate invocation — fixed order (A-2).** Compose the draft verdict (fields above populated) BEFORE
-writing anything to disk. Then invoke the gate:
+**Gate invocation — fixed order (A-2, extended by B-4/B-5).** Compose the draft verdict (fields
+above populated, including this round's `rounds_audit` entry and any `cross_runtime` updates)
+BEFORE writing anything to disk. Then invoke the gate:
 
 ```bash
-node scripts/check-review-convergence.js briefs/<task>-review.json.draft --max-rounds <tunables.max_no_go_rounds> --timeout 120
+node scripts/check-review-convergence.js briefs/<task>-review.json.draft --max-rounds <tunables.max_no_go_rounds> --strikes <tunables.novel_finding_strikes> --timeout 120
 ```
 
 (Write the draft verdict to a `.draft` suffix first so the gate has a file to read without
 touching the real artifact yet.) The gate runs full mode here — it executes red/green verification
-for any check needing it and reports results as JSON on stdout. Merge the gate's `checks[]` results
-(`red_verified`, `check_blob`) back into the corresponding findings, and merge any blocking outcome
-into the verdict:
+for any check needing it and reports results as JSON on stdout.
+
+**Config-echo verification (B-4).** Before trusting any other field of the report, check that
+`report.config.strikes` is present. Its **absence** means the installed gate script predates this
+feature (a stale distribution) — treat this as degraded input: do not persist the draft, surface
+"gate script out of date — scripts/check-review-convergence.js needs upgrading" to the human, and
+stop. This check applies on every invocation, including an otherwise-clean exit 0.
+
+**Exit-3 bounded repair loop (B-5, FR-079).** Exit 3 means the **only** violations are
+`process-incomplete` (currently: `missing-loopback-audit` — an incomplete or absent `rounds_audit`
+entry for this round). This is a **bookkeeping** defect, not a design one: repair the draft's
+`rounds_audit` entry (fill the missing field(s) the report's `violations[].detail` names) and
+re-invoke the gate — **do not increment `round`** for the retry, it is the same verdict. Bound this
+to **2 repair attempts total**; if the gate still reports exit 3 after the second attempt, stop and
+surface to the human — do not persist, do not route. Exit 3 must **never** reach routing logic:
+design-not-converging routing (below) applies only to design causes (`round-cap`,
+`unencodable-finding`, `novel-finding-streak`) — never to `process-incomplete`.
+
+Once the gate reports something other than exit 3, merge the gate's `checks[]` results
+(`red_verified`, `check_blob`) back into the corresponding findings, merge `current_round_strike`
+into this round's `rounds_audit` entry (`strike` field), and merge any blocking outcome into the
+verdict:
 
 - Gate exit 0 → no change to the verdict's status.
-- Gate exit 1 or 2 → **the verdict becomes NO-GO regardless of what step 6 computed**, with
+- Gate exit 1 → **the verdict becomes NO-GO regardless of what step 6 computed**, with
   `no_go_reason.type = "design-not-converging"` and `no_go_reason.cause` taken from the gate's
-  violation (`"round-cap"` or `"unencodable-finding"` — the gate's `checks[]`/`violations[]`
-  reports which). This applies even to a round that would otherwise be GO (A-1) — vacuous checks,
-  RESOLVED-without-check, and blob-weakening findings all invalidate a GO.
+  top-level `cause` field (`"round-cap"` | `"unencodable-finding"` | `"novel-finding-streak"` —
+  precedence unencodable-finding > novel-finding-streak > round-cap, FR-059). This applies even to
+  a round that would otherwise be GO (A-1) — vacuous checks, RESOLVED-without-check, blob-weakening
+  findings, and a novel-finding streak all invalidate a GO.
+- Gate exit 2 → degraded input (malformed review.json, unknown flag, or an inconclusive red/green
+  run) — fail-closed: block the route-back and surface to the human, unchanged from pipeline-loop-convergence's original contract.
 
 Only then write `briefs/<task>-review.json` **once** (rename the draft or write the merged object)
 — there is no post-write crash window, and the file is never in a half-written or unverified state.
@@ -397,13 +544,34 @@ Produce `briefs/<task>-review.json`:
     "failed_acs": []
   },
   "no_go_round": 0,
+  "round": 1,
+  "rounds_audit": [
+    {
+      "round": 1,
+      "reviewed_sha": null,
+      "fix_sha": "<HEAD at draft composition>",
+      "fix_sha_reason": null,
+      "specialists_run": [
+        { "name": "reviewer", "selection_reason": "round 1: full fan-out (initial round)" }
+      ],
+      "strike": false
+    }
+  ],
+  "cross_runtime": {
+    "codex": { "status": "healthy", "reason": null, "config_digest": "<hash>", "round": 1 }
+  },
+  "streak_override": null,
   "mode": "express|fast|full",
   "escalation_needed": false,
   "escalation_reason": null
   // type values: null | "spec-ac-failure" | "code-plan-failure" | "cross-runtime-finding" | "out-of-scope-change" | "design-not-converging"
-  // cause values (only set when type == "design-not-converging"): null | "round-cap" | "unencodable-finding"
+  // cause values (only set when type == "design-not-converging"; persisted, PERSISTED cause is never
+  // "process-incomplete" — that gate-internal cause is repaired pre-persist per FR-079, B-5):
+  // null | "round-cap" | "unencodable-finding" | "novel-finding-streak"
   // escalation_reason: null | "new-public-api" | "implicit-design-decision" | "spec-update-needed" | "behaviour-change"
   // cross_runtime_findings: appended by the cross-runtime reviewer (augment-only); omit the key entirely if no second runtime ran
+  // round/rounds_audit/cross_runtime: absent entirely on a legacy task (predates review-fanout-convergence, B-8) — never write them mid-cycle if the prior review.json lacked `round`
+  // streak_override: null unless the human exercised the B-6 override this round — then {round, by: "human"}
 }
 ```
 
@@ -416,7 +584,13 @@ Present a one-line summary: auto-fixes applied, finding counts by severity, GO/N
 **`no_go_round` and the checks added this round** (FR-031) — e.g. "round 2/5, 1 new ratcheted
 check (`checks/foo.test.js`, red-verified)". If a finding's `pre_fix_sha` is null, flag it
 explicitly (uncommitted-tree or dirty-tree residual, FR-034/A-3). If NO-GO, name the HIGH+
-findings to resolve. Wait for explicit human confirmation before proceeding.
+findings to resolve. Surface any gate `warnings[]` verbatim (FR-069 degraded cross-runtime entries
+missing `reason`/`config_digest`; the B-7 round/first_seen_round carry-forward inconsistency).
+Wait for explicit human confirmation before proceeding.
+
+**Streak-escalation override (B-6).** When `no_go_reason.cause == "novel-finding-streak"`, present
+the "override — one more implement round" option alongside the default routing (see §5.5). Do not
+offer this option for `cause == "round-cap"` — the cap escalation is never overridable.
 
 **Known residual (FR-032):** the review-GO → QA-NO-GO → implement loop is not bounded by the
 convergence gate — `/roster-qa` is explicitly out of scope for this mechanism.
@@ -436,6 +610,8 @@ convergence gate — `/roster-qa` is explicitly out of scope for this mechanism.
 | `code-quality-auditor` returns Critical KB violations | Auto-classify as HIGH finding → NO-GO unless immediately auto-fixable |
 | `escalation_needed: true` in Express/Fast mode | Present to human — they decide whether to loop back to `/roster-spec` or accept as-is |
 | Convergence gate reports a violation (§5.5) | The draft verdict becomes NO-GO with `no_go_reason.type: "design-not-converging"` — never silently keep a GO |
+| Gate exit 3 (`process-incomplete`) | Repair the draft's `rounds_audit` entry and re-gate (max 2 attempts, §5.5) — never route; surface to human if still failing after 2 attempts |
+| `no_go_reason.cause == "novel-finding-streak"` and human exercises the override (B-6) | Route to `/roster-implement` for one more round instead of `/roster-spec`; record `streak_override` and reset this round's `strike` to `false` |
 
 ## What Next
 
@@ -463,3 +639,6 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Never write `briefs/<task>-review.json` before the convergence gate (§5.5) has run and its outcome is merged — gate-before-write is not optional, even on a GO round
 - Never mark a HIGH+ finding RESOLVED across a loop-back round without a linked `check`, unless it is ACCEPTED or was raised and resolved within the same round
 - The ACCEPT prompt for a HIGH+ finding must state the waiver is permanent — never phrase it as temporary
+- Never conflate `round` (physical, no reset-on-GO) with `no_go_round` (qualifying-only backstop, reset-on-GO) — they are separate counters with separate reset rules (B-3)
+- Never let the gate's own `process-incomplete` cause escape to routing — it is always repaired pre-persist (max 2 attempts) or surfaced to the human directly, never treated as design-not-converging
+- Never persist a draft verdict when the gate's report is missing `config.strikes` — treat it as a stale gate script and surface it, never silently proceed (B-4)

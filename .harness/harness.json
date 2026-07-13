@@ -374,13 +374,15 @@
       {
         "name": "roster-review",
         "source": "roster",
-        "version": "1.8.0",
+        "version": "1.9.0",
         "domain": "pipeline",
         "phase": "review",
         "tunables": {
           "auto_fix_threshold_lines": 20,
           "always_run_spec_compliance": true,
-          "max_no_go_rounds": 5
+          "max_no_go_rounds": 5,
+          "novel_finding_strikes": 2,
+          "cross_runtime_probe_timeout": 120
         }
       },
       {
@@ -417,7 +419,7 @@
       {
         "name": "roster-spec",
         "source": "roster",
-        "version": "2.3.0",
+        "version": "2.4.0",
         "domain": "pipeline",
         "phase": "spec",
         "tunables": {

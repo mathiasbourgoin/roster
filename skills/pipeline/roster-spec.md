@@ -2,7 +2,7 @@
 name: roster-spec
 description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
 when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
-version: 2.3.0
+version: 2.4.0
 domain: pipeline
 phase: spec
 preamble: true
@@ -85,7 +85,9 @@ the invariants at risk (from the brief's Goal + Relevant Files + the trust-bound
 fired at intake) and write `specs/<task-slug>.md` marked `**Profile: minimal-freeze**` containing
 only:
 
-- **Invariants** — the properties this task must not violate, one per bullet.
+- **Invariants** — the properties this task must not violate, one per bullet, **containing** the
+  runnable checks and their annotations below (FR-081 — the base "containing only" wording is
+  amended to admit the authentic-path pair and the not-feasible marker).
 - **Runnable Checks** — `CHECK-N` entries, one per invariant, each with a red-command
   (see the exit convention below).
 - **Acceptance Criteria** — exactly one `AC-N` paired 1:1 with each `CHECK-N` (mechanical pairing —
@@ -95,9 +97,27 @@ only:
 `tunables.min_user_stories` and `tunables.min_gwtscenarios_per_story` **do not apply** to a
 minimal-freeze spec — no User Stories or Challenges sections are required (FR-005).
 
-**Existing spec file (EC-3, FR-006):** if `specs/<task-slug>.md` already exists, **extend** it —
-add the new invariants and their paired CHECK-N/AC-N — never skip on the grounds that the file
-exists.
+**Authentic-path requirement (US-4, FR-080..FR-085).** A minimal-freeze invariant set MUST include
+**at least one** `CHECK-N` annotated `(authentic-success-path)` — a check that reaches the real
+consumer boundary, not a synthetic-only stub — **and at least one** annotated `(fail-closed-path)`.
+One `CHECK-N` MAY carry both annotations when it genuinely covers both roles (EC-10). Example:
+
+```
+- CHECK-1 [AC-1] (authentic-success-path): `node checks/auth-accept.js` → real consumer accepts a validly-signed token.
+- CHECK-2 [AC-2] (fail-closed-path): `node checks/auth-reject.js` → real consumer rejects a tampered token.
+```
+
+**Not-feasible marker.** When no feasible authentic path exists (e.g. the real consumer boundary is
+unreachable in CI), write **`**Authentic path: not feasible — <reason>**`** instead of the pair.
+Enforcement is **prose-and-human, accepted level** (FR-084) — these checks need not be
+gate-executable and MUST NOT be auto-linked as ratchet red-run checks (§5.5 of roster-review.md)
+unless self-contained; do not expect `scripts/check-review-convergence.js` to verify this
+requirement mechanically. Step 9 below explicitly surfaces the marker for human acknowledgment.
+
+**Existing spec file (EC-3, FR-006, FR-085):** if `specs/<task-slug>.md` already exists, **extend**
+it — add the new invariants and their paired CHECK-N/AC-N, and add the authentic-path pair or the
+not-feasible marker if the extension introduces new invariants — never skip on the grounds that the
+file exists.
 
 **No derivable invariant (FR-007):** if no invariant can be derived from the brief for this task,
 write `briefs/<task>-spec.md` with `**Status: BOUNCED — no derivable invariant**` and stop. Do not
@@ -356,6 +376,13 @@ If `tunables.require_runnable_checks` is true and no concrete checks can be writ
 ### 9. Human validation
 
 Present `specs/<task-slug>.md` and run the quiz per the human-validation.md protocol (≥1 comprehension + 1 consistency-check question). Do not write `Status: VALIDATED` until explicit approval is received. If the human requests changes: apply them, then re-ask the quiz before writing VALIDATED.
+
+**Authentic-path marker surfacing (US-4, FR-082/FR-083).** If the spec carries
+`**Authentic path: not feasible — <reason>**` (minimal-freeze or otherwise), explicitly echo the
+marker and its reason in the presentation — approval given with the marker surfaced constitutes
+acknowledgment of the accepted gap; do not bury it in the file body and treat silence as consent.
+If the human declines to accept the marker and no feasible authentic path can be added: the phase
+concludes **BOUNCED** (FR-083, EC-11) — do not write `Status: VALIDATED`.
 
 ### 10. Write Completion Artifact
 
