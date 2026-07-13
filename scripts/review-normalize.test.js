@@ -143,9 +143,11 @@ test("D-1: new finding matching a ledger fingerprint is a reobservation — neve
   assert.strictEqual(result.reobservations.length, 1);
   assert.deepStrictEqual(result.reobservations[0], {
     fingerprint: "lib/foo.ml:42:correctness",
+    fid: result.reobservations[0].fid,
     specialist: "reviewer",
     round: 3,
   });
+  assert.match(result.reobservations[0].fid, /^lib\/foo\.ml:42:correctness#[0-9a-f]{8}$/);
 });
 
 test("D-1: reobservation round is null when --round was not passed", () => {
@@ -170,9 +172,63 @@ test("FR-106: normalizer never auto-downgrades severity or auto-resolves — sin
   assert.strictEqual(result.findings[0].severity, "HIGH");
 });
 
+// ── INV-5/E-7: cross-runtime canonicalization at intake ─────────────────
+test("INV-5/E-7: an arbitrary model-provided cross-runtime fingerprint is replaced with the canonical v1 form", () => {
+  const xr = finding({ path: "x.ml", line: 9, fingerprint: "totally-untrusted-value", specialist: "codex-xruntime" });
+  const result = normalize({ newFindings: [xr], ledger: [] });
+  assert.strictEqual(result.cross_runtime_findings.length, 1);
+  assert.strictEqual(result.cross_runtime_findings[0].fingerprint, "x.ml:9:correctness");
+  assert.match(result.cross_runtime_findings[0].fid, /^x\.ml:9:correctness#[0-9a-f]{8}$/);
+});
+
+test("INV-5: two cross-runtime findings with identical semantics dedup within the augment-only array, never merge into primary", () => {
+  const a = finding({ path: "x.ml", line: 9, fingerprint: "bogus-1", specialist: "codex-xruntime" });
+  const b = finding({ path: "x.ml", line: 9, fingerprint: "bogus-2", specialist: "codex-xruntime" });
+  const result = normalize({ newFindings: [a, b], ledger: [] });
+  assert.strictEqual(result.findings.length, 0, "cross-runtime findings never enter primary findings");
+  assert.strictEqual(result.cross_runtime_findings.length, 1, "identical cross-runtime findings dedup within their own array");
+});
+
+// ── INV-2/E-2: gate-report-driven disposition ────────────────────────────
+test("INV-2/E-2: a RESOLVED, check-linked entry re-reported WITH a gate report showing red_verified: true stays reobserved", () => {
+  const ledgerEntry = finding({ status: "RESOLVED", first_seen_round: 1, resolved_round: 2, check: "checks/foo.test.js" });
+  const gateReport = { checks: [{ check: "checks/foo.test.js", fid: ledgerEntry.fid, red_verified: true }] };
+  // ledgerEntry has no fid in this fixture (legacy-style) — key on fingerprint fallback instead.
+  gateReport.checks[0].fingerprint = ledgerEntry.fingerprint;
+  delete gateReport.checks[0].fid;
+  const result = normalize({ newFindings: [finding()], ledger: [ledgerEntry], round: 3, gateReport });
+  assert.strictEqual(result.reobservations.length, 1);
+  assert.strictEqual(result.dispositions.reopened.length, 0);
+});
+
+test("INV-2/E-2: a RESOLVED, check-linked entry re-reported WITH a gate report that does NOT cover its check is pending-check", () => {
+  const ledgerEntry = finding({ status: "RESOLVED", first_seen_round: 1, resolved_round: 2, check: "checks/foo.test.js" });
+  const gateReport = { checks: [{ check: "checks/other.test.js", fingerprint: "other.ml:1:correctness", red_verified: true }] };
+  const result = normalize({ newFindings: [finding()], ledger: [ledgerEntry], round: 3, gateReport });
+  assert.strictEqual(result.reobservations.length, 0);
+  assert.strictEqual(result.dispositions.pending_check.length, 1);
+  assert.strictEqual(result.dispositions.pending_check[0].pending_check, "checks/foo.test.js");
+});
+
+test("INV-2 (Resolution): a RESOLVED, check-linked entry re-reported with NO gate report at all fails closed to reopen", () => {
+  const ledgerEntry = finding({ status: "RESOLVED", first_seen_round: 1, resolved_round: 2, check: "checks/foo.test.js" });
+  const result = normalize({ newFindings: [finding()], ledger: [ledgerEntry], round: 3 });
+  assert.strictEqual(result.reobservations.length, 0);
+  assert.strictEqual(result.dispositions.reopened.length, 1);
+  assert.strictEqual(result.dispositions.reopened[0].reopened_from_round, 2);
+  assert.strictEqual(result.dispositions.reopened[0].reopened_at_round, 3);
+});
+
+test("INV-2/E-2: a RESOLVED, check-linked entry whose gate report shows red_verified: false reopens", () => {
+  const ledgerEntry = finding({ status: "RESOLVED", first_seen_round: 1, resolved_round: 2, check: "checks/foo.test.js" });
+  const gateReport = { checks: [{ check: "checks/foo.test.js", fingerprint: ledgerEntry.fingerprint, red_verified: false }] };
+  const result = normalize({ newFindings: [finding()], ledger: [ledgerEntry], round: 3, gateReport });
+  assert.strictEqual(result.dispositions.reopened.length, 1);
+});
+
 test("normalizer_version is stamped on every output (FR-108)", () => {
   const result = normalize({ newFindings: [], ledger: [] });
-  assert.strictEqual(result.normalizer_version, "1.0.0");
+  assert.strictEqual(result.normalizer_version, "2.0.0");
 });
 
 test("read-only: normalize() never touches the filesystem (no side effects to assert against; contract by construction — no fs.write* call in the module)", () => {
