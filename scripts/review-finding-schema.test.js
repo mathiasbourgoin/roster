@@ -1,0 +1,99 @@
+// Contract test for schema/review-finding.schema.json + scripts/lib/finding-schema.js
+// (spec: specs/review-skill-slimming.md FR-109/110, D-4). Verifies: the schema compiles,
+// canonical valid fixtures pass, canonical invalid fixtures fail with a reason, and the
+// interpreter fails closed on an unsupported keyword.
+"use strict";
+
+const { test } = require("node:test");
+const assert = require("node:assert");
+const path = require("node:path");
+const { compile, loadFindingSchema } = require("./lib/finding-schema");
+
+const SCHEMA_PATH = path.resolve(__dirname, "..", "schema", "review-finding.schema.json");
+
+function validFinding(overrides) {
+  return Object.assign(
+    {
+      severity: "HIGH",
+      confidence: 4,
+      path: "lib/foo.ml",
+      line: 42,
+      category: "correctness",
+      summary: "Off-by-one in loop bound",
+      evidence: "lib/foo.ml:42 — `i <= len` should be `i < len`",
+      fix: "Change `<=` to `<`",
+      fingerprint: "lib/foo.ml:42:correctness",
+      specialist: "reviewer",
+    },
+    overrides
+  );
+}
+
+test("schema/review-finding.schema.json requires the schema file and it parses as JSON", () => {
+  const schema = require(SCHEMA_PATH);
+  assert.strictEqual(schema.type, "object");
+  assert.ok(Array.isArray(schema.required));
+});
+
+test("compile() succeeds against the real finding schema (compiles)", () => {
+  assert.doesNotThrow(() => loadFindingSchema());
+});
+
+test("canonical valid fixture passes", () => {
+  const validator = loadFindingSchema();
+  const { valid, errors } = validator.validate(validFinding());
+  assert.strictEqual(valid, true, JSON.stringify(errors));
+});
+
+test("null line is accepted (nullable per EC-6)", () => {
+  const validator = loadFindingSchema();
+  const { valid } = validator.validate(validFinding({ line: null }));
+  assert.strictEqual(valid, true);
+});
+
+test("cross-runtime specialist naming passes (no enum constraint on specialist)", () => {
+  const validator = loadFindingSchema();
+  const { valid } = validator.validate(validFinding({ specialist: "codex-xruntime" }));
+  assert.strictEqual(valid, true);
+});
+
+test("canonical invalid fixture fails: missing required field", () => {
+  const validator = loadFindingSchema();
+  const bad = validFinding();
+  delete bad.evidence;
+  const { valid, errors } = validator.validate(bad);
+  assert.strictEqual(valid, false);
+  assert.ok(errors.some((e) => e.includes("evidence")));
+});
+
+test("canonical invalid fixture fails: bad severity enum value", () => {
+  const validator = loadFindingSchema();
+  const bad = validFinding({ severity: "URGENT" });
+  const { valid, errors } = validator.validate(bad);
+  assert.strictEqual(valid, false);
+  assert.ok(errors.some((e) => e.includes("enum")));
+});
+
+test("canonical invalid fixture fails: wrong type for confidence", () => {
+  const validator = loadFindingSchema();
+  const bad = validFinding({ confidence: "high" });
+  const { valid, errors } = validator.validate(bad);
+  assert.strictEqual(valid, false);
+  assert.ok(errors.some((e) => e.includes("confidence")));
+});
+
+test("interpreter fails closed on an unsupported schema keyword (D-4)", () => {
+  assert.throws(() => compile({ type: "object", minLength: 3 }), /unsupported schema keyword/);
+});
+
+test("additionalProperties: false rejects unknown keys when set", () => {
+  const validator = compile({
+    type: "object",
+    required: ["a"],
+    properties: { a: { type: "string" } },
+    additionalProperties: false,
+  });
+  const { valid, errors } = validator.validate({ a: "x", b: "y" });
+  assert.strictEqual(valid, false);
+  assert.ok(errors.some((e) => e.includes("additional property")));
+});
