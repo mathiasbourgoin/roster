@@ -5,7 +5,7 @@ status: live
 feature: Review-skill slimming (cross-runtime helper, H-05 normalizer, size ratchet)
 brief: briefs/review-skill-slimming-intake.md
 date: 2026-07-13
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Spec — Review Skill Slimming
@@ -20,7 +20,7 @@ version: 1.1.0
 
 | Q | A |
 |---|---|
-| Wrapper stdout conflict (C-2) + roster-qa co-consumption (C-8) | `xruntime-exec.sh` is NOT modified — byte-identical (FR-086). The helper invokes it as a subprocess and captures; helper stdout carries only helper JSON. |
+| Wrapper stdout conflict (C-2) + roster-qa co-consumption (C-8) | The helper invokes `xruntime-exec.sh` as a subprocess and captures it; helper stdout carries only helper JSON. The wrapper retains its positional API and also accepts unambiguous `--prompt-file=<path>`, so roster-qa co-consumption remains backward compatible without large argv expansion. |
 | Journal write vs read-only / tree snapshots (C-1) | Journal appended AFTER the wrapper returns (wrapper snapshots untracked files mid-run); `briefs/` is gitignored so the scope gate never sees it. Append failure → exit 2, never silent healthy. |
 | Judgment laundering in the degraded taxonomy (C-5, EC-5) | Classification is fully mechanical: exit 3/124 first; then fence-aware JSON extraction + schema validation; valid → healthy (any runtime exit code); zero-byte → `empty-output`; anything else → single class `non-conforming-output` (subsumes banner/refusal/truncated) with excerpt. |
 | Journal records vs enforces probe-once (C-6) | Enforces: helper reads its own journal + review.json state and REFUSES a degraded runtime with unchanged digest (`skipped-degraded`) unless `--human-retry`. R-4 actually closes. |
@@ -87,7 +87,7 @@ FR-050..085 in `specs/review-fanout-convergence.md`.)
 
 #### Cross-Runtime Helper [US-1]
 
-- **FR-086** [US-1]: `scripts/xruntime-review.js` MUST invoke `scripts/xruntime-exec.sh` as a subprocess, capturing its stdout and exit code, and MUST NOT modify `scripts/xruntime-exec.sh` in any way (byte-identical, preserving roster-qa co-consumption).
+- **FR-086** [US-1]: `scripts/xruntime-review.js` MUST invoke `scripts/xruntime-exec.sh` as a subprocess, capturing its stdout and exit code. Prompt content MUST remain file/stdin-backed through the wrapper/runtime boundary; the wrapper MUST retain its legacy positional API for roster-qa compatibility.
 - **FR-087** [US-1]: The helper's stdout MUST carry only its JSON result `{status, reason, config_digest, findings[], journal_line}` — never wrapper output or diagnostics.
 - **FR-088** [US-1]: Wrapper exit 3 MUST classify as degraded `tree-mutation` and exit 124 as degraded `timeout`, taking precedence over output inspection.
 - **FR-089** [US-1]: Otherwise the helper MUST perform fence-aware JSON extraction and validate against `schema/review-finding.schema.json`; a schema-valid findings array (empty included) MUST classify healthy regardless of runtime exit code, with the exit code recorded in the journal.
@@ -136,7 +136,7 @@ FR-050..085 in `specs/review-fanout-convergence.md`.)
 
 ## Acceptance Criteria
 
-AC-01..AC-26 as formalized (helper happy path; wrapper byte-identical; tree-mutation; timeout;
+AC-01..AC-26 as formalized (helper happy path; wrapper compatibility; tree-mutation; timeout;
 valid-findings-nonzero-exit → healthy; empty-output; non-conforming; digest excludes timeout;
 version-hang placeholder; skipped-degraded ±`--human-retry`; `--skip` journaling; journal-fail/bad-slug
 exit 2; normalizer happy path; carried-forward untouched; exact-merge rules + convergence; probable
@@ -189,7 +189,7 @@ Nine objections (three blocking) + Voice-1 ground-truth corrections. Amendments 
   wrapper stdout AND stderr separately. Exit 3 classifies `tree-mutation` only when stderr carries
   the wrapper's deterministic `TREE-MUTATED` marker; exit 124 classifies `timeout` only when
   `duration_s >= configured timeout`. Uncorroborated exit codes fall through to output inspection
-  (FR-089..091). Fully mechanical; wrapper stays byte-identical.
+  (FR-089..091). Fully mechanical; the wrapper's legacy positional API stays compatible.
 - **D-4 (O-4, no JSON-Schema validator — repo is zero-dep):** no ajv. `scripts/lib/finding-schema.js`
   is a hand-rolled interpreter of the supported subset (`required`/`type`/`enum`/nullable), driven
   by the `require()`d schema file (single source). It MUST fail closed on unsupported schema

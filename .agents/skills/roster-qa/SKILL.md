@@ -2,7 +2,7 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.6.0
+version: 1.7.0
 domain: pipeline
 phase: qa
 preamble: true
@@ -333,14 +333,17 @@ command -v codex >/dev/null 2>&1 && echo "codex available"
 command -v opencode >/dev/null 2>&1 && echo "opencode available"
 ```
 
-If none is present (or the only one is the host runtime), **skip silently**. Otherwise invoke
-via the wrapper `bash scripts/xruntime-exec.sh <runtime> "<prompt>" --write` (closes stdin,
-sets the runtime's flags, file-captures output, and tree-integrity-snapshots the run — exit 3
+If none is present (or the only one is the host runtime), **skip silently**. Otherwise write the
+QA prompt to a scratch file and invoke via the wrapper
+`bash scripts/xruntime-exec.sh <runtime> --prompt-file=<scratch-file> --write` (streams the
+prompt with EOF, keeps large content out of argv, sets the runtime's flags, file-captures output,
+and tree-integrity-snapshots the run — exit 3
 means the second runtime mutated the tree) and have the second runtime **independently re-run the deterministic gates** (step 2's
 commands and, if it ran in the primary pass, the step 3.5 code-intel gate command —
 `node scripts/code-intel-resolve.js gate --timeout ${code_intel_gate_timeout:-120}`) and
 re-check the implementer's handoff claims — it does not see the primary QA
-result first. Record its outcome in the report under a `## Cross-runtime QA` section.
+result first. Remove the scratch prompt file after the wrapper returns. Record its outcome in the
+report under a `## Cross-runtime QA` section.
 
 **Block on discrepancy:** if the second runtime reports a gate FAIL or a disputed claim that
 the primary run passed (a CRITICAL/HIGH discrepancy), the verdict is **NO-GO** — a gate that

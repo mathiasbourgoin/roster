@@ -53,6 +53,7 @@ const {
   isCrossRuntime,
   mergeExactDuplicates,
   computeProbableDuplicates,
+  computeLedgerProbableDuplicates,
   splitReobservations,
 } = require("./lib/normalize-rules");
 const { deriveRoundState } = require("./lib/review-lifecycle");
@@ -241,7 +242,9 @@ function normalize({ newFindings, ledger, round, gateReport, priorReview }) {
   const { reobservations, reopened, pendingCheck, genuinelyNew } = splitReobservations(primary, ledgerArr, round, gateReport);
 
   const settled = mergeExactDuplicates(genuinelyNew);
-  const probableDuplicates = computeProbableDuplicates(settled);
+  const probableDuplicates = computeProbableDuplicates(settled).concat(
+    computeLedgerProbableDuplicates(ledgerArr, settled)
+  );
   const findings = ledgerArr.concat(settled);
 
   return {

@@ -1,0 +1,133 @@
+{
+  "task": "normalize-fingerprint-prompt-transport",
+  "date": "2026-07-13",
+  "status": "GO",
+  "auto_fixes_applied": [
+    {
+      "path": "scripts/xruntime-exec.sh",
+      "line": 38,
+      "category": "compatibility",
+      "description": "Preserved option-shaped legacy prompts and adopted unambiguous --prompt-file=<path>."
+    },
+    {
+      "path": "scripts/xruntime-exec.sh",
+      "line": 61,
+      "category": "security",
+      "description": "Clean wrapper-owned output files on every exit while preserving caller-supplied --out paths."
+    },
+    {
+      "path": "scripts/xruntime-review.js",
+      "line": 163,
+      "category": "security",
+      "description": "Cover prompt writing and runtime invocation with one cleanup boundary."
+    },
+    {
+      "path": "scripts/xruntime-review.test.js",
+      "line": 303,
+      "category": "testing",
+      "description": "Exercise above-ARG_MAX prompt delivery through both Codex and OpenCode branches."
+    },
+    {
+      "path": "scripts/lib/normalize-rules.js",
+      "line": 138,
+      "category": "maintainability",
+      "description": "Deduplicated probable-duplicate record construction."
+    },
+    {
+      "path": "scripts/xruntime-review.js",
+      "line": 11,
+      "category": "documentation",
+      "description": "Removed obsolete byte-freeze source contract and referenced E-12."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "confidence": 5,
+      "path": "scripts/xruntime-exec.sh",
+      "line": 61,
+      "category": "security",
+      "summary": "Default runtime-output temporary files were not removed",
+      "evidence": "Wrapper-created output survived success and failure exits.",
+      "fix": "Track ownership and remove wrapper-owned output on EXIT.",
+      "fingerprint": "scripts/xruntime-exec.sh:61:security",
+      "specialist": "correctness-reviewer",
+      "status": "RESOLVED"
+    },
+    {
+      "severity": "LOW",
+      "confidence": 5,
+      "path": "scripts/xruntime-review.js",
+      "line": 163,
+      "category": "security",
+      "summary": "Prompt directory cleanup began after the write",
+      "evidence": "A write failure could leave the private directory behind.",
+      "fix": "Move the write inside try/finally.",
+      "fingerprint": "scripts/xruntime-review.js:163:security",
+      "specialist": "correctness-reviewer",
+      "status": "RESOLVED"
+    },
+    {
+      "severity": "LOW",
+      "confidence": 5,
+      "path": "scripts/xruntime-exec.sh",
+      "line": 41,
+      "category": "compatibility",
+      "summary": "Literal legacy prompt --prompt-file was ambiguous",
+      "evidence": "Two-token option parsing stole a formerly valid positional value.",
+      "fix": "Use --prompt-file=<path> and preserve positional values.",
+      "fingerprint": "scripts/xruntime-exec.sh:41:compatibility",
+      "specialist": "correctness-reviewer",
+      "status": "RESOLVED"
+    },
+    {
+      "severity": "LOW",
+      "confidence": 5,
+      "path": "scripts/xruntime-review.test.js",
+      "line": 303,
+      "category": "testing",
+      "summary": "Above-ARG_MAX coverage omitted OpenCode",
+      "evidence": "The original test hardcoded codex.",
+      "fix": "Run the case for both runtime branches.",
+      "fingerprint": "scripts/xruntime-review.test.js:303:testing",
+      "specialist": "correctness-reviewer",
+      "status": "RESOLVED"
+    },
+    {
+      "severity": "LOW",
+      "confidence": 5,
+      "path": "scripts/xruntime-review.js",
+      "line": 11,
+      "category": "documentation",
+      "summary": "Source contract contradicted the E-12 wrapper change",
+      "evidence": "The header still required byte identity after the spec superseded it.",
+      "fix": "Document the retained positional API and bounded transport.",
+      "fingerprint": "scripts/xruntime-review.js:11:documentation",
+      "specialist": "correctness-reviewer",
+      "status": "RESOLVED"
+    }
+  ],
+  "cross_runtime_findings": [],
+  "cross_runtime": {
+    "opencode": {
+      "status": "degraded",
+      "reason": "timeout",
+      "config_digest": "opencode:aeee3012b1061a3b",
+      "round": 1
+    }
+  },
+  "summary": {
+    "critical": 0,
+    "high": 0,
+    "medium": 1,
+    "low": 4,
+    "auto_fixed": 6
+  },
+  "no_go_reason": {
+    "type": null,
+    "failed_acs": []
+  },
+  "mode": "fast",
+  "escalation_needed": true,
+  "escalation_reason": "new-public-api"
+}

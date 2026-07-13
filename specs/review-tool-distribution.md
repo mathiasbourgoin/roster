@@ -5,7 +5,7 @@ status: live
 feature: Review tool bundle distribution (manifest, install paths, blocking preflight, scratch test)
 brief: briefs/review-tool-distribution-intake.md
 date: 2026-07-13
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Spec — Review Tool Distribution
@@ -23,7 +23,7 @@ version: 1.1.0
 | Compatibility owner (C-3/C-12/C-15) | Skill frontmatter `requires_review_bundle` (semver min); doctor reads it from installed projections (.claude primary, .agents fallback, drift → warn + max), compares to the local manifest — offline, no network (staleness = requirement violation, not latest-awareness). |
 | Atomicity (C-4/EC-6) | Staging dir → verify all 14 shas → move → manifest LAST. Retry each fetch once, then abort; partial failure leaves staging only. No .bak files (C-19: tripwire has no allowlist). |
 | Collisions / consumer-modified files (C-6) | Install refuses on paths matching neither old- nor new-manifest sha (abort + list; --force). Removal/upgrade skip modified files with warnings; missing files warn and continue (EC-7). |
-| Wrapper dual ownership (C-7) | `xruntime-exec.sh` marked `shared: true`; removal skips shared; scratch test asserts roster-qa survives removal. |
+| Wrapper dual ownership (C-7) | `xruntime-exec.sh` marked `shared: true`; removal skips shared; scratch test asserts roster-qa survives removal. Its backward-compatible `--prompt-file=<path>` API is part of the shared contract. |
 | Extension system vs bespoke (C-8) | Bespoke by design: bash-only fetch must precede node trust, and `.harness` may not exist. Manifest conventions borrowed from the extension manifest for future convergence; a test asserts extension converge ignores bundle paths. |
 | init-harness vs curl divergence (C-9) | Checkout path copies + WARNS on drift (dev tree is truth); curl path verifies shas (manifest is truth). Two guarantees, both documented. |
 | Which installer (C-10) | Recruiter update-mechanism step (tools follow the skills that need them) + init-harness. install.sh explicitly does NOT fetch the bundle. |
@@ -152,3 +152,10 @@ override base FR/clarification text.
 - `BundleDriftCheck`: repo-CI data-driven check (sha drift, closure escape, forced bump) — the Check-6 refactor.
 - `BundlePreflight`: doctor Section-1 check feeding NOT-READY; `requires_review_bundle` frontmatter is its input.
 - `ScratchConsumer`: the mkdtemp + mock-RAW integration fixture.
+
+## Amendment (v1.2.0 — shared-wrapper transport, 2026-07-13)
+
+The original CHECK-7 wrapper freeze was scoped to this distribution feature's implementation
+window. The later review-v2-corrections v1.2.0 E-12 change adds backward-compatible
+`--prompt-file` transport to eliminate E2BIG risk. Shared ownership and removal semantics are
+unchanged; bundle manifest drift/version gates cover the modified wrapper.

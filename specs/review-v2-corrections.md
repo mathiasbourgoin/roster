@@ -5,7 +5,7 @@ status: live
 feature: Review v2 correctness fixes (finding identity, lifecycle, journal enforcement)
 brief: briefs/review-v2-corrections-intake.md
 date: 2026-07-13
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Spec — Review v2 Corrections
@@ -21,7 +21,9 @@ Invariants + Runnable Checks + paired ACs only; no story ceremony; `min_user_sto
 
 - **INV-1 (no silent finding loss):** two findings sharing a v1 fingerprint but differing in
   summary (or any present v2 semantic field) are NEVER exact-merged — they become probable
-  duplicates for owner adjudication. A v1 collision alone never destroys evidence.
+  duplicates for owner adjudication. A v1 collision alone never destroys evidence. A modern
+  finding whose `fid` misses MUST NOT fall back to a legacy v1-only match; a legacy row is
+  matched only after its summary can reconstruct the same semantic `fid`.
 - **INV-2 (no silent regression suppression):** a re-report matching a ledger entry is reduced to
   a reobservation ONLY when that entry's linked ratchet check exists and passed on the current
   tree (per the gate's latest report). Otherwise the entry is REOPENED (status → OPEN, prior
@@ -40,6 +42,7 @@ Invariants + Runnable Checks + paired ACs only; no story ceremony; `min_user_sto
   re-fingerprinted and deduplicated within the augment-only array before verdict composition;
   model-provided fingerprints never survive into anything FR-015 can mirror.
 - **INV-6 (transport cannot masquerade as runtime health):** prompts travel via file/stdin;
+  that file-backed transport MUST continue through the wrapper/runtime subprocess boundary;
   spawn-layer failures (E2BIG, ENOENT) are classified as `spawn-error` (degraded, distinct
   reason), never as `empty-output`. The journal records the prompt digest, never the prompt.
 - **INV-7 (every breaker state is schema-valid):** the explicit human-skip decision has a
@@ -54,10 +57,14 @@ Invariants + Runnable Checks + paired ACs only; no story ceremony; `min_user_sto
 (Red-command convention: exit 0 = passes, 1 = assertion fired, ≥2 = error.)
 
 - CHECK-1 [AC-1] (fail-closed-path): `node --test scripts/review-normalize-mutations.test.js`
-  → exit 0. Contains the two adversarial mutations: (a) two distinct security findings on one
+  → exit 0. Contains seven adversarial mutations: (a) two distinct security findings on one
   line — asserting BOTH survive as probable duplicates; (b) a same-round-resolved no-check
-  finding re-reported next round — asserting it is REOPENED, not reobserved. Each mutation is
-  red against the pre-fix normalizer (red-verifiable per the ratchet).
+  finding re-reported next round — asserting it is REOPENED, not reobserved; (c) a legacy v1
+  collision cannot absorb a distinct modern finding; (d) a same-summary legacy row migrates to
+  semantic `fid` without duplicate noise; (e) same-summary/different-v2 findings remain distinct;
+  (f) a stale or forged fid cannot override direct semantic comparison; (g) an incomplete
+  fingerprint-only row cannot suppress. The defect mutations are red against the pre-fix
+  normalizer (red-verifiable per the ratchet).
 - CHECK-2 [AC-2] (authentic-success-path): `node --test scripts/review-lifecycle.test.js` →
   exit 0. Drives NO-GO → GO → QA-return → resumed review over real artifacts through the real
   helper + normalizer + gate binaries end-to-end (XRUNTIME_BIN stubs, stubbed digest probe, short
@@ -66,7 +73,8 @@ Invariants + Runnable Checks + paired ACs only; no story ceremony; `min_user_sto
   of a wrongly-continued one) at the resumed boundary. (E-6)
 - CHECK-3 [AC-3]: `node --test scripts/xruntime-review.test.js` → exit 0 incl. new fixtures:
   journal-only degraded state (verdict absent) → refusal; malformed verdict → degraded-input;
-  `--prompt-file` transport; oversized-prompt spawn-error classification; schema-valid skip shape.
+  end-to-end `--prompt-file` transport with a prompt above typical `ARG_MAX`; bounded runtime
+  argv; oversized-prompt spawn-error classification; schema-valid skip shape.
 - CHECK-4 [AC-4]: `! grep -qE 'persists across the whole task|no reset-on-GO' skills/pipeline/roster-review.md && grep -q 'two-event' skills/pipeline/roster-review.md` → exit 0. (E-9)
 - CHECK-5 [AC-5]: `node --test scripts/review-normalize.test.js` → exit 0 incl. cross-runtime
   canonicalization fixtures (arbitrary input fingerprint → canonical v1 in the augment array).
@@ -163,3 +171,17 @@ and a `cycle` field are added. roster-run stays row-level BECAUSE the gate absor
 Resolved-reobservation suppression consumes the **gate's latest checks[] report** (single-executor
 principle — the normalizer stays execution-free, read-only). When no gate report exists for the
 entry's check, INV-2's reopen/adjudicate branch applies (fail-closed).
+
+## Amendments (v1.2.0 — health follow-up fixes, 2026-07-13)
+
+- **E-11 (legacy identity migration):** E-3's fingerprint fallback is narrowed. A ledger row
+  without `fid` but with `fingerprint` + `summary` is indexed under the reconstructed semantic
+  `fid`. A modern finding with `fid` never falls back to raw v1 identity after a miss, and a
+  candidate match is verified against normalized summary plus any v2 semantic fields. Rows too
+  incomplete to reconstruct identity remain carried forward but cannot absorb a new finding.
+  This intentionally prefers a visible one-time duplicate over silent finding suppression.
+- **E-12 (end-to-end bounded prompt transport):** `xruntime-review.js` writes its validated prompt
+  to a mode-0600 temporary file and passes only that path to `xruntime-exec.sh --prompt-file=<path>`.
+  The wrapper streams the file to Codex/OpenCode stdin with EOF and retains its original
+  positional-prompt interface. This supersedes review-skill-slimming FR-086's original
+  implementation-window byte-freeze while preserving roster-qa compatibility.

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.0.0",
+  "bundle_version": "1.1.0",
   "channel": "stable",
   "source_ref": "main",
   "files": [
@@ -10,7 +10,7 @@
     },
     {
       "path": "scripts/check-review-convergence.js",
-      "sha256": "2e8ad69f3edc7ed12dc324e157d66bf85a6e8b42a2f7720d90c0dd7e65fa0fce"
+      "sha256": "66b698becda024cfe1feb8b5bba7ca1bcf6ade60982b4271644b68532e7f60f9"
     },
     {
       "path": "scripts/check-scope-diff.sh",
@@ -22,11 +22,11 @@
     },
     {
       "path": "scripts/lib/normalize-rules.js",
-      "sha256": "ffb5494af09f28b7f8f9ee07439857b08e531305809802e37a6b3eefb715aba8"
+      "sha256": "921c36f14e0c84c763ea146752b05e2f9109d66d6d3ecab56d4e0630d8e469cc"
     },
     {
       "path": "scripts/lib/redgreen-scratch.js",
-      "sha256": "d16a7e7e72115056c5ae5cd6a5ab13cc0e206031a5d39c6175ae19b23901078d"
+      "sha256": "c72cdafc1bc85eb69bd1f85858221677f541d95b074d6da795063ed157c1c8c2"
     },
     {
       "path": "scripts/lib/review-convergence-rules.js",
@@ -50,16 +50,16 @@
     },
     {
       "path": "scripts/review-normalize.js",
-      "sha256": "ae750d54dbd4eb2c66405fc4a9917a20f63d4f57759bd0888740b79191d58dd1"
+      "sha256": "5239847bcc5116f35ef88e75e55d5130c761ae7cb9f8f14fa087fdcb49cffe93"
     },
     {
       "path": "scripts/xruntime-exec.sh",
-      "sha256": "49c2dace935ddd84330d8002062eead1f6d9d6f9d90a3057e3564050e5c4628c",
+      "sha256": "52339c12eb2585e47a2bc0f0612e5e90be58e37024b2c520d0ab03125d252d3d",
       "shared": true
     },
     {
       "path": "scripts/xruntime-review.js",
-      "sha256": "22f6526400cbfc2c594271510664f37b159b7c812adc5738a0253ddd96a69e66"
+      "sha256": "5911b88297e481362e43ec24faa0db0df37906f792df29be9b56a665ecbe0f9d"
     },
     {
       "path": "scripts/REVIEW-BUNDLE.md",

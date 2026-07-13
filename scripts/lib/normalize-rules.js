@@ -36,9 +36,13 @@ function computeFingerprintV2(finding) {
 // (caller computes fid AFTER canonicalFingerprint). v1 `fingerprint` is
 // unchanged for compatibility — fid is purely additive.
 function computeFid(finding) {
-  const normalizedSummary = (finding.summary || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const normalizedSummary = normalizeSummary(finding.summary);
   const hash = crypto.createHash("sha256").update(normalizedSummary).digest("hex").slice(0, 8);
   return `${finding.fingerprint}#${hash}`;
+}
+
+function normalizeSummary(summary) {
+  return (summary || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 // FR-106 scope guard: cross-runtime findings never enter the primary
@@ -131,42 +135,83 @@ function mergeExactDuplicates(findings) {
 // listed for owner adjudication, never auto-merged. Operates over the
 // SETTLED list (post exact-merge) so an already-merged group contributes
 // only its single survivor to this pass.
+function probableDuplicateRecord(a, b) {
+  if (a.path !== b.path || a.category !== b.category) return null;
+  const delta = Math.abs(canonicalLine(a) - canonicalLine(b));
+  if (delta > 3) return null;
+  return {
+    path: a.path,
+    category: a.category,
+    line_delta: delta,
+    a: { fingerprint: a.fingerprint, fid: a.fid || null, specialist: a.specialist, line: a.line },
+    b: { fingerprint: b.fingerprint, fid: b.fid || null, specialist: b.specialist, line: b.line },
+  };
+}
+
 function computeProbableDuplicates(settledFindings) {
   const probable = [];
   for (let i = 0; i < settledFindings.length; i++) {
     for (let j = i + 1; j < settledFindings.length; j++) {
-      const a = settledFindings[i];
-      const b = settledFindings[j];
-      if (a.path !== b.path || a.category !== b.category) continue;
-      const delta = Math.abs(canonicalLine(a) - canonicalLine(b));
-      if (delta > 3) continue;
-      probable.push({
-        path: a.path,
-        category: a.category,
-        line_delta: delta,
-        a: { fingerprint: a.fingerprint, fid: a.fid || null, specialist: a.specialist, line: a.line },
-        b: { fingerprint: b.fingerprint, fid: b.fid || null, specialist: b.specialist, line: b.line },
-      });
+      const record = probableDuplicateRecord(settledFindings[i], settledFindings[j]);
+      if (record) probable.push(record);
     }
   }
   return probable;
 }
 
-// E-3: indexes the prior cumulative ledger by `fid` (preferred) with a
-// `fingerprint` fallback for legacy entries that predate fid.
+// INV-1: carried ledger rows have already been adjudicated against each
+// other, so only compare them to genuinely new survivors. This surfaces a
+// fail-closed identity miss without re-emitting old ledger↔ledger noise.
+function computeLedgerProbableDuplicates(ledger, freshFindings) {
+  const probable = [];
+  for (const a of ledger) {
+    if (!a || typeof a !== "object") continue;
+    for (const b of freshFindings) {
+      const record = probableDuplicateRecord(a, b);
+      if (record) probable.push(record);
+    }
+  }
+  return probable;
+}
+
+// E-3/INV-1: indexes the prior cumulative ledger by semantic `fid`. Legacy
+// entries that predate the field are migrated in memory when their summary
+// is available. The coarse v1 fingerprint index remains available only for
+// callers whose incoming finding also predates fid; a modern fid miss must
+// never fall back and suppress a distinct finding at the same location.
 function buildLedgerIndex(ledger) {
   const byFid = new Map();
   const byFingerprint = new Map();
   for (const entry of ledger) {
     if (!entry || typeof entry !== "object") continue;
-    if (entry.fid && !byFid.has(entry.fid)) byFid.set(entry.fid, entry);
+    const semanticFid =
+      entry.fid ||
+      (entry.fingerprint && typeof entry.summary === "string" ? computeFid(entry) : null);
+    if (semanticFid) {
+      if (!byFid.has(semanticFid)) byFid.set(semanticFid, []);
+      byFid.get(semanticFid).push(entry);
+    }
     if (entry.fingerprint && !byFingerprint.has(entry.fingerprint)) byFingerprint.set(entry.fingerprint, entry);
   }
   return { byFid, byFingerprint };
 }
 
+function sameSemanticIdentity(a, b) {
+  if (a.fingerprint !== b.fingerprint) return false;
+  if (normalizeSummary(a.summary) !== normalizeSummary(b.summary)) return false;
+  if (hasV2Fields(a) || hasV2Fields(b)) {
+    if ((a.boundary || "") !== (b.boundary || "")) return false;
+    if ((a.invariant || "") !== (b.invariant || "")) return false;
+    if ((a.failure_mode || "") !== (b.failure_mode || "")) return false;
+  }
+  return true;
+}
+
 function findLedgerEntry(f, index) {
-  if (f.fid && index.byFid.has(f.fid)) return index.byFid.get(f.fid);
+  if (f.fid) {
+    const candidates = index.byFid.get(f.fid) || [];
+    return candidates.find((entry) => sameSemanticIdentity(f, entry)) || null;
+  }
   if (f.fingerprint && index.byFingerprint.has(f.fingerprint)) return index.byFingerprint.get(f.fingerprint);
   return null;
 }
@@ -260,7 +305,9 @@ module.exports = {
   isExactDuplicatePair,
   mergeExactDuplicates,
   computeProbableDuplicates,
+  computeLedgerProbableDuplicates,
   buildLedgerIndex,
+  sameSemanticIdentity,
   findLedgerEntry,
   buildGateCheckIndex,
   classifyDisposition,

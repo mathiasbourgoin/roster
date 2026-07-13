@@ -15,6 +15,7 @@ const { computeDigest } = require("./lib/xruntime-digest");
 const { isSpawnError } = require("./lib/xruntime-classify");
 
 const SCRIPT = path.resolve(__dirname, "xruntime-review.js");
+const WRAPPER = path.resolve(__dirname, "xruntime-exec.sh");
 
 const STUB_SOURCE = `#!/usr/bin/env bash
 mode="\${STUB_MODE:-healthy}"
@@ -24,6 +25,8 @@ if [ "$1" = "--version" ]; then
   exit 0
 fi
 touch invoked.marker
+printf '%s\\n' "$@" > invoked-args.txt
+cat > received-prompt.txt
 case "$mode" in
   healthy)
     echo '\`\`\`json'
@@ -57,7 +60,7 @@ function makeRepo() {
   const run = (cmd) => execFileSync("bash", ["-c", cmd], { cwd: dir, stdio: "pipe" }).toString();
   run("git init -q .");
   run("git config user.email t@t && git config user.name t && git config commit.gpgsign false");
-  fs.writeFileSync(path.join(dir, ".gitignore"), "briefs/\ninvoked.marker\n");
+  fs.writeFileSync(path.join(dir, ".gitignore"), "briefs/\ninvoked.marker\ninvoked-args.txt\nreceived-prompt.txt\n");
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
   run("git add -A && git commit -qm base");
   const stubPath = path.join(dir, "stub-runtime.sh");
@@ -296,13 +299,18 @@ test("usage error: missing runtime -> exit 2", () => {
 
 // ── INV-6: transport (prompt-file/stdin, never positional) ──────────────
 
-test("INV-6: --prompt-file transport — a large prompt never appears in the process argv", () => {
-  const repo = makeRepo();
-  const bigPrompt = "x".repeat(50000);
-  const { stdout } = runHelper(repo, ["codex", bigPrompt, "--task", "demo-task"], { STUB_MODE: "healthy" });
-  const parsed = JSON.parse(stdout);
-  assert.strictEqual(parsed.status, "healthy");
-});
+for (const runtime of ["codex", "opencode"]) {
+  test(`INV-6: ${runtime} receives a prompt above ARG_MAX without a large argv element`, () => {
+    const repo = makeRepo();
+    const bigPrompt = "x".repeat(3 * 1024 * 1024);
+    const { stdout } = runHelper(repo, [runtime, bigPrompt, "--task", "demo-task"], { STUB_MODE: "healthy" });
+    const parsed = JSON.parse(stdout);
+    assert.strictEqual(parsed.status, "healthy");
+    const runtimeArgs = fs.readFileSync(path.join(repo.dir, "invoked-args.txt"), "utf8").split("\n");
+    assert.ok(runtimeArgs.every((arg) => arg.length < 4096), "runtime argv must contain only bounded control arguments");
+    assert.strictEqual(fs.readFileSync(path.join(repo.dir, "received-prompt.txt"), "utf8").length, bigPrompt.length);
+  });
+}
 
 test("INV-6: stdin transport works when --prompt-file is omitted", () => {
   const repo = makeRepo();
@@ -315,6 +323,68 @@ test("INV-6: stdin transport works when --prompt-file is omitted", () => {
   });
   const parsed = JSON.parse(result.stdout);
   assert.strictEqual(parsed.status, "healthy");
+});
+
+test("wrapper compatibility: an option-shaped legacy positional prompt remains a prompt", () => {
+  const repo = makeRepo();
+  const result = spawnSync("bash", [WRAPPER, "codex", "--write", "--timeout", "2"], {
+    cwd: repo.dir,
+    encoding: "utf8",
+    env: Object.assign({}, process.env, { XRUNTIME_BIN: repo.stubPath, STUB_MODE: "healthy" }),
+  });
+  assert.strictEqual(result.status, 0);
+  assert.match(result.stdout, /```json/);
+});
+
+test("wrapper compatibility: the literal legacy prompt --prompt-file remains a prompt", () => {
+  const repo = makeRepo();
+  const result = spawnSync("bash", [WRAPPER, "codex", "--prompt-file", "--timeout", "2"], {
+    cwd: repo.dir,
+    encoding: "utf8",
+    env: Object.assign({}, process.env, { XRUNTIME_BIN: repo.stubPath, STUB_MODE: "healthy" }),
+  });
+  assert.strictEqual(result.status, 0);
+  assert.match(result.stdout, /```json/);
+});
+
+test("wrapper removes owned output files on success, timeout, tree mutation, and unknown runtime", () => {
+  for (const scenario of [
+    { runtime: "codex", mode: "healthy", timeout: "2", status: 0 },
+    { runtime: "codex", mode: "hang-run", timeout: "1", status: 124 },
+    { runtime: "codex", mode: "tree-mutate", timeout: "2", status: 3 },
+    { runtime: "unknown", mode: "healthy", timeout: "2", status: 2 },
+  ]) {
+    const repo = makeRepo();
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "xruntime-out-"));
+    const result = spawnSync("bash", [WRAPPER, scenario.runtime, "prompt", "--timeout", scenario.timeout], {
+      cwd: repo.dir,
+      encoding: "utf8",
+      env: Object.assign({}, process.env, { TMPDIR: tmp, XRUNTIME_BIN: repo.stubPath, STUB_MODE: scenario.mode }),
+    });
+    assert.strictEqual(result.status, scenario.status, `${scenario.runtime}/${scenario.mode}`);
+    assert.deepStrictEqual(fs.readdirSync(tmp), [], `${scenario.runtime}/${scenario.mode} leaked wrapper-owned output`);
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("runWrapper removes its private prompt directory when prompt writing fails", () => {
+  const controlledDir = fs.mkdtempSync(path.join(os.tmpdir(), "xruntime-write-fail-"));
+  const originalMkdtempSync = fs.mkdtempSync;
+  const originalWriteFileSync = fs.writeFileSync;
+  fs.mkdtempSync = () => controlledDir;
+  fs.writeFileSync = () => {
+    throw new Error("injected prompt write failure");
+  };
+  try {
+    assert.throws(
+      () => require("./xruntime-review").runWrapper({ runtime: "codex", prompt: "secret", write: false, timeout: 1 }),
+      /injected prompt write failure/
+    );
+  } finally {
+    fs.mkdtempSync = originalMkdtempSync;
+    fs.writeFileSync = originalWriteFileSync;
+  }
+  assert.strictEqual(fs.existsSync(controlledDir), false);
 });
 
 test("INV-6: journal records the prompt digest, never the prompt content", () => {

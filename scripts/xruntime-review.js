@@ -3,13 +3,13 @@
 //
 // Cross-runtime (second-model) review helper (spec: specs/review-skill-slimming.md
 // US-1, FR-086..098, Amendments D-2/D-3/D-8/D-9; specs/review-v2-corrections.md
-// INV-4/6/7, Amendments E-5/E-8/E-10). Owns probe execution, health-state
+// INV-4/6/7, Amendments E-5/E-8/E-10/E-12). Owns probe execution, health-state
 // transitions, output validation, and the invocation journal in one
 // deterministic script, so breaker compliance stops depending on prose
 // discipline (roster-review.md §"Cross-Runtime Review").
 //
-// MUST NOT modify scripts/xruntime-exec.sh in any way (FR-086, byte-identical,
-// preserving roster-qa co-consumption) — this script invokes it as a
+// FR-086/E-12: scripts/xruntime-exec.sh retains its legacy positional API and
+// adds file-backed transport. This helper invokes that bounded path as a
 // subprocess and captures stdout/stderr separately (D-3).
 //
 // Usage:
@@ -39,6 +39,7 @@
 "use strict";
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
 const { spawnSync } = require("child_process");
@@ -152,20 +153,29 @@ function classifyWrapperResult(result, durationS, timeoutS) {
   };
 }
 
-// Invokes the unmodified wrapper as a subprocess, capturing stdout and
-// stderr SEPARATELY (D-3 — exit-code corroboration needs the stderr marker
-// without it ever reaching the helper's own stdout, FR-087).
+// Invokes the wrapper as a subprocess, capturing stdout and stderr
+// SEPARATELY (D-3 — exit-code corroboration needs the stderr marker without
+// it ever reaching the helper's own stdout, FR-087). The prompt remains
+// file-backed across this boundary; expanding it back into cmdArgs would
+// reintroduce E2BIG even though this helper's public input is file/stdin.
 function runWrapper(args) {
   const start = Date.now();
-  const cmdArgs = [WRAPPER, args.runtime, args.prompt];
-  if (args.write) cmdArgs.push("--write");
-  cmdArgs.push("--timeout", String(args.timeout));
-
-  const result = spawnSync("bash", cmdArgs, {
-    encoding: "utf8",
-    timeout: (args.timeout + 15) * 1000,
-    env: process.env,
-  });
+  const promptDir = fs.mkdtempSync(path.join(os.tmpdir(), "xruntime-prompt-"));
+  const promptPath = path.join(promptDir, "prompt.txt");
+  let result;
+  try {
+    fs.writeFileSync(promptPath, args.prompt, { mode: 0o600 });
+    const cmdArgs = [WRAPPER, args.runtime, `--prompt-file=${promptPath}`];
+    if (args.write) cmdArgs.push("--write");
+    cmdArgs.push("--timeout", String(args.timeout));
+    result = spawnSync("bash", cmdArgs, {
+      encoding: "utf8",
+      timeout: (args.timeout + 15) * 1000,
+      env: process.env,
+    });
+  } finally {
+    fs.rmSync(promptDir, { recursive: true, force: true });
+  }
   const durationS = (Date.now() - start) / 1000;
 
   if (isSpawnError(result)) return classifySpawnFailure(result, durationS);
