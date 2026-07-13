@@ -64,12 +64,12 @@ test("closure smoke: each JS tool entry require()s without throwing", () => {
 
 // ── AC-01: staged install happy path (--from-checkout) ─────────────────────
 
-test("install --from-checkout: all 14 files land, shas match, manifest committed-shaped", () => {
+test("install --from-checkout: all 15 files land, shas match, manifest committed-shaped", () => {
   const target = mkScratch("install");
   const r = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
   const manifest = readManifest(target);
-  assert.equal(manifest.files.length, 14);
+  assert.equal(manifest.files.length, 15);
   for (const f of manifest.files) {
     assert.ok(fs.existsSync(path.join(target, f.path)), `${f.path} missing after install`);
   }
@@ -108,7 +108,7 @@ test("install --from-raw (file:// mock RAW): mirrors --from-checkout", () => {
   const target = mkScratch("rawdst");
   const r = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(readManifest(target).files.length, 14);
+  assert.equal(readManifest(target).files.length, 15);
 });
 
 test("partial fetch: a source missing one bundle file aborts, target untouched, staging-only residue (FR-131/153)", () => {
@@ -133,15 +133,28 @@ test("partial fetch: a source missing one bundle file aborts, target untouched, 
 
 // ── AC-05: collision refusal + --force ──────────────────────────────────────
 
-test("collision: a pre-existing unrelated file at a bundle path aborts install; --force overrides", () => {
+test("collision: a pre-existing unrelated file at a bundle path aborts install; --force overrides; message carries recovery guidance (FIX-2/F-5)", () => {
   const target = mkScratch("collision");
   fs.mkdirSync(path.join(target, "scripts"), { recursive: true });
   fs.writeFileSync(path.join(target, "scripts/check-scope-diff.sh"), "not the bundle file\n");
   const refused = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   assert.notEqual(refused.code, 0);
   assert.equal(fs.existsSync(path.join(target, MANIFEST_REL)), false);
+  assert.match(refused.stderr, /--force/);
+  assert.match(refused.stderr, /restore/i);
   const forced = run(["install", "--from-checkout", REPO_ROOT, "--target", target, "--force"]);
   assert.equal(forced.code, 0, forced.stderr);
+});
+
+test("verify: a modified shared wrapper reports recovery guidance with --force (F-5/FIX-2)", () => {
+  const target = mkScratch("verify-modified-wrapper");
+  run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+  fs.appendFileSync(path.join(target, "scripts/xruntime-exec.sh"), "\n# consumer edit\n");
+  const r = run(["verify", "--target", target]);
+  assert.notEqual(r.code, 0);
+  assert.match(r.stderr, /SHA MISMATCH scripts\/xruntime-exec\.sh/);
+  assert.match(r.stderr, /--force/);
+  assert.match(r.stderr, /restore/i);
 });
 
 // ── AC-07/AC-08: upgrade orphan cleanup, generated via the REAL generator run twice (FR-147) ─

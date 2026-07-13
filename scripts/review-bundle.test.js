@@ -24,12 +24,15 @@ const ROOT = path.resolve(__dirname, "..");
 
 // ── Generator: closure shape (FR-124) ───────────────────────────────────────
 
-test("generator: closure is exactly the 14 manifest files, wrapper shared, manifest not self-listed", () => {
+test("generator: closure is exactly the 14 code files + 1 doc file, wrapper shared, manifest not self-listed", () => {
   const manifest = buildManifest(null);
-  assert.equal(manifest.files.length, 14);
+  assert.equal(manifest.files.length, 15);
   const wrapper = manifest.files.find((f) => f.path === "scripts/xruntime-exec.sh");
   assert.ok(wrapper, "wrapper must be in the closure");
   assert.equal(wrapper.shared, true);
+  const doc = manifest.files.find((f) => f.path === "scripts/REVIEW-BUNDLE.md");
+  assert.ok(doc, "the consumer doc must be in the manifest");
+  assert.equal(doc.kind, "doc");
   assert.ok(!manifest.files.some((f) => f.path === "scripts/review-bundle.manifest.json"), "manifest must never self-list");
   assert.equal(manifest.schema_version, "1.0");
   assert.equal(manifest.bundle_version, "1.0.0"); // default when no existing manifest supplied
@@ -150,7 +153,7 @@ test("resolveBaselineRef: shallow/unresolvable clone skips loudly (no candidate 
 });
 
 test("resolveBaselineRef: falls back through origin/main -> main -> HEAD~1", () => {
-  const run = (root, args) => {
+  const run = (_root, args) => {
     if (args[0] === "rev-parse" && args[1] === "HEAD") return "headsha";
     if (args.join(" ") === "rev-parse --verify --quiet origin/main^{commit}") return null;
     if (args.join(" ") === "rev-parse --verify --quiet main^{commit}") return "mainsha";
@@ -163,7 +166,7 @@ test("resolveBaselineRef: falls back through origin/main -> main -> HEAD~1", () 
 });
 
 test("resolveBaselineRef: a candidate whose merge-base equals HEAD is skipped (nothing to diff)", () => {
-  const run = (root, args) => {
+  const run = (_root, args) => {
     if (args[0] === "rev-parse" && args[1] === "HEAD") return "headsha";
     if (args.join(" ") === "rev-parse --verify --quiet origin/main^{commit}") return "originsha";
     if (args.join(" ") === "merge-base origin/main HEAD") return "headsha"; // == HEAD, skip

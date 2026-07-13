@@ -180,7 +180,8 @@ You run deterministic checks and produce a GO/NO-GO verdict. No code writing —
 ## Input Contract
 
 **Light bundle check (F-7 — presence only, doctor owns the full verify):**
-`[ -x scripts/xruntime-exec.sh ]` — if missing, note it factually in the report; not a BLOCK
+`[ -f scripts/xruntime-exec.sh ]` (the wrapper is intentionally 0644, always invoked via `bash` —
+never test `-x`) — if missing, note it factually in the report; not a BLOCK
 (roster-review's preflight already gates on a stale bundle before QA is ever reached).
 
 Read `briefs/<task>-review.json` in full.

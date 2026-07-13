@@ -22,7 +22,8 @@
 # collision check -> move into place -> manifest LAST. Staging is a subdirectory of --target
 # (same filesystem — the final move is a same-fs `mv`, never a cross-device copy). No .bak files
 # are ever created by this script (F-8). Partial fetch failure leaves staging-only residue,
-# targets untouched (FR-131/153) — the trap does NOT clean up staging on a non-zero exit.
+# targets untouched (FR-131/153) — no trap is registered: staging deliberately survives a
+# non-zero exit for inspection.
 #
 # Bespoke, not the extension system (FR-137): the extension converge/lock machinery
 # (scripts/roster-extension.ts) assumes a trusted node runtime and an existing .harness tree —
@@ -36,6 +37,11 @@ set -uo pipefail
 
 MANIFEST_REL="scripts/review-bundle.manifest.json"
 RUNBOOK="Run: bash scripts/review-bundle-install.sh install --from-raw <url> (or --from-checkout <dir>), then /recruit update."
+# F-5/FIX-2: recovery guidance for a modified file — the shared wrapper included, sha verified
+# like any other file even though its removal semantics differ. Two ways out: --force reinstalls
+# (overwrites local edits) or restore the file's original content from scripts/review-bundle.
+# manifest.json's recorded sha and re-run without --force.
+RECOVERY="Recovery: re-run install/upgrade with --force to reinstall from source (overwrites the modified file), or manually restore its original content to match the sha recorded in $MANIFEST_REL and re-run without --force."
 
 usage() {
   echo "usage: review-bundle-install.sh <install|upgrade|remove|verify> [--from-raw <url>|--from-checkout <dir>] [--force] [--target <dir>]" >&2
@@ -74,7 +80,9 @@ if [ "$MODE" = "install" ] || [ "$MODE" = "upgrade" ]; then
   [ "$SOURCE_MODE" = "raw" ] && need_cmd curl
 fi
 
-TARGET="$(cd "$TARGET" 2>/dev/null && pwd || echo "$TARGET")"
+RESOLVED_TARGET="$(cd "$TARGET" 2>/dev/null && pwd)"
+[ -n "$RESOLVED_TARGET" ] || abort "--target $TARGET does not exist or is not a directory"
+TARGET="$RESOLVED_TARGET"
 TARGET_MANIFEST="$TARGET/$MANIFEST_REL"
 STAGING="$TARGET/.review-bundle-staging"
 
@@ -117,7 +125,7 @@ run_verify() {
       echo "review-bundle-install: verify: MISSING $path" >&2; problems=$((problems + 1)); continue
     fi
     got="$(sha256_of "$TARGET/$path")"
-    [ "$got" = "$want" ] || { echo "review-bundle-install: verify: SHA MISMATCH $path" >&2; problems=$((problems + 1)); }
+    [ "$got" = "$want" ] || { echo "review-bundle-install: verify: SHA MISMATCH $path — $RECOVERY" >&2; problems=$((problems + 1)); }
   done
   command -v node >/dev/null 2>&1 || { echo "review-bundle-install: verify: node not found" >&2; problems=$((problems + 1)); }
   [ "$problems" -eq 0 ] || abort "$problems problem(s) found. $RUNBOOK"
@@ -173,7 +181,7 @@ check_collisions() {
     collisions+=("$rel")
   done
   if [ "${#collisions[@]}" -gt 0 ] && [ "$FORCE" -ne 1 ]; then
-    abort "refusing to install — pre-existing file(s) match neither the old nor new manifest sha: ${collisions[*]} (use --force to override)"
+    abort "refusing to install — pre-existing file(s) match neither the old nor new manifest sha: ${collisions[*]}. $RECOVERY"
   fi
 }
 
@@ -182,8 +190,8 @@ move_staged_into_place() {
   count=$(manifest_count "$manifest")
   for i in $(seq 0 $((count - 1))); do
     rel=$(manifest_path "$manifest" "$i")
-    mkdir -p "$TARGET/$(dirname "$rel")"
-    mv -f "$STAGING/$rel" "$TARGET/$rel"
+    mkdir -p "$TARGET/$(dirname "$rel")" || abort "could not create $TARGET/$(dirname "$rel") — target left partially updated, staging at $STAGING for inspection."
+    mv -f "$STAGING/$rel" "$TARGET/$rel" || abort "failed to move staged $rel into place — the manifest was NOT written; target left partially updated, staging at $STAGING for inspection."
   done
 }
 

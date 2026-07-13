@@ -42,11 +42,15 @@ function checkFilesPresentAndSha(root, manifest) {
   return errors;
 }
 
-/** FR-127: the require graph from the tool entries must not reach a file outside the manifest. */
+/** FR-127: the require graph from the tool entries must not reach a file outside the manifest.
+ *  FIX-4: compares against CODE manifest entries only — a `kind: "doc"` entry (the consumer-
+ *  facing scripts/REVIEW-BUNDLE.md) is never reachable via require() and is exempt from this
+ *  equality; it is still sha-verified/installed/removed like any other file elsewhere. */
 function checkClosureEscape(root, manifest, toolEntries) {
   const entries = (toolEntries || JS_TOOL_ENTRIES).map((p) => path.resolve(root, p));
   const closure = computeClosure(entries);
-  const manifestSet = new Set(manifest.files.map((f) => path.resolve(root, f.path)));
+  const codeFiles = manifest.files.filter((f) => f.kind !== "doc");
+  const manifestSet = new Set(codeFiles.map((f) => path.resolve(root, f.path)));
   const escaped = [...closure]
     .filter((abs) => !manifestSet.has(abs))
     .map((abs) => path.relative(root, abs));

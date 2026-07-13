@@ -12,6 +12,14 @@
 //
 // Walking is scoped to .js files only — a discovered edge that resolves to a non-.js file
 // (the wrapper .sh, the schema .json) is recorded as a leaf, not walked further.
+//
+// Maintainer note: only these two patterns are ever walked. A string-concatenated path
+// (`"./lib/" + name`), a require built from a computed variable with no literal segments, or
+// any other cwd-relative or runtime-assembled reference escapes BOTH this closure walk and the
+// FR-127 closure-escape CI check silently — such a file would be required at runtime but never
+// appear in the manifest, and the check would have nothing to flag. Do not introduce one of
+// these patterns in a bundle file; keep every file reference either a literal require() or a
+// path.resolve/join(__dirname, "literal", ...) call.
 
 "use strict";
 
