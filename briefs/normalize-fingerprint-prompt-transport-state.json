@@ -1,7 +1,7 @@
 {
   "task": "normalize-fingerprint-prompt-transport",
   "mode": "fast",
-  "current_phase": "qa",
+  "current_phase": "ship",
   "events": [
     {
       "phase": "implement",
@@ -20,6 +20,13 @@
       "outcome": "GO",
       "at": "2026-07-13T20:57:20+02:00",
       "by": "roster-qa"
+    },
+    {
+      "phase": "ship",
+      "outcome": "BLOCKED",
+      "reason": "Local commit 9999f0c is ready; remote push/PR/merge was not authorized in the delegated scope.",
+      "at": "2026-07-13T20:58:51+02:00",
+      "by": "roster-ship"
     }
   ]
 }
