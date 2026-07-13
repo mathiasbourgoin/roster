@@ -68,7 +68,7 @@ As a pipeline user, I want `workflows/templates/critical.cwr.json` to have steps
 **Acceptance Scenarios**:
 1. **Given** `critical.cwr.json` has steps `implement→review→roster-qa→ship`, **When** fixed, **Then** `jq -r '.steps[].id' workflows/templates/critical.cwr.json` outputs `roster-implement`, `roster-formal-verify`, `roster-review`, `roster-ship` in that order with no additional step IDs
 2. **Given** `critical.cwr.json` has `_roster_phase1_note`, **When** the key is removed, **Then** `jq 'has("_roster_phase1_note")' workflows/templates/critical.cwr.json` outputs `false`
-3. **Given** the `roster-formal-verify` step prompt needs writing, **When** written, **Then** it includes the pattern `TASK=${TASK} node dist/scripts/run-hook.js pre roster-formal-verify` (pre-hook) and `TASK=${TASK} node dist/scripts/run-hook.js post roster-formal-verify` (post-hook)
+3. **Given** the `roster-formal-verify` step prompt needs writing, **When** written, **Then** it includes the pattern `TASK=${TASK} node .harness/bin/run-hook.js pre roster-formal-verify` (pre-hook) and `TASK=${TASK} node .harness/bin/run-hook.js post roster-formal-verify` (post-hook)
 
 ### US-4: Three critical skills fully wired into harness (Priority: P0)
 
@@ -136,7 +136,7 @@ As a recruiter/harness user, I want the three skills registered in `.harness/har
 - **FR-021** [US-3]: `workflows/templates/critical.cwr.json` MUST NOT contain a `roster-qa` step.
 - **FR-022** [US-3]: `workflows/templates/critical.cwr.json` MUST NOT contain the key `_roster_phase1_note`.
 - **FR-023** [US-3]: The `_doc` field in `workflows/templates/critical.cwr.json` MUST describe the step sequence including `roster-formal-verify` and `qa`.
-- **FR-024** [US-3]: The `roster-formal-verify` step MUST include a prompt invoking both a pre-hook and a post-hook via `TASK=${TASK} node dist/scripts/run-hook.js pre/post roster-formal-verify`.
+- **FR-024** [US-3]: The `roster-formal-verify` step MUST include a prompt invoking both a pre-hook and a post-hook via `TASK=${TASK} node .harness/bin/run-hook.js pre/post roster-formal-verify`.
 
 #### Harness Wiring — Registration, Projection, Docs
 

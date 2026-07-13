@@ -75,7 +75,9 @@ function readReviewJson(root, task) {
 // INV-4/E-5: scans the append-forever journal for the LAST entry matching
 // this exact (runtime, digest) pair — the crash-before-persist enforcement
 // input. Absent/unreadable journal or no match -> null (caller treats that
-// as "nothing to refuse against").
+// as "nothing to refuse against"). A malformed line is fail-closed: its
+// runtime/digest cannot be authenticated, so it may be the very degradation
+// record the breaker needs to enforce.
 function readLatestJournalEntry(root, task, runtime, digest) {
   const p = journalPath(root, task);
   if (!fs.existsSync(p)) return null;
@@ -94,9 +96,14 @@ function readLatestJournalEntry(root, task, runtime, digest) {
     try {
       entry = JSON.parse(lines[i]);
     } catch (e) {
-      continue; // a corrupt line never masks an earlier valid one
+      return { malformed: true, reason: "malformed-journal" };
     }
-    if (entry.runtime === runtime && entry.digest === digest) return entry;
+    if (entry.runtime === runtime && entry.digest === digest) {
+      if (entry.outcome === "blocked" && entry.reason === "malformed-journal") {
+        return { malformed: true, reason: "malformed-journal" };
+      }
+      return entry;
+    }
   }
   return null;
 }

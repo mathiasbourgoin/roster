@@ -233,7 +233,7 @@
       {
         "name": "roster-skill-evolve",
         "source": "roster",
-        "version": "1.5.0",
+        "version": "1.5.1",
         "domain": "meta",
         "phase": null,
         "tunables": {}
@@ -343,7 +343,7 @@
       {
         "name": "roster-qa",
         "source": "roster",
-        "version": "1.7.0",
+        "version": "1.8.0",
         "domain": "pipeline",
         "phase": "qa",
         "tunables": {
@@ -388,7 +388,7 @@
       {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.10.0",
+        "version": "1.10.1",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}

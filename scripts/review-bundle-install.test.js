@@ -221,14 +221,18 @@ test("upgrade: a consumer-modified orphan is skipped with a warning, not deleted
 
 // ── AC-06/AC-08: removal — shared survives, modified skipped, missing continues ─────────────
 
-test("remove: shared wrapper survives, roster-qa's invocation path still resolves post-removal (FR-151)", () => {
+test("remove: shared wrapper survives while roster-qa's breaker helper is removed (FR-151)", () => {
   const target = mkScratch("remove-shared");
   run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   const r = run(["remove", "--target", target]);
   assert.equal(r.code, 0, r.stderr);
   assert.ok(fs.existsSync(path.join(target, "scripts/xruntime-exec.sh")), "wrapper must survive removal");
+  assert.equal(
+    fs.existsSync(path.join(target, "scripts/xruntime-review.js")),
+    false,
+    "QA must detect the removed breaker helper as stale-install"
+  );
   assert.equal(fs.existsSync(path.join(target, MANIFEST_REL)), false, "manifest must be deleted");
-  // roster-qa's "light wrapper existence check" is exactly this file-existence assertion.
 });
 
 test("remove: a modified file is skipped with a warning; a missing file warns and removal continues (FR-136)", () => {
@@ -258,6 +262,17 @@ test("functional tier: scope-diff, convergence gate --static, xruntime helper, n
   run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   gitRepo(target);
   fs.writeFileSync(path.join(target, "README.md"), "seed\n");
+  const runtimeStub = path.join(target, "stub-runtime.sh");
+  fs.writeFileSync(
+    runtimeStub,
+    `#!/usr/bin/env bash
+if [ "\${1:-}" = "--version" ]; then echo "consumer-stub 1.0.0"; exit 0; fi
+if [ "\${STUB_FAIL_IF_RUN:-0}" = "1" ]; then touch runtime-invoked.marker; exit 9; fi
+cat >/dev/null
+printf '\`\`\`json\\n[]\\n\`\`\`\\n'
+`,
+    { mode: 0o755 }
+  );
   execFileSync("git", ["add", "-A"], { cwd: target });
   execFileSync("git", ["commit", "-qm", "base"], { cwd: target });
   const base = execFileSync("git", ["rev-parse", "HEAD"], { cwd: target, encoding: "utf8" }).trim();
@@ -276,13 +291,53 @@ test("functional tier: scope-diff, convergence gate --static, xruntime helper, n
   fs.writeFileSync(reviewPath, JSON.stringify({ task: "t", status: "NO-GO", findings: [] }));
   execFileSync("node", ["scripts/check-review-convergence.js", "review.json", "--static"], { cwd: target });
 
-  // xruntime helper with an XRUNTIME_BIN stub (mirrors xruntime-exec.sh's own test hook).
+  // Authentic installed helper success with an XRUNTIME_BIN stub (mirrors
+  // xruntime-exec.sh's real consumer boundary).
   const helperOut = execFileSync(
     "node",
     ["scripts/xruntime-review.js", "codex", "--task", "smoke-test"],
-    { cwd: target, encoding: "utf8", input: "probe prompt", env: { ...process.env, XRUNTIME_BIN: "/bin/echo" } }
+    { cwd: target, encoding: "utf8", input: "probe prompt", env: { ...process.env, XRUNTIME_BIN: runtimeStub } }
   ).toString();
-  assert.ok(typeof helperOut === "string" && helperOut.length > 0);
+  assert.equal(JSON.parse(helperOut).status, "healthy");
+
+  // Authentic installed QA handoff: a GO review's matching degraded state
+  // refuses the second provider call, while a malformed handoff fails closed.
+  const { computeDigest } = require(path.join(target, "scripts/lib/xruntime-digest.js"));
+  const { digest } = computeDigest("codex", runtimeStub, "read-only");
+  fs.mkdirSync(path.join(target, "briefs"), { recursive: true });
+  fs.writeFileSync(
+    path.join(target, "briefs/smoke-test-review.json"),
+    JSON.stringify({ status: "GO", cross_runtime: { codex: { status: "degraded", config_digest: digest } } })
+  );
+  const availability = execFileSync(
+    "node",
+    [
+      "scripts/xruntime-review.js",
+      "codex",
+      "--task",
+      "smoke-test",
+      "--phase",
+      "qa",
+      "--check-availability",
+      "--write",
+    ],
+    {
+      cwd: target,
+      encoding: "utf8",
+      env: { ...process.env, XRUNTIME_BIN: runtimeStub, STUB_FAIL_IF_RUN: "1" },
+    }
+  );
+  assert.equal(JSON.parse(availability).status, "skipped-degraded");
+  assert.equal(fs.existsSync(path.join(target, "runtime-invoked.marker")), false);
+
+  fs.writeFileSync(path.join(target, "briefs/corrupt-review.json"), "{not-json");
+  const malformed = spawnSync(
+    "node",
+    ["scripts/xruntime-review.js", "codex", "--task", "corrupt", "--phase", "qa", "--check-availability", "--write"],
+    { cwd: target, encoding: "utf8", env: { ...process.env, XRUNTIME_BIN: runtimeStub } }
+  );
+  assert.equal(malformed.status, 2);
+  assert.equal(JSON.parse(malformed.stdout).status, "blocked");
 
   // normalizer on fixture findings via stdin.
   const normOut = execFileSync("node", ["scripts/review-normalize.js"], { cwd: target, input: "[]", encoding: "utf8" });

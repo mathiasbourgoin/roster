@@ -2,7 +2,7 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.10.0
+version: 1.10.1
 ---
 
 # Roster Run
@@ -52,7 +52,7 @@ lookup key (not the routing slug), look for `.harness/hooks/skills/<name>/pre.md
 shell steps via the hook runner:
 
 ```bash
-TASK=<task-slug> node dist/scripts/run-hook.js pre <skill-name>   # or: post <skill-name>
+TASK=<task-slug> node .harness/bin/run-hook.js pre <skill-name>   # or: post <skill-name>
 # exit 0=pass  1=abort (skip dispatch)  2=warn  3=pending_llm_steps  4=skip (no hook)
 ```
 

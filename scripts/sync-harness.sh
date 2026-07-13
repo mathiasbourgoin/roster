@@ -17,6 +17,7 @@ for _arg in "$@"; do
     esac
 done
 PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HARNESS_DIR="$PROJECT_ROOT/.harness"
 CLAUDE_DIR="$PROJECT_ROOT/.claude"
 CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
@@ -144,6 +145,22 @@ if [ "$CHECK" -eq 1 ]; then
     if [ "$_skills_invalid" -eq 1 ]; then
         echo "harness.json layers.skills validation failed — remove stale entries or add the missing skill files." >&2
         exit 1
+    fi
+
+    # Skill hooks are executable only when their portable runner is present.
+    # Runtime projections can be perfectly synchronized while this project-local
+    # dependency is absent, so check it explicitly outside the projection diff.
+    if [ -d "$HARNESS_DIR/hooks/skills" ] && find "$HARNESS_DIR/hooks/skills" -type f -name '*.md' -print -quit | grep -q .; then
+        _runner_source="$SCRIPT_DIR/../.harness/bin/run-hook.js"
+        _runner_target="$HARNESS_DIR/bin/run-hook.js"
+        if [ ! -f "$_runner_source" ]; then
+            echo "✗ harness-sync: portable hook runner source missing: $_runner_source" >&2
+            exit 1
+        fi
+        if [ ! -f "$_runner_target" ] || ! cmp -s "$_runner_source" "$_runner_target"; then
+            echo "✗ harness-sync: .harness/bin/run-hook.js is missing or stale; run bash scripts/sync-harness.sh" >&2
+            exit 1
+        fi
     fi
 
     echo "✓ harness-sync: all runtime projections match the .harness source."
@@ -602,6 +619,26 @@ sync_skill_hooks() {
     done
 }
 
+install_skill_hook_runtime() {
+    local hooks_skills_dir="$HARNESS_DIR/hooks/skills"
+    [ -d "$hooks_skills_dir" ] || return 0
+    find "$hooks_skills_dir" -type f -name '*.md' -print -quit | grep -q . || return 0
+
+    local source="$SCRIPT_DIR/../.harness/bin/run-hook.js"
+    local target="$HARNESS_DIR/bin/run-hook.js"
+    if [ ! -f "$source" ]; then
+        echo "sync-harness: skill hooks exist but portable runner is missing: $source" >&2
+        echo "Run: npm ci && npm run build:hook-runtime" >&2
+        return 1
+    fi
+    mkdir -p "$(dirname "$target")"
+    if [ ! -f "$target" ] || ! cmp -s "$source" "$target"; then
+        cp "$source" "$target"
+        chmod 0755 "$target"
+        echo "✓ installed portable skill-hook runner: .harness/bin/run-hook.js" >&2
+    fi
+}
+
 # Canonical-hook adoption check (health 2026-07-10 P6): sync converges .harness/ → runtimes
 # but never adopts NEW canonical hooks from hooks/{safety,quality}/ into an existing
 # .harness/hooks/ — a new safety hook silently doesn't install. Warn on the gap; copy with
@@ -643,6 +680,7 @@ check_canonical_hooks
 
 # Inline shared skill-hook fragments before any runtime projection
 sync_skill_hooks
+install_skill_hook_runtime
 
 if runtime_enabled "claude-code"; then
     mkdir -p "$CLAUDE_DIR/agents" "$CLAUDE_DIR/commands" "$CLAUDE_DIR/rules"

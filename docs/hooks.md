@@ -4,7 +4,7 @@
 
 Skill hooks are declarative automation files that run **before** (`pre`) or **after** (`post`) a skill is dispatched by `roster-run`. They let you add guard checks, post-run cleanup, or agentic feedback loops to any skill — without modifying the skill itself.
 
-Skill hooks are distinct from **tool-level hooks** (which intercept Bash/Edit/Write tool calls in `settings.json`). Skill hooks operate at the pipeline level. Shell-level steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) are executed by `run-hook.ts` (CLI: `node dist/scripts/run-hook.js`) as real processes with enforced exit-code semantics. Steps requiring LLM interpretation (`prompt:+agent:`, `loop:`, `parallel:`, `break_if:`, `continue_if:`) are returned in `pending_llm_steps` for the agent to handle after the runner completes.
+Skill hooks are distinct from **tool-level hooks** (which intercept Bash/Edit/Write tool calls in `settings.json`). Skill hooks operate at the pipeline level. Shell-level steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) are executed by the portable `.harness/bin/run-hook.js` runner as real processes with enforced exit-code semantics. Steps requiring LLM interpretation (`prompt:+agent:`, `loop:`, `parallel:`, `break_if:`, `continue_if:`) are returned in `pending_llm_steps` for the agent to handle after the runner completes.
 
 **Typical use cases:**
 
@@ -85,7 +85,7 @@ After the frontmatter, the hook body has two optional sections:
 
 ### Step-Type Dispatch (execution ownership)
 
-The hook executor (`scripts/run-hook.ts`, CLI: `node dist/scripts/run-hook.js <pre|post> <skill>`) enforces real execution for shell steps. `roster-run` calls it before routing for pre-hooks and after the skill completes for post-hooks.
+The hook executor (`scripts/run-hook.ts`, installed CLI: `node .harness/bin/run-hook.js <pre|post> <skill>`) enforces real execution for shell steps. `roster-run` calls it before routing for pre-hooks and after the skill completes for post-hooks.
 
 | Step operator | Executed by | Behaviour |
 |---|---|---|
@@ -576,13 +576,13 @@ These features require a binding mechanism that was not designed in time for v1.
 
 ## 11. Hook Executor Exit Codes
 
-`scripts/run-hook.ts` is compiled to `dist/scripts/run-hook.js` via `npm run build:ts`. Invoke directly:
+`scripts/run-hook.ts` is bundled with its parser dependency into `.harness/bin/run-hook.js` via `npm run build:hook-runtime`. The TypeScript build still emits `dist/scripts/run-hook.js` for source-checkout tests, but installed projects use the portable runner. Invoke directly:
 
 ```bash
 # CLI is: run-hook.js <pre|post> <skill-name>   (event + skill, NOT a file path)
 # Export TASK=<task-slug> when the hook references ${TASK} (spec/qa/ship gates locate
 # briefs/<task>-* through it); the runner inherits the environment.
-npm run build:ts && TASK=my-feature node dist/scripts/run-hook.js pre roster-spec
+npm run build:hook-runtime && TASK=my-feature node .harness/bin/run-hook.js pre roster-spec
 ```
 
 It returns the following exit codes, consumed by `roster-run` to decide whether to dispatch the skill.

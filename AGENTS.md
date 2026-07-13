@@ -106,14 +106,14 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Pipeline (18)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.10.0 | Classifies an incoming task and routes it to the right pipeline skill |
+| roster-run | 1.10.1 | Classifies an incoming task and routes it to the right pipeline skill |
 | roster-init | 1.4.0 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
 | roster-intake | 1.3.0 | Turns a raw task description into a human-validated contractual brief |
 | roster-spec | 2.4.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.3.8 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
 | roster-implement | 1.7.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
 | roster-review | 2.2.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
-| roster-qa | 1.7.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
+| roster-qa | 1.8.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
 | roster-ship | 1.4.4 | Carries a reviewed, QA'd branch through to a merged PR |
 | roster-investigate | 1.3.3 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
 | roster-audit | 1.4.1 | Combines code-quality and spec-compliance checks into one actionable audit report |
@@ -129,7 +129,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | Skill | Version | Purpose |
 |-------|---------|---------|
 | roster-skill-health | 1.4.0 | Clusters accumulated friction-log patterns into improvement proposals |
-| roster-skill-evolve | 1.5.0 | Installs skill-health-approved improvements to skills, tools, adaptations, and agents |
+| roster-skill-evolve | 1.5.1 | Installs skill-health-approved improvements to skills, tools, adaptations, and agents |
 | roster-upgrade | 0.1.2 | Propose-only upgrader for roster-contract skills — evidence-mined, gate-checked, human-landed diffs |
 
 ### KB/Audit (9)
@@ -189,7 +189,7 @@ Fire on runtime tool events (`PreToolUse` / `PostToolUse`). Shell commands only.
 
 Fire before/after a named roster skill runs. Full declarative DSL. Defined in `.harness/hooks/skills/<skill-name>/pre.md` and `post.md`. Interpreted by the LLM agent — no separate process.
 
-**Execution model:** `run-hook.ts` (CLI: `node dist/scripts/run-hook.js`) executes shell-level steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) as real processes. Steps requiring LLM interpretation (`prompt:+agent:`, `loop:`, `parallel:`) are returned in `pending_llm_steps` for the agent to execute after the runner completes.
+**Execution model:** `run-hook.ts` produces the portable `.harness/bin/run-hook.js` CLI, which executes shell-level steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) as real processes. Steps requiring LLM interpretation (`prompt:+agent:`, `loop:`, `parallel:`) are returned in `pending_llm_steps` for the agent to execute after the runner completes.
 
 **Supported step types:** `run:` (shell) · `prompt:+agent:` (agentic) · `test:` (conditional) · `loop:` · `goto:+label:` · `retry:+backoff:` · `timeout:` (advisory) · `log:` · `include:` (build-time inlined) · `output:` · `parallel:` (prose-parallelism hint)
 

@@ -2,7 +2,7 @@
 name: roster-skill-evolve
 description: Installs skill-health-approved improvements to skills, tools, adaptations, and agents.
 when_to_use: "Use after roster-skill-health produces APPROVED proposals ready to apply. Trigger: 'apply the skill-health proposals'."
-version: 1.5.0
+version: 1.5.1
 domain: meta
 phase: null
 preamble: true
@@ -248,7 +248,7 @@ For each APPROVED proposal, in order A → B → C → D → E → F:
 3. **Validate and dry-run**:
    ```bash
    node dist/scripts/check-hook-structure.js
-   TASK=<sample-slug> node dist/scripts/run-hook.js <pre|post> <skill-name>
+   TASK=<sample-slug> node .harness/bin/run-hook.js <pre|post> <skill-name>
    ```
    Both must exit clean (run-hook exit 0/2/3 are acceptable outcomes; 1 means the hook's
    abort path fired — verify that is the intended behavior for the sample input; 4 means

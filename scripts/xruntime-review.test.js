@@ -1,6 +1,6 @@
 // Tests for scripts/xruntime-review.js (spec: specs/review-skill-slimming.md US-1,
 // FR-086..098, Amendments D-2/D-3/D-8/D-9; specs/review-v2-corrections.md
-// INV-4/6/7, Amendments E-5/E-8/E-10). Uses a bash stub runtime (XRUNTIME_BIN,
+// INV-4/6/7/9, Amendments E-5/E-8/E-10/E-13). Uses a bash stub runtime (XRUNTIME_BIN,
 // matching xruntime-exec.sh's own testing hook) so scenarios are deterministic without
 // a real codex/opencode CLI on PATH.
 "use strict";
@@ -209,6 +209,75 @@ test("D-2: persisted GO status means fresh cycle — degraded state is stale, he
   const parsed = JSON.parse(stdout);
   assert.strictEqual(parsed.status, "healthy");
   assert.ok(fs.existsSync(path.join(repo.dir, "invoked.marker")), "a fresh cycle must re-probe");
+});
+
+test("QA breaker sharing: availability check reuses matching degraded state from review GO", () => {
+  const repo = makeRepo();
+  const { digest } = computeDigest("codex", repo.stubPath, "read-only");
+  fs.mkdirSync(path.join(repo.dir, "briefs"), { recursive: true });
+  fs.writeFileSync(
+    path.join(repo.dir, "briefs", "demo-task-review.json"),
+    JSON.stringify({ status: "GO", cross_runtime: { codex: { status: "degraded", config_digest: digest } } })
+  );
+
+  const { code, stdout } = runHelper(
+    repo,
+    ["codex", "", "--task", "demo-task", "--phase", "qa", "--check-availability", "--write"],
+    { STUB_MODE: "healthy" }
+  );
+  const parsed = JSON.parse(stdout);
+  assert.strictEqual(code, 0);
+  assert.strictEqual(parsed.status, "skipped-degraded");
+  assert.strictEqual(parsed.source, "review-go");
+  assert.notStrictEqual(parsed.config_digest, digest, "QA may use workspace-write while review used read-only");
+  assert.ok(!fs.existsSync(path.join(repo.dir, "invoked.marker")), "availability check must never invoke the runtime");
+  assert.strictEqual(readJournal(repo, "demo-task").length, 0, "a state lookup is not a provider invocation");
+});
+
+test("QA breaker sharing: availability check permits a changed runtime configuration", () => {
+  const repo = makeRepo();
+  fs.mkdirSync(path.join(repo.dir, "briefs"), { recursive: true });
+  fs.writeFileSync(
+    path.join(repo.dir, "briefs", "demo-task-review.json"),
+    JSON.stringify({
+      status: "GO",
+      cross_runtime: { codex: { status: "degraded", config_digest: "codex:stale-configuration" } },
+    })
+  );
+
+  const { code, stdout } = runHelper(
+    repo,
+    ["codex", "", "--task", "demo-task", "--phase", "qa", "--check-availability", "--write"],
+    { STUB_MODE: "healthy" }
+  );
+  const parsed = JSON.parse(stdout);
+  assert.strictEqual(code, 0);
+  assert.strictEqual(parsed.status, "available");
+  assert.strictEqual(parsed.source, "review-go");
+  assert.ok(!fs.existsSync(path.join(repo.dir, "invoked.marker")), "availability check must remain provider-free");
+});
+
+test("QA breaker sharing: a non-object GO handoff fails closed instead of throwing", () => {
+  const repo = makeRepo();
+  fs.mkdirSync(path.join(repo.dir, "briefs"), { recursive: true });
+  fs.writeFileSync(path.join(repo.dir, "briefs", "demo-task-review.json"), "null");
+
+  const { code, stderr } = runHelper(
+    repo,
+    ["codex", "", "--task", "demo-task", "--phase", "qa", "--check-availability", "--write"],
+    { STUB_MODE: "healthy" }
+  );
+  assert.strictEqual(code, 2);
+  assert.match(stderr, /requires a persisted GO review verdict/);
+  assert.ok(!fs.existsSync(path.join(repo.dir, "invoked.marker")));
+});
+
+test("QA breaker sharing: roster-qa checks availability before invoking the raw wrapper", () => {
+  const qaSkill = fs.readFileSync(path.resolve(__dirname, "../skills/pipeline/roster-qa.md"), "utf8");
+  const check = qaSkill.indexOf("--phase qa --check-availability");
+  const invoke = qaSkill.indexOf("bash scripts/xruntime-exec.sh <runtime> --prompt-file=<scratch-file> --write");
+  assert.ok(check >= 0, "roster-qa must call the shared availability checker");
+  assert.ok(invoke > check, "the provider invocation must occur only after the breaker check");
 });
 
 test("D-2: --human-retry bypasses the refusal even with matching digest + NO-GO", () => {
@@ -436,6 +505,26 @@ test("E-8: an absent review.json is NOT malformed — a fresh task still probes 
   const { code, stdout } = runHelper(repo, ["codex", "hello", "--task", "demo-task"], { STUB_MODE: "healthy" });
   assert.strictEqual(code, 0);
   assert.strictEqual(JSON.parse(stdout).status, "healthy");
+});
+
+test("breaker journal: a malformed line fails closed instead of permitting a provider retry", () => {
+  const repo = makeRepo();
+  fs.mkdirSync(path.join(repo.dir, "briefs"), { recursive: true });
+  fs.writeFileSync(path.join(repo.dir, "briefs", "demo-task-xruntime.jsonl"), "{not-json\n");
+
+  const { code, stdout } = runHelper(repo, ["codex", "hello", "--task", "demo-task"], {
+    STUB_MODE: "healthy",
+  });
+  assert.strictEqual(code, 2);
+  const parsed = JSON.parse(stdout);
+  assert.strictEqual(parsed.status, "blocked");
+  assert.strictEqual(parsed.reason, "malformed-journal");
+  assert.ok(!fs.existsSync(path.join(repo.dir, "invoked.marker")));
+
+  const second = runHelper(repo, ["codex", "hello", "--task", "demo-task"], { STUB_MODE: "healthy" });
+  assert.strictEqual(second.code, 2);
+  assert.strictEqual(JSON.parse(second.stdout).reason, "malformed-journal");
+  assert.ok(!fs.existsSync(path.join(repo.dir, "invoked.marker")), "a blocked audit row must retain the refusal");
 });
 
 // ── INV-4/E-5: journal-driven refusal for crash-before-persist ───────────

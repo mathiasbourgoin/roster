@@ -197,7 +197,7 @@ As a user of roster-doctor, I want Section 1 to check that `workflows/templates/
 - **FR-013** [US-2]: `roster-workflow-build` MUST stop with a clear error message if `workflows/templates/<mode>.cwr.json` is absent.
 - **FR-014** [US-2]: The generated `workflows/<task>.cwr.json` MUST pass `cwr lint workflows/<task>.cwr.json` (exit 0).
 - **FR-015** [US-2]: The generated workflow MUST contain `"_roster_template_version"` matching the source template's `"_roster_version"`.
-- **FR-016** [US-2]: For each plan step where `hook: true`, the CWR `agent` step's `prompt` MUST include instructions to invoke `TASK=<slug> node dist/scripts/run-hook.js pre <skill>` before the skill and `post <skill>` after.
+- **FR-016** [US-2]: For each plan step where `hook: true`, the CWR `agent` step's `prompt` MUST include instructions to invoke `TASK=<slug> node .harness/bin/run-hook.js pre <skill>` before the skill and `post <skill>` after.
 - **FR-017** [US-2]: `roster-workflow-build` MUST check that the `check-skill-structure.js`-required sections are present in its own skill file (`## When to Go Back`, `## What Next`, `## Friction Log`). *(meta: this is enforced by CI on the skill file itself)*
 
 #### Roster-Run Dispatch (US-3)

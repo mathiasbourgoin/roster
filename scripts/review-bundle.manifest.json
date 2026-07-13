@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.1.0",
+  "bundle_version": "1.2.0",
   "channel": "stable",
   "source_ref": "main",
   "files": [
@@ -42,11 +42,11 @@
     },
     {
       "path": "scripts/lib/xruntime-digest.js",
-      "sha256": "0d58f373e4e48d03f78dfb34de60d8a464329d22a04b407f8e0e924b8da6612e"
+      "sha256": "8d82e16eb4501beb51449206a2de81b3612abda3c3f8a7301efa28f3853b2661"
     },
     {
       "path": "scripts/lib/xruntime-journal.js",
-      "sha256": "f8addd50ab77b3f0cc11917b3a9519ebbddcc97703403259b017130dc7bb3287"
+      "sha256": "aa3901eb3a8b4ef37cceb228cb58eff70581a122a95fe513fd06a5e5205a54fc"
     },
     {
       "path": "scripts/review-normalize.js",
@@ -59,7 +59,7 @@
     },
     {
       "path": "scripts/xruntime-review.js",
-      "sha256": "5911b88297e481362e43ec24faa0db0df37906f792df29be9b56a665ecbe0f9d"
+      "sha256": "da88bec1fd29701460bede5dd78cab567932a115b3d68a69912c5b5ca4d69101"
     },
     {
       "path": "scripts/REVIEW-BUNDLE.md",

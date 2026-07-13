@@ -2,14 +2,14 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.7.0
+version: 1.8.0
 domain: pipeline
 phase: qa
 preamble: true
 friction_log: true
 allowed_tools: [Read, Write, Bash, AskUserQuestion]
 human_gate: after
-requires_review_bundle: ">=1.0.0"
+requires_review_bundle: ">=1.2.0"
 tunables:
   require_tmux_matrix_for_tui: true
   run_full_suite: true
@@ -36,9 +36,10 @@ You run deterministic checks and produce a GO/NO-GO verdict. No code writing —
 ## Input Contract
 
 **Light bundle check (F-7 — presence only, doctor owns the full verify):**
-`[ -f scripts/xruntime-exec.sh ]` (the wrapper is intentionally 0644, always invoked via `bash` —
-never test `-x`) — if missing, note it factually in the report; not a BLOCK
-(roster-review's preflight already gates on a stale bundle before QA is ever reached).
+`[ -f scripts/xruntime-exec.sh ] && [ -f scripts/xruntime-review.js ]` (the wrapper is
+intentionally 0644, always invoked via `bash` — never test `-x`). If either is missing, stop with
+`stale-install`; QA cannot safely bypass the shared breaker. Roster-review's earlier preflight
+normally makes this impossible, but files can disappear between phases.
 
 Read `briefs/<task>-review.json` in full.
 
@@ -189,8 +190,21 @@ command -v codex >/dev/null 2>&1 && echo "codex available"
 command -v opencode >/dev/null 2>&1 && echo "opencode available"
 ```
 
-If none is present (or the only one is the host runtime), **skip silently**. Otherwise write the
-QA prompt to a scratch file and invoke via the wrapper
+If none is present (or the only one is the host runtime), **skip silently**. Otherwise run the
+provider-free shared-breaker check first, using the same `--write` mode as the eventual QA
+invocation:
+
+```bash
+node scripts/xruntime-review.js <runtime> --task <task-slug> --phase qa --check-availability --write
+```
+
+`status: "skipped-degraded"` means review already proved this runtime version degraded under either
+standard review/QA sandbox mode: do not invoke it again, and record
+`Cross-runtime QA: skipped (review breaker, unchanged runtime version)`. `status: "available"`
+permits one QA attempt. A nonzero/blocked result is QA **NO-GO** because the
+persisted review state cannot be trusted. `--human-retry` is the explicit override; never infer it.
+
+When available, write the QA prompt to a scratch file and invoke via the wrapper
 `bash scripts/xruntime-exec.sh <runtime> --prompt-file=<scratch-file> --write` (streams the
 prompt with EOF, keeps large content out of argv, sets the runtime's flags, file-captures output,
 and tree-integrity-snapshots the run — exit 3
@@ -209,7 +223,7 @@ only passes under one runtime is not a pass. Surface the exact divergence.
 
 **Report format contract (load-bearing):** the verdict line MUST be exactly `**Status:** GO ✅` or `**Status:** NO-GO ❌`, at the start of a line — the ship-gate hook greps `^\*\*Status:\*\* GO`. Do not inline the status into another sentence, indent it, or reword it; a report that fails this grep is rejected by the gate even if the verdict is GO.
 
-**Manual hook invocation:** the pre/post skill hooks require the task slug via the `TASK` environment variable — e.g. `TASK=<slug> node dist/scripts/run-hook.js pre|post <skill>`. Without `TASK` the hook aborts.
+**Manual hook invocation:** the pre/post skill hooks require the task slug via the `TASK` environment variable — e.g. `TASK=<slug> node .harness/bin/run-hook.js pre|post <skill>`. Without `TASK` the hook aborts.
 
 Produce `briefs/<task>-qa.md`:
 

@@ -5,7 +5,7 @@ status: live
 feature: Review v2 correctness fixes (finding identity, lifecycle, journal enforcement)
 brief: briefs/review-v2-corrections-intake.md
 date: 2026-07-13
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Spec — Review v2 Corrections
@@ -36,7 +36,8 @@ Invariants + Runnable Checks + paired ACs only; no story ceremony; `min_user_sto
   the whole task" / bare "no reset-on-GO" shorthand anywhere in skill prose.
 - **INV-4 (journal is an enforcement input):** the degraded-refusal decision reads BOTH the
   latest matching journal entry (task/runtime/digest) AND verdict state; a malformed verdict is
-  explicit degraded-input, never silent no-state. Crash-before-persist cannot cause a repeat
+  explicit degraded-input, never silent no-state. A malformed journal line also fails closed
+  because its runtime/digest cannot be authenticated. Crash-before-persist cannot cause a repeat
   probe of an unchanged degraded runtime.
 - **INV-5 (no untrusted identity in the ledger):** cross-runtime findings are canonically
   re-fingerprinted and deduplicated within the augment-only array before verdict composition;
@@ -51,6 +52,11 @@ Invariants + Runnable Checks + paired ACs only; no story ceremony; `min_user_sto
 - **INV-8 (override routes exactly once):** roster-run, seeing `design-not-converging` with a
   valid current-round `streak_override`, routes to `/roster-implement` exactly once; round-cap
   escalation remains non-overridable; the LEDGER_SCHEMA block stays byte-identical.
+- **INV-9 (review degradation carries into QA):** before QA invokes a second runtime, it runs a
+  provider-free availability check. A matching degraded runtime/version in the persisted GO review
+  verdict refuses the QA attempt across the standard read-only→workspace-write phase transition;
+  a changed runtime/version or explicit human retry may proceed.
+  The lookup itself never invokes the provider or appends an invocation journal row.
 
 ## Runnable Checks
 
@@ -85,6 +91,10 @@ Invariants + Runnable Checks + paired ACs only; no story ceremony; `min_user_sto
   BOM-prefixed skill counts 2; assembled-projection metric reported in check output.
 - CHECK-8 [all]: `npm test` → exit 0; `bash scripts/sync-harness.sh --check` → exit 0; all
   CHECK-N greps from all three convergence-family specs remain green.
+- CHECK-9 [AC-9]: `node --test scripts/xruntime-review.test.js` → exit 0 incl. a persisted GO
+  verdict with matching degraded runtime/version returning `skipped-degraded` without wrapper
+  invocation even when review was read-only and QA is workspace-write, and a changed digest
+  returning `available`.
 
 ## Acceptance Criteria
 
@@ -97,6 +107,8 @@ Invariants + Runnable Checks + paired ACs only; no story ceremony; `min_user_sto
 - AC-6 ↔ CHECK-6: override routing without ledger drift (INV-8).
 - AC-7 ↔ CHECK-7: counter BOM + assembled metric.
 - AC-8 ↔ CHECK-8: whole-system green, token survival intact.
+- AC-9 ↔ CHECK-9: QA consults the review breaker before any second-runtime attempt and does not
+  repay an unchanged degraded configuration (INV-9).
 
 ## Amendments (v1.1.0 — plan-phase dual-voice review, 2026-07-13)
 
@@ -185,3 +197,13 @@ entry's check, INV-2's reopen/adjudicate branch applies (fail-closed).
   The wrapper streams the file to Codex/OpenCode stdin with EOF and retains its original
   positional-prompt interface. This supersedes review-skill-slimming FR-086's original
   implementation-window byte-freeze while preserving roster-qa compatibility.
+- **E-13 (shared review/QA availability breaker):** `xruntime-review.js --phase qa
+  --check-availability` compares both standard sandbox digests for the current runtime/version with
+  the persisted GO review's degraded state before QA invokes the raw wrapper. Matching degradation returns
+  `skipped-degraded` without a provider call or journal append; changed configuration returns
+  `available`; `--human-retry` remains the only manual override. Roster-QA requires bundle 1.2.0
+  and fails closed when the helper is missing or the review verdict is unreadable.
+- **E-14 (corrupt journal fail-closed):** `readLatestJournalEntry` returns an explicit malformed
+  sentinel on the first unparsable line instead of skipping it. The helper emits
+  `{status:"blocked", reason:"malformed-journal"}` and never invokes the provider; repair or an
+  explicit human action is required before retrying.
