@@ -139,14 +139,18 @@ if [ "$CHECK" -eq 1 ]; then
             _sname=$(echo "$_entry" | jq -r '.name')
             _sdomain=$(echo "$_entry" | jq -r '.domain // empty')
             _sfile=$(echo "$_entry" | jq -r '.file // .name')
-            if [ -z "$_sdomain" ]; then
-                echo "✗ harness-sync: layers.skills entry '${_sname}' is missing the 'domain' field." >&2
-                _skills_invalid=1
-                continue
-            fi
-            _src="${HARNESS_DIR%/.harness}/skills/${_sdomain}/${_sfile}.md"
-            if [ ! -f "$_src" ]; then
-                echo "✗ harness-sync: layers.skills entry '${_sname}' (domain: ${_sdomain}) has no source file at skills/${_sdomain}/${_sname}.md" >&2
+            _flat_src="$HARNESS_DIR/skills/${_sfile}.md"
+            _native_src="$ROSTER_SKILLS_DIR/${_sfile}/SKILL.md"
+            _domain_src=""
+            [ -n "$_sdomain" ] && _domain_src="$ROSTER_SKILLS_DIR/${_sdomain}/${_sfile}.md"
+            # Source checkouts use skills/<domain>/<file>.md; installed
+            # consumers may instead keep canonical skills flat under
+            # .harness/skills or in native skills/<name>/SKILL.md directories.
+            # All three are valid canonical layouts. Legacy consumer manifests
+            # may omit domain as long as one of the consumer layouts exists.
+            if { [ -z "$_domain_src" ] || [ ! -f "$_domain_src" ]; } &&
+               [ ! -f "$_flat_src" ] && [ ! -f "$_native_src" ]; then
+                echo "✗ harness-sync: layers.skills entry '${_sname}' has no canonical source (checked .harness/skills/${_sfile}.md, skills/${_sfile}/SKILL.md${_sdomain:+, and skills/${_sdomain}/${_sfile}.md})." >&2
                 _skills_invalid=1
             fi
         done < <(jq -c '.layers.skills // [] | .[]' "$MANIFEST" 2>/dev/null)

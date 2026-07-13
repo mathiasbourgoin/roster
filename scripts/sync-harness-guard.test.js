@@ -32,6 +32,7 @@ async function makeFixture() {
         { name: "claude-code", enabled: false, entrypoint: ".claude" },
         { name: "opencode", enabled: false, entrypoint: ".opencode" },
       ],
+      layers: { skills: [{ name: SKILL_NAME, version: "1.0.0" }] },
     }),
   );
   await write(
