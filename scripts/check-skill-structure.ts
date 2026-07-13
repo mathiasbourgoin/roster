@@ -18,10 +18,18 @@
  *
  *   SIZE RATCHET (specs/review-skill-slimming.md US-4, FR-117..122): budgeted
  *   files (see BUDGETS below) are word-counted with the pinned counter
- *   (CRLF normalized, frontmatter/fenced-code/Friction-Log stripped) and must
- *   stay under budget. A budget-map entry matching zero files on disk fails
- *   closed (guards a silent rename). This ratchet is upstream-only — it MUST
- *   NOT be added to the portable scripts/check-skill-contract.js (FR-121).
+ *   (BOM/CRLF normalized, frontmatter/fenced-code/Friction-Log stripped) and
+ *   must stay under budget. A budget-map entry matching zero files on disk
+ *   fails closed (guards a silent rename). This ratchet is upstream-only — it
+ *   MUST NOT be added to the portable scripts/check-skill-contract.js
+ *   (FR-121).
+ *
+ *   ASSEMBLED-PROJECTION METRIC (specs/review-v2-corrections.md, skill-sizing
+ *   follow-up): the pinned counter above strips fences/frontmatter/Friction
+ *   Log, so it never caps the complete text a runtime actually loads.
+ *   `countAssembledWords` is a second, INFORMATIONAL-ONLY metric (never
+ *   gated) — total words per file including fences and injected material —
+ *   reported in this check's console output for visibility.
  *
  * Skipped: skills/shared/preamble.md (injected fragment, not a standalone skill)
  *
@@ -46,16 +54,33 @@ export const BUDGETS: Record<string, number> = {
   "skills/pipeline/roster-review.md": 4000,
 };
 
-// FR-117: normalize CRLF -> LF, strip frontmatter, strip fenced code blocks,
-// strip the `## Friction Log` section, split on whitespace filtering empties.
-// V-1: fence-stripping MUST fail loudly (throw) on an unbalanced fence count —
-// silently tolerating it would undercount by stripping past the real boundary.
+// Strips a leading UTF-8 BOM (U+FEFF), if present. A BOM-prefixed file with
+// no fence-stripping bug previously counted as 8 words for a real 2-word
+// skill (probe result, skill-sizing follow-up) — an un-stripped BOM merges
+// into the first "word" as a stray character, corrupting the split.
+function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+// FR-117: strip a leading BOM, normalize CRLF -> LF, strip frontmatter, strip
+// fenced code blocks, strip the `## Friction Log` section, split on
+// whitespace filtering empties. V-1: fence-stripping MUST fail loudly
+// (throw) on an unbalanced fence count — silently tolerating it would
+// undercount by stripping past the real boundary.
 export function countSkillWords(raw: string): number {
-  const normalized = raw.replace(/\r\n/g, "\n");
+  const normalized = stripBom(raw).replace(/\r\n/g, "\n");
   const noFrontmatter = normalized.replace(/^---\n[\s\S]*?\n---\n?/, "");
   const noFences = stripFencedBlocks(noFrontmatter);
   const noFriction = stripFrictionLogSection(noFences);
   return noFriction.split(/\s+/).filter(Boolean).length;
+}
+
+// Skill-sizing follow-up: total words per file INCLUDING fences/Friction Log
+// (never gated — informational only, see the module comment above).
+export function countAssembledWords(raw: string): number {
+  const normalized = stripBom(raw).replace(/\r\n/g, "\n");
+  const noFrontmatter = normalized.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  return noFrontmatter.split(/\s+/).filter(Boolean).length;
 }
 
 function stripFencedBlocks(text: string): string {
@@ -274,6 +299,7 @@ async function collectSkillFiles(dir: string): Promise<string[]> {
 async function main(): Promise<void> {
   const files = await collectSkillFiles(SKILLS_DIR);
   const violations: Violation[] = [];
+  let assembledTotal = 0;
 
   for (const file of files.sort()) {
     const content = await fs.readFile(file, "utf-8");
@@ -282,11 +308,16 @@ async function main(): Promise<void> {
     for (const msg of checkSkill(content)) {
       violations.push({ file: rel, message: msg });
     }
+    assembledTotal += countAssembledWords(content);
   }
 
   // US-4 size ratchet (FR-117..122) — runs via this same check-skill-structure
   // invocation, no new npm test chain entry (FR-122).
   violations.push(...(await checkBudgetForRepo(path.resolve(SKILLS_DIR, ".."))));
+
+  // Skill-sizing follow-up: report the assembled-projection metric —
+  // informational only, never gated (see module comment).
+  console.log(`  assembled-projection: ${assembledTotal} total words across ${files.length} skill file(s) (informational, not gated)`);
 
   if (violations.length === 0) {
     console.log(`✓ all ${files.length} skill files pass structure checks`);
