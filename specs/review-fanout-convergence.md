@@ -19,19 +19,19 @@ version: 1.1.0
 
 | Q | A |
 |---|---|
-| Round identity (C-1/C-3/C-14, the load-bearing cluster) | New physical `round` counter in review.json: incremented at EVERY verdict emission, reset on GO. `first_seen_round`/`resolved_round` stamp from it. `no_go_round` unchanged (qualifying-only backstop). Loop-back ≡ round ≥ 2. |
+| Round identity (C-1/C-3/C-14, the load-bearing cluster) | New physical `round` counter in review.json: incremented at EVERY verdict emission; retained on the persisted GO verdict and initialized fresh at the next review cycle (B-3). `first_seen_round`/`resolved_round` stamp from it. `no_go_round` unchanged (qualifying-only backstop). Loop-back ≡ round ≥ 2. |
 | Does round 1 count as a strike? (C-2) | Never — it is inherently novel. Streak window starts at round 2. |
 | Same-round-resolved / ACCEPTED novel findings? (C-3/C-5) | Don't count as strikes — which makes a clean GO round strike-free by construction; the streak can never flip a GO. |
 | Degraded runtime manufactures strikes? (C-6) | Impossible by construction: degraded output is discarded entirely, never merged into `cross_runtime_findings`. |
 | What is "the probe"? (C-8) | The first real cross-runtime pass. Healthy status is recorded too (else probe-once is unimplementable). A healthy runtime runs every round until its first failure → degraded at that round, never retried. |
 | config_digest domain (C-9) | hash(runtime name + `--version` output (10s timeout) + wrapper flags). Prompt/diff excluded — else the digest changes every round and the no-retry rule is void. |
-| Audit-trail shape (C-15) | `rounds_audit` append-only array, one entry per round including GO drafts; reset on GO. Dirty tree → `fix_sha: null` + reason (flag, not violation). |
+| Audit-trail shape (C-15) | `rounds_audit` append-only array, one entry per round including GO drafts; retained on the persisted GO verdict, fresh at the next cycle (B-3). Dirty tree → `fix_sha: null` + reason (flag, not violation). |
 | Bookkeeping violation routed to spec-freeze? (C-17) | No — new cause `process-incomplete` is fixed in the draft and the gate re-run BEFORE persisting; only design causes (round-cap, unencodable-finding, novel-finding-streak) map to design-not-converging routing. |
 | Delta selection starves the streak signal? (C-23) | Anti-starvation rule: a round whose predecessor recorded a strike runs FULL fan-out — strike 2 is always measured under full scrutiny. |
 | US-4 enforcement level (C-21/C-22) | Prose-and-human, accepted and documented. Authentic-path checks need not be gate-executable; never auto-linked as ratchet red-runs unless self-contained. |
 | Two CLIs on PATH (C-13) | `cross_runtime` is keyed by runtime name — per-runtime status. Schema-valid empty findings = healthy. Wrapper tree-mutation exit = degraded, reason "tree-mutation", human-flagged. |
 | Multiple violations, one cause field (C-4) | Precedence: unencodable-finding > novel-finding-streak > round-cap. |
-| QA-return after GO (C-10/C-18) | GO resets round, cross_runtime, rounds_audit. A QA-driven return is a fresh review cycle: round 1 rules, full selection, one re-probe. Deliberate — post-QA re-review deserves full scrutiny. |
+| QA-return after GO (C-10/C-18) | The persisted GO verdict retains round, cross_runtime, and rounds_audit (B-3); a QA-driven return starts a fresh review cycle: round 1 rules, full selection, one re-probe. Deliberate — post-QA re-review deserves full scrutiny. |
 
 ## User Stories
 
@@ -96,7 +96,7 @@ transcript is preserved in the pipeline run record). Notable accepted residuals:
 #### Two-Strike Novel-Finding Escalation [US-1]
 
 - **FR-050** [US-1]: roster-review MUST maintain a physical counter `round` in review.json and MUST increment it at every verdict emission, whether or not the round is qualifying.
-- **FR-051** [US-1]: roster-review MUST reset `round` to 0 when a GO verdict is emitted.
+- **FR-051** [US-1] *(amended by B-3)*: roster-review MUST retain the cycle-final `round` on the persisted GO verdict and MUST initialize `round` fresh at the first round of the next review cycle.
 - **FR-052** [US-1]: roster-review MUST stamp `first_seen_round` and `resolved_round` from the physical `round` counter; `no_go_round` MUST remain qualifying-only and MUST continue to serve solely as the round-cap backstop.
 - **FR-053** [US-1]: The convergence gate MUST classify a physical round r ≥ 2 as a strike if and only if that round contains at least one novel HIGH+ non-scope finding (`first_seen_round == r`) that is neither same-round-resolved nor ACCEPTED; the gate MUST NOT classify round 1 as a strike.
 - **FR-054** [US-1]: The convergence gate MUST emit violation `{type: "novel-finding-streak", cause: "novel-finding-streak"}` when the last `strikes` consecutive physical rounds (all ≥ 2) each classify as a strike.
@@ -116,7 +116,7 @@ transcript is preserved in the pipeline run record). Notable accepted residuals:
 - **FR-065** [US-2]: A healthy runtime MUST keep running each round until its first failure, MUST flip to degraded at that round, and MUST NOT be retried within or after it.
 - **FR-066** [US-2]: A degraded runtime MUST NOT be re-probed or re-run unless its `config_digest` changes or the human explicitly requests a retry.
 - **FR-067** [US-2]: `config_digest` MUST hash the runtime name, the CLI's `--version` output (10-second timeout; hang → degraded, reason `"version-probe-timeout"`), and the wrapper flags; prompt/diff content MUST be excluded.
-- **FR-068** [US-2]: The `cross_runtime` object MUST carry forward across rounds and reset on GO; a QA-return review cycle re-probes once (accepted, documented).
+- **FR-068** [US-2]: The `cross_runtime` object MUST carry forward across rounds, be retained on the persisted GO verdict, and be initialized fresh at the next review cycle (B-3); a QA-return review cycle re-probes once (accepted, documented).
 - **FR-069** [US-2]: The gate MUST warn when a degraded runtime entry lacks `reason` or `config_digest`; gate warnings MUST surface in the human-gate one-liner (FR-031 extension).
 - **FR-070** [US-1][US-2]: Degraded-runtime output MUST never contribute a novel finding to strike computation (guaranteed by FR-063).
 
@@ -128,7 +128,7 @@ transcript is preserved in the pipeline run record). Notable accepted residuals:
 - **FR-074** [US-3]: Cross-runtime participation on loop-back rounds MUST be governed exclusively by US-2 state: healthy + owns an OPEN finding → re-run; degraded → never.
 - **FR-075** [US-3]: Full fan-out MUST re-trigger when a correction changes public behavior, authority, custody, isolation, or publication semantics; the judgment MUST be recorded in the audit entry.
 - **FR-076** [US-3]: Full fan-out MUST re-trigger for any round whose immediately preceding round recorded a streak strike (anti-starvation).
-- **FR-077** [US-3]: roster-review MUST append one entry per round — including GO drafts — to an append-only `rounds_audit` array shaped `{round, reviewed_sha, fix_sha, specialists_run: [{name, selection_reason}]}` with non-empty selection_reason; dirty tree → `fix_sha: null` + reason (pass with flag); full fan-out uses `"full-fanout: <trigger>"`; `rounds_audit` resets on GO.
+- **FR-077** [US-3]: roster-review MUST append one entry per round — including GO drafts — to an append-only `rounds_audit` array shaped `{round, reviewed_sha, fix_sha, specialists_run: [{name, selection_reason}]}` with non-empty selection_reason; dirty tree → `fix_sha: null` + reason (pass with flag); full fan-out uses `"full-fanout: <trigger>"`; `rounds_audit` is retained on the persisted GO verdict and initialized fresh at the next review cycle (B-3).
 - **FR-078** [US-3]: On round ≥ 2, the gate MUST emit `{type: "missing-loopback-audit", cause: "process-incomplete"}` when the current round's audit entry is missing or incomplete (absent fields, empty `specialists_run`, or any empty `selection_reason`).
 - **FR-079** [US-3]: `process-incomplete` violations MUST be fixed in the draft and the gate re-run BEFORE persisting; they MUST NOT escape to routing. Design-not-converging routing applies only to design causes (`round-cap`, `unencodable-finding`, `novel-finding-streak`). The `cause` enum comment MUST document `process-incomplete`; §5.5 MUST document the pre-persist fix loop.
 
@@ -148,16 +148,16 @@ transcript is preserved in the pipeline run record). Notable accepted residuals:
 - AC-3: strike, strike-free round, strike → no violation at `--strikes 2` (reset). (FR-055)
 - AC-4: round 1 contributes no strike regardless of content. (FR-053)
 - AC-5: `--strikes abc`/`--strikes 0` → exit 2; absent → 2; tunable 3 → `--strikes 3` passed. (FR-056, FR-057)
-- AC-6: all-novel-resolved GO round is strike-free; GO stands; `round` resets to 0. (FR-051, FR-058)
+- AC-6: all-novel-resolved GO round is strike-free; GO stands; the persisted GO verdict retains the cycle-final `round` (B-3). (FR-051, FR-058)
 - AC-7: unencodable + streak (+ cap) violations → cause `unencodable-finding`; streak + cap → `novel-finding-streak`. (FR-059)
 - AC-8 [US-2 happy]: schema-valid timely first pass → `{status: "healthy", config_digest, round}`; findings keep GO authority. (FR-060, FR-064)
 - AC-9: timeout/banner/refusal/invalid/tree-mutation → degraded + specific reason; output absent from `cross_runtime_findings`; no strike derives. (FR-061, FR-063, FR-070)
 - AC-10: schema-valid empty findings → healthy. (FR-062)
 - AC-11: unchanged digest → no re-probe; changed `--version` or human request → re-probe. (FR-066, FR-067)
-- AC-12: degraded persists across rounds; GO resets `cross_runtime`; QA-return re-probes once. (FR-065, FR-068)
+- AC-12: degraded persists across rounds; the persisted GO verdict retains `cross_runtime`; the next cycle initializes fresh and re-probes once (B-3). (FR-065, FR-068)
 - AC-13: degraded entry missing reason/config_digest → gate warning, surfaced in one-liner. (FR-069)
 - AC-14 [US-3 happy]: loop-back, one OPEN finding naming S, no trust change → owner + S only; audit entry with non-empty reason. (FR-072, FR-073, FR-077)
-- AC-15: loop-back GO draft → complete audit entry exists before the GO reset. (FR-077)
+- AC-15: loop-back GO draft → complete audit entry exists on the persisted GO verdict (retained per B-3). (FR-077)
 - AC-16: incomplete audit entry on round ≥ 2 → `missing-loopback-audit`/`process-incomplete`; repaired pre-persist; never routes. (FR-078, FR-079)
 - AC-17: strike at round r → full fan-out at r+1 with `"full-fanout: <trigger>"` reasons. (FR-076, FR-077)
 - AC-18: round 1 / legacy → existing selection; missing audit → warning only. (FR-071)
@@ -256,7 +256,7 @@ the cause-enum cross-reference note; the gate reports a top-level `cause` field.
 
 ## Entities
 
-- `Round`: physical per-cycle verdict counter (`round`), incremented every emission, reset on GO — the cohort key for strikes, loop-back detection, and audit entries.
+- `Round`: physical per-cycle verdict counter (`round`), incremented every emission, retained on the persisted GO verdict, fresh at the next cycle (B-3) — the cohort key for strikes, loop-back detection, and audit entries.
 - `Strike`: a physical round ≥ 2 containing ≥1 novel, unresolved, non-ACCEPTED HIGH+ non-scope finding.
 - `CircuitBreaker`: per-runtime `cross_runtime.<name>` status object; probe-once, degrade-once, no silent retry.
 - `RoundsAudit`: append-only per-round record of reviewer selection (`reviewed_sha`, `fix_sha`, `specialists_run`).
