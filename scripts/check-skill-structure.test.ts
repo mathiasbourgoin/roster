@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import * as fsSync from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { countSkillWords, BUDGETS, checkBudgetForRepo } from "./check-skill-structure";
+import { countSkillWords, countAssembledWords, BUDGETS, checkBudgetForRepo } from "./check-skill-structure";
 
 test("FR-117: CRLF is normalized before counting (EC-11)", () => {
   const lf = "one two three\n";
@@ -42,6 +42,22 @@ test("FR-117/EC-11: CRLF + frontmatter + fences + Friction Log together — coun
 test("V-1: unbalanced fences throw (fail loud, never a silent undercount)", () => {
   const raw = "one two\n\n```bash\nunterminated fence\n\nthree four\n";
   assert.throws(() => countSkillWords(raw), /unbalanced fenced code blocks/);
+});
+
+// CHECK-7 (skill-sizing follow-up): a BOM-prefixed two-word skill must count
+// as 2, not 8 — the reported probe result before this fix.
+test("CHECK-7: a leading UTF-8 BOM is stripped before counting — a two-word skill counts as 2", () => {
+  const bomPrefixed = "﻿one two\n";
+  assert.equal(countSkillWords(bomPrefixed), 2);
+  assert.equal(countSkillWords(bomPrefixed), countSkillWords("one two\n"));
+});
+
+test("countAssembledWords: includes fenced/Friction-Log content (only frontmatter stripped), still BOM/CRLF-safe (informational metric)", () => {
+  const raw = "﻿---\r\nname: x\r\nversion: 1.0.0\r\n---\r\n\r\none two\r\n\r\n```json\r\nthree four\r\n```\r\n";
+  // "one two" + the fence markers themselves + "three four" — fences are
+  // deliberately NOT stripped here (that's what distinguishes this metric
+  // from the pinned countSkillWords ratchet).
+  assert.equal(countAssembledWords(raw), 6);
 });
 
 test("BUDGETS: skills/pipeline/roster-review.md is budgeted", () => {
