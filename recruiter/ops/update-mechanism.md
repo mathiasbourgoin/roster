@@ -262,6 +262,14 @@ Skills to install:
 - `skills/testing/tdd-workflow.md`
 - `skills/media/image-generation.md`
 
+**Step 2.5 — Review-tool bundle (F-1):** if any installed skill declares `requires_review_bundle`,
+fetch and run the one distributed installer script — it owns the entire install/upgrade/remove/
+verify state machine, nothing here re-implements it:
+```bash
+curl -fsSL "$ROSTER_RAW/scripts/review-bundle-install.sh" -o /tmp/review-bundle-install.sh
+bash /tmp/review-bundle-install.sh install --from-raw "$ROSTER_RAW"
+```
+
 For each skill at path `<skill-path>` with filename `<name>.md`:
 ```bash
 SKILL_CONTENT=$(curl -sL "$ROSTER_RAW/<skill-path>")
