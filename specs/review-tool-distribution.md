@@ -5,7 +5,7 @@ status: live
 feature: Review tool bundle distribution (manifest, install paths, blocking preflight, scratch test)
 brief: briefs/review-tool-distribution-intake.md
 date: 2026-07-13
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Spec — Review Tool Distribution
@@ -159,3 +159,18 @@ The original CHECK-7 wrapper freeze was scoped to this distribution feature's im
 window. The later review-v2-corrections v1.2.0 E-12 change adds backward-compatible
 `--prompt-file` transport to eliminate E2BIG risk. Shared ownership and removal semantics are
 unchanged; bundle manifest drift/version gates cover the modified wrapper.
+
+## Amendment (v1.3.0 — consumer schema fixtures, 2026-07-13)
+
+Installing `schema/review-finding.schema.json` makes it visible to consumer repositories whose
+validation gates auto-discover `schema/*.schema.json`. The bundle MUST therefore also install at
+least one valid and one invalid fixture under
+`tools/data-schema/fixtures/review-finding/{valid,invalid}`. These fixture entries are
+sha-verified auxiliary bundle files, not JavaScript require-graph members. This keeps
+auto-discovery gates non-tautological and prevents bundle installation from breaking an
+otherwise healthy consumer.
+
+The installed-consumer integration tier MUST load both installed fixtures through the installed
+schema validator and prove that the valid record passes while the invalid record fails. Bundle
+version 1.3.0 and roster-qa's `requires_review_bundle: ">=1.3.0"` make the fixtures mandatory for
+QA readiness.

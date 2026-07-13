@@ -24,15 +24,19 @@ const ROOT = path.resolve(__dirname, "..");
 
 // ── Generator: closure shape (FR-124) ───────────────────────────────────────
 
-test("generator: closure is exactly the 14 code files + 1 doc file, wrapper shared, manifest not self-listed", () => {
+test("generator: closure has 14 code files, consumer doc, and schema fixtures", () => {
   const manifest = buildManifest(null);
-  assert.equal(manifest.files.length, 15);
+  assert.equal(manifest.files.length, 17);
   const wrapper = manifest.files.find((f) => f.path === "scripts/xruntime-exec.sh");
   assert.ok(wrapper, "wrapper must be in the closure");
   assert.equal(wrapper.shared, true);
   const doc = manifest.files.find((f) => f.path === "scripts/REVIEW-BUNDLE.md");
   assert.ok(doc, "the consumer doc must be in the manifest");
   assert.equal(doc.kind, "doc");
+  const fixtures = manifest.files.filter((f) => f.kind === "fixture");
+  assert.equal(fixtures.length, 2);
+  assert.ok(fixtures.some((f) => f.path.includes("/valid/")));
+  assert.ok(fixtures.some((f) => f.path.includes("/invalid/")));
   assert.ok(!manifest.files.some((f) => f.path === "scripts/review-bundle.manifest.json"), "manifest must never self-list");
   assert.equal(manifest.schema_version, "1.0");
   assert.equal(manifest.bundle_version, "1.0.0"); // default when no existing manifest supplied
