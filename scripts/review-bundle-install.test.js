@@ -77,23 +77,52 @@ function findBakFiles(root) {
 // ── Closure smoke tier (FR-148): each JS tool entry loads cleanly ──────────
 
 test("closure smoke: each JS tool entry require()s without throwing", () => {
-  for (const rel of ["scripts/xruntime-review.js", "scripts/review-normalize.js", "scripts/check-review-convergence.js"]) {
+  for (const rel of [
+    "scripts/xruntime-review.js",
+    "scripts/review-normalize.js",
+    "scripts/check-review-convergence.js",
+    "scripts/review-bundle-verify.js",
+  ]) {
     assert.doesNotThrow(() => require(path.resolve(REPO_ROOT, rel)));
   }
 });
 
 // ── AC-01: staged install happy path (--from-checkout) ─────────────────────
 
-test("install --from-checkout: all 17 files land, shas match, manifest committed-shaped", () => {
+test("install --from-checkout: all 18 files land, shas match, manifest committed-shaped", () => {
   const target = mkScratch("install");
   const r = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
   const manifest = readManifest(target);
-  assert.equal(manifest.files.length, 17);
+  assert.equal(manifest.files.length, 18);
   for (const f of manifest.files) {
     assert.ok(fs.existsSync(path.join(target, f.path)), `${f.path} missing after install`);
   }
   assert.equal(findBakFiles(target).length, 0, "no .bak files after install (F-8)");
+});
+
+test("installed consumer verifies locally without owning the lifecycle installer", () => {
+  const target = mkScratch("portable-verify");
+  const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+  assert.equal(installed.code, 0, installed.stderr);
+  assert.equal(fs.existsSync(path.join(target, "scripts/review-bundle-install.sh")), false);
+
+  const verifier = path.join(target, "scripts/review-bundle-verify.js");
+  assert.equal(fs.existsSync(verifier), true, "portable verifier must be installed in the consumer");
+  const clean = spawnSync("node", [verifier], { cwd: target, encoding: "utf8" });
+  assert.equal(clean.status, 0, clean.stderr);
+
+  fs.appendFileSync(path.join(target, "scripts/review-normalize.js"), "\n// consumer drift\n");
+  const drifted = spawnSync("node", [verifier], { cwd: target, encoding: "utf8" });
+  assert.equal(drifted.status, 1);
+  assert.match(drifted.stderr, /SHA MISMATCH scripts\/review-normalize\.js/);
+
+  const runbook = fs.readFileSync(path.join(target, "scripts/REVIEW-BUNDLE.md"), "utf8");
+  const reviewSkill = fs.readFileSync(path.join(REPO_ROOT, "skills/pipeline/roster-review.md"), "utf8");
+  for (const consumerInstruction of [runbook, reviewSkill]) {
+    assert.match(consumerInstruction, /node scripts\/review-bundle-verify\.js/);
+    assert.doesNotMatch(consumerInstruction, /bash scripts\/review-bundle-install\.sh verify/);
+  }
 });
 
 test("verify: happy path after install", () => {
@@ -137,7 +166,7 @@ test("install --from-raw (file:// mock RAW): mirrors --from-checkout", () => {
   const target = mkScratch("rawdst");
   const r = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(readManifest(target).files.length, 17);
+  assert.equal(readManifest(target).files.length, 18);
 });
 
 test("partial fetch: a source missing one bundle file aborts, target untouched, staging-only residue (FR-131/153)", () => {

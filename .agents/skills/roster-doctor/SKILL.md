@@ -2,7 +2,7 @@
 name: roster-doctor
 description: Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling.
 when_to_use: "Use before starting work, or when unsure the toolchain actually runs. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.4.0
+version: 1.4.1
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -142,10 +142,10 @@ Report each as ✓ / ✗ / absent. `gh` absent is a warning (only `/roster-ship`
 **Review-tool bundle (detailed report; the gate itself lives in Section 2 — F-3).**
 
 ```bash
-[ -f scripts/review-bundle-install.sh ] && bash scripts/review-bundle-install.sh verify || echo "review bundle: verify script absent or reported problems (see Section 2)"
+[ -f scripts/review-bundle-verify.js ] && node scripts/review-bundle-verify.js || echo "review bundle: portable verifier absent or reported problems (see Section 2)"
 ```
 
-Print every file/sha/`node` line the script emits. FR-157/158: if `git ls-files` shows any of
+Print the verifier's summary or exact integrity errors. FR-157/158: if `git ls-files` shows any of
 the manifest's paths tracked while also matching a machine-state pattern (see roster-init.md's
 four gitignore globs), print the exact `git rm --cached <path>` remediation — never execute it.
 
@@ -259,7 +259,7 @@ disagreement between the two is a drift warning, and the stricter (max) requirem
 ```bash
 req=$(grep -h '^requires_review_bundle:' .claude/commands/roster-review.md .agents/skills/roster-review/SKILL.md 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' | sort -Vr | head -1)
 if [ -n "$req" ]; then
-  if [ -f scripts/review-bundle-install.sh ]; then bash scripts/review-bundle-install.sh verify; ok=$?
+  if [ -f scripts/review-bundle-verify.js ]; then node scripts/review-bundle-verify.js; ok=$?
   else ok=1
   fi
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 && \
@@ -271,14 +271,14 @@ fi
 No network call (FR-142 — `verify` only reads local files). On any failure — absent, sha
 mismatch, `node` missing, or "bundle not committed" (F-6: gitignored/untracked in a git
 consumer repo) — the verdict is **NOT-READY**, reason `stale-install`, with the runbook: "Run:
-bash scripts/review-bundle-install.sh install --from-raw <url> (or --from-checkout <dir>), then
-/recruit update." (FR-143). A repo with no bundle-requiring skill installed skips this gate
-entirely — it is not a general-purpose readiness check.
+fetch review-bundle-install.sh from a trusted roster source, run its install or upgrade mode with
+`--from-raw <url>` (or `--from-checkout <dir>`), then /recruit update." (FR-143). A repo with no
+bundle-requiring skill installed skips this gate entirely — it is not a general-purpose readiness
+check.
 
-A sha-mismatch specifically (a modified file, the shared wrapper included, F-5) carries its own
-recovery line verbatim from `verify`'s output: re-run install/upgrade with `--force` to reinstall
-from source, or manually restore the file to match the sha recorded in the manifest. Report that
-line as-is — do not paraphrase it away.
+A sha-mismatch specifically (a modified file, the shared wrapper included, F-5) carries the
+portable verifier's trusted-source recovery line. Report that line as-is — do not replace it with
+a command that assumes the lifecycle installer is present in the consumer.
 
 **Verify, cheapest signal first — do not run the full suite blindly:**
 
