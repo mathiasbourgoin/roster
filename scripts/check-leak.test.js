@@ -145,6 +145,13 @@ test("[D-1] context-anchoring red fixture — word present, NOT key position —
   );
 });
 
+test("[A-3] integrity prefix embedded in an identifier — stays HIGH", () => {
+  assert.ok(
+    high("value=xsha512-" + HIGH_ENTROPY_BLOB_60).includes("high-entropy-blob"),
+    "`sha512-` as an identifier suffix is not a legitimate SRI prefix — left boundary required",
+  );
+});
+
 test("[A-2] trailing-comment colon form — context AFTER the value — stays HIGH", () => {
   assert.ok(
     high(HEX64 + " // sha256: reference hash").includes("high-entropy-blob"),

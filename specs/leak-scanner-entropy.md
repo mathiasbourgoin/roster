@@ -5,7 +5,7 @@ status: VALIDATED
 feature: Shape- and entropy-aware HIGH_BLOB detection in the leak scanner
 brief: briefs/leak-scanner-entropy-intake.md
 date: 2026-07-13
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Spec — Leak Scanner Entropy (minimal-freeze)
@@ -113,8 +113,10 @@ positives without weakening detection.
   findings. Recognition is narrow: exact lengths (40/64), exact prefixes
   (`sha256:`/`sha512-`/`sha384-` — A-1: `sha384-` added; npm SRI legitimately emits it at 64
   base64 chars, which would recreate the exact package-lock CI-red class this task fixes;
-  `sha1-`/`sha256-` SRI values are 28/44 chars, below the 60-char match floor, moot), the exact
-  context regex of OQ2. Near-misses (e.g. 63/65-hex, hex with no context, high-entropy base64
+  `sha1-`/`sha256-` SRI values are 28/44 chars, below the 60-char match floor, moot; A-3, from
+  the codex cross-runtime leg: the prefix requires a NON-ALPHANUMERIC left boundary — an
+  algorithm suffix embedded in an identifier, e.g. `xsha512-<blob>`, is not a legitimate SRI
+  prefix and stays HIGH; a red fixture pins it), the exact context regex of OQ2. Near-misses (e.g. 63/65-hex, hex with no context, high-entropy base64
   without an integrity prefix) stay HIGH.
 - **INV-6 (enforcement layer untouched):** `scripts/check-leak-diff.sh` semantics (`leak-ok`
   disabled under `--strict` for added lines; ignore-glob mechanism), the exit-code contract

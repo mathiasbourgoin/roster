@@ -122,8 +122,11 @@ const HEX40_RE = /(?<![A-Za-z0-9+/])[A-Fa-f0-9]{40}(?![A-Za-z0-9+/])/g;
 const CHECKSUM_CONTEXT = /(integrity|sha1|sha256|sha512|checksum|digest)["']?\s*[:=]/i;
 // explicit integrity value prefix immediately before the matched run (checked for any alphabet,
 // first in classification order). sha384- added per spec A-1 (npm SRI legitimately emits it at
-// 64 base64 chars — the same false-positive class this task fixes).
-const INTEGRITY_PREFIX = /sha(?:256:|512-|384-)$/i;
+// 64 base64 chars — the same false-positive class this task fixes). Left boundary required
+// (A-3, codex cross-runtime finding): an algorithm suffix embedded in an identifier
+// ("xsha512-<blob>") must NOT downgrade; legitimate SRI values are always preceded by a
+// non-alphanumeric (quote, space, colon).
+const INTEGRITY_PREFIX = /(?<![a-z0-9])sha(?:256:|512-|384-)$/i;
 
 // Classify one candidate blob run. `before` is the text preceding the match on the same line —
 // used for BOTH the adjacent integrity-prefix check and the key-position context check (A-2:
