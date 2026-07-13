@@ -12,22 +12,28 @@ see the recovery guidance those commands print if that happens.
 
 ## Commands
 
-Run from the repo root, using `scripts/review-bundle-install.sh` (the one script that owns this
-entire lifecycle — nothing else in this repo re-implements it):
+Run verification from the consumer repo root. Install, upgrade, and removal remain owned by the
+external `review-bundle-install.sh` bootstrapper; that lifecycle script is intentionally not
+installed into the consumer bundle.
 
 ```bash
 # Verify the installed bundle is complete and unmodified (no network calls).
-bash scripts/review-bundle-install.sh verify
+node scripts/review-bundle-verify.js
 
-# Install (first time) or upgrade (already installed) from a roster checkout's raw URL.
-# Replace OWNER, REPOSITORY, and REF with the source repository coordinates.
+# Fetch the lifecycle installer from a trusted roster raw URL.
+# Replace OWNER, REPOSITORY, and REF with the trusted source coordinates.
 RAW_PREFIX='https://raw.githubusercontent.com/OWNER/REPOSITORY/REF'
-bash scripts/review-bundle-install.sh install --from-raw "$RAW_PREFIX"
-bash scripts/review-bundle-install.sh upgrade --from-raw "$RAW_PREFIX"
+INSTALLER=$(mktemp)
+trap 'rm -f "$INSTALLER"' EXIT
+curl -fsSL "$RAW_PREFIX/scripts/review-bundle-install.sh" -o "$INSTALLER"
+
+# Install (first time) or upgrade (already installed).
+bash "$INSTALLER" install --from-raw "$RAW_PREFIX"
+bash "$INSTALLER" upgrade --from-raw "$RAW_PREFIX"
 
 # Remove the bundle (the shared wrapper, scripts/xruntime-exec.sh, is kept — other
 # tools may still depend on it).
-bash scripts/review-bundle-install.sh remove
+bash "$INSTALLER" remove
 ```
 
 Full details, including collision handling and `--force`: see the header comment of

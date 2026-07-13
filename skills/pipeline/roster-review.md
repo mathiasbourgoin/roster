@@ -2,14 +2,14 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 2.2.0
+version: 2.2.1
 domain: pipeline
 phase: review
 preamble: true
 friction_log: true
 allowed_tools: [Read, Edit, Write, Bash, Agent, Skill, AskUserQuestion]
 human_gate: after
-requires_review_bundle: ">=1.0.0"
+requires_review_bundle: ">=1.4.0"
 tunables:
   auto_fix_threshold_lines: 20
   always_run_spec_compliance: true
@@ -70,14 +70,14 @@ If escalation is needed: set `escalation_needed: true` and `escalation_reason`. 
 **Bundle preflight (F-4 — input-contract abort, not a verdict):**
 
 ```bash
-bash scripts/review-bundle-install.sh verify
+node scripts/review-bundle-verify.js
 ```
 
 Before reading any input: run this. On any problem, stop immediately — before writing
 `review.json`, before any ledger event, no new verdict status. Print exactly: "stale-install:
-the review-tool bundle is missing or out of date. Run: bash scripts/review-bundle-install.sh
-install --from-raw <url> (or --from-checkout <dir>), then /recruit update." Never proceed past
-this line degraded.
+the review-tool bundle is missing or out of date. Fetch review-bundle-install.sh from a trusted
+roster source, run its install or upgrade mode with --from-raw <url> (or --from-checkout <dir>),
+then /recruit update." Never proceed past this line degraded.
 
 Read in order:
 1. `briefs/<task>-reviewer.md` — context and points of attention

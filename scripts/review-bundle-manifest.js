@@ -35,6 +35,9 @@ const WRAPPER_REL = "scripts/xruntime-exec.sh";
 // closure-escape check (scripts/lib/review-bundle-check.js) compares CODE entries only —
 // a doc entry can never "escape" a require graph it was never a member of.
 const DOC_REL = "scripts/REVIEW-BUNDLE.md";
+// Consumer-local integrity check. Lifecycle ownership remains external in
+// review-bundle-install.sh; only this zero-dependency verifier ships in the bundle.
+const VERIFIER_REL = "scripts/review-bundle-verify.js";
 // The finding schema is installed into consumer repos and may be auto-discovered by
 // their repo-wide schema gate. Ship one positive and one negative fixture alongside
 // it so installing the review bundle cannot turn such a gate tautological or red.
@@ -80,6 +83,9 @@ function buildManifest(existing, root) {
   });
   if (fs.existsSync(path.resolve(root, DOC_REL))) {
     files.push({ path: DOC_REL, sha256: sha256(path.resolve(root, DOC_REL)), kind: "doc" });
+  }
+  if (fs.existsSync(path.resolve(root, VERIFIER_REL))) {
+    files.push({ path: VERIFIER_REL, sha256: sha256(path.resolve(root, VERIFIER_REL)), kind: "verifier" });
   }
   for (const rel of DATA_CONTRACT_FIXTURES) {
     if (fs.existsSync(path.resolve(root, rel))) {

@@ -24,15 +24,18 @@ const ROOT = path.resolve(__dirname, "..");
 
 // ── Generator: closure shape (FR-124) ───────────────────────────────────────
 
-test("generator: closure has 14 code files, consumer doc, and schema fixtures", () => {
+test("generator: closure has 14 code files, portable verifier, consumer doc, and schema fixtures", () => {
   const manifest = buildManifest(null);
-  assert.equal(manifest.files.length, 17);
+  assert.equal(manifest.files.length, 18);
   const wrapper = manifest.files.find((f) => f.path === "scripts/xruntime-exec.sh");
   assert.ok(wrapper, "wrapper must be in the closure");
   assert.equal(wrapper.shared, true);
   const doc = manifest.files.find((f) => f.path === "scripts/REVIEW-BUNDLE.md");
   assert.ok(doc, "the consumer doc must be in the manifest");
   assert.equal(doc.kind, "doc");
+  const verifier = manifest.files.find((f) => f.path === "scripts/review-bundle-verify.js");
+  assert.ok(verifier, "the portable consumer verifier must be in the manifest");
+  assert.equal(verifier.kind, "verifier");
   const fixtures = manifest.files.filter((f) => f.kind === "fixture");
   assert.equal(fixtures.length, 2);
   assert.ok(fixtures.some((f) => f.path.includes("/valid/")));

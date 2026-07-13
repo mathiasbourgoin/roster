@@ -5,7 +5,7 @@ status: live
 feature: Review tool bundle distribution (manifest, install paths, blocking preflight, scratch test)
 brief: briefs/review-tool-distribution-intake.md
 date: 2026-07-13
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Spec — Review Tool Distribution
@@ -174,3 +174,24 @@ The installed-consumer integration tier MUST load both installed fixtures throug
 schema validator and prove that the valid record passes while the invalid record fails. Bundle
 version 1.3.0 and roster-qa's `requires_review_bundle: ">=1.3.0"` make the fixtures mandatory for
 QA readiness.
+
+## Amendment (v1.4.0 — portable consumer verification, 2026-07-13)
+
+The lifecycle installer remains bootstrap-fetched and MUST NOT become a consumer-owned bundle
+file. Installed skills and bundled documentation therefore MUST NOT invoke
+`scripts/review-bundle-install.sh` as though it were local. The bundle instead installs the
+zero-dependency `scripts/review-bundle-verify.js` auxiliary tool. It reads the sole sentinel,
+rejects malformed/duplicate/escaping entries and non-regular files, and sha-verifies every
+manifest-owned file without network access. Install, upgrade, and removal remain exclusively in
+the externally fetched bash installer.
+
+Roster-review's mandatory input preflight and roster-doctor's detailed/readiness probes invoke the
+portable verifier. Recovery text tells the operator to fetch the lifecycle installer from a
+trusted roster source; it never proposes a missing consumer-local script. The bundled runbook uses
+the same boundary.
+
+The installed-consumer integration MUST prove all of the following in a scratch target: the
+lifecycle installer is absent, the portable verifier is present and passes, mutation of an
+installed file fails with a named SHA mismatch, and both roster-review and the runbook point at the
+portable verifier. Bundle v1.4.0 and roster-review v2.2.1's
+`requires_review_bundle: ">=1.4.0"` make this verifier mandatory for review readiness.

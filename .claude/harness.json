@@ -274,7 +274,7 @@
       {
         "name": "roster-doctor",
         "source": "roster",
-        "version": "1.4.0",
+        "version": "1.4.1",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -374,7 +374,7 @@
       {
         "name": "roster-review",
         "source": "roster",
-        "version": "2.2.0",
+        "version": "2.2.1",
         "domain": "pipeline",
         "phase": "review",
         "tunables": {

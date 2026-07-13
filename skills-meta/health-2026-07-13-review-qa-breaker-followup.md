@@ -6,7 +6,7 @@
 **Agent-roster base:** `f3c81eb` (`next`, two local commits ahead of `origin/next` at audit start)  
 **Entries analyzed:** 93 total (64 with frictions, 29 clean runs)  
 **Targeted cross-runtime entries:** 15  
-**Decision:** READY TO ADOPT (review bundle v1.3.1; includes `670df6b..c14f6da`)
+**Decision:** READY TO ADOPT (review bundle v1.4.0; includes `670df6b..c14f6da`)
 
 ## Executive conclusion
 
@@ -61,9 +61,18 @@ installer test now stages the installed bundle in a scratch Git repository and a
 consumer's exact token policy, and a clean temporary clone of bounty-skills passes its real
 `scripts/validate.sh` after upgrade.
 
+Invoking the adopted roster-review then exposed a separate lifecycle-boundary contradiction:
+roster-review's mandatory preflight and the bundled runbook both invoked
+`scripts/review-bundle-install.sh verify`, but the intentionally external bootstrapper was not one
+of the bundle's 17 files. Roster-doctor made the same assumption. Bundle v1.4.0 keeps lifecycle
+ownership external and adds only a zero-dependency, bundle-owned
+`scripts/review-bundle-verify.js`. Roster-review v2.2.1, roster-doctor v1.4.1, and the runbook now
+use that consumer-local verifier; recovery guidance fetches the installer from a trusted source
+instead of claiming it is locally installed.
+
 ## Strong signal and implemented adaptation
 
-### **IMPLEMENTED — [ADAPT] roster-qa → v1.8.1 / review bundle → v1.3.1**
+### **IMPLEMENTED — [ADAPT] roster-qa → v1.8.1 / review bundle → v1.4.0**
 
 **Signal:** 15 cross-runtime-related friction entries, including repeated timeout, banner-only,
 stdout-capture, and invocation-boundary failures. The most recent review and QA entries explicitly
@@ -130,6 +139,7 @@ validation.
 | Installed review schema lacks consumer fixtures | CLOSED | Bundle v1.3.0 ships valid/invalid JSONL fixtures and validates both through the installed bundle. |
 | Installed consumer manifest rejected | CLOSED | Sync check accepts domain-flat, `.harness/skills`, and native `skills/<name>/SKILL.md` canonical sources; missing sources still fail. |
 | Bundle runbook rejected after files become tracked | CLOSED | Bundle v1.3.1 neutralizes raw-source coordinates; installed tracked-scratch regression and bounty-skills' real validator both pass. |
+| Installed review preflight invokes absent lifecycle installer | CLOSED | Bundle v1.4.0 ships a portable verifier while leaving install/upgrade/remove external; scratch consumer proves installer absence, clean verification, and tamper failure. |
 | Review churn / finding re-observation | SUBSTANTIALLY CLOSED | Semantic identity, probable-duplicate surfacing, two-event lifecycle, round audit, strike routing, and delta specialist selection are all executable or schema-backed. Benchmark real multi-round tasks before changing the five-review cap. |
 | Skill sizing | HEALTHY | All 37 structure checks pass. `roster-qa` remains a focused 1,881-word gate skill; no new skill or further split is justified. |
 
@@ -139,8 +149,8 @@ validation.
 - Identity/normalizer focused suite: PASS (all mutation and normalization tests).
 - `node --test scripts/sync-harness-guard.test.js`: PASS (8 authentic projection tests).
 - `node scripts/check-pipeline-install.js`: PASS, including bundle closure and digests.
-- `npm run test:review-bundle`: PASS (16 integration tests; 17-file bundle v1.3.1).
-- Clean bounty-skills clone + bundle upgrade + `bash scripts/validate.sh`: PASS (21 skills).
+- `npm run test:review-bundle`: PASS (17 integration tests; 18-file bundle v1.4.0).
+- Clean bounty-skills clone + bundle upgrade + portable verify + `bash scripts/validate.sh`: PASS (21 skills).
 - `bash scripts/sync-harness.sh --check`: PASS.
 - `npm run check:init-harness`: PASS, including the dependency-free installed hook consumer.
 - `npm run check:hook-runtime`: PASS; generated runner matches a fresh deterministic bundle.
