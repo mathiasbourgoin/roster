@@ -29,6 +29,17 @@
     "status": { "type": "string", "enum": ["OPEN", "RESOLVED", "ACCEPTED"] },
     "boundary": { "type": "string" },
     "invariant": { "type": "string" },
-    "failure_mode": { "type": "string" }
-  }
+    "failure_mode": { "type": "string" },
+    "acs": { "type": "array", "items": { "type": "string" } },
+    "convergence": { "type": "array", "items": { "type": "string" } },
+    "fingerprint_v2": { "type": "string" },
+    "first_seen_round": { "type": "integer" },
+    "resolved_round": { "type": ["integer", "null"] },
+    "check": { "type": ["string", "null"] },
+    "check_encodable": { "type": "boolean" },
+    "red_verified": { "type": ["boolean", "null"] },
+    "pre_fix_sha": { "type": ["string", "null"] },
+    "check_blob": { "type": ["string", "null"] }
+  },
+  "additionalProperties": false
 }
