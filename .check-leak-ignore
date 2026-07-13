@@ -4,3 +4,6 @@ scripts/check-leak.test.js
 # npm lockfile integrity fields are public registry sha512 checksums — machine-generated
 # high-entropy base64 that the HIGH_BLOB pattern always flags (false positive by construction).
 package-lock.json
+# review-bundle manifest: machine-generated sha256 integrity hashes (64-hex), same false-positive
+# class as package-lock.json integrity fields.
+scripts/review-bundle.manifest.json
