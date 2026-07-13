@@ -2,7 +2,7 @@
 name: roster-init
 description: Bootstraps the roster harness, KB, and pipeline into a new or existing project.
 when_to_use: "Use the first time roster is installed in a repo. Trigger: 'set up roster here', 'greenfield onboard'."
-version: 1.3.0
+version: 1.4.0
 domain: pipeline
 phase: null
 preamble: true
@@ -243,8 +243,9 @@ This step is not part of the interview — it consumes none of the interview que
 7. Create `skills-meta/friction.jsonl` (empty array)
 8. Add `skills-meta/` to `.gitignore` if absent
 9. Bootstrap episodic memory: `mkdir -p memory/sessions memory/agents`. Write `memory/index.md` with YAML front-matter (`title`, `date`, `owner: agents`), a short description referencing `schema/memory-schema.md`, and stub `## Sessions` / `## Agent Notes` sections. Add `kb/.index/` to `.gitignore` (LanceDB vector index — never committed).
-10. Create `briefs/project-intake.md` ready for the first `/roster-run`
-11. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
+10. Add exactly these four globs to `.gitignore` if absent (FR-155/156 — per-task machine state, never `briefs/` wholesale): `briefs/*-xruntime.jsonl`, `briefs/*-gate-report.json`, `briefs/*-state.json`, `briefs/*.json.draft`.
+11. Create `briefs/project-intake.md` ready for the first `/roster-run`
+12. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
 
 ---
 
@@ -350,8 +351,9 @@ Run the Code-intel tools step exactly as in Mode A (A4) — same registry load c
 3. If a domain lacks an adapted roster skill: ask "Shall I create these via skill-creator?" If yes → spawn `skill-creator` if available; otherwise describe manually and open a roster issue.
 4. Create `skills-meta/friction.jsonl` (empty). Add `skills-meta/` to `.gitignore` if absent.
 5. Bootstrap episodic memory (non-destructive): if `memory/` absent, create it with `memory/sessions`, `memory/agents`, and `memory/index.md` (same structure as A5 step 9); otherwise skip silently. Add `kb/.index/` to `.gitignore` if absent.
-6. Create `briefs/project-intake.md` with project state and first objective.
-7. Project the harness to runtimes.
+6. Add the same exactly-four globs as A5 step 10 to `.gitignore` if absent: `briefs/*-xruntime.jsonl`, `briefs/*-gate-report.json`, `briefs/*-state.json`, `briefs/*.json.draft`.
+7. Create `briefs/project-intake.md` with project state and first objective.
+8. Project the harness to runtimes.
 
 ---
 

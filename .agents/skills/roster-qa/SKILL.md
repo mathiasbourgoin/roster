@@ -2,13 +2,14 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.5.1
+version: 1.6.0
 domain: pipeline
 phase: qa
 preamble: true
 friction_log: true
 allowed_tools: [Read, Write, Bash, AskUserQuestion]
 human_gate: after
+requires_review_bundle: ">=1.0.0"
 tunables:
   require_tmux_matrix_for_tui: true
   run_full_suite: true
@@ -177,6 +178,10 @@ You run deterministic checks and produce a GO/NO-GO verdict. No code writing —
 **Token discipline:** raw output, no paraphrase. Link to logs if long.
 
 ## Input Contract
+
+**Light bundle check (F-7 — presence only, doctor owns the full verify):**
+`[ -x scripts/xruntime-exec.sh ]` — if missing, note it factually in the report; not a BLOCK
+(roster-review's preflight already gates on a stale bundle before QA is ever reached).
 
 Read `briefs/<task>-review.json` in full.
 

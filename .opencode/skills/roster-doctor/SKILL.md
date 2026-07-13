@@ -2,7 +2,7 @@
 name: roster-doctor
 description: Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling.
 when_to_use: "Use before starting work, or when unsure the toolchain actually runs. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.3.0
+version: 1.4.0
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -139,6 +139,16 @@ for p in .claude/commands/roster-run.md .agents/skills/roster-run/SKILL.md; do [
 
 Report each as ✓ / ✗ / absent. `gh` absent is a warning (only `/roster-ship` PR creation needs it), not a failure.
 
+**Review-tool bundle (detailed report; the gate itself lives in Section 2 — F-3).**
+
+```bash
+[ -f scripts/review-bundle-install.sh ] && bash scripts/review-bundle-install.sh verify || echo "review bundle: verify script absent or reported problems (see Section 2)"
+```
+
+Print every file/sha/`node` line the script emits. FR-157/158: if `git ls-files` shows any of
+the manifest's paths tracked while also matching a machine-state pattern (see roster-init.md's
+four gitignore globs), print the exact `git rm --cached <path>` remediation — never execute it.
+
 ```bash
 # Workflow templates health (Phase 1: JSON syntax only — cwr lint requires cwr CLI)
 if [ -d workflows/templates ]; then
@@ -240,6 +250,31 @@ ls package.json Cargo.toml dune-project pyproject.toml go.mod 2>/dev/null
 | `pyproject.toml` | — | `pytest` | `ruff`/`flake8` if configured | `python`, `pytest`, `ruff` |
 | `go.mod` | `go build ./...` | `go test ./...` | `golangci-lint` if `.golangci.yml` | `go` |
 
+**Review-tool bundle gate (F-3 — runs here so `/roster-doctor preflight` enforces it; contributes to NOT-READY).**
+
+Only a gate when a bundle-requiring skill is installed (FR-141 — check `requires_review_bundle`
+in the installed projection, `.claude/commands/` primary, `.agents/skills/` fallback; a
+disagreement between the two is a drift warning, and the stricter (max) requirement wins):
+
+```bash
+req=$(grep -h '^requires_review_bundle:' .claude/commands/roster-review.md .agents/skills/roster-review/SKILL.md 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' | sort -Vr | head -1)
+if [ -n "$req" ]; then
+  if [ -f scripts/review-bundle-install.sh ]; then bash scripts/review-bundle-install.sh verify; ok=$?
+  else ok=1
+  fi
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 && \
+    { git check-ignore -q scripts/review-bundle.manifest.json 2>/dev/null || ! git ls-files --error-unmatch scripts/review-bundle.manifest.json >/dev/null 2>&1; } && \
+    echo "bundle not committed"
+fi
+```
+
+No network call (FR-142 — `verify` only reads local files). On any failure — absent, sha
+mismatch, `node` missing, or "bundle not committed" (F-6: gitignored/untracked in a git
+consumer repo) — the verdict is **NOT-READY**, reason `stale-install`, with the runbook: "Run:
+bash scripts/review-bundle-install.sh install --from-raw <url> (or --from-checkout <dir>), then
+/recruit update." (FR-143). A repo with no bundle-requiring skill installed skips this gate
+entirely — it is not a general-purpose readiness check.
+
 **Verify, cheapest signal first — do not run the full suite blindly:**
 
 1. **Tool presence:** `command -v <tool>` for every underlying tool the detected gates need.
@@ -280,7 +315,9 @@ READY/NOT-READY from the project's own gates exclusively.
 ### 3. Verdict + escalation
 
 - **READY** — every detected gate is `runnable` (or legitimately absent for the project type).
-- **NOT-READY** — any gate is `tool-missing`, `not-configured`, or `fails`.
+- **NOT-READY** — any gate is `tool-missing`, `not-configured`, or `fails` — including the
+  review-tool bundle gate above (reason `stale-install`, with its runbook) when a
+  bundle-requiring skill is installed.
 
 On **NOT-READY**, present exactly what is missing with concrete remediation, then ask
 (via the interactive question tool) before changing anything:
