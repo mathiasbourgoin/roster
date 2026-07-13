@@ -74,9 +74,91 @@ const WARN = [
   { name: "private-ipv4", re: /\b(?:10\.\d{1,3}|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b/ },
 ];
 
-// long unbroken base64/PEM-body run — HIGH (exits 1) so key bodies block the gate
-const HIGH_BLOB = { name: "high-entropy-blob", re: /\b[A-Za-z0-9+/]{60,}={0,2}\b/ };
-HIGH.push(HIGH_BLOB);
+// Shannon entropy in bits/char — measures alphabet-normalized randomness of a string.
+function shannonEntropy(s) {
+  const freq = {};
+  for (const c of s) freq[c] = (freq[c] || 0) + 1;
+  let bits = 0;
+  for (const count of Object.values(freq)) {
+    const p = count / s.length;
+    bits -= p * Math.log2(p);
+  }
+  return bits;
+}
+
+// BLOB_ENTROPY_MIN — corpus-derived threshold (spec leak-scanner-entropy.md OQ3/LSE-2).
+// Measured corpus (reproduced from HEAD + git history, commit 1d1eea0):
+//   slash-joined keyword list (real FP #1)                    75 chars   3.913 bits/char
+//   "Zm9vYmFy".repeat(10) (old HIGH_BLOB fixture)              80 chars   2.750 bits/char
+//   package-lock.json sha512 base64 values (3 sampled)         86 chars   5.381–5.503 bits/char
+//   review-bundle.manifest.json 64-hex values (2 sampled)      64 chars   3.786–3.832 bits/char
+//   random 60-char base64 (min over 200 samples)               60 chars   4.683 bits/char
+//   random 64-hex (min over 200 samples)                       64 chars   3.656 bits/char
+// 4.3 clears the highest must-clear sample (prose list, 3.913) with a 0.39 margin. On the
+// must-fire side: the deterministic committed fixture asserts its own entropy above 4.3, and
+// separately 0 of 10^6 random 60-char base64 samples measured below 4.5 (a one-off sample-min
+// like 4.683 is not itself reproducible evidence).
+// IMPORTANT: this threshold must NEVER be applied to hex-only runs. A real sha256/sha512 hex
+// digest measures ~3.66–3.83 bits/char — BELOW the prose list it must clear — because the hex
+// alphabet caps entropy at 4 bits/char. Any threshold that clears prose also sits above bare-hex
+// entropy, so hex-only runs are classified by shape/context (classifyBlobRun below), never by
+// this constant (INV-3).
+// Accepted-miss class (documented per spec N-1): base64 encoding highly repetitive plaintext
+// (e.g. repeated words) can measure as low as ~3.25 bits/char and will stop firing HIGH under
+// this floor. Realistic encoded credentials measure >=4.6 and stay HIGH; no other detection class
+// covers a bare unnamed low-entropy blob — this gap is accepted at the spec's INV-4 letter.
+const BLOB_ENTROPY_MIN = 4.3;
+
+// Matches: ≥60-char unbroken base64-alphabet run (existing shape, now entropy/shape-gated).
+const BLOB_RE = /\b[A-Za-z0-9+/]{60,}={0,2}\b/g;
+// Matches: exactly-40-hex run, invisible to BLOB_RE's 60-char floor but still a checksum-shaped
+// class (INV-3/CHECK-1c). No `=` in the lookarounds (D-2): `seed=<40-hex>` must still match — an
+// assignment-shaped hole `secret-assignment`'s keyword list does not cover.
+const HEX40_RE = /(?<![A-Za-z0-9+/])[A-Fa-f0-9]{40}(?![A-Za-z0-9+/])/g;
+// checksum-like context: a key name in KEY POSITION, matched only against the text PRECEDING
+// the value (A-1: anchored, not a bare word match; A-2: keys precede values in every legitimate
+// format — JSON, YAML, ini, `sha256:` prefixes — while trailing comments like "// sha256: ref"
+// never do. Red fixtures pin both trailing-comment forms, with and without the colon).
+const CHECKSUM_CONTEXT = /(integrity|sha1|sha256|sha512|checksum|digest)["']?\s*[:=]/i;
+// explicit integrity value prefix immediately before the matched run (checked for any alphabet,
+// first in classification order). sha384- added per spec A-1 (npm SRI legitimately emits it at
+// 64 base64 chars — the same false-positive class this task fixes).
+const INTEGRITY_PREFIX = /sha(?:256:|512-|384-)$/i;
+
+// Classify one candidate blob run. `before` is the text preceding the match on the same line —
+// used for BOTH the adjacent integrity-prefix check and the key-position context check (A-2:
+// context after the value, e.g. a trailing comment, is never legitimizing).
+// Returns { level, name } or null (no HIGH_BLOB finding at all — the only permitted HIGH→gone
+// transition, gated strictly by entropy on mixed-alphabet runs, INV-4).
+function classifyBlobRun(before, run) {
+  if (INTEGRITY_PREFIX.test(before)) return { level: "WARN", name: "checksum-like-blob" };
+  if (/^[A-Fa-f0-9]+$/.test(run)) {
+    if ((run.length === 40 || run.length === 64) && CHECKSUM_CONTEXT.test(before)) {
+      return { level: "WARN", name: "checksum-like-blob" };
+    }
+    // bare hex, or a 40/64-hex run with no checksum-like context, or a 63/65-hex near-miss —
+    // entropy is never computed for hex (INV-3: hex entropy sits below the prose-clearing floor).
+    return { level: "HIGH", name: "high-entropy-blob" };
+  }
+  const bare = run.endsWith("=") ? run.slice(0, run.indexOf("=")) : run;
+  if (shannonEntropy(bare) < BLOB_ENTROPY_MIN) return null; // low-entropy prose-like run — LSE-2
+  return { level: "HIGH", name: "high-entropy-blob" };
+}
+
+// Scan a line for blob-shaped runs (BLOB_RE ∪ HEX40_RE), classified via classifyBlobRun.
+// N-3: iterate via `line.matchAll()` only — never a manual `re.exec` loop on a module-level /g
+// regex, whose `lastIndex` would leak across lines/files and silently fail open.
+function scanBlobs(line) {
+  const hits = [];
+  for (const re of [BLOB_RE, HEX40_RE]) {
+    for (const m of line.matchAll(re)) {
+      const before = line.slice(0, m.index);
+      const result = classifyBlobRun(before, m[0]);
+      if (result) hits.push(result);
+    }
+  }
+  return hits;
+}
 
 // strict = true disables the leak-ok marker exemption (used by the delta-gate in check-leak-diff.sh
 // to reject a newly-added line that carries both a HIGH match and a leak-ok marker).
@@ -90,6 +172,7 @@ function scanLine(line, strict = false) {
     if (value && isPlaceholder(value)) continue; // a documented placeholder, not a secret
     hits.push({ level: "HIGH", name: p.name });
   }
+  hits.push(...scanBlobs(line));
   for (const p of WARN) {
     const m = p.re.exec(line);
     if (!m) continue;
@@ -142,6 +225,6 @@ function main(argv) {
   return 0;
 }
 
-module.exports = { scanLine, scanFile, main };
+module.exports = { scanLine, scanFile, main, shannonEntropy, BLOB_ENTROPY_MIN };
 
 if (require.main === module) process.exit(main(process.argv));
