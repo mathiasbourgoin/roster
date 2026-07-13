@@ -2,27 +2,37 @@
 // scripts/review-normalize.js — CommonJS, read-only w.r.t. the repository.
 //
 // H-05 review-result normalizer (spec: specs/review-skill-slimming.md US-2,
-// FR-099..108, Amendment D-1 reobservations[]). Validates new-round specialist
+// FR-099..108, Amendment D-1 reobservations[]; specs/review-v2-corrections.md
+// INV-1/2/5, Amendments E-2/E-3/E-4/E-7). Validates new-round specialist
 // findings against schema/review-finding.schema.json, carries prior-round
 // ledger entries forward byte-identical (FR-101), mechanically merges exact
-// duplicates (FR-104) and surfaces probable duplicates for owner adjudication
-// (FR-105), separates cross-runtime findings from the primary pipeline
-// (FR-106), and reports schema-invalid input in `rejected[]` (FR-100) —
-// never silently dropped.
+// duplicates by SEMANTIC identity (FR-104/INV-1 — a v1 fingerprint collision
+// alone never merges away a distinct finding) and surfaces probable
+// duplicates for owner adjudication (FR-105), canonicalizes AND deduplicates
+// cross-runtime findings within their own augment-only array (INV-5/E-7,
+// never merged into primary), classifies ledger re-reports into
+// reobserved/reopen/pending-check dispositions (INV-2/E-2/E-4 — the
+// normalizer proposes, roster-review acts), and reports schema-invalid input
+// in `rejected[]` (FR-100) — never silently dropped.
 //
 // Usage:
-//   node scripts/review-normalize.js [<finding-file.json> ...] [--ledger <path>] [--round <n>]
+//   node scripts/review-normalize.js [<finding-file.json> ...] [--ledger <path>]
+//     [--round <n>] [--gate-report <path>]
 //
 // Each positional file is a JSON array of specialist finding objects; with no
 // positional files, findings are read from stdin (a JSON array; empty stdin
 // is treated as an empty array, EC-8). `--ledger <path>` is the prior
 // cumulative ledger (a JSON array of previously-persisted findings); absent
 // means no ledger (first round). `--round <n>` is passed by roster-review to
-// stamp reobservations — omitted means `round: null`.
+// stamp reobservations — omitted means `round: null`. `--gate-report <path>`
+// is the PRIOR round's persisted briefs/<task>-gate-report.json (E-2) — its
+// absence fails closed (a RESOLVED, check-linked ledger entry re-reporting
+// without a gate report to consult classifies "reopen", never "reobserved").
 //
 // Output: single JSON object on stdout —
 //   { findings, cross_runtime_findings, probable_duplicates, rejected,
-//     reobservations, stats, normalizer_version }
+//     reobservations, dispositions: { reopened, pending_check }, stats,
+//     normalizer_version }
 // Exit: 0 on success (including empty input); 2 on usage/degraded input.
 "use strict";
 
@@ -33,13 +43,14 @@ const {
   canonicalFingerprint,
   hasV2Fields,
   computeFingerprintV2,
+  computeFid,
   isCrossRuntime,
   mergeExactDuplicates,
   computeProbableDuplicates,
   splitReobservations,
 } = require("./lib/normalize-rules");
 
-const NORMALIZER_VERSION = "1.0.0";
+const NORMALIZER_VERSION = "2.0.0";
 
 function fail(code, message) {
   process.stderr.write(`review-normalize: ${message}\n`);
@@ -47,7 +58,7 @@ function fail(code, message) {
 }
 
 function parseArgs(argv) {
-  const out = { files: [], ledgerPath: null, round: null };
+  const out = { files: [], ledgerPath: null, round: null, gateReportPath: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--ledger") {
@@ -58,6 +69,9 @@ function parseArgs(argv) {
       const n = parseInt(raw, 10);
       if (Number.isNaN(n)) fail(2, "--round requires an integer argument");
       out.round = n;
+    } else if (a === "--gate-report") {
+      out.gateReportPath = argv[++i];
+      if (out.gateReportPath === undefined) fail(2, "--gate-report requires a path argument");
     } else if (a.startsWith("--")) {
       fail(2, `unknown flag: ${a}`);
     } else {
@@ -78,6 +92,20 @@ function readJsonArrayFile(filePath, label) {
     return;
   }
   if (!Array.isArray(parsed)) fail(2, `${label} must be a JSON array: ${filePath}`);
+  return parsed;
+}
+
+function readJsonObjectFile(filePath, label) {
+  const resolved = path.resolve(process.cwd(), filePath);
+  if (!fs.existsSync(resolved)) return null; // absent gate report -> fail-closed handling in classifyDisposition
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(resolved, "utf8"));
+  } catch (e) {
+    fail(2, `${label} is not valid JSON: ${e.message}`);
+    return;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) fail(2, `${label} must be a JSON object: ${filePath}`);
   return parsed;
 }
 
@@ -123,22 +151,28 @@ function validateFindings(candidates) {
 }
 
 // Canonicalizes fingerprint (FR-102, always recomputed — never trusted from
-// input) and computes fingerprint_v2 where applicable (FR-103), returning
-// NEW objects — inputs are never mutated.
+// input), computes fingerprint_v2 where applicable (FR-103), and computes
+// `fid` (E-3, always — the fid namespace does not depend on v2 fields being
+// present). Returns NEW objects — inputs are never mutated. Used for BOTH the
+// primary pipeline and the cross-runtime augment-only array (INV-5/E-7): the
+// same canonical-identity rules apply to both.
 function canonicalizeFindings(findings) {
   return findings.map((f) => {
     const canon = Object.assign({}, f, { fingerprint: canonicalFingerprint(f) });
     if (hasV2Fields(canon)) canon.fingerprint_v2 = computeFingerprintV2(canon);
+    canon.fid = computeFid(canon);
     return canon;
   });
 }
 
-function buildStats({ input, rejected, crossRuntime, reobservations, merged, ledger, probableDuplicates }) {
+function buildStats({ input, rejected, crossRuntime, reobservations, reopened, pendingCheck, merged, ledger, probableDuplicates }) {
   return {
     input,
     rejected,
     cross_runtime: crossRuntime,
     reobservations,
+    reopened,
+    pending_check: pendingCheck,
     merged,
     carried_forward: ledger,
     probable_duplicates: probableDuplicates,
@@ -147,7 +181,7 @@ function buildStats({ input, rejected, crossRuntime, reobservations, merged, led
 
 // Pure orchestration (no I/O) — exported so tests can exercise the full
 // pipeline without going through argv/stdin/exit.
-function normalize({ newFindings, ledger, round }) {
+function normalize({ newFindings, ledger, round, gateReport }) {
   const ledgerArr = Array.isArray(ledger) ? ledger : [];
   const { valid, rejected } = validateFindings(newFindings);
 
@@ -156,30 +190,40 @@ function normalize({ newFindings, ledger, round }) {
   for (const f of valid) (isCrossRuntime(f) ? crossRuntimeFindings : primaryCandidates).push(f);
 
   const canonicalized = canonicalizeFindings(primaryCandidates);
-  // D-1 status-agnostic reading: splitReobservations() matches on fingerprint alone,
-  // regardless of the ledger entry's status (OPEN/RESOLVED/ACCEPTED). A re-report of a
-  // RESOLVED finding is a reobservation, not a regression: its ratcheted check already
-  // guards the defect class deterministically — if that check is green, the re-report is
-  // specialist noise. A genuinely new variant of the defect lands on a different line,
-  // which yields a different fingerprint and therefore a new finding, not a reobservation.
-  const { reobservations, genuinelyNew } = splitReobservations(canonicalized, ledgerArr, round);
+  // INV-2/E-4: a re-report matching a ledger entry is disposed by
+  // splitReobservations() into reobserved/reopen/pending-check — a RESOLVED
+  // entry is suppressed to metadata ONLY when its linked check is confirmed
+  // green on the current tree via the supplied gate report; a resolved entry
+  // with no check, or no gate report to consult, is a regression (reopen),
+  // never silently reduced to noise.
+  const { reobservations, reopened, pendingCheck, genuinelyNew } = splitReobservations(canonicalized, ledgerArr, round, gateReport);
 
   const settled = mergeExactDuplicates(genuinelyNew);
   const probableDuplicates = computeProbableDuplicates(settled);
 
   const findings = ledgerArr.concat(settled);
 
+  // INV-5/E-7: cross-runtime findings are canonicalized AT INTAKE (here, at
+  // normalize time) and deduplicated within their own augment-only array —
+  // never merged into primary `findings`. "Never rewritten" (roster-review's
+  // augment-only contract) applies to what happens AFTER this point.
+  const canonicalizedCrossRuntime = canonicalizeFindings(crossRuntimeFindings);
+  const dedupedCrossRuntime = mergeExactDuplicates(canonicalizedCrossRuntime);
+
   return {
     findings,
-    cross_runtime_findings: crossRuntimeFindings,
+    cross_runtime_findings: dedupedCrossRuntime,
     probable_duplicates: probableDuplicates,
     rejected,
     reobservations,
+    dispositions: { reopened, pending_check: pendingCheck },
     stats: buildStats({
       input: newFindings.length,
       rejected: rejected.length,
-      crossRuntime: crossRuntimeFindings.length,
+      crossRuntime: dedupedCrossRuntime.length,
       reobservations: reobservations.length,
+      reopened: reopened.length,
+      pendingCheck: pendingCheck.length,
       merged: settled.length,
       ledger: ledgerArr.length,
       probableDuplicates: probableDuplicates.length,
@@ -192,7 +236,8 @@ function main(argv) {
   const args = parseArgs(argv);
   const newFindings = readNewFindings(args.files);
   const ledger = args.ledgerPath ? readJsonArrayFile(args.ledgerPath, "--ledger file") : [];
-  const result = normalize({ newFindings, ledger, round: args.round });
+  const gateReport = args.gateReportPath ? readJsonObjectFile(args.gateReportPath, "--gate-report file") : null;
+  const result = normalize({ newFindings, ledger, round: args.round, gateReport });
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
   process.exit(0);
 }

@@ -2,9 +2,12 @@
 //
 // Fingerprinting, exact-dedup, probable-duplicate, and re-observation rules for
 // scripts/review-normalize.js (spec: specs/review-skill-slimming.md US-2,
-// FR-099..108, Amendment D-1). No I/O here — scripts/review-normalize.js owns
+// FR-099..108, Amendment D-1; specs/review-v2-corrections.md INV-1/INV-2/INV-5,
+// Amendments E-3/E-4/E-7). No I/O here — scripts/review-normalize.js owns
 // reading files/stdin and writing stdout.
 "use strict";
+
+const crypto = require("crypto");
 
 const SEVERITY_RANK = { CRITICAL: 5, HIGH: 4, MEDIUM: 3, LOW: 2, INFO: 1 };
 
@@ -27,9 +30,23 @@ function computeFingerprintV2(finding) {
   return [finding.boundary || "", finding.invariant || "", finding.failure_mode || ""].join("|");
 }
 
+// E-3: fid = fingerprint + "#" + sha8(normalized summary) — the addressable
+// identity for reobservation matching, probable-duplicate records, and gate
+// checks[] keying. Requires `finding.fingerprint` to already be canonical
+// (caller computes fid AFTER canonicalFingerprint). v1 `fingerprint` is
+// unchanged for compatibility — fid is purely additive.
+function computeFid(finding) {
+  const normalizedSummary = (finding.summary || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const hash = crypto.createHash("sha256").update(normalizedSummary).digest("hex").slice(0, 8);
+  return `${finding.fingerprint}#${hash}`;
+}
+
 // FR-106 scope guard: cross-runtime findings never enter the primary
-// merge/dedup/reobservation pipeline — they are routed straight to
-// cross_runtime_findings (augment-only elsewhere in roster-review).
+// merge/dedup/reobservation pipeline — they are routed to cross_runtime_findings
+// (augment-only elsewhere in roster-review) but per INV-5/E-7 they ARE
+// canonicalized and deduplicated within that augment-only array (see
+// scripts/review-normalize.js) so an untrusted model-provided fingerprint can
+// never survive into anything the ratchet mirrors (FR-015).
 function isCrossRuntime(finding) {
   return typeof finding.specialist === "string" && /-xruntime$/.test(finding.specialist);
 }
@@ -38,34 +55,34 @@ function canonicalLine(finding) {
   return finding.line === null || finding.line === undefined ? 0 : finding.line;
 }
 
-// EC-6: two findings sharing a fingerprint merge unconditionally when BOTH
-// have a real (non-null) line — the line disambiguates enough that a shared
-// fingerprint is strong duplicate evidence. When either side's line is null
-// (canonicalized to 0), a shared fingerprint alone is NOT enough — only a
-// byte-identical summary proves it is the same defect; otherwise the pair is
-// downgraded to a probable-duplicate (handled by the caller via the
-// path+category+delta pass, since delta is 0 here).
+// INV-1: two findings sharing a v1 fingerprint but differing in `summary` (or
+// any present v2 semantic field) are NEVER exact-merged — a v1 collision
+// alone (same path:line:category) never proves it is the same defect. Exact
+// duplicate requires byte-identical summary AND, when either side carries a
+// v2 field, byte-identical boundary/invariant/failure_mode too.
 function isExactDuplicatePair(a, b) {
-  if (a.line !== null && a.line !== undefined && b.line !== null && b.line !== undefined) return true;
-  return a.summary === b.summary;
+  if (a.summary !== b.summary) return false;
+  if (hasV2Fields(a) || hasV2Fields(b)) {
+    if ((a.boundary || "") !== (b.boundary || "")) return false;
+    if ((a.invariant || "") !== (b.invariant || "")) return false;
+    if ((a.failure_mode || "") !== (b.failure_mode || "")) return false;
+  }
+  return true;
 }
 
-// FR-104: merges one fingerprint-sharing group into a single survivor when
-// every pairwise comparison is an exact duplicate (see isExactDuplicatePair);
-// otherwise partitions the group into the merge-eligible subset (by
-// byte-identical summary) plus the leftovers, which the caller re-exposes for
-// probable-duplicate detection.
+// FR-104/INV-1: merges one fingerprint-sharing group into a single survivor
+// only when every non-anchor member is an exact duplicate of the anchor (see
+// isExactDuplicatePair — semantic match, not merely "both have a real line");
+// otherwise the anchor stays alone and everything else is a leftover, which
+// the caller re-exposes for probable-duplicate detection (a leftover shares
+// path+category+line with its survivor, i.e. delta 0 — always in the
+// probable window).
 function partitionExactGroup(group) {
   if (group.length === 1) return { merged: group, leftover: [] };
-  const allRealLines = group.every((f) => f.line !== null && f.line !== undefined);
-  if (allRealLines) return { merged: group, leftover: [] };
-
-  // Nullish-line group: merge only the members sharing byte-identical summary
-  // with the first element; anything else stays a leftover finding.
   const anchor = group[0];
   const merged = group.filter((f) => isExactDuplicatePair(anchor, f));
   const leftover = group.filter((f) => !isExactDuplicatePair(anchor, f));
-  return { merged: merged.length > 1 ? merged : [anchor], leftover: merged.length > 1 ? leftover : group.slice(1) };
+  return merged.length > 1 ? { merged, leftover } : { merged: [anchor], leftover: group.slice(1) };
 }
 
 function pickSurvivor(group) {
@@ -89,11 +106,10 @@ function mergeGroup(group) {
   return survivor;
 }
 
-// FR-104/EC-6: groups findings by fingerprint, merges exact duplicates within
+// FR-104/INV-1: groups findings by fingerprint, merges exact duplicates within
 // each group, and returns the settled findings list (survivors + any
 // unmerged leftovers) alongside every leftover so the caller can still run
-// probable-duplicate detection over them (a leftover shares path+category+
-// line 0 with its survivor, i.e. delta 0 — always in the probable window).
+// probable-duplicate detection over them.
 function mergeExactDuplicates(findings) {
   const byFingerprint = new Map();
   for (const f of findings) {
@@ -128,29 +144,109 @@ function computeProbableDuplicates(settledFindings) {
         path: a.path,
         category: a.category,
         line_delta: delta,
-        a: { fingerprint: a.fingerprint, specialist: a.specialist, line: a.line },
-        b: { fingerprint: b.fingerprint, specialist: b.specialist, line: b.line },
+        a: { fingerprint: a.fingerprint, fid: a.fid || null, specialist: a.specialist, line: a.line },
+        b: { fingerprint: b.fingerprint, fid: b.fid || null, specialist: b.specialist, line: b.line },
       });
     }
   }
   return probable;
 }
 
-// D-1: separates ledger-matching new findings (re-observations — never
-// merged into the carried entry, never emitted as a fresh finding, never
-// dropped) from genuinely-new findings that proceed to the merge pipeline.
-function splitReobservations(findings, ledger, round) {
-  const ledgerFingerprints = new Set(ledger.map((f) => f.fingerprint));
+// E-3: indexes the prior cumulative ledger by `fid` (preferred) with a
+// `fingerprint` fallback for legacy entries that predate fid.
+function buildLedgerIndex(ledger) {
+  const byFid = new Map();
+  const byFingerprint = new Map();
+  for (const entry of ledger) {
+    if (!entry || typeof entry !== "object") continue;
+    if (entry.fid && !byFid.has(entry.fid)) byFid.set(entry.fid, entry);
+    if (entry.fingerprint && !byFingerprint.has(entry.fingerprint)) byFingerprint.set(entry.fingerprint, entry);
+  }
+  return { byFid, byFingerprint };
+}
+
+function findLedgerEntry(f, index) {
+  if (f.fid && index.byFid.has(f.fid)) return index.byFid.get(f.fid);
+  if (f.fingerprint && index.byFingerprint.has(f.fingerprint)) return index.byFingerprint.get(f.fingerprint);
+  return null;
+}
+
+// E-2: indexes a persisted gate report's checks[] by (check, fid) with a
+// fingerprint fallback — the same keying the gate itself uses (E-3).
+function buildGateCheckIndex(gateReport) {
+  const map = new Map();
+  if (!gateReport || !Array.isArray(gateReport.checks)) return map;
+  for (const c of gateReport.checks) {
+    if (!c || typeof c.check !== "string") continue;
+    const key = `${c.check}#${c.fid || c.fingerprint || ""}`;
+    map.set(key, c);
+  }
+  return map;
+}
+
+// INV-2: classifies a ledger match into one of three dispositions.
+//   - "reobserved": ledger entry is not RESOLVED (no regression risk — plain
+//     carry-forward noise), OR it IS RESOLVED with a check that the latest
+//     gate report shows red_verified: true on the current tree.
+//   - "reopen": RESOLVED with no linked check at all (can never be verified
+//     -> always a regression, never metadata, per INV-2's explicit rule) OR
+//     RESOLVED with a check the gate report shows as failed/unverified, OR
+//     RESOLVED with a check but NO gate report was supplied at all (fail
+//     closed — "Resolution of the intake open question").
+//   - "pending-check": RESOLVED with a check, a gate report WAS supplied, but
+//     that report has no entry for this exact (check, fid) yet — the check
+//     may have been linked only this round. The skill resolves this after
+//     THIS round's gate run, from this round's freshly persisted report.
+function classifyDisposition(ledgerEntry, gateCheckIndex, gateReportProvided) {
+  if (ledgerEntry.status !== "RESOLVED") return "reobserved";
+  if (!ledgerEntry.check) return "reopen";
+  if (!gateReportProvided) return "reopen";
+  const key = `${ledgerEntry.check}#${ledgerEntry.fid || ledgerEntry.fingerprint || ""}`;
+  const checkEntry = gateCheckIndex.get(key);
+  if (!checkEntry) return "pending-check";
+  return checkEntry.red_verified === true ? "reobserved" : "reopen";
+}
+
+// D-1/E-4: separates ledger-matching new findings by disposition. "reobserved"
+// findings are reduced to metadata (never merged, never a fresh finding,
+// never dropped — unchanged from the original D-1 contract). "reopen" and
+// "pending-check" findings carry their FULL re-observed body forward (INV-2:
+// "the full re-observed finding body is always preserved") plus enough
+// provenance for the skill to act — the normalizer proposes, it never itself
+// mutates ledger status (single-executor principle for gate/report reads).
+function splitReobservations(findings, ledger, round, gateReport) {
+  const index = buildLedgerIndex(ledger);
+  const gateCheckIndex = buildGateCheckIndex(gateReport);
   const reobservations = [];
+  const reopened = [];
+  const pendingCheck = [];
   const genuinelyNew = [];
+  const stampedRound = round === undefined ? null : round;
+
   for (const f of findings) {
-    if (ledgerFingerprints.has(f.fingerprint)) {
-      reobservations.push({ fingerprint: f.fingerprint, specialist: f.specialist, round: round === undefined ? null : round });
-    } else {
+    const ledgerEntry = findLedgerEntry(f, index);
+    if (!ledgerEntry) {
       genuinelyNew.push(f);
+      continue;
+    }
+
+    const disposition = classifyDisposition(ledgerEntry, gateCheckIndex, !!gateReport);
+    if (disposition === "reobserved") {
+      reobservations.push({ fingerprint: f.fingerprint, fid: f.fid || null, specialist: f.specialist, round: stampedRound });
+    } else if (disposition === "reopen") {
+      reopened.push(
+        Object.assign({}, f, {
+          status: "OPEN",
+          resolved_round: null,
+          reopened_from_round: ledgerEntry.resolved_round,
+          reopened_at_round: stampedRound,
+        })
+      );
+    } else {
+      pendingCheck.push(Object.assign({}, f, { pending_check: ledgerEntry.check }));
     }
   }
-  return { reobservations, genuinelyNew };
+  return { reobservations, reopened, pendingCheck, genuinelyNew };
 }
 
 module.exports = {
@@ -158,10 +254,15 @@ module.exports = {
   canonicalFingerprint,
   hasV2Fields,
   computeFingerprintV2,
+  computeFid,
   isCrossRuntime,
   canonicalLine,
   isExactDuplicatePair,
   mergeExactDuplicates,
   computeProbableDuplicates,
+  buildLedgerIndex,
+  findLedgerEntry,
+  buildGateCheckIndex,
+  classifyDisposition,
   splitReobservations,
 };
