@@ -461,3 +461,40 @@ test('E-4: two consecutive reopen-only strikes -> novel-finding-streak violation
   const report = JSON.parse(r.stdout);
   assert.strictEqual(report.cause, 'novel-finding-streak');
 });
+
+test('E-4 (review clarification): a reopened-at-this-round finding that is ACCEPTED does not strike (ACCEPT-permanence wins)', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    round: 3,
+    findings: [
+      novelFinding(1, {
+        status: 'ACCEPTED',
+        reopened_from_round: 1,
+        reopened_at_round: 3,
+      }),
+    ],
+    rounds_audit: [auditEntry(2, { strike: false }), auditEntry(3)],
+  });
+  const r = gate(repo, p, ['--static']);
+  const report = JSON.parse(r.stdout);
+  assert.strictEqual(report.current_round_strike, false, 'a human-ACCEPTED finding must never strike, reopened or not');
+});
+
+test('E-4 (review clarification): a reopened-at-this-round scope-category finding does not strike (EC-4)', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    round: 3,
+    findings: [
+      novelFinding(1, {
+        category: 'scope',
+        status: 'OPEN',
+        reopened_from_round: 1,
+        reopened_at_round: 3,
+      }),
+    ],
+    rounds_audit: [auditEntry(2, { strike: false }), auditEntry(3)],
+  });
+  const r = gate(repo, p, ['--static']);
+  const report = JSON.parse(r.stdout);
+  assert.strictEqual(report.current_round_strike, false, 'a scope-category finding must never strike, reopened or not');
+});

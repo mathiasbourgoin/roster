@@ -22,6 +22,40 @@ const { normalize } = require("./review-normalize");
 
 const XRUNTIME_SCRIPT = path.resolve(__dirname, "xruntime-review.js");
 const GATE_SCRIPT = path.resolve(__dirname, "check-review-convergence.js");
+const LIFECYCLE_SCRIPT = path.resolve(__dirname, "lib", "review-lifecycle.js");
+
+// ── 0. the CLI itself (review finding FIX-1: this module was previously
+//      unwired — only its own test imported it) ─────────────────────────
+
+test("FIX-1 CLI: no --prior -> fresh cycle JSON on stdout, exit 0", () => {
+  const result = spawnSync("node", [LIFECYCLE_SCRIPT], { encoding: "utf8" });
+  assert.strictEqual(result.status, 0);
+  assert.deepStrictEqual(JSON.parse(result.stdout), { round: 1, cycle: 1, fresh_cycle: true });
+});
+
+test("FIX-1 CLI: --prior <path> derives round/cycle from the prior verdict", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "review-lifecycle-cli-"));
+  const priorPath = path.join(dir, "prior.json");
+  fs.writeFileSync(priorPath, JSON.stringify({ status: "NO-GO", round: 2, cycle: 1 }));
+  const result = spawnSync("node", [LIFECYCLE_SCRIPT, "--prior", priorPath], { encoding: "utf8" });
+  assert.strictEqual(result.status, 0);
+  assert.deepStrictEqual(JSON.parse(result.stdout), { round: 3, cycle: 1, fresh_cycle: false });
+});
+
+test("FIX-1 CLI: --prior <path> that exists but is malformed JSON -> exit 2 (fail closed)", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "review-lifecycle-cli-"));
+  const priorPath = path.join(dir, "prior.json");
+  fs.writeFileSync(priorPath, "not valid json");
+  const result = spawnSync("node", [LIFECYCLE_SCRIPT, "--prior", priorPath], { encoding: "utf8" });
+  assert.strictEqual(result.status, 2);
+  assert.match(result.stderr, /not valid JSON/);
+});
+
+test("FIX-1 CLI: --prior <path> that does not exist -> treated as no prior (fresh task), exit 0", () => {
+  const result = spawnSync("node", [LIFECYCLE_SCRIPT, "--prior", "/nonexistent/prior.json"], { encoding: "utf8" });
+  assert.strictEqual(result.status, 0);
+  assert.deepStrictEqual(JSON.parse(result.stdout), { round: 1, cycle: 1, fresh_cycle: true });
+});
 
 // ── 1. pure unit coverage ──────────────────────────────────────────────
 

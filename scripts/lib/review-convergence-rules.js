@@ -27,13 +27,20 @@ function isNovelStrikeFinding(f, round) {
   return true;
 }
 
-// E-4: a round also strikes when it reopened >=1 HIGH+ finding (regardless of
-// which round first raised it) — a regression-heavy loop-back round must not
-// be invisible to two-strike escalation just because nothing is "novel" this
-// round.
+// E-4 (clarified in review, review-v2-corrections.md): a round also strikes
+// when it reopened >=1 HIGH+ finding (regardless of which round first raised
+// it) — a regression-heavy loop-back round must not be invisible to
+// two-strike escalation just because nothing is "novel" this round. Carries
+// the SAME two guards as isNovelStrikeFinding: ACCEPTED wins over reopen —
+// the ACCEPT-permanence contract (roster-review.md's "acceptance permanently
+// waives the invariant") means a human-waived finding must not strike even
+// if it was mechanically reopened; and scope-category findings never strike
+// (EC-4), reopened or not.
 function isReopenedStrikeFinding(f, round) {
   if (!f || typeof f !== "object") return false;
   if (!HIGH_PLUS.has(f.severity)) return false;
+  if (f.category === "scope") return false; // EC-4
+  if (f.status === "ACCEPTED") return false; // ACCEPT-permanence wins over reopen
   return f.reopened_at_round === round;
 }
 

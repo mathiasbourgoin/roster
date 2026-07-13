@@ -17,7 +17,7 @@
 //
 // Usage:
 //   node scripts/review-normalize.js [<finding-file.json> ...] [--ledger <path>]
-//     [--round <n>] [--gate-report <path>]
+//     [--round <n>] [--gate-report <path>] [--prior <path>]
 //
 // Each positional file is a JSON array of specialist finding objects; with no
 // positional files, findings are read from stdin (a JSON array; empty stdin
@@ -28,11 +28,17 @@
 // is the PRIOR round's persisted briefs/<task>-gate-report.json (E-2) — its
 // absence fails closed (a RESOLVED, check-linked ledger entry re-reporting
 // without a gate report to consult classifies "reopen", never "reobserved").
+// `--prior <path>` is the prior FULL briefs/<task>-review.json ENVELOPE
+// (distinct from `--ledger`, which is only its `findings` array) — when both
+// `--round` and `--prior` are given, the caller's `--round` is cross-checked
+// against `scripts/lib/review-lifecycle.js`'s `deriveRoundState(prior)` and a
+// mismatch is reported in `warnings[]` (never a hard failure — advisory only,
+// review finding FIX-1).
 //
 // Output: single JSON object on stdout —
 //   { findings, cross_runtime_findings, probable_duplicates, rejected,
-//     reobservations, dispositions: { reopened, pending_check }, stats,
-//     normalizer_version }
+//     reobservations, dispositions: { reopened, pending_check }, warnings,
+//     stats, normalizer_version }
 // Exit: 0 on success (including empty input); 2 on usage/degraded input.
 "use strict";
 
@@ -49,6 +55,7 @@ const {
   computeProbableDuplicates,
   splitReobservations,
 } = require("./lib/normalize-rules");
+const { deriveRoundState } = require("./lib/review-lifecycle");
 
 const NORMALIZER_VERSION = "2.0.0";
 
@@ -58,7 +65,7 @@ function fail(code, message) {
 }
 
 function parseArgs(argv) {
-  const out = { files: [], ledgerPath: null, round: null, gateReportPath: null };
+  const out = { files: [], ledgerPath: null, round: null, gateReportPath: null, priorPath: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--ledger") {
@@ -72,6 +79,9 @@ function parseArgs(argv) {
     } else if (a === "--gate-report") {
       out.gateReportPath = argv[++i];
       if (out.gateReportPath === undefined) fail(2, "--gate-report requires a path argument");
+    } else if (a === "--prior") {
+      out.priorPath = argv[++i];
+      if (out.priorPath === undefined) fail(2, "--prior requires a path argument");
     } else if (a.startsWith("--")) {
       fail(2, `unknown flag: ${a}`);
     } else {
@@ -165,6 +175,22 @@ function canonicalizeFindings(findings) {
   });
 }
 
+// FIX-1 (review): cross-checks the caller-supplied `--round` against
+// scripts/lib/review-lifecycle.js's own derivation from the prior envelope —
+// the normalizer never recomputes the lifecycle rule itself, it only asks
+// the witness and reports a drift. `priorReview` absent -> no check (nothing
+// to cross-check against, not an error).
+function checkRoundConsistency(round, priorReview) {
+  if (round === null || round === undefined || !priorReview) return null;
+  const derived = deriveRoundState(priorReview);
+  if (derived.round === null || derived.round === round) return null;
+  return (
+    `round consistency: caller passed --round ${round} but ` +
+    `scripts/lib/review-lifecycle.js derived ${derived.round} from the prior verdict — ` +
+    "the two disagree; roster-review's own round derivation may be stale (FIX-1)"
+  );
+}
+
 function buildStats({ input, rejected, crossRuntime, reobservations, reopened, pendingCheck, merged, ledger, probableDuplicates }) {
   return {
     input,
@@ -179,36 +205,43 @@ function buildStats({ input, rejected, crossRuntime, reobservations, reopened, p
   };
 }
 
-// Pure orchestration (no I/O) — exported so tests can exercise the full
-// pipeline without going through argv/stdin/exit.
-function normalize({ newFindings, ledger, round, gateReport }) {
-  const ledgerArr = Array.isArray(ledger) ? ledger : [];
-  const { valid, rejected } = validateFindings(newFindings);
-
+// Splits validated findings into primary vs. cross-runtime, canonicalizing
+// both (fingerprint/fingerprint_v2/fid). INV-5/E-7: cross-runtime findings
+// are ALSO deduplicated within their own augment-only array here, at intake
+// — never merged into primary `findings`; "never rewritten" (roster-review's
+// augment-only contract) applies to what happens after this point.
+function partitionAndCanonicalize(valid) {
   const crossRuntimeFindings = [];
   const primaryCandidates = [];
   for (const f of valid) (isCrossRuntime(f) ? crossRuntimeFindings : primaryCandidates).push(f);
 
-  const canonicalized = canonicalizeFindings(primaryCandidates);
+  const primary = canonicalizeFindings(primaryCandidates);
+  const dedupedCrossRuntime = mergeExactDuplicates(canonicalizeFindings(crossRuntimeFindings));
+  return { primary, dedupedCrossRuntime };
+}
+
+// Pure orchestration (no I/O) — exported so tests can exercise the full
+// pipeline without going through argv/stdin/exit.
+function normalize({ newFindings, ledger, round, gateReport, priorReview }) {
+  const ledgerArr = Array.isArray(ledger) ? ledger : [];
+  const warnings = [];
+  const roundWarning = checkRoundConsistency(round === undefined ? null : round, priorReview || null);
+  if (roundWarning) warnings.push(roundWarning);
+
+  const { valid, rejected } = validateFindings(newFindings);
+  const { primary, dedupedCrossRuntime } = partitionAndCanonicalize(valid);
+
   // INV-2/E-4: a re-report matching a ledger entry is disposed by
   // splitReobservations() into reobserved/reopen/pending-check — a RESOLVED
   // entry is suppressed to metadata ONLY when its linked check is confirmed
   // green on the current tree via the supplied gate report; a resolved entry
   // with no check, or no gate report to consult, is a regression (reopen),
   // never silently reduced to noise.
-  const { reobservations, reopened, pendingCheck, genuinelyNew } = splitReobservations(canonicalized, ledgerArr, round, gateReport);
+  const { reobservations, reopened, pendingCheck, genuinelyNew } = splitReobservations(primary, ledgerArr, round, gateReport);
 
   const settled = mergeExactDuplicates(genuinelyNew);
   const probableDuplicates = computeProbableDuplicates(settled);
-
   const findings = ledgerArr.concat(settled);
-
-  // INV-5/E-7: cross-runtime findings are canonicalized AT INTAKE (here, at
-  // normalize time) and deduplicated within their own augment-only array —
-  // never merged into primary `findings`. "Never rewritten" (roster-review's
-  // augment-only contract) applies to what happens AFTER this point.
-  const canonicalizedCrossRuntime = canonicalizeFindings(crossRuntimeFindings);
-  const dedupedCrossRuntime = mergeExactDuplicates(canonicalizedCrossRuntime);
 
   return {
     findings,
@@ -217,6 +250,7 @@ function normalize({ newFindings, ledger, round, gateReport }) {
     rejected,
     reobservations,
     dispositions: { reopened, pending_check: pendingCheck },
+    warnings,
     stats: buildStats({
       input: newFindings.length,
       rejected: rejected.length,
@@ -237,7 +271,8 @@ function main(argv) {
   const newFindings = readNewFindings(args.files);
   const ledger = args.ledgerPath ? readJsonArrayFile(args.ledgerPath, "--ledger file") : [];
   const gateReport = args.gateReportPath ? readJsonObjectFile(args.gateReportPath, "--gate-report file") : null;
-  const result = normalize({ newFindings, ledger, round: args.round, gateReport });
+  const priorReview = args.priorPath ? readJsonObjectFile(args.priorPath, "--prior file") : null;
+  const result = normalize({ newFindings, ledger, round: args.round, gateReport, priorReview });
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
   process.exit(0);
 }
