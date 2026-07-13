@@ -2,14 +2,14 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.8.0
+version: 1.8.1
 domain: pipeline
 phase: qa
 preamble: true
 friction_log: true
 allowed_tools: [Read, Write, Bash, AskUserQuestion]
 human_gate: after
-requires_review_bundle: ">=1.2.0"
+requires_review_bundle: ">=1.3.0"
 tunables:
   require_tmux_matrix_for_tui: true
   run_full_suite: true

@@ -64,12 +64,12 @@ test("closure smoke: each JS tool entry require()s without throwing", () => {
 
 // ── AC-01: staged install happy path (--from-checkout) ─────────────────────
 
-test("install --from-checkout: all 15 files land, shas match, manifest committed-shaped", () => {
+test("install --from-checkout: all 17 files land, shas match, manifest committed-shaped", () => {
   const target = mkScratch("install");
   const r = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
   const manifest = readManifest(target);
-  assert.equal(manifest.files.length, 15);
+  assert.equal(manifest.files.length, 17);
   for (const f of manifest.files) {
     assert.ok(fs.existsSync(path.join(target, f.path)), `${f.path} missing after install`);
   }
@@ -108,7 +108,7 @@ test("install --from-raw (file:// mock RAW): mirrors --from-checkout", () => {
   const target = mkScratch("rawdst");
   const r = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(readManifest(target).files.length, 15);
+  assert.equal(readManifest(target).files.length, 17);
 });
 
 test("partial fetch: a source missing one bundle file aborts, target untouched, staging-only residue (FR-131/153)", () => {
@@ -343,6 +343,19 @@ printf '\`\`\`json\\n[]\\n\`\`\`\\n'
   const normOut = execFileSync("node", ["scripts/review-normalize.js"], { cwd: target, input: "[]", encoding: "utf8" });
   const parsed = JSON.parse(normOut);
   assert.deepEqual(parsed.findings, []);
+
+  // Installed-consumer schema auto-discovery must remain non-tautological:
+  // the bundle-owned review schema arrives with both a passing and a failing
+  // fixture, and the installed zero-dependency validator agrees with them.
+  const { loadFindingSchema } = require(path.join(target, "scripts/lib/finding-schema.js"));
+  const findingValidator = loadFindingSchema();
+  const fixtureRoot = path.join(target, "tools/data-schema/fixtures/review-finding");
+  const validFinding = JSON.parse(fs.readFileSync(path.join(fixtureRoot, "valid/basic.jsonl"), "utf8"));
+  const invalidFinding = JSON.parse(
+    fs.readFileSync(path.join(fixtureRoot, "invalid/missing-specialist.jsonl"), "utf8")
+  );
+  assert.equal(findingValidator.validate(validFinding).valid, true);
+  assert.equal(findingValidator.validate(invalidFinding).valid, false);
 });
 
 // ── F-8: no-.bak/no-stray tripwire, no allowlist (scoped to the installer itself) ───────────

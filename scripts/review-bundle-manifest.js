@@ -35,6 +35,13 @@ const WRAPPER_REL = "scripts/xruntime-exec.sh";
 // closure-escape check (scripts/lib/review-bundle-check.js) compares CODE entries only —
 // a doc entry can never "escape" a require graph it was never a member of.
 const DOC_REL = "scripts/REVIEW-BUNDLE.md";
+// The finding schema is installed into consumer repos and may be auto-discovered by
+// their repo-wide schema gate. Ship one positive and one negative fixture alongside
+// it so installing the review bundle cannot turn such a gate tautological or red.
+const DATA_CONTRACT_FIXTURES = [
+  "tools/data-schema/fixtures/review-finding/valid/basic.jsonl",
+  "tools/data-schema/fixtures/review-finding/invalid/missing-specialist.jsonl",
+];
 
 // The 3 JS tool entry points the closure is walked from, plus the 1 bash tool that has no
 // JS requires of its own (check-scope-diff.sh) — together the 4 tools of FR-124.
@@ -73,6 +80,11 @@ function buildManifest(existing, root) {
   });
   if (fs.existsSync(path.resolve(root, DOC_REL))) {
     files.push({ path: DOC_REL, sha256: sha256(path.resolve(root, DOC_REL)), kind: "doc" });
+  }
+  for (const rel of DATA_CONTRACT_FIXTURES) {
+    if (fs.existsSync(path.resolve(root, rel))) {
+      files.push({ path: rel, sha256: sha256(path.resolve(root, rel)), kind: "fixture" });
+    }
   }
   return {
     schema_version: SCHEMA_VERSION,
@@ -126,4 +138,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { buildManifest, computeBundlePaths, sha256, MANIFEST_PATH };
+module.exports = { buildManifest, computeBundlePaths, sha256, MANIFEST_PATH, DATA_CONTRACT_FIXTURES };
