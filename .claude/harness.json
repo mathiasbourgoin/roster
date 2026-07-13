@@ -290,7 +290,7 @@
       {
         "name": "roster-implement",
         "source": "roster",
-        "version": "1.6.1",
+        "version": "1.7.0",
         "domain": "pipeline",
         "phase": "implement",
         "tunables": {
@@ -316,7 +316,7 @@
       {
         "name": "roster-intake",
         "source": "roster",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "domain": "pipeline",
         "phase": "intake",
         "tunables": {}
@@ -374,18 +374,19 @@
       {
         "name": "roster-review",
         "source": "roster",
-        "version": "1.7.1",
+        "version": "1.8.0",
         "domain": "pipeline",
         "phase": "review",
         "tunables": {
           "auto_fix_threshold_lines": 20,
-          "always_run_spec_compliance": true
+          "always_run_spec_compliance": true,
+          "max_no_go_rounds": 5
         }
       },
       {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.8.0",
+        "version": "1.9.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -416,7 +417,7 @@
       {
         "name": "roster-spec",
         "source": "roster",
-        "version": "2.2.1",
+        "version": "2.3.0",
         "domain": "pipeline",
         "phase": "spec",
         "tunables": {
