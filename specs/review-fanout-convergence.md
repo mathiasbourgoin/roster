@@ -254,6 +254,18 @@ Voice-1 confirmations folded in: spec supersedes the brief's degraded-inconsiste
 (FR-069 structural form is correct); `specs/pipeline-loop-convergence.md` is touched only for
 the cause-enum cross-reference note; the gate reports a top-level `cause` field.
 
+## Errata (specs/review-v2-corrections.md v1.1.0, 2026-07-13)
+
+- **FR-095/cycle field note:** `round` (FR-050/FR-051) resets to 1 at every fresh cycle, so two
+  different cycles can share the same round number — review-v2-corrections.md E-5 adds a sibling
+  envelope field `cycle` (incremented at each fresh-cycle initialization, retained on GO) so a
+  same-numbered round in two different cycles is distinguishable; `scripts/lib/review-lifecycle.js`
+  is the executable witness for both fields together.
+- **CHECK-7 range scoping:** as in `specs/review-skill-slimming.md`'s own CHECK-7 errata — this
+  check's `<base>..HEAD` is scoped to this spec's implementation window, not a standing
+  never-touch-roster-run contract. review-v2-corrections.md's E-1 adds one routing row there in a
+  later window, deliberately.
+
 ## Entities
 
 - `Round`: physical per-cycle verdict counter (`round`), incremented every emission, retained on the persisted GO verdict, fresh at the next cycle (B-3) — the cohort key for strikes, loop-back detection, and audit entries.
