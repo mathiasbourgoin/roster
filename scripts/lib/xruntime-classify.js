@@ -1,11 +1,24 @@
 // scripts/lib/xruntime-classify.js — CommonJS.
 //
 // Fully mechanical classification for scripts/xruntime-review.js (FR-088..092,
-// Amendment D-3). No model judgment anywhere in this module — exit-code
-// corroboration, byte inspection, and schema validation only.
+// Amendment D-3; specs/review-v2-corrections.md INV-6). No model judgment
+// anywhere in this module — exit-code corroboration, byte inspection, and
+// schema validation only.
 "use strict";
 
 const { loadFindingSchema } = require("./finding-schema");
+
+// INV-6: a spawn-LAYER failure (the OS/runtime never started the subprocess
+// at all — E2BIG argv-too-large, ENOENT missing binary, EACCES, ...) is a
+// distinct, pre-runtime failure class. It must never be conflated with
+// "empty-output" (which implies the runtime DID execute and produced
+// nothing) — that would misattribute a transport failure to the model and
+// trip the breaker for the wrong reason. ETIMEDOUT is excluded: that is the
+// wrapper-level timeout backstop, classified via classifyExitCode's own
+// corroborated-timeout path instead.
+function isSpawnError(result) {
+  return !!(result && result.error && result.error.code && result.error.code !== "ETIMEDOUT");
+}
 
 // D-3: exit 3 classifies `tree-mutation` ONLY when stderr carries the
 // wrapper's deterministic TREE-MUTATED marker; exit 124 classifies `timeout`
@@ -60,4 +73,4 @@ function classify({ exitCode, stderr, durationS, timeoutS, stdout }) {
   return classifyOutput(stdout);
 }
 
-module.exports = { classifyExitCode, extractJson, validateFindingsArray, classifyOutput, classify };
+module.exports = { classifyExitCode, extractJson, validateFindingsArray, classifyOutput, classify, isSpawnError };

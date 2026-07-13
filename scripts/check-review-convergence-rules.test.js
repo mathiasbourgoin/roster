@@ -368,3 +368,96 @@ test('FIX-4: a PAST rounds_audit entry (2 <= round < currentRound) lacking a boo
     JSON.stringify(report.warnings)
   );
 });
+
+// ── E-1: override-aware gate (streak_override suppression) ──────────────
+
+test('E-1: a valid current-round streak_override suppresses the novel-finding-streak violation', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    round: 3,
+    streak_override: { round: 3, by: 'human' },
+    findings: [novelFinding(2), novelFinding(3, { fingerprint: 'a.ml:3:correctness' })],
+    rounds_audit: [auditEntry(2, { strike: true }), auditEntry(3)],
+  });
+  const r = gate(repo, p, ['--static']);
+  assert.strictEqual(r.code, 0, r.stdout + r.stderr);
+  const report = JSON.parse(r.stdout);
+  assert.strictEqual(report.current_round_strike, false);
+  assert.ok(!report.violations.some((v) => v.type === 'novel-finding-streak'));
+});
+
+test('E-1: a streak_override for a STALE round (not the current round) does not suppress', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    round: 3,
+    streak_override: { round: 2, by: 'human' }, // stale — a prior round's override
+    findings: [novelFinding(2), novelFinding(3, { fingerprint: 'a.ml:3:correctness' })],
+    rounds_audit: [auditEntry(2, { strike: true }), auditEntry(3)],
+  });
+  const r = gate(repo, p, ['--static']);
+  assert.strictEqual(r.code, 1, r.stdout + r.stderr);
+  const report = JSON.parse(r.stdout);
+  assert.strictEqual(report.cause, 'novel-finding-streak');
+});
+
+test('E-1: streak_override never suppresses round-cap', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    no_go_round: 5,
+    round: 3,
+    streak_override: { round: 3, by: 'human' },
+    findings: [],
+    rounds_audit: [auditEntry(3)],
+  });
+  const r = gate(repo, p, ['--static']);
+  assert.strictEqual(r.code, 1, r.stdout + r.stderr);
+  const report = JSON.parse(r.stdout);
+  assert.strictEqual(report.cause, 'round-cap');
+});
+
+test('E-1: streak_override.by must be "human" — any other actor does not suppress', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    round: 3,
+    streak_override: { round: 3, by: 'model' },
+    findings: [novelFinding(2), novelFinding(3, { fingerprint: 'a.ml:3:correctness' })],
+    rounds_audit: [auditEntry(2, { strike: true }), auditEntry(3)],
+  });
+  const r = gate(repo, p, ['--static']);
+  assert.strictEqual(r.code, 1, r.stdout + r.stderr);
+});
+
+// ── E-4: reopened-strike rule ─────────────────────────────────────────────
+
+test('E-4: a round with a HIGH+ reopened-at-this-round finding strikes even with zero novel findings', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    round: 3,
+    findings: [
+      novelFinding(1, {
+        status: 'OPEN',
+        reopened_from_round: 1,
+        reopened_at_round: 3,
+      }),
+    ],
+    rounds_audit: [auditEntry(2, { strike: false }), auditEntry(3)],
+  });
+  const r = gate(repo, p, ['--static']);
+  const report = JSON.parse(r.stdout);
+  assert.strictEqual(report.current_round_strike, true);
+});
+
+test('E-4: two consecutive reopen-only strikes -> novel-finding-streak violation', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    round: 3,
+    findings: [
+      novelFinding(1, { fingerprint: 'a.ml:1:correctness', reopened_from_round: 1, reopened_at_round: 3 }),
+    ],
+    rounds_audit: [auditEntry(2, { strike: true }), auditEntry(3)],
+  });
+  const r = gate(repo, p, ['--static']);
+  assert.strictEqual(r.code, 1, r.stdout + r.stderr);
+  const report = JSON.parse(r.stdout);
+  assert.strictEqual(report.cause, 'novel-finding-streak');
+});
