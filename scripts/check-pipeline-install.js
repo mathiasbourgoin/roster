@@ -220,23 +220,31 @@ if (fs.existsSync(installSh)) {
 // skill prose that invokes them, so drift (script renamed/removed without
 // updating the skill, or vice versa) fails loudly instead of silently.
 const GATE_SCRIPTS = [
-  { script: "scripts/check-scope-diff.sh", referencedIn: "skills/pipeline/roster-review.md" },
-  { script: "scripts/check-review-convergence.js", referencedIn: "skills/pipeline/roster-review.md" },
+  { script: "scripts/check-scope-diff.sh", referencedIn: ["skills/pipeline/roster-review.md"] },
+  {
+    script: "scripts/check-review-convergence.js",
+    // Two mandated call sites (spec FR-024): roster-review invokes it in full
+    // mode at every verdict; roster-run invokes it in --static mode on the
+    // resume edge before the verdict-table route-back. Both must reference it.
+    referencedIn: ["skills/pipeline/roster-review.md", "skills/pipeline/roster-run.md"],
+  },
 ];
 for (const { script, referencedIn } of GATE_SCRIPTS) {
   const scriptPath = path.resolve(root, script);
-  const refPath = path.resolve(root, referencedIn);
   if (!fs.existsSync(scriptPath)) {
     errors.push(`pipeline gate script missing on disk: ${script}`);
     continue;
   }
-  if (!fs.existsSync(refPath)) {
-    errors.push(`${referencedIn} not found — cannot verify it references ${script}`);
-    continue;
-  }
-  const refText = fs.readFileSync(refPath, "utf8");
-  if (!refText.includes(script)) {
-    errors.push(`${referencedIn} no longer references ${script} — gate script is orphaned or the reference drifted`);
+  for (const ref of referencedIn) {
+    const refPath = path.resolve(root, ref);
+    if (!fs.existsSync(refPath)) {
+      errors.push(`${ref} not found — cannot verify it references ${script}`);
+      continue;
+    }
+    const refText = fs.readFileSync(refPath, "utf8");
+    if (!refText.includes(script)) {
+      errors.push(`${ref} no longer references ${script} — gate script is orphaned or the reference drifted`);
+    }
   }
 }
 if (!errors.some((e) => e.includes("pipeline gate script") || e.includes("no longer references"))) {

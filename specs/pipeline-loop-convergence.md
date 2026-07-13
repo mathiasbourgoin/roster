@@ -155,7 +155,7 @@ As a reviewer, I want each new ratcheted check proven to fail (assertion-red) ag
 
 - **FR-033** [US-4]: At NO-GO verdict emission, roster-review MUST record `pre_fix_sha` = current HEAD for each new HIGH+ finding, or null with a recorded reason when the working tree has no committed baseline for the defect.
 - **FR-034** [US-4]: When `pre_fix_sha` is null (uncommitted-tree task), `red_verified` MUST stay null, the gate MUST accept, and the condition MUST be flagged in the human one-liner.
-- **FR-035** [US-4]: For each newly-added check with a non-null `pre_fix_sha`, the gate MUST create a throwaway worktree at `pre_fix_sha` in the scratch directory, overlay ONLY the new check file(s), and run the declared red command.
+- **FR-035** [US-4]: For each newly-added check with a non-null `pre_fix_sha`, the gate MUST create a scratch copy (`git archive` extraction) of `pre_fix_sha` in the scratch directory, overlay ONLY the new check file(s), and run the declared red command.
 - **FR-036** [US-4]: On red-command exit 1 the gate MUST record `red_verified: true` and `check_blob` (git hash-object of the check file) in its report for roster-review to persist; on exit 0 the gate MUST report a violation (vacuous check, gate exit 1); on exit ≥2 or setup failure the gate MUST report `red_verified: false` (inconclusive) and surface it to the human.
 - **FR-037** [US-4]: Red commands (spec-level CHECK-N and ratchet red commands) MUST follow the exit convention 0=check passes, 1=assertion fired, ≥2=error; the docs MUST note this convention as distinct from the gate-script convention (where 2=degraded input).
 - **FR-038** [US-4]: When a check file with `red_verified: true` has a current blob differing from the recorded `check_blob`, the gate MUST re-run red verification; failing that, it MUST report a violation (weakening protection).
@@ -180,7 +180,7 @@ As a reviewer, I want each new ratcheted check proven to fail (assertion-red) ag
 - AC-15 [US-3, C-17/C-28]: Un-encodable non-ACCEPTED HIGH+ finding → `design-not-converging` + `cause: "unencodable-finding"`; routed via new row sitting above the catch-all. (FR-027, FR-028)
 - AC-16 [US-3, C-24..27]: Express task hits round cap → pipeline stops with restart-under-full instruction; ledger `.mode` unchanged; zero new ledger events. (FR-029)
 - AC-17 [US-3, C-30/EC-8]: review.json missing `no_go_round` → round 0 + warning; review.json absent → exit 2. (FR-030, FR-023)
-- AC-18 [US-4 happy path]: New HIGH finding gets `pre_fix_sha` = HEAD; loop-back check red command exits 1 in pre-fix worktree and 0 on current tree → `red_verified: true`, `check_blob` recorded, gate passes. (FR-033, FR-035, FR-036, FR-039)
+- AC-18 [US-4 happy path]: New HIGH finding gets `pre_fix_sha` = HEAD; loop-back check red command exits 1 in the pre-fix scratch copy and 0 on current tree → `red_verified: true`, `check_blob` recorded, gate passes. (FR-033, FR-035, FR-036, FR-039)
 - AC-19 [US-4]: Red command exits 0 on pre-fix worktree → vacuous-check violation, route-back blocked. (FR-036)
 - AC-20 [US-4, EC-10]: Setup failure or exit ≥2 → `red_verified: false` inconclusive, surfaced to human, self-containment remedy offered first. (FR-036)
 - AC-21 [US-4, C-21]: Red-verified check file later edited (blob mismatch) → red verification re-run; if it cannot pass, gate exits 1. (FR-038)
@@ -212,6 +212,7 @@ As a reviewer, I want each new ratcheted check proven to fail (assertion-red) ag
 - CHECK-6 [AC-11]: `grep -q 'max_no_go_rounds' skills/pipeline/roster-review.md` → expected: exit 0 (frontmatter tunable, default 5).
 - CHECK-7 [projection]: `bash scripts/sync-harness.sh --check` → expected: exit 0 (three projections in sync).
 - CHECK-8 [all]: `npm test` → expected: exit 0 (includes new contract test once wired).
+- CHECK-9 [AC-5, FR-009]: `diff <(grep -oE 'auth|attest|evidence|authority|permission|token|signature|custody|integrity' skills/pipeline/roster-intake.md | head -1) <(grep -oE 'auth|attest|evidence|authority|permission|token|signature|custody|integrity' skills/pipeline/roster-run.md | head -1)` → expected: exit 0 (the trust-boundary keyword regex is duplicated verbatim in both files — this is a drift guard, not a dedup; a mismatch means one file's heuristic silently diverged from the other).
 
 ## Amendments (v1.1.0 — plan-phase dual-voice review, 2026-07-13)
 

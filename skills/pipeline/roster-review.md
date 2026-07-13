@@ -271,6 +271,12 @@ proposed `check_encodable` + reason if false). Read it and populate the correspo
 `check`/`check_encodable` fields from it — this is the only channel; do not infer a check path
 from the diff.
 
+**Check-value contract.** The gate always invokes a finding's `check` as `node <path>` (A-6 — the
+check file itself is the red/green command). A `check` value MUST therefore be a node-runnable
+file path. A spec-level `CHECK-N` id with no corresponding file is recorded in `review.json` (for
+traceability) but is **not** red/green-executed by the gate — it is out of scope for mechanical
+verification, not a violation; do not expect the gate's `checks[]` report to cover it.
+
 **Permanent-waiver ACCEPT prompt (FR-014).** When the human ACCEPTs a HIGH+ finding in the step 5
 grouped ask, the prompt text MUST state that accepting **permanently waives** the invariant — no
 check will ever guard it. Do not phrase acceptance as "skip for now".
@@ -315,6 +321,8 @@ into the verdict:
 
 Only then write `briefs/<task>-review.json` **once** (rename the draft or write the merged object)
 — there is no post-write crash window, and the file is never in a half-written or unverified state.
+**Remove the `.draft` file after the merged write** (whether you renamed it or wrote a fresh
+object) — no orphan draft artifacts should remain in `briefs/`.
 
 **GO-verdict promotion (FR-042, A-8).** Before resetting `findings` on a GO verdict, promote every
 `red_verified: true` check to a permanent home: if `specs/<task-slug>.md` exists, append it as a

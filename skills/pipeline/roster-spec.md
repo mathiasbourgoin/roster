@@ -120,6 +120,12 @@ If `specs/<task-slug>.md` already exists:
 > "A spec already exists for `<task-slug>`. Overwrite, review, or skip?"
 Wait for user decision. If skip: write completion marker and stop.
 
+**Exception — minimal-freeze and escalation-entry paths (FR-006, A-10) never offer "skip".** If
+this task is on the Minimal-Freeze Profile (trust-boundary Trigger Check) or was routed here by a
+`design-not-converging` escalation, an existing `specs/<task-slug>.md` is **always extended**, not
+skipped — do not present the skip option in that case. Skipping would let a trust-boundary or
+un-encodable-finding gap through unfrozen, which FR-006 forbids.
+
 ## Steps
 
 ### 0. Load prior art (if available)

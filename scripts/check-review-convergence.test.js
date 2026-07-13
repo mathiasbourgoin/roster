@@ -163,6 +163,28 @@ test('RESOLVED-without-check exempt: ACCEPTED finding', () => {
   assert.strictEqual(r.code, 0);
 });
 
+test('RESOLVED finding with missing round provenance -> violation (does not silently escape the ratchet)', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    no_go_round: 1,
+    findings: [
+      {
+        severity: 'HIGH',
+        status: 'RESOLVED',
+        // first_seen_round absent entirely, resolved_round non-numeric — neither
+        // the ratchet obligation nor the same-round exemption can be evaluated.
+        resolved_round: 'two',
+        check: null,
+        fingerprint: 'a.ml:1:correctness',
+      },
+    ],
+  });
+  const r = gate(repo, p, ['--static']);
+  assert.strictEqual(r.code, 1);
+  const report = JSON.parse(r.stdout);
+  assert.ok(report.violations.some((v) => v.type === 'missing-round-provenance'));
+});
+
 test('unencodable finding not ACCEPTED -> design-not-converging violation report', () => {
   const repo = makeRepo();
   const p = writeReview(repo, {
