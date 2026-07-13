@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.6.1
+version: 1.7.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -285,10 +285,12 @@ to the human (overwrite or abort?); never overwrite silently. Otherwise:
 `printf '%s\n' "<task>" > briefs/ACTIVE_TASK`.
 
 **Loop-back re-derivation** (re-entry after a review NO-GO): new manifest = original entries ∪
-file paths of `briefs/<task>-review.json` findings, **except** paths of `category: "scope"`
-findings — those join only if their finding status is ACCEPTED. The expected fix for a
-non-accepted scope finding is reverting the file (`git checkout <base> -- <path>`, Bash — needs
-no Edit/Write access), not legitimizing it.
+file paths of **OPEN** `briefs/<task>-review.json` findings **∪ this round's declared ratchet
+check paths** (amended A-5/FR-018 — a RESOLVED finding's path stops widening the scope gate; only
+OPEN findings and the checks you are about to add this round join the manifest), **except** paths
+of `category: "scope"` findings — those join only if their finding status is ACCEPTED. The
+expected fix for a non-accepted scope finding is reverting the file (`git checkout <base> --
+<path>`, Bash — needs no Edit/Write access), not legitimizing it.
 
 **Deactivate at phase end** — after `briefs/<task>-impl.md` is written with Status COMPLETED:
 `rm -f briefs/ACTIVE_TASK`. A PARTIAL outcome keeps the slot active (resume expected). A crashed
@@ -331,6 +333,51 @@ If `tunables.enforce_tdd: true` **or** if the brief specifies tests to write:
 → Invoke the `/tdd-workflow` skill with the description of the behavior to implement.
   Do not write production code before a failing test.
 
+### 3.5 Ratchet checks (loop-back rounds only)
+
+On a re-entry after a review NO-GO, every HIGH+ finding you fix that already survived one
+loop-back round (`resolved_round > first_seen_round` once review records it) needs a linked,
+proven-red check before it can be marked RESOLVED (spec FR-012). Skip this section entirely on a
+task's first round — there is nothing to ratchet yet.
+
+**New-file rule (FR-016).** A ratcheted check MUST be a **new, self-contained file** — either a
+new test file, or a new `CHECK-N` command in `specs/<task-slug>.md` when a spec exists for this
+task. Modifying an existing file's assertions does NOT satisfy the ratchet, even if the
+modification is correct and sufficient as a test.
+
+**Where it lands (FR-019).** If `specs/<task-slug>.md` exists for this task, prefer a new
+`CHECK-N` there. If no spec artifact exists (non-trust-boundary task with no spec), the check
+lands as a new file in the test suite — do not create a spec file just to host it.
+
+**Red-command convention (A-6).** The check must be runnable directly, honoring: `0` = passes,
+`1` = assertion fired (the bug is still present), `≥2` = error/setup failure. A plain
+self-contained wrapper, never a test runner's own exit code (`node --test`/jest exit 1 for both an
+assertion failure and a load error — indistinguishable, so don't rely on it):
+
+```js
+// checks/<finding-slug>.js — runnable directly (`node checks/<finding-slug>.js`) AND
+// includable from the test suite (the same file may serve both roles when it honors
+// this convention when executed directly).
+const assert = require('node:assert');
+try {
+  // ... exercise the specific behavior the finding was about ...
+  assert.ok(conditionThatOnlyHoldsOnceFixed);
+  process.exit(0); // pass
+} catch (e) {
+  process.exit(1); // assertion fired — bug still present
+}
+```
+
+**Declare it in `## Ratchet` (FR-017).** Before writing the impl brief (step 6), for every new
+ratchet check add one entry to the impl brief's `## Ratchet` section: the finding it addresses,
+the check's path, its red command, and — only if no deterministic check is possible for this
+finding — `check_encodable: false` with a one-line reason. roster-review consumes this section
+into `review.json`; do not invent a path there without declaring it here first.
+
+**Self-containment (EC-12).** If the check needs fixtures (including fake-secret-like content),
+assemble them at runtime inside the check file — never commit a real-looking secret (push
+protection will block it).
+
 ### 4. Iterative implementation
 
 For each unit of work in the plan:
@@ -342,6 +389,13 @@ For each unit of work in the plan:
    - If still broken after N attempts → invoke `/improvement-loop` with bounded scope
    - If `/improvement-loop` fails → escalate to the human
 
+**Loop-back rounds only (FR-020, amended A-4):** on a re-entry after a review NO-GO, also run —
+as part of the quality gates in step 2 above — every non-`manual` spec `CHECK-N` command and every
+prior round's already-ratcheted check. A check you are introducing **this round** is expected to
+be red mid-round (that's TDD) and is excluded from this gate until the round's fix lands; failures
+of a current-round check do not consume `tunables.max_improve_iterations`. `CHECK-N: manual — ...`
+entries are never run mechanically.
+
 ### 5. Final verification
 
 ```bash
@@ -349,6 +403,13 @@ For each unit of work in the plan:
 <test command>      # must pass — all tests, not just new ones
 <format command>    # must pass
 ```
+
+**Round-commit rule (FR-040, A-3):** in Fast/Full mode, commit this round's work before handing
+off to review — `git status --porcelain` must be empty when you finish. This is what lets
+roster-review record a trustworthy `pre_fix_sha` (HEAD) for any new HIGH+ finding at the next
+NO-GO; a dirty tree forces `pre_fix_sha: null` with reason `"dirty-tree"`, and the ratchet cannot
+red-verify a finding whose baseline is unknown. Express mode is exempt (uncommitted-tree work is
+expected there — the residual is accepted, FR-034).
 
 ### 6. Write the impl brief
 
@@ -386,6 +447,14 @@ Produce `briefs/<task>-impl.md`:
 ## Identified out-of-scope
 
 <Improvements seen but not implemented — with reference to the Friction Log>
+
+## Ratchet
+
+<One entry per new ratchet check this round — omit the section entirely on a task's first round>
+- **Finding:** <fingerprint from briefs/<task>-review.json>
+  **Check:** `<path to the new self-contained check file, or spec CHECK-N id>`
+  **Red command:** `<exact command, honoring 0=pass/1=assertion-fired/>=2=error>`
+  **check_encodable:** true | false (<reason if false>)
 ```
 
 ### 7. Ledger event (after the impl brief is on disk)
@@ -436,3 +505,5 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Control files (`briefs/ACTIVE_TASK`, `briefs/<task>-manifest.txt`) are written via Bash only — never Edit/Write
 - Never modify a test to make it pass — fix the implementation
 - Never commit code that breaks existing gates
+- A ratchet check must be a new self-contained file — never satisfy the ratchet by editing an existing file
+- In Fast/Full mode, never hand off to review with a dirty tree — commit the round's work first
