@@ -23,6 +23,14 @@
 # (same filesystem — the final move is a same-fs `mv`, never a cross-device copy). No .bak files
 # are ever created by this script (F-8). Partial fetch failure leaves staging-only residue,
 # targets untouched (FR-131/153) — the trap does NOT clean up staging on a non-zero exit.
+#
+# Bespoke, not the extension system (FR-137): the extension converge/lock machinery
+# (scripts/roster-extension.ts) assumes a trusted node runtime and an existing .harness tree —
+# neither holds here (this script IS the bootstrap; a fresh consumer may have no .harness/ yet,
+# and the fetch must be plain bash before any node-side trust decision is possible). Conventions
+# (a committed manifest, sha-verified files) are borrowed for future convergence, but the two
+# systems stay disjoint today — scripts/review-bundle-install.test.js asserts the extension
+# converge path never touches a bundle path.
 
 set -uo pipefail
 
