@@ -72,6 +72,13 @@ pipeline_role:
   triggered_by: <string>
   receives: <string>
   produces: <string>
+requires_review_bundle: <semver range, QUOTED e.g. ">=1.0.0">
+                             # declares a dependency on the committed review-tool bundle
+                             # (scripts/review-bundle.manifest.json — specs/review-tool-
+                             # distribution.md). roster-doctor reads this from the installed
+                             # projection to gate readiness; roster-review's own preflight is
+                             # a separate input-contract abort, not a doctor read. QUOTE the
+                             # value — unquoted, some YAML parsers read ">=1.0.0" oddly.
 ---
 ```
 
