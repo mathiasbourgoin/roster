@@ -1,3 +1,6 @@
 # check-leak-diff ignore globs (gitignore-style). The scanner test legitimately holds
 # secret-shaped fixtures.
 scripts/check-leak.test.js
+# npm lockfile integrity fields are public registry sha512 checksums — machine-generated
+# high-entropy base64 that the HIGH_BLOB pattern always flags (false positive by construction).
+package-lock.json
