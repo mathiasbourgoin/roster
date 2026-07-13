@@ -121,7 +121,7 @@ function validateArgsAndReview(argv) {
   if (Number.isNaN(args.strikes) || args.strikes < 1) fail(2, "--strikes must be a positive integer");
 
   const review = readReviewJson(path.resolve(process.cwd(), args.reviewPath), args.reviewPath);
-  const roundState = deriveRoundState(review);
+  const roundState = deriveGateRoundInputs(review);
 
   return Object.assign({ args, review }, roundState);
 }
@@ -156,7 +156,14 @@ function readReviewJson(reviewPath, displayPath) {
 // Derives no_go_round (FR-030 legacy handling), the physical `round` counter
 // (B-8 legacy handling), the findings array, and the B-7 re-keyed
 // carry-forward-inconsistency warning from a validated review object.
-function deriveRoundState(review) {
+//
+// NOT the lifecycle witness: this is the GATE's own single-file input
+// derivation (legacy-round detection, no_go_round validation) — narrower and
+// differently-shaped than scripts/lib/review-lifecycle.js's deriveRoundState,
+// which derives the NEXT draft's round/cycle from the PRIOR verdict. Named
+// distinctly (deriveGateRoundInputs) to reserve `deriveRoundState` for that
+// lifecycle witness and avoid the two being confused (review finding LOW-1).
+function deriveGateRoundInputs(review) {
   const warnings = [];
 
   let noGoRound = 0;

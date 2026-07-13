@@ -104,13 +104,20 @@ and a `cycle` field are added. roster-run stays row-level BECAUSE the gate absor
   row then works as a row. "Exactly once" = current-round validity (stale after the next verdict
   increments `round`); double-resume before a new verdict routes twice to implement — idempotent,
   noted.
-- **E-2 (O-2, unknowable "current tree"):** roster-review PERSISTS the gate report to
-  `briefs/<task>-gate-report.json` beside the verdict (it already has the stdout JSON). Gate full
-  mode additionally green-runs the linked checks of carried RESOLVED entries that the draft flags
-  as pending reobservation (`--verify-carried` behavior, bounded by flagged count). The skill
-  resolves `pending-check` dispositions AFTER this round's gate run from THIS round's report;
-  reopen mutations trigger exactly one bounded re-gate (exit-3 repair pattern). Fail-closed when
-  the check is absent from the report.
+- **E-2 (O-2, unknowable "current tree") — AMENDED to match the implemented mechanism
+  (implementation review, 2026-07-13):** roster-review PERSISTS the gate report to
+  `briefs/<task>-gate-report.json` beside the verdict (it already has the stdout JSON). There is
+  NO separate `--verify-carried` flag or flagged-count-scoped verification pass: gate full mode's
+  EXISTING `runRedGreenVerification` already green-runs every finding carrying a `.check`,
+  regardless of status — this was true before review-v2-corrections and is unchanged; it is a
+  superset of "carried RESOLVED entries the draft flags as pending reobservation," bounded by the
+  total count of checks in `findings`, not by how many the normalizer flagged `pending-check` this
+  round. The skill's normalizer-side disposition (`dispositions.pending_check[]`, keyed `(check,
+  fid)`) reads the PRIOR round's persisted report (absent on round 1 — fails closed to `reopen` per
+  the Resolution note below); it then resolves any still-`pending-check` entries AFTER this round's
+  gate run, from THIS round's freshly persisted report. Reopen mutations discovered at that point
+  trigger exactly one bounded re-gate (exit-3 repair pattern, not open-ended). Fail-closed when the
+  check is absent from the report.
 - **E-3 (O-3, fingerprint uniqueness):** findings gain `fid` = `fingerprint + "#" + sha8(normalized
   summary)` — the addressable identity for reobservation matching, probable-duplicate records,
   and gate `checks[]` keying (`(check, fid)` with fingerprint fallback for legacy). v1
@@ -121,6 +128,11 @@ and a `cycle` field are added. roster-run stays row-level BECAUSE the gate absor
   Strike definition amended in the gate: a round strikes when it has ≥1 qualifying novel HIGH+
   finding OR ≥1 HIGH+ entry with `reopened_at_round == round` — regression-heavy cycles are no
   longer invisible to two-strike escalation.
+  **Clarification (implementation review, 2026-07-13):** the reopened-strike test carries the SAME
+  two guards as the novel-strike test — `status !== "ACCEPTED"` and `category !== "scope"`. The
+  ACCEPT-permanence contract (a human ACCEPT "permanently waives the invariant") wins over a
+  mechanical reopen: an ACCEPTED finding must never strike, reopened or not. Scope-category
+  findings are excluded per EC-4 for the same reason they never strike when novel.
 - **E-5 (O-5, cycle ambiguity):** review.json envelope gains `cycle` (int, incremented at each
   fresh-cycle initialization, retained on GO); journal entries record it; refusal matching keys on
   task/cycle/runtime/digest. Crash-before-persist (same cycle, journal degraded) → refuse; prior

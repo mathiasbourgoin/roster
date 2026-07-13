@@ -283,3 +283,32 @@ test("CLI: missing --ledger file -> exit 2 (degraded input, fail closed)", () =>
   const { code } = runCli(["--ledger", "/nonexistent/ledger.json"], "[]");
   assert.strictEqual(code, 2);
 });
+
+// ── FIX-1 (review): --round cross-checked against the lifecycle witness ──
+
+test("FIX-1: --round matching the prior verdict's derived round -> no warning", () => {
+  const result = normalize({ newFindings: [], ledger: [], round: 3, priorReview: { status: "NO-GO", round: 2, cycle: 1 } });
+  assert.deepStrictEqual(result.warnings, []);
+});
+
+test("FIX-1: --round mismatching the prior verdict's derived round -> warning, never a hard failure", () => {
+  const result = normalize({ newFindings: [], ledger: [], round: 5, priorReview: { status: "NO-GO", round: 2, cycle: 1 } });
+  assert.strictEqual(result.warnings.length, 1);
+  assert.match(result.warnings[0], /round consistency/);
+  assert.deepStrictEqual(result.findings, [], "a round mismatch warns, it never blocks normalization");
+});
+
+test("FIX-1: no --prior given -> no cross-check attempted, no warning", () => {
+  const result = normalize({ newFindings: [], ledger: [], round: 99 });
+  assert.deepStrictEqual(result.warnings, []);
+});
+
+test("FIX-1 CLI: --prior + --round wired end-to-end through the CLI", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "normalize-cli-"));
+  const priorPath = path.join(dir, "prior-review.json");
+  fs.writeFileSync(priorPath, JSON.stringify({ status: "NO-GO", round: 2, cycle: 1 }));
+  const { code, stdout } = runCli(["--prior", priorPath, "--round", "9"], "[]");
+  assert.strictEqual(code, 0);
+  const parsed = JSON.parse(stdout);
+  assert.strictEqual(parsed.warnings.length, 1);
+});

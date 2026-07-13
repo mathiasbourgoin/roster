@@ -267,7 +267,7 @@ Run the normalizer over every specialist's raw findings plus the prior cumulativ
 the LAST persisted `briefs/<task>-gate-report.json` if one exists (absent on round 1):
 
 ```bash
-[ -f scripts/review-normalize.js ] && node scripts/review-normalize.js <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> --gate-report briefs/<task>-gate-report.json || echo "review-normalize.js missing — stale install"
+[ -f scripts/review-normalize.js ] && node scripts/review-normalize.js <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> --gate-report briefs/<task>-gate-report.json --prior briefs/<task>-review.json || echo "review-normalize.js missing — stale install"
 ```
 
 It validates each new finding, canonically fingerprints it (plus `fid`, E-3), merges exact
@@ -281,8 +281,10 @@ any RESOLVED entry with no linked check at all — INV-2: flip its `status` back
 returns), or `dispositions.pending_check[]` (a RESOLVED, check-linked entry the report doesn't
 cover yet — resolve it after THIS round's gate run from THIS round's fresh report, one bounded
 re-gate if it turns out to be a reopen, §5.5). Schema-invalid input lands in `rejected[]` with a
-reason — never silently dropped. Merge its output into the draft verdict; stamp `normalized_by`
-with its `normalizer_version`.
+reason — never silently dropped. `--prior` also gets the caller's `--round` cross-checked against
+the lifecycle witness (§5.5); a mismatch lands in `warnings[]` — surface it in the one-liner (§7),
+never silently proceed on a drifted round. Merge its output into the draft verdict; stamp
+`normalized_by` with its `normalizer_version`.
 
 ### 5. Group ambiguities
 
@@ -332,16 +334,18 @@ diff. A `check` is always a node-runnable file path (invoked as `node <path>`); 
 once here and nowhere else with different words: (1) a persisted GO verdict retains its cycle-final
 `round`/`rounds_audit`/`cross_runtime` for auditability — nothing resets in place; (2) the next
 review cycle then initializes fresh — round 1, full fan-out, empty `rounds_audit`, a new
-cross-runtime probe, and `cycle` (int, envelope field) incremented. `scripts/lib/review-lifecycle.js`
-(`deriveRoundState`) is the executable witness — read the prior verdict through it, never
-re-derive the rule ad hoc. Determine this draft's `round`/`cycle` from the prior verdict:
-absent prior file or prior `status: "GO"` → event 2 (round `1`, `cycle` + 1, `rounds_audit`/
-`cross_runtime` reset); prior `NO-GO` with a numeric `round` → same cycle, `prior.round + 1`
-(carry `rounds_audit`/`cross_runtime` forward); prior `NO-GO` with `round` absent (legacy) → stay
-legacy for this cycle. A repaired draft re-gated after an exit-3 violation does **not** bump
-`round` again. **Two counters, never conflated:** `no_go_round` (reset to 0 on GO, incremented on a
-finding-driving NO-GO outside `category: "scope"`, compared against `tunables.max_no_go_rounds`) is
-the qualifying-only round-cap backstop — separate from `round`.
+cross-runtime probe, and `cycle` incremented. Never re-derive this by hand — shell out to the
+executable witness at draft composition:
+
+```bash
+node scripts/lib/review-lifecycle.js --prior briefs/<task>-review.json
+```
+
+→ `{round, cycle, fresh_cycle}` (absent prior file is legitimate input — a fresh task). A repaired
+draft re-gated after an exit-3 violation does **not** re-invoke this (`round` doesn't bump again).
+**Two counters, never conflated:** `no_go_round` (reset to 0 on GO, incremented on a finding-driving
+NO-GO outside `category: "scope"`, compared against `tunables.max_no_go_rounds`) is the
+qualifying-only round-cap backstop — separate from `round`.
 
 **Two-strike novel-finding escalation.** Pass `tunables.novel_finding_strikes` to the gate as
 `--strikes`. The gate computes the current round's strike — a physical round ≥ 2 with ≥1 novel
