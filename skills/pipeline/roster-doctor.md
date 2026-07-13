@@ -194,6 +194,11 @@ bash scripts/review-bundle-install.sh install --from-raw <url> (or --from-checko
 /recruit update." (FR-143). A repo with no bundle-requiring skill installed skips this gate
 entirely — it is not a general-purpose readiness check.
 
+A sha-mismatch specifically (a modified file, the shared wrapper included, F-5) carries its own
+recovery line verbatim from `verify`'s output: re-run install/upgrade with `--force` to reinstall
+from source, or manually restore the file to match the sha recorded in the manifest. Report that
+line as-is — do not paraphrase it away.
+
 **Verify, cheapest signal first — do not run the full suite blindly:**
 
 1. **Tool presence:** `command -v <tool>` for every underlying tool the detected gates need.

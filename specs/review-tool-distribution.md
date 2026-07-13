@@ -140,8 +140,10 @@ override base FR/clarification text.
   test-install.sh precedent — NOT in the npm-test chain; standalone `npm run test:review-bundle`
   plus a dedicated CI workflow step (⚠️ ci.yml edit — flagged for human visibility in the PR).
   The recruiter bundle step is placed after the blank line terminating the Skills-to-install
-  list; a Check-1 fixture asserts the list parse is unaffected. Generator/CI-check unit tests
-  (CHECK-1) stay in the npm chain; only the heavy scratch integration test moves.
+  list; the list-parse property is enforced live by check-pipeline-install.js's Check 1 (the
+  recruiter install-list ↔ disk check), which runs on every `npm test` (CHECK-9) — not by a
+  dedicated fixture. Generator/CI-check unit tests (CHECK-1) stay in the npm chain; only the
+  heavy scratch integration test moves.
 
 ## Entities
 

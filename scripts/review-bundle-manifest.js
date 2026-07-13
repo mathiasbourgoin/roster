@@ -29,6 +29,12 @@ const DEFAULT_BUNDLE_VERSION = "1.0.0";
 const DEFAULT_CHANNEL = "stable";
 const DEFAULT_SOURCE_REF = "main";
 const WRAPPER_REL = "scripts/xruntime-exec.sh";
+// FIX-4: a consumer-facing doc, distributed/installed/removed like any bundle file (sha-
+// verified, no special-casing in the installer), but NOT part of the require-graph closure —
+// nothing require()s a .md file, so it is appended explicitly, tagged `kind: "doc"`. The
+// closure-escape check (scripts/lib/review-bundle-check.js) compares CODE entries only —
+// a doc entry can never "escape" a require graph it was never a member of.
+const DOC_REL = "scripts/REVIEW-BUNDLE.md";
 
 // The 3 JS tool entry points the closure is walked from, plus the 1 bash tool that has no
 // JS requires of its own (check-scope-diff.sh) — together the 4 tools of FR-124.
@@ -43,7 +49,8 @@ function sha256(absPath) {
   return crypto.createHash("sha256").update(fs.readFileSync(absPath)).digest("hex");
 }
 
-/** Compute the full 14-file closure as paths relative to `root` (sorted, deterministic). */
+/** Compute the 14-file CODE closure as paths relative to `root` (sorted, deterministic).
+ *  Excludes the consumer-facing doc (DOC_REL) — see FIX-4 note above. */
 function computeBundlePaths(root) {
   root = root || ROOT;
   const entries = JS_TOOL_ENTRIES.map((p) => path.resolve(root, p));
@@ -64,6 +71,9 @@ function buildManifest(existing, root) {
     if (rel === WRAPPER_REL) entry.shared = true;
     return entry;
   });
+  if (fs.existsSync(path.resolve(root, DOC_REL))) {
+    files.push({ path: DOC_REL, sha256: sha256(path.resolve(root, DOC_REL)), kind: "doc" });
+  }
   return {
     schema_version: SCHEMA_VERSION,
     bundle_version: (existing && existing.bundle_version) || DEFAULT_BUNDLE_VERSION,

@@ -60,6 +60,11 @@
     {
       "path": "scripts/xruntime-review.js",
       "sha256": "22f6526400cbfc2c594271510664f37b159b7c812adc5738a0253ddd96a69e66"
+    },
+    {
+      "path": "scripts/REVIEW-BUNDLE.md",
+      "sha256": "272a11ef97e046b59dc1269e71e564990e4b167c99d1de8be84b36c64d8d933d",
+      "kind": "doc"
     }
   ]
 }
