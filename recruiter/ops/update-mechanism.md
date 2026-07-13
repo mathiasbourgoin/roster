@@ -270,6 +270,26 @@ curl -fsSL "$ROSTER_RAW/scripts/review-bundle-install.sh" -o /tmp/review-bundle-
 bash /tmp/review-bundle-install.sh install --from-raw "$ROSTER_RAW"
 ```
 
+**Step 3.5 — Portable skill-hook runtime:** if the target already has one or more
+`.harness/hooks/skills/**/*.md` files, install the self-contained hook runner. The
+runner bundles its parser dependency, so the target does not need this repository's
+`node_modules` or compiled `dist/` tree:
+
+```bash
+if find .harness/hooks/skills -type f -name '*.md' -print -quit 2>/dev/null | grep -q .; then
+  mkdir -p .harness/bin
+  HOOK_RUNNER_TMP=$(mktemp)
+  curl -fsSL "$ROSTER_RAW/.harness/bin/run-hook.js" -o "$HOOK_RUNNER_TMP"
+  node --check "$HOOK_RUNNER_TMP"
+  chmod 0755 "$HOOK_RUNNER_TMP"
+  mv "$HOOK_RUNNER_TMP" .harness/bin/run-hook.js
+fi
+```
+
+Do not point installed skill instructions at `dist/scripts/run-hook.js`: that path is
+only guaranteed in a roster source checkout. Installed workflows invoke
+`node .harness/bin/run-hook.js`.
+
 For each skill at path `<skill-path>` with filename `<name>.md`:
 ```bash
 SKILL_CONTENT=$(curl -sL "$ROSTER_RAW/<skill-path>")
@@ -315,6 +335,9 @@ echo "$PROJECTED" > .agents/skills/<name>/SKILL.md
 **Step 4 — Verify:**
 ```bash
 find .agents/skills -maxdepth 2 -name SKILL.md
+if find .harness/hooks/skills -type f -name '*.md' -print -quit 2>/dev/null | grep -q .; then
+  test -x .harness/bin/run-hook.js
+fi
 ```
 
 If `.harness/` or `.claude/` do not exist (e.g., Codex-only environment), write only to the

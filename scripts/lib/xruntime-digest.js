@@ -28,17 +28,30 @@ function probeVersion(runtimeBin) {
   return { timedOut, output };
 }
 
-function computeDigest(runtimeName, runtimeBin, sandboxFlag) {
+function computeDigests(runtimeName, runtimeBin, sandboxFlags) {
   const probe = probeVersion(runtimeBin);
   if (probe.timedOut) {
-    return { digest: `${runtimeName}:version-unavailable`, versionProbeTimedOut: true };
+    return {
+      digests: Object.fromEntries(sandboxFlags.map((flag) => [flag, `${runtimeName}:version-unavailable`])),
+      versionProbeTimedOut: true,
+    };
   }
-  const hash = crypto
-    .createHash("sha256")
-    .update(`${runtimeName}:${probe.output}:${sandboxFlag}`)
-    .digest("hex")
-    .slice(0, 16);
-  return { digest: `${runtimeName}:${hash}`, versionProbeTimedOut: false };
+  const digests = Object.fromEntries(
+    sandboxFlags.map((sandboxFlag) => {
+      const hash = crypto
+        .createHash("sha256")
+        .update(`${runtimeName}:${probe.output}:${sandboxFlag}`)
+        .digest("hex")
+        .slice(0, 16);
+      return [sandboxFlag, `${runtimeName}:${hash}`];
+    })
+  );
+  return { digests, versionProbeTimedOut: false };
 }
 
-module.exports = { computeDigest, probeVersion, VERSION_PROBE_TIMEOUT_MS };
+function computeDigest(runtimeName, runtimeBin, sandboxFlag) {
+  const result = computeDigests(runtimeName, runtimeBin, [sandboxFlag]);
+  return { digest: result.digests[sandboxFlag], versionProbeTimedOut: result.versionProbeTimedOut };
+}
+
+module.exports = { computeDigest, computeDigests, probeVersion, VERSION_PROBE_TIMEOUT_MS };

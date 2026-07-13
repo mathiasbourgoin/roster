@@ -3,7 +3,7 @@
 //
 // Cross-runtime (second-model) review helper (spec: specs/review-skill-slimming.md
 // US-1, FR-086..098, Amendments D-2/D-3/D-8/D-9; specs/review-v2-corrections.md
-// INV-4/6/7, Amendments E-5/E-8/E-10/E-12). Owns probe execution, health-state
+// INV-4/6/7/9, Amendments E-5/E-8/E-10/E-12/E-13). Owns probe execution, health-state
 // transitions, output validation, and the invocation journal in one
 // deterministic script, so breaker compliance stops depending on prose
 // discipline (roster-review.md §"Cross-Runtime Review").
@@ -17,6 +17,8 @@
 //     (--prompt-file <path> | reads the prompt from stdin)
 //     [--round <n>] [--cycle <n>] [--write] [--timeout <sec>] [--human-retry]
 //     [--skip "<reason>"]
+//   node scripts/xruntime-review.js <codex|opencode> --task <slug>
+//     --phase qa --check-availability [--write] [--human-retry]
 //
 // INV-6: the prompt is NEVER a positional CLI argument (removed, breaking —
 // this script is the sole caller) — a large diff embedded positionally could
@@ -43,7 +45,7 @@ const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
 const { spawnSync } = require("child_process");
-const { computeDigest } = require("./lib/xruntime-digest");
+const { computeDigest, computeDigests } = require("./lib/xruntime-digest");
 const { classify, isSpawnError } = require("./lib/xruntime-classify");
 const {
   validSlug,
@@ -66,6 +68,8 @@ function parseArgs(argv) {
     runtime: null,
     promptFile: null,
     task: null,
+    phase: "review",
+    checkAvailability: false,
     round: null,
     cycle: null,
     write: false,
@@ -78,6 +82,8 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === "--task") out.task = argv[++i];
     else if (a === "--prompt-file") out.promptFile = argv[++i];
+    else if (a === "--phase") out.phase = argv[++i];
+    else if (a === "--check-availability") out.checkAvailability = true;
     else if (a === "--round") out.round = parseInt(argv[++i], 10);
     else if (a === "--cycle") out.cycle = parseInt(argv[++i], 10);
     else if (a === "--write") out.write = true;
@@ -231,7 +237,7 @@ function finish(root, args, digest, outcome) {
 // state fails closed, the same argument as the convergence gate's own
 // exit 2. Journals a `blocked` entry (best-effort) then exits 2 — never 0,
 // never healthy.
-function finishBlocked(root, args, digest) {
+function finishBlocked(root, args, digest, reason = "malformed-verdict") {
   const entry = {
     ts: new Date().toISOString(),
     task: args.task,
@@ -240,12 +246,12 @@ function finishBlocked(root, args, digest) {
     runtime: args.runtime,
     digest,
     outcome: "blocked",
-    reason: "malformed-verdict",
+    reason,
   };
   const appended = appendJournalLine(root, args.task, entry);
   const result = {
     status: "blocked",
-    reason: "malformed-verdict",
+    reason,
     config_digest: digest,
     findings: [],
     journal_line: appended.ok ? appended.line : null,
@@ -259,12 +265,69 @@ function validateArgsOrFail(args) {
     fail(
       2,
       "usage: xruntime-review.js <codex|opencode> --task <slug> (--prompt-file <path> | stdin) " +
-        '[--round N] [--cycle N] [--write] [--timeout S] [--human-retry] [--skip "<reason>"]'
+        '[--round N] [--cycle N] [--write] [--timeout S] [--human-retry] [--skip "<reason>"] ' +
+        "or: --phase qa --check-availability [--write] [--human-retry]"
     );
   }
   if (!validSlug(args.task)) fail(2, `--task slug invalid or missing (must match [a-z0-9-]+): ${args.task}`);
+  if (!["review", "qa"].includes(args.phase)) fail(2, `--phase must be review or qa: ${args.phase}`);
+  if (args.checkAvailability && args.phase !== "qa") {
+    fail(2, "--check-availability is only valid with --phase qa");
+  }
+  if (args.checkAvailability) return;
   args.prompt = readPrompt(args.promptFile);
   if (!args.prompt) fail(2, "prompt is empty — pass --prompt-file <path> or pipe it via stdin");
+}
+
+// QA follows a persisted review GO in the same pipeline pass. Reusing the
+// review verdict here prevents QA from immediately re-paying a known-bad
+// runtime probe. A changed runtime/version remains eligible, preserving the
+// existing human-retry/version-change escape hatch. This check is provider-
+// free: it probes only `<runtime> --version` to derive the digest and never
+// invokes xruntime-exec.sh or appends an invocation journal entry.
+function finishQaAvailability(root, args, digest, acceptedDigests, versionProbeTimedOut) {
+  if (versionProbeTimedOut) {
+    process.stdout.write(
+      JSON.stringify({
+        status: "skipped-degraded",
+        reason: "version-probe-timeout",
+        config_digest: digest,
+        source: "version-probe",
+      }) + "\n"
+    );
+    process.exit(0);
+  }
+
+  const reviewJsonResult = readReviewJson(root, args.task);
+  if (reviewJsonResult.state === "malformed") {
+    finishBlocked(root, args, digest);
+    return;
+  }
+  if (
+    reviewJsonResult.state !== "valid" ||
+    !reviewJsonResult.value ||
+    typeof reviewJsonResult.value !== "object" ||
+    Array.isArray(reviewJsonResult.value) ||
+    reviewJsonResult.value.status !== "GO"
+  ) {
+    fail(2, "QA availability check requires a persisted GO review verdict");
+  }
+
+  const entry = reviewJsonResult.value.cross_runtime && reviewJsonResult.value.cross_runtime[args.runtime];
+  const refuse =
+    !args.humanRetry &&
+    entry &&
+    entry.status === "degraded" &&
+    acceptedDigests.includes(entry.config_digest);
+  process.stdout.write(
+    JSON.stringify({
+      status: refuse ? "skipped-degraded" : "available",
+      reason: refuse ? "runtime degraded during review with unchanged runtime version" : null,
+      config_digest: digest,
+      source: "review-go",
+    }) + "\n"
+  );
+  process.exit(0);
 }
 
 // Handles every "finish early, never invoke the wrapper" branch: explicit
@@ -289,6 +352,10 @@ function tryFinishEarly(root, args, digest, versionProbeTimedOut) {
 
   const currentCycle = args.cycle === null || Number.isNaN(args.cycle) ? null : args.cycle;
   const journalEntry = readLatestJournalEntry(root, args.task, args.runtime, digest);
+  if (journalEntry && journalEntry.malformed) {
+    finishBlocked(root, args, digest, "malformed-journal");
+    return true;
+  }
   const refuse = shouldRefuseDegraded({
     reviewJson: reviewJsonResult.value,
     journalEntry,
@@ -318,7 +385,29 @@ function main(argv) {
 
   const runtimeBin = process.env.XRUNTIME_BIN || args.runtime;
   const sandboxFlag = args.write ? "workspace-write" : "read-only";
-  const { digest, versionProbeTimedOut } = computeDigest(args.runtime, runtimeBin, sandboxFlag);
+  let digest;
+  let acceptedDigests;
+  let versionProbeTimedOut;
+  if (args.checkAvailability) {
+    // Review normally runs read-only while QA may need workspace-write to
+    // rebuild. Probe the runtime version once and accept either standard
+    // sandbox digest, so the phase transition does not defeat availability
+    // sharing. A runtime/version change still permits a new attempt.
+    const result = computeDigests(args.runtime, runtimeBin, ["read-only", "workspace-write"]);
+    digest = result.digests[sandboxFlag];
+    acceptedDigests = Object.values(result.digests);
+    versionProbeTimedOut = result.versionProbeTimedOut;
+  } else {
+    const result = computeDigest(args.runtime, runtimeBin, sandboxFlag);
+    digest = result.digest;
+    acceptedDigests = [digest];
+    versionProbeTimedOut = result.versionProbeTimedOut;
+  }
+
+  if (args.checkAvailability) {
+    finishQaAvailability(root, args, digest, acceptedDigests, versionProbeTimedOut);
+    return;
+  }
 
   if (tryFinishEarly(root, args, digest, versionProbeTimedOut)) return;
 
@@ -327,7 +416,7 @@ function main(argv) {
   finish(root, args, digest, outcome);
 }
 
-module.exports = { parseArgs, runWrapper, finish, main };
+module.exports = { parseArgs, runWrapper, finish, finishQaAvailability, main };
 
 if (require.main === module) {
   main(process.argv.slice(2));

@@ -23,7 +23,7 @@ version: 1.2.0
 | Compatibility owner (C-3/C-12/C-15) | Skill frontmatter `requires_review_bundle` (semver min); doctor reads it from installed projections (.claude primary, .agents fallback, drift → warn + max), compares to the local manifest — offline, no network (staleness = requirement violation, not latest-awareness). |
 | Atomicity (C-4/EC-6) | Staging dir → verify all 14 shas → move → manifest LAST. Retry each fetch once, then abort; partial failure leaves staging only. No .bak files (C-19: tripwire has no allowlist). |
 | Collisions / consumer-modified files (C-6) | Install refuses on paths matching neither old- nor new-manifest sha (abort + list; --force). Removal/upgrade skip modified files with warnings; missing files warn and continue (EC-7). |
-| Wrapper dual ownership (C-7) | `xruntime-exec.sh` marked `shared: true`; removal skips shared; scratch test asserts roster-qa survives removal. Its backward-compatible `--prompt-file=<path>` API is part of the shared contract. |
+| Wrapper dual ownership (C-7) | `xruntime-exec.sh` marked `shared: true`; removal skips shared. Its backward-compatible `--prompt-file=<path>` API is part of the shared contract. Roster-QA now requires the bundle-owned breaker helper too, so a removed bundle is correctly `stale-install` rather than a partially functional QA path. |
 | Extension system vs bespoke (C-8) | Bespoke by design: bash-only fetch must precede node trust, and `.harness` may not exist. Manifest conventions borrowed from the extension manifest for future convergence; a test asserts extension converge ignores bundle paths. |
 | init-harness vs curl divergence (C-9) | Checkout path copies + WARNS on drift (dev tree is truth); curl path verifies shas (manifest is truth). Two guarantees, both documented. |
 | Which installer (C-10) | Recruiter update-mechanism step (tools follow the skills that need them) + init-harness. install.sh explicitly does NOT fetch the bundle. |
@@ -66,7 +66,7 @@ FR-123..FR-158 as formalized (36 FRs — full normative text in the FR sections 
 - **FR-138**..**FR-145**: `requires_review_bundle` frontmatter on roster-review + roster-qa; doctor checks (manifest, non-shared shas, `command -v node`, version ≥ max requirement from projections with drift tie-break); NOT-READY when a requiring skill is installed (fail-fast stated); no network; runbook in the message; prose-mechanical guard → verdict `blocked`/`stale-install`, never design-not-converging; retrofit ordering holds.
 
 #### Scratch Integration Test [US-3]
-- **FR-146**..**FR-154**: mkdtemp + redirected HOME/CODEX_HOME + file:// mock; real-generator-twice upgrade fixture; closure-smoke tier; functional tier (scope-diff on seeded diff, gate --static on fixture, helper with XRUNTIME_BIN stub, normalizer on fixtures); orphan-deletion assert; shared-wrapper + roster-qa survival assert; modified-file skip assert; partial-fetch assert; no-allowlist leak tripwire.
+- **FR-146**..**FR-154**: mkdtemp + redirected HOME/CODEX_HOME + file:// mock; real-generator-twice upgrade fixture; closure-smoke tier; functional tier (scope-diff on seeded diff, gate --static on fixture, authentic helper success/fail-closed and review→QA breaker handoff with XRUNTIME_BIN stub, normalizer on fixtures); orphan-deletion assert; shared-wrapper survival plus QA-helper removal assert; modified-file skip assert; partial-fetch assert; no-allowlist leak tripwire.
 
 #### Gitignore Provisioning [US-4]
 - **FR-155**..**FR-158**: exactly `briefs/*-xruntime.jsonl`, `briefs/*-gate-report.json`, `briefs/*-state.json`, `briefs/*.json.draft`; never `briefs/` wholesale; doctor prints and never executes `git rm --cached`.
@@ -77,8 +77,8 @@ and mirrored in the implementer sub-brief.)
 ## Acceptance Criteria
 
 AC-01..AC-18 as formalized: staged install happy path; closure-escape CI catch; forced bump;
-partial-fetch atomicity; collision refusal/--force; shared-wrapper survival + roster-qa works
-post-removal; upgrade orphan cleanup; modified/missing removal warnings; doctor happy path;
+partial-fetch atomicity; collision refusal/--force; shared-wrapper survival while roster-qa detects
+the removed breaker helper as stale; upgrade orphan cleanup; modified/missing removal warnings; doctor happy path;
 frontmatter probe + drift tie-break; node probe; NOT-READY + runbook, offline; guard blocked stop;
 generator-twice fixture; both test tiers; no-allowlist tripwire; exact globs; non-executing
 remediation.
@@ -127,9 +127,9 @@ override base FR/clarification text.
   remediation (EC-8's warning-only clause superseded). `schema/` root colonization documented as
   accepted (same class as .claude//.agents/), per-file collision rules unchanged.
 - **F-7 (O-7, headroom + YAML):** guard budget ≤80 pinned words (fenced bash is free); budget
-  raise only per FR-120 process if compression genuinely fails. `requires_review_bundle: ">=1.0.0"`
-  QUOTED in YAML; schema/skill-schema.md allowlist entry; roster-qa gets the frontmatter + a light
-  wrapper existence check only (V1-Q4) + version bump.
+  raise only per FR-120 process if compression genuinely fails. `requires_review_bundle` stays
+  QUOTED in YAML; schema/skill-schema.md allowlist entry; roster-qa requires `>=1.2.0` and gets a
+  light wrapper + breaker-helper existence check.
 - **F-8 (O-8, tripwire vs install.sh .bak idiom):** the no-.bak/no-stray invariant binds THE
   BUNDLE INSTALLER's own behavior and is asserted in the scratch fixture (which never runs
   install.sh). install.sh's pre-existing .bak idiom is out of scope, documented.

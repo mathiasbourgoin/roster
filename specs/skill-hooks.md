@@ -314,3 +314,28 @@ As a new roster user, I want `docs/hooks.md` to explain the hook format, all ste
 - `HookFrictionEntry`: A JSONL entry in `skills-meta/friction.jsonl` with additional fields `hook` (pre/post), `outcome` (pass/warn/abort/pending — see US-6 amendment 2026-07-02; loop-N reserved, skip never logged), `duration_ms`, `loop_iterations` (null in v1) — extends the existing friction schema.
 - `GotoDirective`: A routing intent expressed as `goto: <skill-name>` in a hook step; machine-readable by linter and health analysis; interpreted by HookRunner as an instruction to dispatch the named skill next.
 - `IncludeFragment`: A shared hook step sequence stored in `.harness/hooks/shared/<name>.md`; referenced via `include:` steps; loaded by the LLM using the Read tool before processing the parent hook's steps.
+
+---
+
+## Portability Amendment (2026-07-13)
+
+This amendment supersedes the original prose-only `HookRunner` assumptions above.
+Shell-resolvable hook steps are now enforced by a Node runner; LLM-only steps remain
+explicitly pending for the orchestrating agent.
+
+- **INV-P1:** Installed workflow and skill instructions MUST invoke
+  `.harness/bin/run-hook.js`, never a source-checkout-only `dist/` path.
+- **INV-P2:** The installed runner MUST be self-contained and executable with the
+  target project's Node runtime when that project has no roster `node_modules`.
+- **INV-P3:** `sync-harness.sh` MUST install the runner whenever skill hooks exist and
+  `--check` MUST reject a missing or stale runner.
+- **INV-P4:** The source runner and bundled runner MUST be deterministically
+  byte-equivalent to a fresh build (`npm run check:hook-runtime`).
+
+**Acceptance scenario P1 — installed consumer:** Given a freshly bootstrapped target
+without `node_modules`, when a `roster-spec` pre-hook is added and the harness is
+synchronized, then `.harness/bin/run-hook.js` exists, accepts an intake containing
+`**Status: VALIDATED**`, and rejects the legacy `**Status:** VALIDATED` spelling.
+
+**Runnable check P1:** `npm run check:init-harness` exercises that scenario in a
+temporary full-profile consumer and removes the consumer afterward.
