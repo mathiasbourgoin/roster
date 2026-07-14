@@ -44,12 +44,24 @@ ingests it, and the envelope around the findings arrays.
 
 ### `no_go_reason.type`
 
-`null | "spec-ac-failure" | "code-plan-failure" | "cross-runtime-finding" | "out-of-scope-change" | "design-not-converging"`
+`null | "spec-ac-failure" | "code-plan-failure" | "cross-runtime-finding" | "out-of-scope-change" | "design-not-converging" | "review-integrity-failure"`
 
-### `no_go_reason.cause` (only set when `type == "design-not-converging"`)
+`"review-integrity-failure"` (added by `specs/r5-trace-enforcement.md` FR-175, C-1): the
+convergence gate's top-level `cause` is `"unattested-invocation"` — a claimed tool invocation
+(specialist, scope-gate, normalizer, or cross-runtime pass) has no corresponding trace/journal
+line. Routes to re-running the round's claimed tooling for real, **never** to `/roster-spec`
+design-not-converging routing, and **never** eligible for the streak override (INV-8).
 
-`null | "round-cap" | "unencodable-finding" | "novel-finding-streak"` — persisted `cause` is never
-`"process-incomplete"` (that gate-internal cause is repaired pre-persist, §5.5 B-5).
+### `no_go_reason.cause`
+
+Set when `type == "design-not-converging"`: `null | "round-cap" | "unencodable-finding" |
+"novel-finding-streak"` — persisted `cause` is never `"process-incomplete"` (that gate-internal
+cause is repaired pre-persist, §5.5 B-5).
+
+Set when `type == "review-integrity-failure"` (FR-174/FR-175, `specs/r5-trace-enforcement.md`):
+`"unattested-invocation"` — the ONLY cause this `type` carries. This is the one exception to the
+otherwise-binding "`cause` only set when `type == design-not-converging`" rule stated above: the
+two `type`/`cause` pairings are mutually exclusive and each is exhaustive for its own `type`.
 
 ### `escalation_reason`
 
@@ -122,12 +134,20 @@ the `fingerprint` fallback for legacy entries.
   "specialists_run": [
     { "name": "reviewer", "selection_reason": "owner reviewer always runs (FR-072)" }
   ],
-  "strike": false
+  "strike": false,
+  "trace_schema_version": "1.0"
 }
 ```
 
 `strike` is populated **after** the convergence gate reports it — never computed by
 roster-review itself.
+
+`trace_schema_version` (optional; `specs/r5-trace-enforcement.md` FR-167): stamped by
+roster-review on every **new** round (required prose-side, absent-safe for legacy entries) —
+echoes the `schema_version` written in that round's `briefs/<task>-review-trace.jsonl` lines. Its
+presence is one of the two OR'd conditions the gate uses to derive whether the round is
+trace-obligated (the other being the trace file's own existence, FR-169) — omitting it cannot
+un-obligate a round whose trace file already exists.
 
 ## `cross_runtime` entry shape (keyed by runtime name)
 

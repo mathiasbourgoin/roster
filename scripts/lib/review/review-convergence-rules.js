@@ -165,11 +165,13 @@ function computeCrossRuntimeWarnings(review) {
   return warnings;
 }
 
-// FR-059/B-5: precedence unencodable-finding > novel-finding-streak >
+// FR-059/B-5, extended FR-174 (r5-trace-enforcement): precedence
+// unencodable-finding > unattested-invocation > novel-finding-streak >
 // round-cap; process-incomplete is never a top-level cause.
 function selectCause(violations) {
   const causes = new Set(violations.map((v) => v.cause));
   if (causes.has("unencodable-finding")) return "unencodable-finding";
+  if (causes.has("unattested-invocation")) return "unattested-invocation";
   if (causes.has("novel-finding-streak")) return "novel-finding-streak";
   if (causes.has("round-cap")) return "round-cap";
   return null;

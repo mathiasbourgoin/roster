@@ -375,7 +375,7 @@
       {
         "name": "roster-review",
         "source": "roster",
-        "version": "2.2.2",
+        "version": "2.3.0",
         "domain": "pipeline",
         "phase": "review",
         "tunables": {
@@ -389,7 +389,7 @@
       {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.10.2",
+        "version": "1.10.3",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
