@@ -226,4 +226,80 @@ function runNode(absPath, cwd, repoRoot, timeoutMs) {
   }
 }
 
-module.exports = { isFullSha, verifyCheck };
+// ── per-finding orchestration (D1, r5-trace-enforcement) ────────────────
+// Moved from scripts/check-review-convergence.js (its documented home,
+// per this module's docblock) to keep the main gate file under the repo's
+// 500-line limit as the trace dispatch is added — zero behavior change.
+
+// Verifies a single finding's ratcheted check and translates the raw
+// verifyCheck() result into report entries (violations + a checks[] entry).
+function verifyFinding(f, repoRoot, timeoutMs) {
+  if (f.pre_fix_sha === null || f.pre_fix_sha === undefined) {
+    // FR-034: uncommitted-tree task — accepted, flagged, not a violation.
+    return {
+      checkEntry: {
+        check: f.check,
+        fingerprint: f.fingerprint,
+        red_verified: null,
+        flagged: "no pre_fix_sha recorded (uncommitted-tree task, FR-034)",
+      },
+      violations: [],
+      inconclusive: false,
+    };
+  }
+
+  const result = verifyCheck({
+    repoRoot,
+    checkRelPath: f.check,
+    preFixSha: f.pre_fix_sha,
+    recordedBlob: f.check_blob || null,
+    redVerified: f.red_verified,
+    timeoutMs,
+  });
+
+  return {
+    // E-3: checks[] is keyed by (check, fid) with a fingerprint fallback for
+    // legacy findings that predate fid — the normalizer's gate-report lookup
+    // (buildGateCheckIndex) uses this exact same key shape.
+    checkEntry: Object.assign({ check: f.check, fingerprint: f.fingerprint, fid: f.fid || null }, result),
+    violations: buildRedGreenViolations(result, f),
+    inconclusive: !!result.inconclusive,
+  };
+}
+
+// Translates a verifyCheck() outcome into 0-2 violation report entries.
+function buildRedGreenViolations(result, f) {
+  const violations = [];
+
+  if (result.vacuous) {
+    violations.push({
+      type: "vacuous-check",
+      cause: "unencodable-finding",
+      fingerprint: f.fingerprint,
+      check: f.check,
+      detail: "red command exited 0 against the pre-fix tree — check never fails (FR-036)",
+    });
+  } else if (result.weakened) {
+    violations.push({
+      type: "weakened-check",
+      cause: "unencodable-finding",
+      fingerprint: f.fingerprint,
+      check: f.check,
+      detail: "check_blob mismatch and re-verification could not reproduce red (FR-038)",
+    });
+  }
+
+  if (result.greenFailed) {
+    violations.push({
+      type: "green-failure",
+      cause: "unencodable-finding",
+      fingerprint: f.fingerprint,
+      check: f.check,
+      detail: "check does not pass against the current tree (FR-039)",
+    });
+  }
+
+  return violations;
+}
+
+module.exports = { isFullSha, verifyCheck, verifyFinding, buildRedGreenViolations };

@@ -17,7 +17,7 @@
 //
 // Usage:
 //   node scripts/review-normalize.js [<finding-file.json> ...] [--ledger <path>]
-//     [--round <n>] [--gate-report <path>] [--prior <path>]
+//     [--round <n>] [--cycle <n>] [--task <slug>] [--gate-report <path>] [--prior <path>]
 //
 // Each positional file is a JSON array of specialist finding objects; with no
 // positional files, findings are read from stdin (a JSON array; empty stdin
@@ -33,7 +33,13 @@
 // `--round` and `--prior` are given, the caller's `--round` is cross-checked
 // against `scripts/lib/review/review-lifecycle.js`'s `deriveRoundState(prior)` and a
 // mismatch is reported in `warnings[]` (never a hard failure — advisory only,
-// review finding FIX-1).
+// review finding FIX-1). `--task <slug>` and `--cycle <n>` (spec:
+// specs/r5-trace-enforcement.md FR-166, US-2) are used ONLY to self-append
+// this invocation's own `normalizer` trace line to
+// briefs/<task>-review-trace.jsonl BEFORE stdout is emitted — never consumed
+// by normalize()'s own (pure) logic; omitting either means no self-append
+// (unchanged from before this feature). An append failure surfaces as a
+// warning in `warnings[]`, never a changed exit code or normalization result.
 //
 // Output: single JSON object on stdout —
 //   { findings, cross_runtime_findings, probable_duplicates, rejected,
@@ -57,8 +63,10 @@ const {
   splitReobservations,
 } = require("./lib/review/normalize-rules");
 const { deriveRoundState } = require("./lib/review/review-lifecycle");
+const { appendTraceLine } = require("./lib/review/review-trace");
 
 const NORMALIZER_VERSION = "2.0.0";
+const TRACE_SCHEMA_VERSION = "1.0";
 
 function fail(code, message) {
   process.stderr.write(`review-normalize: ${message}\n`);
@@ -66,7 +74,7 @@ function fail(code, message) {
 }
 
 function parseArgs(argv) {
-  const out = { files: [], ledgerPath: null, round: null, gateReportPath: null, priorPath: null };
+  const out = { files: [], ledgerPath: null, round: null, gateReportPath: null, priorPath: null, task: null, cycle: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--ledger") {
@@ -77,6 +85,16 @@ function parseArgs(argv) {
       const n = parseInt(raw, 10);
       if (Number.isNaN(n)) fail(2, "--round requires an integer argument");
       out.round = n;
+    } else if (a === "--cycle") {
+      // r5-trace-enforcement (FR-166): only used to stamp this invocation's
+      // self-appended trace line — never consumed by normalize()'s own logic.
+      const raw = argv[++i];
+      const n = parseInt(raw, 10);
+      if (Number.isNaN(n)) fail(2, "--cycle requires an integer argument");
+      out.cycle = n;
+    } else if (a === "--task") {
+      out.task = argv[++i];
+      if (out.task === undefined) fail(2, "--task requires a value");
     } else if (a === "--gate-report") {
       out.gateReportPath = argv[++i];
       if (out.gateReportPath === undefined) fail(2, "--gate-report requires a path argument");
@@ -270,6 +288,36 @@ function normalize({ newFindings, ledger, round, gateReport, priorReview }) {
   };
 }
 
+// FR-166 (US-2): self-appends this invocation's own `normalizer` trace line
+// BEFORE stdout is emitted (append-before-report) — reusing (not editing)
+// scripts/lib/xruntime/xruntime-journal.js's mechanics via the sibling
+// scripts/lib/review/review-trace.js module (never the journal file itself,
+// INV-4). Only appends when --task, --round, AND --cycle are ALL given — a
+// line stamped with a guessed/sentinel cycle would silently mismatch the
+// gate's (cycle, round) scoping (scripts/lib/review/review-trace-rules.js's
+// classifyLines) and defeat the append's purpose; an older invocation
+// predating these flags simply appends nothing, unchanged from before this
+// feature. An append failure is surfaced as a warning in the result — never
+// a silent success (FR-096 pattern) — and NEVER changes the exit code or
+// normalization output (C-9).
+function selfAppendTrace(args, result) {
+  if (args.task === null || args.round === null || args.cycle === null) return;
+  const entry = {
+    schema_version: TRACE_SCHEMA_VERSION,
+    ts: new Date().toISOString(),
+    task: args.task,
+    round: args.round,
+    cycle: args.cycle,
+    event: "normalizer",
+    actor: "review-normalize.js",
+    outcome: "ran",
+  };
+  const appended = appendTraceLine(process.cwd(), args.task, entry);
+  if (!appended.ok) {
+    result.warnings.push(`review-trace append failed (normalizer self-append, FR-166): ${appended.error}`);
+  }
+}
+
 function main(argv) {
   const args = parseArgs(argv);
   const newFindings = readNewFindings(args.files);
@@ -277,11 +325,12 @@ function main(argv) {
   const gateReport = args.gateReportPath ? readJsonObjectFile(args.gateReportPath, "--gate-report file") : null;
   const priorReview = args.priorPath ? readJsonObjectFile(args.priorPath, "--prior file") : null;
   const result = normalize({ newFindings, ledger, round: args.round, gateReport, priorReview });
+  selfAppendTrace(args, result);
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
   process.exit(0);
 }
 
-module.exports = { normalize, parseArgs, NORMALIZER_VERSION };
+module.exports = { normalize, parseArgs, NORMALIZER_VERSION, selfAppendTrace };
 
 if (require.main === module) {
   main(process.argv.slice(2));

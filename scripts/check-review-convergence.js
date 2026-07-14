@@ -50,13 +50,21 @@
 // consumer (roster-review) detects a stale copy of this script predating
 // review-fanout-convergence (its report would lack `config` entirely).
 //
-// Module boundary (FIX-1): round/strike/audit/breaker rule functions
-// (isNovelStrikeFinding, computeStrikeMap, computeStreakViolation,
-// computeMissingAuditViolation, computeCrossRuntimeWarnings, selectCause,
-// HIGH_PLUS) live in scripts/lib/review/review-convergence-rules.js; the low-level
-// scratch-tree git mechanics (isFullSha, verifyCheck and its helpers) live
-// in scripts/lib/review/redgreen-scratch.js. This file keeps CLI parsing, input
-// validation, structural finding checks, and orchestration.
+// Module boundary (FIX-1, extended D1/C-5/r5-trace-enforcement): round/
+// strike/audit/breaker rule functions (isNovelStrikeFinding, computeStrikeMap,
+// computeStreakViolation, computeMissingAuditViolation,
+// computeCrossRuntimeWarnings, selectCause, HIGH_PLUS) live in
+// scripts/lib/review/review-convergence-rules.js; the scratch-tree git
+// mechanics AND per-finding red/green orchestration (isFullSha, verifyCheck,
+// verifyFinding, buildRedGreenViolations) live in
+// scripts/lib/review/redgreen-scratch.js; trace obligation/coverage/
+// correspondence PURE rules live in scripts/lib/review/review-trace-rules.js
+// (FR-178) and the trace mechanism's I/O-facing orchestration (task-slug
+// validation, sibling-path derivation, read-only trace/journal file reads)
+// lives in scripts/lib/review/review-trace-dispatch.js (C-5 line-budget
+// contingency — never trim the trace check itself). This file keeps CLI
+// parsing, input validation, structural finding checks, and thin
+// orchestration/dispatch only.
 "use strict";
 
 const fs = require("fs");
@@ -70,7 +78,8 @@ const {
   computeCrossRuntimeWarnings,
   selectCause,
 } = require("./lib/review/review-convergence-rules");
-const { isFullSha, verifyCheck } = require("./lib/review/redgreen-scratch");
+const { isFullSha, verifyFinding } = require("./lib/review/redgreen-scratch");
+const { evaluateTrace } = require("./lib/review/review-trace-dispatch");
 
 const KNOWN_FLAGS = new Set(["--static", "--max-rounds", "--timeout", "--strikes"]);
 const DEFAULT_STRIKES = 2;
@@ -120,10 +129,11 @@ function validateArgsAndReview(argv) {
   if (Number.isNaN(args.timeout) || args.timeout < 1) fail(2, "--timeout must be a positive integer (seconds)");
   if (Number.isNaN(args.strikes) || args.strikes < 1) fail(2, "--strikes must be a positive integer");
 
-  const review = readReviewJson(path.resolve(process.cwd(), args.reviewPath), args.reviewPath);
+  const reviewAbsPath = path.resolve(process.cwd(), args.reviewPath);
+  const review = readReviewJson(reviewAbsPath, args.reviewPath);
   const roundState = deriveGateRoundInputs(review);
 
-  return Object.assign({ args, review }, roundState);
+  return Object.assign({ args, review, reviewAbsPath }, roundState);
 }
 
 // Reads and parses review.json. Exits (via fail) on any absent/unreadable/
@@ -175,6 +185,14 @@ function coerceFindings(review) {
 // which derives the NEXT draft's round/cycle from the PRIOR verdict. Named
 // distinctly (deriveGateRoundInputs) to reserve `deriveRoundState` for that
 // lifecycle witness and avoid the two being confused (review finding LOW-1).
+// r5-trace-enforcement: `cycle` alongside `round` (same hasOwnProperty
+// presence check) purely for the trace mechanism's (cycle, round) scoping —
+// absence or a non-numeric value is legacy-safe (null), never fatal.
+function deriveCycle(review) {
+  if (!Object.prototype.hasOwnProperty.call(review, "cycle")) return null;
+  return typeof review.cycle === "number" && Number.isFinite(review.cycle) ? review.cycle : null;
+}
+
 function deriveGateRoundInputs(review) {
   const warnings = [];
 
@@ -208,6 +226,7 @@ function deriveGateRoundInputs(review) {
     warnings.push("legacy review.json: round key absent — skipping strike and rounds_audit checks (B-8)");
   }
 
+  const cycle = deriveCycle(review);
   const findings = coerceFindings(review);
 
   // B-7: A-11 re-keyed to the physical `round` counter (retiring the old
@@ -219,7 +238,7 @@ function deriveGateRoundInputs(review) {
     );
   }
 
-  return { findings, warnings, noGoRound, legacyNoGoRound, round, legacyRound };
+  return { findings, warnings, noGoRound, legacyNoGoRound, round, legacyRound, cycle };
 }
 
 // ── structural finding checks ────────────────────────────────────────────
@@ -297,77 +316,6 @@ function runRedGreenVerification(findings, args) {
   return { violations, checks, anyInconclusive };
 }
 
-// Verifies a single finding's ratcheted check and translates the raw
-// verifyCheck() result into report entries (violations + a checks[] entry).
-function verifyFinding(f, repoRoot, timeoutMs) {
-  if (f.pre_fix_sha === null || f.pre_fix_sha === undefined) {
-    // FR-034: uncommitted-tree task — accepted, flagged, not a violation.
-    return {
-      checkEntry: {
-        check: f.check,
-        fingerprint: f.fingerprint,
-        red_verified: null,
-        flagged: "no pre_fix_sha recorded (uncommitted-tree task, FR-034)",
-      },
-      violations: [],
-      inconclusive: false,
-    };
-  }
-
-  const result = verifyCheck({
-    repoRoot,
-    checkRelPath: f.check,
-    preFixSha: f.pre_fix_sha,
-    recordedBlob: f.check_blob || null,
-    redVerified: f.red_verified,
-    timeoutMs,
-  });
-
-  return {
-    // E-3: checks[] is keyed by (check, fid) with a fingerprint fallback for
-    // legacy findings that predate fid — the normalizer's gate-report lookup
-    // (buildGateCheckIndex) uses this exact same key shape.
-    checkEntry: Object.assign({ check: f.check, fingerprint: f.fingerprint, fid: f.fid || null }, result),
-    violations: buildRedGreenViolations(result, f),
-    inconclusive: !!result.inconclusive,
-  };
-}
-
-// Translates a verifyCheck() outcome into 0-2 violation report entries.
-function buildRedGreenViolations(result, f) {
-  const violations = [];
-
-  if (result.vacuous) {
-    violations.push({
-      type: "vacuous-check",
-      cause: "unencodable-finding",
-      fingerprint: f.fingerprint,
-      check: f.check,
-      detail: "red command exited 0 against the pre-fix tree — check never fails (FR-036)",
-    });
-  } else if (result.weakened) {
-    violations.push({
-      type: "weakened-check",
-      cause: "unencodable-finding",
-      fingerprint: f.fingerprint,
-      check: f.check,
-      detail: "check_blob mismatch and re-verification could not reproduce red (FR-038)",
-    });
-  }
-
-  if (result.greenFailed) {
-    violations.push({
-      type: "green-failure",
-      cause: "unencodable-finding",
-      fingerprint: f.fingerprint,
-      check: f.check,
-      detail: "check does not pass against the current tree (FR-039)",
-    });
-  }
-
-  return violations;
-}
-
 // US-1/US-3 (B-8): only evaluated when `round` is present — legacy
 // review.json skips strike classification and the audit check entirely.
 // Extracted from main() (FIX-2) — one function, one responsibility: derive
@@ -390,8 +338,10 @@ function evaluateStrikesAndAudit(review, round, legacyRound, findings, strikesRe
 
 // Assembles the JSON report (extracted from main(), FIX-2). `cause` is
 // derived here so it always reflects the final, fully-accumulated
-// violations list.
-function buildReport({ args, noGoRound, legacyNoGoRound, round, legacyRound, currentRoundStrike, warnings, violations, checks }) {
+// violations list. `trace` (FR-176) is emitted on every exit code, including
+// exit 2/legacy-skip — the anti-stale-script signal roster-review checks
+// exactly as it checks `config.strikes`.
+function buildReport({ args, noGoRound, legacyNoGoRound, round, legacyRound, currentRoundStrike, warnings, violations, checks, trace }) {
   return {
     mode: args.static ? "static" : "full",
     no_go_round: noGoRound,
@@ -405,14 +355,19 @@ function buildReport({ args, noGoRound, legacyNoGoRound, round, legacyRound, cur
     warnings,
     violations,
     checks,
+    trace,
   };
 }
 
-// FR-059/B-5 exit precedence (extracted from main(), FIX-2): an inconclusive
-// red/green run (2) outranks a design violation (1), which outranks a
-// process-incomplete-only report (3), which outranks a clean pass (0).
-function decideExit(report, anyInconclusive) {
-  if (anyInconclusive) return 2;
+// FR-059/B-5 exit precedence (extracted from main(), FIX-2), extended
+// FR-173/r5-trace-enforcement: an inconclusive red/green run OR a
+// current-cycle malformed trace line (traceDegraded) — both fail-closed (2)
+// — outranks a design violation (1), which outranks a process-incomplete-
+// only report (3), which outranks a clean pass (0). `traceDegraded`
+// defaulting to falsy on an undefined argument preserves backward
+// compatibility for any caller that predates this parameter.
+function decideExit(report, anyInconclusive, traceDegraded) {
+  if (anyInconclusive || traceDegraded) return 2;
   const hasDesignViolation = report.violations.some((v) => v.cause !== "process-incomplete");
   if (hasDesignViolation) return 1;
   const hasProcessIncompleteOnly = report.violations.some((v) => v.cause === "process-incomplete");
@@ -422,9 +377,8 @@ function decideExit(report, anyInconclusive) {
 
 // ── main ─────────────────────────────────────────────────────────────────
 function main() {
-  const { args, review, findings, warnings, noGoRound, legacyNoGoRound, round, legacyRound } = validateArgsAndReview(
-    process.argv.slice(2)
-  );
+  const { args, review, findings, warnings, noGoRound, legacyNoGoRound, round, legacyRound, cycle, reviewAbsPath } =
+    validateArgsAndReview(process.argv.slice(2));
 
   const violations = [];
 
@@ -447,6 +401,11 @@ function main() {
   const redGreen = runRedGreenVerification(findings, args);
   violations.push(...redGreen.violations);
 
+  const trace = evaluateTrace({ review, round, cycle, legacyRound, reviewAbsPath });
+  if (trace.fail) fail(trace.fail.code, trace.fail.message);
+  violations.push(...trace.violations);
+  warnings.push(...trace.warnings);
+
   const report = buildReport({
     args,
     noGoRound,
@@ -457,6 +416,7 @@ function main() {
     warnings,
     violations,
     checks: redGreen.checks,
+    trace: trace.traceBlock,
   });
 
   // Always emit the JSON report, even on exit 0 — unlike check-scope-diff.sh's
@@ -464,7 +424,7 @@ function main() {
   // (red_verified/check_blob) back into review.json on every verdict,
   // including a clean GO round (A-1/A-2 gate-before-write order).
   process.stdout.write(JSON.stringify(report, null, 2) + "\n");
-  process.exit(decideExit(report, redGreen.anyInconclusive));
+  process.exit(decideExit(report, redGreen.anyInconclusive, trace.degraded));
 }
 
 if (require.main === module) {

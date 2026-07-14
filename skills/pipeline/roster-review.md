@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 2.2.2
+version: 2.3.0
 domain: pipeline
 phase: review
 preamble: true
@@ -24,6 +24,7 @@ artifacts:
     - git diff (current)
   writes:
     - briefs/<task>-review.json
+    - briefs/<task>-review-trace.jsonl (append-only invocation trace, R-5 gate-enforced — specs/r5-trace-enforcement.md)
 pipeline_role:
   triggered_by: /roster-implement completed
   receives: briefs/<task>-impl.md + current diff
@@ -146,6 +147,13 @@ after them and flags any excursion regardless of author. A task edit to a pre-ta
 excluded by design; a mid-phase third-party file is attributed to the task and must be
 human-ACCEPTED (documented blind spots, see the script).
 
+**Invocation trace (R-5, FR-165):** Full mode only, append one `scope-gate` line — `ran` if the
+manifest was present, else `skipped`/`no-manifest` (Express/Fast append nothing, EC-6):
+
+```bash
+[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event scope-gate --actor check-scope-diff.sh --outcome <ran|skipped> [--detail no-manifest] || echo "review-trace.js missing — stale install"
+```
+
 When spawning the `reviewer` agent (step 3), state whether this gate ran — when it did, the agent
 defers scope assessment to it and emits no scope findings of its own.
 
@@ -193,12 +201,20 @@ specialists re-run.
 - **Deduped findings:** when two findings converged on one shared invariant and only one specialist
   survives the dedup (§4), that surviving specialist's name is what selection keys on.
 
+**Invocation trace (R-5, FR-165):** before composing `rounds_audit`, append a `specialist` line
+per specialist, `actor` == its name:
+
+```bash
+[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome ran || echo "review-trace.js missing — stale install"
+```
+
 Append **one entry per round — including GO drafts** — to `rounds_audit` (append-only, carried
 forward, **retained on GO**) before invoking the gate (§5.5), with `round`, `reviewed_sha`,
 `fix_sha` (or `null` + `fix_sha_reason: "dirty-tree"`), `specialists_run: [{name,
 selection_reason}]` (every entry needs a non-empty reason — "why did this specialist run this
-round" must always be answerable), and `strike` (populated **after** the gate reports it, §5.5 —
-never computed here). Full shape: `schema/review-json-schema.md`.
+round" must always be answerable), `strike` (populated **after** the gate reports it, §5.5 —
+never computed here), and `trace_schema_version: "1.0"` (required for new rounds, FR-167). Full
+shape: `schema/review-json-schema.md`.
 
 ### Cross-Runtime Review
 
@@ -280,7 +296,7 @@ Run the normalizer over every specialist's raw findings plus the prior cumulativ
 the LAST persisted `briefs/<task>-gate-report.json` if one exists (absent on round 1):
 
 ```bash
-[ -f scripts/review-normalize.js ] && node scripts/review-normalize.js <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> --gate-report briefs/<task>-gate-report.json --prior briefs/<task>-review.json || echo "review-normalize.js missing — stale install"
+[ -f scripts/review-normalize.js ] && node scripts/review-normalize.js <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> --cycle <cycle> --task <task-slug> --gate-report briefs/<task>-gate-report.json --prior briefs/<task>-review.json || echo "review-normalize.js missing — stale install"
 ```
 
 It validates each new finding, canonically fingerprints it (plus `fid`, E-3), merges exact
@@ -298,6 +314,15 @@ reason — never silently dropped. `--prior` also gets the caller's `--round` cr
 the lifecycle witness (§5.5); a mismatch lands in `warnings[]` — surface it in the one-liner (§7),
 never silently proceed on a drifted round. Merge its output into the draft verdict; stamp
 `normalized_by` with its `normalizer_version`.
+
+**Invocation trace (R-5, FR-165/FR-166):** given `--task`/`--round`/`--cycle` above, the normalizer
+self-appends its `normalizer` line — no manual append needed. Surface any `review-trace append
+failed` warning in the one-liner (§7). Append by hand only for a stale normalizer predating
+FR-166:
+
+```bash
+[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event normalizer --actor review-normalize.js --outcome ran || echo "review-trace.js missing — stale install"
+```
 
 ### 5. Group ambiguities
 
@@ -386,23 +411,27 @@ node scripts/check-review-convergence.js briefs/<task>-review.json.draft --max-r
 ```
 
 This runs full mode: red/green verification for any check needing it, JSON report on stdout.
-Before trusting any other field, check `report.config.strikes` is present — its absence means a
-stale gate script; do not persist, surface "gate script out of date" to the human, and stop.
+Before trusting any other field, check `report.config.strikes` **and** `report.trace` (FR-176) are
+both present — absence of either means a stale gate script; do not persist, surface "gate script
+out of date", and stop.
 
-**Exit-3 bounded repair loop.** Exit 3 means the only violations are `process-incomplete`
-(currently: an incomplete/absent `rounds_audit` entry) — a bookkeeping defect, not a design one.
-Repair the draft's `rounds_audit` entry per `violations[].detail` and re-invoke (do not bump
-`round`), bounded to 2 attempts total; if still exit 3, stop and surface to the human. This cause
-must **never** reach routing — `process-incomplete` is always repaired pre-persist or surfaced
-directly, never treated as design-not-converging.
+**Exit-3 bounded repair loop.** Exit 3 means the only violations are `process-incomplete` — an
+incomplete/absent `rounds_audit` entry, **or** `missing-trace` (a trace-obligated round with zero
+current-round trace lines, FR-170) — a process defect, not design. Repair per
+`violations[].detail`, bounded to 2 attempts, never bump `round`: repair the entry for
+`missing-loopback-audit`; for `missing-trace`, **actually invoke the missed tool** (§2.5/§3/§4
+appends the line) — **never** fabricate one (FR-177/C-3). Still exit 3 after 2 attempts → stop,
+surface to the human — never design-not-converging.
 
 Once the gate reports anything other than exit 3, merge `checks[]` (`red_verified`, `check_blob`,
 keyed by `(check, fid)` — E-3) back into findings, merge `current_round_strike` into this round's
-`rounds_audit.strike`, and merge the outcome into the verdict: exit 0 → no change. Exit 1 → **the
-verdict becomes NO-GO regardless of step 6**, `no_go_reason.type = "design-not-converging"`, `cause`
-from the gate's top-level `cause` (precedence unencodable-finding > novel-finding-streak >
-round-cap) — even on an otherwise-GO round. Exit 2 → degraded input — fail-closed: block the
-route-back and surface to the human.
+`rounds_audit.strike`, and merge the outcome into the verdict: exit 0 → no change. Exit 2 →
+degraded input — fail-closed: block the route-back, surface to the human. **Exit 1 → NO-GO
+regardless of step 6**, split by `cause` (C-1/FR-175): `unattested-invocation` → `type =
+"review-integrity-failure"`, same `cause` — surface the unattested claims, route to re-running the
+claimed tooling, never `/roster-spec`/streak-override (INV-8). Any other cause →
+`"design-not-converging"` (precedence unencodable-finding > unattested-invocation >
+novel-finding-streak > round-cap, FR-174) — even on an otherwise-GO round.
 
 **Gate-report persistence + pending-check resolution (E-2).** Persist the gate's stdout JSON
 verbatim to `briefs/<task>-gate-report.json` (overwritten each round — it already has the report,
@@ -432,8 +461,9 @@ round-tracking fields), `cross_runtime_findings`, `summary`, `no_go_reason`, `no
 **GO status if:** no CRITICAL or HIGH OPEN finding in either `findings` or `cross_runtime_findings`,
 AND the convergence gate (§5.5) reports no violation.
 **NO-GO status if:** at least one such finding not resolved/accepted, OR the gate reports a
-violation. A cross-runtime CRITICAL/HIGH sets `no_go_reason.type = "cross-runtime-finding"`; a gate
-violation sets `"design-not-converging"` with `cause` per §5.5.
+violation. A cross-runtime CRITICAL/HIGH sets `type = "cross-runtime-finding"`; a gate violation
+with `cause == "unattested-invocation"` sets `type = "review-integrity-failure"` (FR-175); any
+other gate violation sets `"design-not-converging"` with `cause` per §5.5.
 
 ### 7. Human gate
 
@@ -453,7 +483,7 @@ gate — `/roster-qa` is explicitly out of scope for this mechanism.
 
 `briefs/<task>-review.json` with GO or NO-GO status and all findings documented.
 
-**If GO:** `/roster-qa` can start. **If NO-GO:** return to `/roster-implement` with OPEN findings. **If `no_go_reason.type == "spec-ac-failure"`:** return to `/roster-spec` — spec ACs were not met. **If `no_go_reason.type == "design-not-converging"`:** return to `/roster-spec` (forces the minimal-freeze profile) — the round cap was reached or a finding cannot be encoded as a check.
+**If GO:** `/roster-qa` can start. **If NO-GO:** return to `/roster-implement` with OPEN findings. **If `no_go_reason.type == "spec-ac-failure"`:** return to `/roster-spec`. **If `"design-not-converging"`:** return to `/roster-spec` (minimal-freeze profile). **If `"review-integrity-failure"`:** re-run the claimed tooling for real, never `/roster-spec` (FR-175).
 
 ## When to Go Back
 
@@ -463,8 +493,9 @@ gate — `/roster-qa` is explicitly out of scope for this mechanism.
 | Research reveals a design flaw missed in planning | Stop — re-run `/roster-plan` or `/roster-intake` before fixes |
 | `code-quality-auditor` returns Critical KB violations | Auto-classify as HIGH finding → NO-GO unless immediately auto-fixable |
 | `escalation_needed: true` in Express/Fast mode | Present to human — they decide whether to loop back to `/roster-spec` or accept as-is |
-| Convergence gate reports a violation (§5.5) | The draft verdict becomes NO-GO with `no_go_reason.type: "design-not-converging"` — never silently keep a GO |
-| Gate exit 3 (`process-incomplete`) | Repair the draft's `rounds_audit` entry and re-gate (max 2 attempts, §5.5) — never route; surface to human if still failing after 2 attempts |
+| Convergence gate violation, `cause != "unattested-invocation"` (§5.5) | NO-GO, `type: "design-not-converging"` — never silently keep a GO |
+| Convergence gate violation, `cause == "unattested-invocation"` (§5.5) | NO-GO, `type: "review-integrity-failure"` — re-run the claimed tooling for real; never `/roster-spec`/streak override |
+| Gate exit 3 (`process-incomplete`) | Repair per `violations[].detail` (§5.5), re-gate (max 2 attempts) — never route; surface to human if still failing |
 | `no_go_reason.cause == "novel-finding-streak"` and human exercises the override | Route to `/roster-implement` for one more round instead of `/roster-spec`; record `streak_override` and reset this round's `strike` to `false` |
 
 ## What Next
@@ -495,4 +526,6 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - The ACCEPT prompt for a HIGH+ finding must state the waiver is permanent — never phrase it as temporary
 - Never conflate `round` (physical, two-event lifecycle — resets only at the next cycle's start, INV-3) with `no_go_round` (qualifying-only backstop, reset-on-GO) — they are separate counters with separate reset rules
 - Never let the gate's own `process-incomplete` cause escape to routing — it is always repaired pre-persist (max 2 attempts) or surfaced to the human directly, never treated as design-not-converging
-- Never persist a draft verdict when the gate's report is missing `config.strikes` — treat it as a stale gate script and surface it, never silently proceed
+- Never persist a draft verdict when the gate's report is missing `config.strikes` or `trace` — treat it as a stale gate script and surface it, never silently proceed
+- Never route `review-integrity-failure` to `/roster-spec` or the streak override (FR-175)
+- Never append a trace line for an invocation that didn't occur — only running the missed tool repairs `missing-trace` (FR-177/C-3)
