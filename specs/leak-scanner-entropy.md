@@ -5,7 +5,7 @@ status: VALIDATED
 feature: Shape- and entropy-aware HIGH_BLOB detection in the leak scanner
 brief: briefs/leak-scanner-entropy-intake.md
 date: 2026-07-13
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Spec — Leak Scanner Entropy (minimal-freeze)
@@ -117,7 +117,11 @@ positives without weakening detection.
   the codex cross-runtime leg: the prefix requires a NON-ALPHANUMERIC left boundary — an
   algorithm suffix embedded in an identifier, e.g. `xsha512-<blob>`, is not a legitimate SRI
   prefix and stays HIGH; a red fixture pins it), the exact context regex of OQ2. Near-misses (e.g. 63/65-hex, hex with no context, high-entropy base64
-  without an integrity prefix) stay HIGH.
+  without an integrity prefix) stay HIGH. **Clarified by A-4:** the prefix recognition tolerates
+  exactly one leading base64 alphabet char (`+` or `/`) between the prefix and the matched run —
+  see A-4 below. This tolerance is gated strictly on the prefix being present immediately before
+  it; it does not widen `BLOB_RE`, does not touch hex classification, and a `+`/`/`-leading run
+  with no prefix on the line stays HIGH.
 - **INV-6 (enforcement layer untouched):** `scripts/check-leak-diff.sh` semantics (`leak-ok`
   disabled under `--strict` for added lines; ignore-glob mechanism), the exit-code contract
   (0 clean/warn-only, 1 HIGH, 3 usage), and the `check-leak-delta` behavior are unchanged;
@@ -198,6 +202,37 @@ assertions.)
 - Restoring the slash-joined keyword list in `specs/pipeline-loop-convergence.md` (the
   comma-separated rewording from `1d1eea0` stands).
 - The WARN classes (email, private-ipv4).
+
+## Amendments
+
+- **A-4 (leak-integrity-prefix-boundary, 2026-07-14):** found and fixed as a follow-up to this
+  spec's shipped implementation. Root cause: `BLOB_RE`'s leading `\b` cannot match immediately
+  before a `+` or `/` (both are non-word characters under `\b`'s definition), so when an SRI
+  integrity value's base64 payload happens to start with `+` or `/` (e.g.
+  `"integrity": "sha512-+SqB…=="`), the matched run starts at the first alphanumeric character,
+  one position after where the payload actually begins. The text preceding the match (`before`)
+  then ends in `sha512-+` rather than `sha512-`, so `INTEGRITY_PREFIX`'s anchored `$` fails to
+  recognize it, the value falls through to the entropy path, and — being genuinely high-entropy
+  — fires HIGH `high-entropy-blob` instead of the intended WARN `checksum-like-blob`. This is a
+  false positive (fails closed, not a missed leak) but reintroduces exactly the CI-red class this
+  spec's LSE-1/OQ2 were meant to eliminate.
+  - **Fix (option B from the intake brief, surgical):** `INTEGRITY_PREFIX` gained an optional
+    trailing `[+/]?` — `/(?<![a-z0-9])sha(?:256:|512-|384-)[+/]?$/i` — so the prefix test still
+    matches when exactly one `+`/`/` base64 char sits between the recognized prefix and the
+    `\b`-trimmed match start. `BLOB_RE` itself is untouched: HIGH detection is not broadened.
+  - **INV-5 clarified (this amendment does not weaken it):** the tolerance fires only when
+    `sha256:`/`sha512-`/`sha384-` is the text immediately preceding the optional `+`/`/` — a bare
+    high-entropy base64 run with no integrity prefix on the line, including one that itself
+    starts with `+` or `/`, still falls through to the entropy path and stays HIGH. A red
+    fixture (`scripts/check-leak.test.js`, "[A-4] leak-integrity-prefix-boundary") pins: (a)
+    `+`-leading and `/`-leading SRI values → WARN, no HIGH; (b) the pre-existing
+    alphanumeric-leading SRI case → unchanged WARN; (c) a bare high-entropy blob with no prefix →
+    still HIGH; (d) a `+`-leading high-entropy blob with no prefix on the line → still HIGH (the
+    gating case — proves the tolerance is not unconditional).
+  - Option A (widening `BLOB_RE` to allow a leading `+`/`/` in the match itself) was considered
+    and rejected: it would touch the shared blob-matching path used by both the entropy and hex
+    branches, requiring re-verification of every existing fixture, for a strictly larger blast
+    radius than the option-B prefix-side fix.
 
 ## Entities
 

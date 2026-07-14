@@ -187,6 +187,38 @@ test("CHECK-1(e)/LSE-1/INV-4 — recognized checksum shapes downgrade to WARN, n
   assert.deepStrictEqual(high(barePrefixLine), []);
 });
 
+test("[A-4] leak-integrity-prefix-boundary — +/ -leading SRI payload downgrades to WARN, no HIGH", () => {
+  // Reproducer: BLOB_RE's leading \b cannot match before `+`/`/` (both non-word chars), so the
+  // matched run starts at the first alphanumeric char, leaving the prefix's `before` text as
+  // `…sha512-+` — which pre-fix does NOT satisfy the anchored INTEGRITY_PREFIX regex and fires
+  // HIGH instead of WARN. This is the exact package-lock.json:381 shape (intake brief).
+  const plusLine = '"integrity": "sha512-+' + HIGH_ENTROPY_BLOB_60 + '=="';
+  assert.ok(warn(plusLine).includes("checksum-like-blob"), "+-leading sha512- SRI value — WARN");
+  assert.deepStrictEqual(high(plusLine), [], "+-leading sha512- SRI value — HIGH absent");
+
+  const slashLine = '"integrity": "sha512-/' + HIGH_ENTROPY_BLOB_60 + '=="';
+  assert.ok(warn(slashLine).includes("checksum-like-blob"), "/-leading sha512- SRI value — WARN");
+  assert.deepStrictEqual(high(slashLine), [], "/-leading sha512- SRI value — HIGH absent");
+
+  // Regression guard: alphanumeric-leading sha512- value — unchanged behavior (still WARN).
+  const alnumLine = '"integrity": "sha512-' + HIGH_ENTROPY_BLOB_60 + '=="';
+  assert.ok(warn(alnumLine).includes("checksum-like-blob"), "alnum-leading sha512- SRI value — WARN");
+  assert.deepStrictEqual(high(alnumLine), [], "alnum-leading sha512- SRI value — HIGH absent");
+
+  // Regression guard (INV-5): bare high-entropy base64 with NO integrity prefix stays HIGH.
+  assert.ok(
+    high("blob " + HIGH_ENTROPY_BLOB_60).includes("high-entropy-blob"),
+    "bare high-entropy blob, no prefix at all — still HIGH",
+  );
+
+  // Regression guard (INV-5, gating): a `+`-leading base64 run with NO integrity prefix on the
+  // line must still be HIGH — the tolerance is gated on the prefix being present, not unconditional.
+  assert.ok(
+    high("value=+" + HIGH_ENTROPY_BLOB_60).includes("high-entropy-blob"),
+    "+-leading blob with no sha256:/sha512-/sha384- prefix — still HIGH",
+  );
+});
+
 test("CHECK-3/LSE-2/S-4 — entropy threshold: below fires nothing, above fires HIGH", () => {
   // Below the threshold — both cite BLOB_ENTROPY_MIN so moving the constant breaks these.
   assert.ok(shannonEntropy(SLASH_KEYWORD_LIST) < BLOB_ENTROPY_MIN, "keyword list below threshold");
