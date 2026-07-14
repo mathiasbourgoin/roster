@@ -90,12 +90,12 @@ test("closure smoke: each JS tool entry require()s without throwing", () => {
 
 // ── AC-01: staged install happy path (--from-checkout) ─────────────────────
 
-test("install --from-checkout: all 18 files land, shas match, manifest committed-shaped", () => {
+test("install --from-checkout: all 22 files land, shas match, manifest committed-shaped", () => {
   const target = mkScratch("install");
   const r = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
   const manifest = readManifest(target);
-  assert.equal(manifest.files.length, 18);
+  assert.equal(manifest.files.length, 22);
   for (const f of manifest.files) {
     assert.ok(fs.existsSync(path.join(target, f.path)), `${f.path} missing after install`);
   }
@@ -167,7 +167,7 @@ test("install --from-raw (file:// mock RAW): mirrors --from-checkout", () => {
   const target = mkScratch("rawdst");
   const r = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(readManifest(target).files.length, 18);
+  assert.equal(readManifest(target).files.length, 22);
 });
 
 test("partial fetch: a source missing one bundle file aborts, target untouched, staging-only residue (FR-131/153)", () => {
@@ -527,7 +527,7 @@ test("BPC-3/D-2: a legitimate path whose filename merely contains `..` (not a `.
 });
 
 // BPC-3 (normal nested paths, e.g. scripts/lib/review/finding-schema.js) is already exercised by the
-// existing --from-checkout/--from-raw happy-path suite above against the real 18-file bundle
+// existing --from-checkout/--from-raw happy-path suite above against the real 22-file bundle
 // manifest, which contains genuinely nested scripts/lib/* paths — that suite passing with the
 // guard active is itself the no-false-rejection proof; no separate fixture duplicated here.
 
