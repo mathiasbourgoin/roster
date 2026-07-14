@@ -7,7 +7,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
 const path = require("node:path");
-const { compile, loadFindingSchema } = require("./lib/finding-schema");
+const { compile, loadFindingSchema } = require("./lib/review/finding-schema");
 
 const SCHEMA_PATH = path.resolve(__dirname, "..", "schema", "review-finding.schema.json");
 

@@ -1,4 +1,4 @@
-// scripts/lib/finding-schema.js — CommonJS, zero-dep.
+// scripts/lib/review/finding-schema.js — CommonJS, zero-dep.
 //
 // Hand-rolled JSON Schema interpreter for the supported subset only:
 // `type`, `enum`, `required`, `properties`, `additionalProperties`, `items`
@@ -11,8 +11,8 @@
 // validator drift becomes impossible to introduce quietly.
 //
 // Usage:
-//   const { compile, loadFindingSchema } = require("./lib/finding-schema");
-//   const validator = compile(require("../schema/review-finding.schema.json"));
+//   const { compile, loadFindingSchema } = require("./lib/review/finding-schema");
+//   const validator = compile(require("../../schema/review-finding.schema.json"));
 //   const { valid, errors } = validator.validate(candidate);
 "use strict";
 
@@ -118,9 +118,9 @@ function compile(schema) {
 }
 
 // Loads and compiles the canonical schema/review-finding.schema.json,
-// resolved relative to the repo root (this file lives in scripts/lib/).
+// resolved relative to the repo root (this file lives in scripts/lib/review/).
 function loadFindingSchema() {
-  const schemaPath = path.resolve(__dirname, "..", "..", "schema", "review-finding.schema.json");
+  const schemaPath = path.resolve(__dirname, "..", "..", "..", "schema", "review-finding.schema.json");
   return compile(require(schemaPath));
 }
 

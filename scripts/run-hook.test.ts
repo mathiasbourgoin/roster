@@ -522,7 +522,7 @@ test("integration: skip (no hook file) via built CLI writes nothing", async () =
 // ─── break_if / continue_if (spec US-4 Sc.4C) ─────────────────────────────────
 
 test("break_if: round-trips through the parser as its own operator", async () => {
-  const { parseHookFile, stepOperator } = await import("./lib/hook-parser");
+  const { parseHookFile, stepOperator } = await import("./lib/hooks/hook-parser");
   const parsed = parseHookFile(makeHook("post", [
     `  - break_if: "{{result}} == 'done'"`,
     `  - continue_if: "{{result}} == 'skip'"`,

@@ -1,56 +1,56 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.4.0",
+  "bundle_version": "1.5.0",
   "channel": "stable",
   "source_ref": "main",
   "files": [
     {
       "path": "schema/review-finding.schema.json",
-      "sha256": "57ae4e8cafb8cacbce818ca4ceb9a533d68c18b6497ac975b2d402e1bd4827b4"
+      "sha256": "792b5440ce43b5b295f26c1cae624adbdc8c73199c96def9d666ef965f4f3ffb"
     },
     {
       "path": "scripts/check-review-convergence.js",
-      "sha256": "2e8ad69f3edc7ed12dc324e157d66bf85a6e8b42a2f7720d90c0dd7e65fa0fce"
+      "sha256": "59e70bac7c2b4b40bccf9bbba8921cdd92c014418a699bea7b3e403b780e8ffa"
     },
     {
       "path": "scripts/check-scope-diff.sh",
       "sha256": "2de18402aec68d60d95c21ac50ec2796a245d04c4ac43856c8d5f078e034fe91"
     },
     {
-      "path": "scripts/lib/finding-schema.js",
-      "sha256": "8e342f7ea25297a61d9224db56edfd69cb77b53e39deaba8f08a3f65b010a580"
+      "path": "scripts/lib/review/finding-schema.js",
+      "sha256": "a992e3d1d8030043b647756351f2d4761302f81ee59d17deb769b36bf71e2c03"
     },
     {
-      "path": "scripts/lib/normalize-rules.js",
+      "path": "scripts/lib/review/normalize-rules.js",
       "sha256": "921c36f14e0c84c763ea146752b05e2f9109d66d6d3ecab56d4e0630d8e469cc"
     },
     {
-      "path": "scripts/lib/redgreen-scratch.js",
+      "path": "scripts/lib/review/redgreen-scratch.js",
       "sha256": "d16a7e7e72115056c5ae5cd6a5ab13cc0e206031a5d39c6175ae19b23901078d"
     },
     {
-      "path": "scripts/lib/review-convergence-rules.js",
+      "path": "scripts/lib/review/review-convergence-rules.js",
       "sha256": "ed9092fde05ff61932afb9ffe0e5819ec5e1af5844a597878a5ac689a521608c"
     },
     {
-      "path": "scripts/lib/review-lifecycle.js",
+      "path": "scripts/lib/review/review-lifecycle.js",
       "sha256": "d5544cf6746260116ddbc543c7ce67964bb24ea0214bc91942bf3aa6a1c56a15"
     },
     {
-      "path": "scripts/lib/xruntime-classify.js",
-      "sha256": "bdab32102b71e4aa807d4e834d342188c5c7905d669380017f8e0bbd41f27e11"
+      "path": "scripts/lib/xruntime/xruntime-classify.js",
+      "sha256": "7ec41ea72e73ebc450043f5369c6de6a136857f428669e528cd432554e6a7e27"
     },
     {
-      "path": "scripts/lib/xruntime-digest.js",
+      "path": "scripts/lib/xruntime/xruntime-digest.js",
       "sha256": "8d82e16eb4501beb51449206a2de81b3612abda3c3f8a7301efa28f3853b2661"
     },
     {
-      "path": "scripts/lib/xruntime-journal.js",
+      "path": "scripts/lib/xruntime/xruntime-journal.js",
       "sha256": "aa3901eb3a8b4ef37cceb228cb58eff70581a122a95fe513fd06a5e5205a54fc"
     },
     {
       "path": "scripts/review-normalize.js",
-      "sha256": "1c46c26ccb4fcc778fbe7c271a980b1fc6a8dcb4248927f290b7f2b6a543c165"
+      "sha256": "a468cc6035c93f546be7ec11ddfe477de2733ec1d1f5ef1a4e2c2edba01522d4"
     },
     {
       "path": "scripts/xruntime-exec.sh",
@@ -59,7 +59,7 @@
     },
     {
       "path": "scripts/xruntime-review.js",
-      "sha256": "da88bec1fd29701460bede5dd78cab567932a115b3d68a69912c5b5ca4d69101"
+      "sha256": "fab61681d4d1c6c296c20822043324b6f3459836ebe1611700877c9a4742e0cd"
     },
     {
       "path": "scripts/REVIEW-BUNDLE.md",

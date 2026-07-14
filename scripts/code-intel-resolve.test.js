@@ -562,12 +562,12 @@ test("doctor: WARN unacknowledged for untrusted packs only", () => {
 });
 
 // ---------------------------------------------------------------------------
-// frontmatter parity — resolver CJS mirror vs scripts/lib/frontmatter.ts
+// frontmatter parity — resolver CJS mirror vs scripts/lib/catalog/frontmatter.ts
 // ---------------------------------------------------------------------------
 
 test("frontmatter parity: mirror matches the shared parser except the documented lone-quote case", () => {
   // Compiled by `npm run build:ts` (run it first if this require fails).
-  const shared = require(path.join(REPO_ROOT, "dist", "scripts", "lib", "frontmatter.js"));
+  const shared = require(path.join(REPO_ROOT, "dist", "scripts", "lib", "catalog", "frontmatter.js"));
   const mirror = require(SCRIPT);
   const fixture = [
     "---",

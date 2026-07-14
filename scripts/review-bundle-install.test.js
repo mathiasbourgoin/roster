@@ -361,7 +361,7 @@ printf '\`\`\`json\\n[]\\n\`\`\`\\n'
 
   // Authentic installed QA handoff: a GO review's matching degraded state
   // refuses the second provider call, while a malformed handoff fails closed.
-  const { computeDigest } = require(path.join(target, "scripts/lib/xruntime-digest.js"));
+  const { computeDigest } = require(path.join(target, "scripts/lib/xruntime/xruntime-digest.js"));
   const { digest } = computeDigest("codex", runtimeStub, "read-only");
   fs.mkdirSync(path.join(target, "briefs"), { recursive: true });
   fs.writeFileSync(
@@ -406,7 +406,7 @@ printf '\`\`\`json\\n[]\\n\`\`\`\\n'
   // Installed-consumer schema auto-discovery must remain non-tautological:
   // the bundle-owned review schema arrives with both a passing and a failing
   // fixture, and the installed zero-dependency validator agrees with them.
-  const { loadFindingSchema } = require(path.join(target, "scripts/lib/finding-schema.js"));
+  const { loadFindingSchema } = require(path.join(target, "scripts/lib/review/finding-schema.js"));
   const findingValidator = loadFindingSchema();
   const fixtureRoot = path.join(target, "tools/data-schema/fixtures/review-finding");
   const validFinding = JSON.parse(fs.readFileSync(path.join(fixtureRoot, "valid/basic.jsonl"), "utf8"));
@@ -526,7 +526,7 @@ test("BPC-3/D-2: a legitimate path whose filename merely contains `..` (not a `.
   assert.equal(verified.code, 0, verified.stderr);
 });
 
-// BPC-3 (normal nested paths, e.g. scripts/lib/finding-schema.js) is already exercised by the
+// BPC-3 (normal nested paths, e.g. scripts/lib/review/finding-schema.js) is already exercised by the
 // existing --from-checkout/--from-raw happy-path suite above against the real 18-file bundle
 // manifest, which contains genuinely nested scripts/lib/* paths — that suite passing with the
 // guard active is itself the no-false-rejection proof; no separate fixture duplicated here.

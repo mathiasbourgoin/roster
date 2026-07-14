@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 2.2.1
+version: 2.2.2
 domain: pipeline
 phase: review
 preamble: true
@@ -495,7 +495,7 @@ cross-runtime probe, and `cycle` incremented. Never re-derive this by hand — s
 executable witness at draft composition:
 
 ```bash
-node scripts/lib/review-lifecycle.js --prior briefs/<task>-review.json
+node scripts/lib/review/review-lifecycle.js --prior briefs/<task>-review.json
 ```
 
 → `{round, cycle, fresh_cycle}` (absent prior file is legitimate input — a fresh task). A repaired

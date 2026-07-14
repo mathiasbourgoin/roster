@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ReviewFinding",
-  "description": "Canonical shape for a single review finding, shared by scripts/xruntime-review.js and scripts/review-normalize.js (schema/review-json-schema.md documents the full briefs/<task>-review.json verdict shape). Validated by the hand-rolled interpreter in scripts/lib/finding-schema.js (D-4, zero-dep) which supports only: type, enum, required, properties, additionalProperties, items — any other keyword makes the interpreter throw rather than silently ignore it.",
+  "description": "Canonical shape for a single review finding, shared by scripts/xruntime-review.js and scripts/review-normalize.js (schema/review-json-schema.md documents the full briefs/<task>-review.json verdict shape). Validated by the hand-rolled interpreter in scripts/lib/review/finding-schema.js (D-4, zero-dep) which supports only: type, enum, required, properties, additionalProperties, items — any other keyword makes the interpreter throw rather than silently ignore it.",
   "type": "object",
   "required": [
     "severity",

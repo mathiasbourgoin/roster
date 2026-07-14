@@ -31,7 +31,7 @@
 // `--prior <path>` is the prior FULL briefs/<task>-review.json ENVELOPE
 // (distinct from `--ledger`, which is only its `findings` array) — when both
 // `--round` and `--prior` are given, the caller's `--round` is cross-checked
-// against `scripts/lib/review-lifecycle.js`'s `deriveRoundState(prior)` and a
+// against `scripts/lib/review/review-lifecycle.js`'s `deriveRoundState(prior)` and a
 // mismatch is reported in `warnings[]` (never a hard failure — advisory only,
 // review finding FIX-1).
 //
@@ -44,7 +44,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { loadFindingSchema } = require("./lib/finding-schema");
+const { loadFindingSchema } = require("./lib/review/finding-schema");
 const {
   canonicalFingerprint,
   hasV2Fields,
@@ -55,8 +55,8 @@ const {
   computeProbableDuplicates,
   computeLedgerProbableDuplicates,
   splitReobservations,
-} = require("./lib/normalize-rules");
-const { deriveRoundState } = require("./lib/review-lifecycle");
+} = require("./lib/review/normalize-rules");
+const { deriveRoundState } = require("./lib/review/review-lifecycle");
 
 const NORMALIZER_VERSION = "2.0.0";
 
@@ -178,7 +178,7 @@ function canonicalizeFindings(findings) {
 }
 
 // FIX-1 (review): cross-checks the caller-supplied `--round` against
-// scripts/lib/review-lifecycle.js's own derivation from the prior envelope —
+// scripts/lib/review/review-lifecycle.js's own derivation from the prior envelope —
 // the normalizer never recomputes the lifecycle rule itself, it only asks
 // the witness and reports a drift. `priorReview` absent -> no check (nothing
 // to cross-check against, not an error).
@@ -188,7 +188,7 @@ function checkRoundConsistency(round, priorReview) {
   if (derived.round === null || derived.round === round) return null;
   return (
     `round consistency: caller passed --round ${round} but ` +
-    `scripts/lib/review-lifecycle.js derived ${derived.round} from the prior verdict — ` +
+    `scripts/lib/review/review-lifecycle.js derived ${derived.round} from the prior verdict — ` +
     "the two disagree; roster-review's own round derivation may be stale (FIX-1)"
   );
 }

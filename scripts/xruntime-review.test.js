@@ -11,8 +11,8 @@ const { execFileSync, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { computeDigest } = require("./lib/xruntime-digest");
-const { isSpawnError } = require("./lib/xruntime-classify");
+const { computeDigest } = require("./lib/xruntime/xruntime-digest");
+const { isSpawnError } = require("./lib/xruntime/xruntime-classify");
 
 const SCRIPT = path.resolve(__dirname, "xruntime-review.js");
 const WRAPPER = path.resolve(__dirname, "xruntime-exec.sh");
