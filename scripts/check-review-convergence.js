@@ -153,6 +153,18 @@ function readReviewJson(reviewPath, displayPath) {
   return review;
 }
 
+// FIX-A (CGF-1/CGF-2, INV-A): an absent `findings` key is legacy-safe ([]);
+// a PRESENT but non-array `findings` value is degraded input and must fail
+// closed, never be silently coerced to an empty finding set.
+function coerceFindings(review) {
+  if (!Object.prototype.hasOwnProperty.call(review, "findings")) return [];
+  if (!Array.isArray(review.findings)) {
+    fail(2, "review.json field findings is present but not an array (degraded input)");
+    return; // unreachable: fail() exits
+  }
+  return review.findings;
+}
+
 // Derives no_go_round (FR-030 legacy handling), the physical `round` counter
 // (B-8 legacy handling), the findings array, and the B-7 re-keyed
 // carry-forward-inconsistency warning from a validated review object.
@@ -196,7 +208,7 @@ function deriveGateRoundInputs(review) {
     warnings.push("legacy review.json: round key absent — skipping strike and rounds_audit checks (B-8)");
   }
 
-  const findings = Array.isArray(review.findings) ? review.findings : [];
+  const findings = coerceFindings(review);
 
   // B-7: A-11 re-keyed to the physical `round` counter (retiring the old
   // no_go_round-based form) — warn when round is absent/0 while a finding
@@ -307,6 +319,7 @@ function verifyFinding(f, repoRoot, timeoutMs) {
     checkRelPath: f.check,
     preFixSha: f.pre_fix_sha,
     recordedBlob: f.check_blob || null,
+    redVerified: f.red_verified,
     timeoutMs,
   });
 

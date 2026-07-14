@@ -131,3 +131,18 @@ test("posture: an unknown/unexpected property is rejected under the closed schem
   assert.strictEqual(valid, false);
   assert.ok(errors.some((e) => e.includes("additional property")));
 });
+
+// ── FIX-C (CGF-7, CHECK-4): schema stays permissive on status ────────────
+
+test("FIX-C: a finding object omitting status validates against the schema", () => {
+  const validator = loadFindingSchema();
+  const bad = validFinding();
+  delete bad.status;
+  const { valid, errors } = validator.validate(bad);
+  assert.strictEqual(valid, true, JSON.stringify(errors));
+});
+
+test("FIX-C: status is absent from the schema's required array (normalizer defaults it instead)", () => {
+  const schema = require(SCHEMA_PATH);
+  assert.ok(!schema.required.includes("status"));
+});
