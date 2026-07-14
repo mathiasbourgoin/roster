@@ -31,7 +31,7 @@ function isFullSha(s) {
 // Verify a single ratcheted check: red against pre_fix_sha (scratch, overlay-only),
 // green against the current tree. Never mutates the real repo or .git.
 // Guard clauses only — the two verification branches are extracted below.
-function verifyCheck({ repoRoot, checkRelPath, preFixSha, recordedBlob, timeoutMs }) {
+function verifyCheck({ repoRoot, checkRelPath, preFixSha, recordedBlob, redVerified, timeoutMs }) {
   if (!isFullSha(preFixSha)) {
     return { inconclusive: true, reason: `pre_fix_sha is not a full 40-hex sha: ${preFixSha}` };
   }
@@ -58,8 +58,12 @@ function verifyCheck({ repoRoot, checkRelPath, preFixSha, recordedBlob, timeoutM
     return { inconclusive: true, reason: `git hash-object failed for ${checkRelPath}` };
   }
 
-  const needsVerification = recordedBlob === null || recordedBlob !== currentBlob;
-  if (!needsVerification) {
+  // FIX-B (CGF-3/4/5, INV-B): a matching check_blob is only proof of a prior
+  // red run when the persisted finding says so (red_verified === true). A
+  // blob match with no such proof falls through to the scratch red run
+  // instead of short-circuiting green-only.
+  const blobMatches = recordedBlob !== null && recordedBlob === currentBlob;
+  if (blobMatches && redVerified === true) {
     return reverifyGreenOnly(checkAbsPath, repoRoot, timeoutMs, currentBlob);
   }
   return verifyViaScratch({ repoRoot, checkRelPath, checkAbsPath, preFixSha, recordedBlob, currentBlob, timeoutMs });
@@ -96,7 +100,14 @@ function verifyViaScratch({ repoRoot, checkRelPath, checkAbsPath, preFixSha, rec
     }
 
     // red.code === 1: assertion fired as expected.
-    const wasPreviouslyVerified = recordedBlob !== null;
+    // FIX-B label refinement (spec Defect #1): classify `weakened` vs
+    // `greenFailed` on an ACTUAL blob mismatch, not merely "had a recorded
+    // blob" — otherwise the blob-match-but-unproven fall-through (FIX-B) and
+    // a first-time (null) green-failure both get mislabeled. The
+    // `recordedBlob !== null` conjunct is REQUIRED: without it, a bare
+    // `!== currentBlob` would misclassify the first-time green-failure as
+    // weakened.
+    const wasPreviouslyVerified = recordedBlob !== null && recordedBlob !== currentBlob;
     const green = runGreenPhase(checkAbsPath, repoRoot, timeoutMs);
     if (green.inconclusive) return { inconclusive: true, reason: green.reason, check_blob: currentBlob };
 

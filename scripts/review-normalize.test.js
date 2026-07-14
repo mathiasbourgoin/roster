@@ -312,3 +312,23 @@ test("FIX-1 CLI: --prior + --round wired end-to-end through the CLI", () => {
   const parsed = JSON.parse(stdout);
   assert.strictEqual(parsed.warnings.length, 1);
 });
+
+// ── FIX-C (CGF-6, CHECK-3): statusless HIGH defaults to OPEN ─────────────
+
+test("FIX-C: statusless HIGH finding is defaulted to status OPEN by the normalizer", () => {
+  const statusless = finding();
+  delete statusless.status;
+  const result = normalize({ newFindings: [statusless], ledger: [] });
+  assert.strictEqual(result.findings.length, 1);
+  assert.strictEqual(result.findings[0].status, "OPEN");
+});
+
+test("FIX-C: a present status (RESOLVED/ACCEPTED) is not overwritten", () => {
+  const resolved = finding({ status: "RESOLVED" });
+  const accepted = finding({ status: "ACCEPTED", path: "b.ml", line: 2, fingerprint: "b.ml:2:correctness" });
+  const result = normalize({ newFindings: [resolved, accepted], ledger: [] });
+  const r = result.findings.find((f) => f.path === "lib/foo.ml");
+  const a = result.findings.find((f) => f.path === "b.ml");
+  assert.strictEqual(r.status, "RESOLVED");
+  assert.strictEqual(a.status, "ACCEPTED");
+});

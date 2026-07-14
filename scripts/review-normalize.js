@@ -171,6 +171,7 @@ function canonicalizeFindings(findings) {
     const canon = Object.assign({}, f, { fingerprint: canonicalFingerprint(f) });
     if (hasV2Fields(canon)) canon.fingerprint_v2 = computeFingerprintV2(canon);
     canon.fid = computeFid(canon);
+    if (canon.status === undefined) canon.status = "OPEN"; // FIX-C (CGF-6, INV-C)
     return canon;
   });
 }

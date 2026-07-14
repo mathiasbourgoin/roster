@@ -364,6 +364,95 @@ test('blob weakening: recorded check_blob mismatches current -> mandatory re-ver
   assert.ok(report.violations.length > 0);
 });
 
+// ── FIX-A (CGF-1/CGF-2, CHECK-1): fail-closed on present-but-non-array findings ──
+
+test('FIX-A: present non-array findings -> exit 2 (degraded input)', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    no_go_round: 1,
+    findings: { 0: { severity: 'HIGH', status: 'OPEN', check_encodable: false, fingerprint: 'a.ml:1:correctness' } },
+  });
+  const r = gate(repo, p, ['--static']);
+  assert.strictEqual(r.code, 2);
+});
+
+test('FIX-A: same finding as array -> exit 1 (unchanged behavior)', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, {
+    no_go_round: 1,
+    findings: [{ severity: 'HIGH', status: 'OPEN', check_encodable: false, fingerprint: 'a.ml:1:correctness' }],
+  });
+  const r = gate(repo, p, ['--static']);
+  assert.strictEqual(r.code, 1);
+});
+
+test('FIX-A: absent findings key -> exit 0 (legacy-safe, CGF-2)', () => {
+  const repo = makeRepo();
+  const p = writeReview(repo, { no_go_round: 0 });
+  const r = gate(repo, p, ['--static']);
+  assert.strictEqual(r.code, 0);
+});
+
+// ── FIX-B (CGF-3/CGF-4/CGF-5, CHECK-2): red-verified fast path ──────────────
+
+test('FIX-B: blob match without red_verified falls through to scratch red -> vacuous, exit 1', () => {
+  const repo = makeRepo();
+  const preFixSha = repo.base;
+  commitFile(repo, 'checks/vacuous2.js', VACUOUS_CHECK_SRC);
+  const blob = repo.run('git hash-object checks/vacuous2.js').trim();
+  const p = writeReview(repo, {
+    no_go_round: 1,
+    findings: [
+      {
+        severity: 'HIGH',
+        status: 'RESOLVED',
+        first_seen_round: 1,
+        resolved_round: 2,
+        check: 'checks/vacuous2.js',
+        check_blob: blob, // matches current tree, but never actually red-verified
+        pre_fix_sha: preFixSha,
+        fingerprint: 'a.ml:1:correctness',
+        // red_verified intentionally absent
+      },
+    ],
+  });
+  const r = gate(repo, p);
+  assert.strictEqual(r.code, 1, r.stdout + r.stderr);
+  const report = JSON.parse(r.stdout);
+  assert.ok(report.violations.some((v) => v.type === 'vacuous-check'));
+});
+
+test('FIX-B: proven red_verified true + matching blob -> fast path taken, exit 0 (pins the optimization)', () => {
+  const repo = makeRepo();
+  fs.writeFileSync(path.join(repo.dir, 'marker.txt'), 'fixed\n');
+  repo.run('git add -A && git commit -qm fixed-marker');
+  const preFixSha = repo.run('git rev-parse HEAD').trim();
+  commitFile(repo, 'checks/redgreen2.js', CHECK_SRC);
+  const blob = repo.run('git hash-object checks/redgreen2.js').trim();
+
+  const p = writeReview(repo, {
+    no_go_round: 1,
+    findings: [
+      {
+        severity: 'HIGH',
+        status: 'RESOLVED',
+        first_seen_round: 1,
+        resolved_round: 2,
+        check: 'checks/redgreen2.js',
+        check_blob: blob,
+        red_verified: true,
+        pre_fix_sha: preFixSha,
+        fingerprint: 'a.ml:1:correctness',
+      },
+    ],
+  });
+  const r = gate(repo, p);
+  assert.strictEqual(r.code, 0, r.stdout + r.stderr);
+  const report = JSON.parse(r.stdout);
+  const c = report.checks.find((c) => c.check === 'checks/redgreen2.js');
+  assert.strictEqual(c.red_verified, true);
+});
+
 test('read-only: gate run creates/modifies no repo file and never invokes git worktree add', () => {
   const repo = makeRepo();
   fs.writeFileSync(path.join(repo.dir, 'marker.txt'), 'buggy\n');

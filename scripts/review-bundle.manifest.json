@@ -10,7 +10,7 @@
     },
     {
       "path": "scripts/check-review-convergence.js",
-      "sha256": "66b698becda024cfe1feb8b5bba7ca1bcf6ade60982b4271644b68532e7f60f9"
+      "sha256": "2e8ad69f3edc7ed12dc324e157d66bf85a6e8b42a2f7720d90c0dd7e65fa0fce"
     },
     {
       "path": "scripts/check-scope-diff.sh",
@@ -26,7 +26,7 @@
     },
     {
       "path": "scripts/lib/redgreen-scratch.js",
-      "sha256": "c72cdafc1bc85eb69bd1f85858221677f541d95b074d6da795063ed157c1c8c2"
+      "sha256": "63cf3f2ad7830b23e0ba7397c891d563432aa2c1437b488498bd9ed418a1c8bc"
     },
     {
       "path": "scripts/lib/review-convergence-rules.js",
@@ -50,7 +50,7 @@
     },
     {
       "path": "scripts/review-normalize.js",
-      "sha256": "bfe4b0073bf7647fbc7701e5a6608ce09516914ff81d00b2d1c8bb69cdf1d8d7"
+      "sha256": "ae750d54dbd4eb2c66405fc4a9917a20f63d4f57759bd0888740b79191d58dd1"
     },
     {
       "path": "scripts/xruntime-exec.sh",
