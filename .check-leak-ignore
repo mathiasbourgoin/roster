@@ -7,3 +7,6 @@ package-lock.json
 # review-bundle manifest: machine-generated sha256 integrity hashes (64-hex), same false-positive
 # class as package-lock.json integrity fields.
 scripts/review-bundle.manifest.json
+# .harness/bin/run-hook.js is an esbuild-generated minified bundle (embeds js-yaml);
+# high-entropy by construction — same machine-generated-artifact class as package-lock.json.
+.harness/bin/run-hook.js
