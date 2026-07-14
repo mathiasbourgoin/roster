@@ -51,6 +51,21 @@ function safeParseJson(raw) {
   }
 }
 
+// D4/A-2: does the review directory already hold ANY *-review-trace.jsonl?
+// Used to fail closed when the round is trace-obligated by a file that exists
+// on disk but `task` is blanked/invalid — otherwise a lying reviewer could
+// erase `task`, make the gate unable to locate the file, and disguise an
+// obligated round as a benign legacy skip (the D4 evasion the review caught).
+function hasOrphanTraceFile(reviewAbsPath) {
+  try {
+    return fs
+      .readdirSync(path.dirname(reviewAbsPath))
+      .some((name) => /-review-trace\.jsonl$/.test(name));
+  } catch (e) {
+    return false;
+  }
+}
+
 // D4: derives the two sibling paths from path.dirname(reviewAbsPath) — NEVER
 // suffix-stripping (sidesteps a `.json.draft` vs `-review.json` mismatch).
 function deriveTracePaths(reviewAbsPath, task) {
@@ -112,11 +127,19 @@ function evaluateTrace({ review, round, cycle, legacyRound, reviewAbsPath }) {
   const hasVersion = !!roundsAuditEntry && typeof roundsAuditEntry.trace_schema_version === "string";
   const taskValid = typeof review.task === "string" && validSlug(review.task);
 
-  if (hasRoundKey && hasVersion && !taskValid) {
+  // Fail closed on an obligated round with a blank/invalid task. Obligation
+  // here comes from EITHER the version prong (round positively claims trace
+  // awareness) OR an existing *-review-trace.jsonl in the review dir (A-2: a
+  // blanked task must not disguise a round whose evidence file already exists
+  // as a legacy skip — closes the D4 evasion). A round with neither prong and
+  // no task stays a legacy B-8 skip, keeping the pre-existing task-less
+  // round-based fixtures green (FR-179).
+  if (hasRoundKey && !taskValid && (hasVersion || hasOrphanTraceFile(reviewAbsPath))) {
     return {
       fail: {
         code: 2,
-        message: "review.json field task must be a non-empty slug — required to derive the trace/journal paths (D4)",
+        message:
+          "review.json field task must be a non-empty slug — required to derive the trace/journal paths for a trace-obligated round (D4/A-2)",
       },
     };
   }

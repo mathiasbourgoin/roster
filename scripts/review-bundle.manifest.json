@@ -42,7 +42,7 @@
     },
     {
       "path": "scripts/lib/review/review-trace-dispatch.js",
-      "sha256": "24b7533fb2c35e6bfdd9487e48c668ea606f0c79f568dad70bcd5daef012a096"
+      "sha256": "059e0bb2f7710a046dff7d8d56151d7a0a5ece46743254f2816658311b01a78c"
     },
     {
       "path": "scripts/lib/review/review-trace-rules.js",
