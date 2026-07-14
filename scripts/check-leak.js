@@ -126,7 +126,14 @@ const CHECKSUM_CONTEXT = /(integrity|sha1|sha256|sha512|checksum|digest)["']?\s*
 // (A-3, codex cross-runtime finding): an algorithm suffix embedded in an identifier
 // ("xsha512-<blob>") must NOT downgrade; legitimate SRI values are always preceded by a
 // non-alphanumeric (quote, space, colon).
-const INTEGRITY_PREFIX = /(?<![a-z0-9])sha(?:256:|512-|384-)$/i;
+// Trailing `[+/]?` (A-4, leak-integrity-prefix-boundary): BLOB_RE's leading `\b` cannot match
+// before a `+`/`/` (both non-word chars), so a payload starting with one of those two base64
+// chars is matched from the FIRST ALPHANUMERIC char onward — the leading `+`/`/` stays in
+// `before`, e.g. `"sha512-+SqB…`. Tolerating exactly one trailing `+`/`/` here re-recognizes the
+// prefix without widening BLOB_RE itself or touching HIGH detection: a bare high-entropy blob
+// with no `sha…-`/`sha…:` prefix immediately before it still falls through to the entropy path
+// (INV-5 — the tolerance is gated on the prefix being present, not unconditional).
+const INTEGRITY_PREFIX = /(?<![a-z0-9])sha(?:256:|512-|384-)[+/]?$/i;
 
 // Classify one candidate blob run. `before` is the text preceding the match on the same line —
 // used for BOTH the adjacent integrity-prefix check and the key-position context check (A-2:
