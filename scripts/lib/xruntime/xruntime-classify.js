@@ -6,7 +6,7 @@
 // schema validation only.
 "use strict";
 
-const { loadFindingSchema } = require("./finding-schema");
+const { loadFindingSchema } = require("../review/finding-schema");
 
 // INV-6: a spawn-LAYER failure (the OS/runtime never started the subprocess
 // at all — E2BIG argv-too-large, ENOENT missing binary, EACCES, ...) is a

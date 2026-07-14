@@ -18,7 +18,7 @@
 import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { parseHookFile, stepOperator, Step, OnError } from "./lib/hook-parser";
+import { parseHookFile, stepOperator, Step, OnError } from "./lib/hooks/hook-parser";
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 

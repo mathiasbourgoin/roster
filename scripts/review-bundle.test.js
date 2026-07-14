@@ -1,6 +1,6 @@
 // scripts/review-bundle.test.js — node:test, CommonJS.
 // Unit tests for the review-bundle generator (scripts/review-bundle-manifest.js) and the
-// data-driven CI check functions (scripts/lib/review-bundle-check.js). Runs in the npm test
+// data-driven CI check functions (scripts/lib/bundle/review-bundle-check.js). Runs in the npm test
 // chain (CHECK-1) — the heavy scratch install/upgrade/removal integration test lives in
 // scripts/review-bundle-install.test.js, run standalone (F-10), NOT here.
 
@@ -18,7 +18,7 @@ const {
   checkClosureEscape,
   checkForcedBump,
   resolveBaselineRef,
-} = require("./lib/review-bundle-check");
+} = require("./lib/bundle/review-bundle-check");
 
 const ROOT = path.resolve(__dirname, "..");
 
@@ -95,7 +95,7 @@ test("checkClosureEscape: clean manifest has no escape", () => {
 test("checkClosureEscape: a require()'d file missing from the manifest is caught (review-lifecycle.js proof)", () => {
   const manifest = buildManifest(null);
   const trimmed = JSON.parse(JSON.stringify(manifest));
-  trimmed.files = trimmed.files.filter((f) => f.path !== "scripts/lib/review-lifecycle.js");
+  trimmed.files = trimmed.files.filter((f) => f.path !== "scripts/lib/review/review-lifecycle.js");
   const errors = checkClosureEscape(ROOT, trimmed);
   assert.equal(errors.length, 1);
   assert.match(errors[0], /^bundle-closure-escape:.*review-lifecycle\.js/);

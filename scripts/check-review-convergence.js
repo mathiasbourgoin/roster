@@ -9,7 +9,7 @@
 // Override-aware (E-1): a `streak_override` on review.json with
 // `round == review.round` and `by == "human"` suppresses the current round's
 // novel-finding-streak strike (round-cap is never suppressible) — see
-// scripts/lib/review-convergence-rules.js's computeStrikeMap. Reopened-strike
+// scripts/lib/review/review-convergence-rules.js's computeStrikeMap. Reopened-strike
 // rule (E-4): a round also strikes when it reopens >=1 HIGH+ finding
 // (`reopened_at_round == round`), not only on a novel one. checks[] entries
 // are keyed by (check, fid) with a fingerprint fallback (E-3).
@@ -53,9 +53,9 @@
 // Module boundary (FIX-1): round/strike/audit/breaker rule functions
 // (isNovelStrikeFinding, computeStrikeMap, computeStreakViolation,
 // computeMissingAuditViolation, computeCrossRuntimeWarnings, selectCause,
-// HIGH_PLUS) live in scripts/lib/review-convergence-rules.js; the low-level
+// HIGH_PLUS) live in scripts/lib/review/review-convergence-rules.js; the low-level
 // scratch-tree git mechanics (isFullSha, verifyCheck and its helpers) live
-// in scripts/lib/redgreen-scratch.js. This file keeps CLI parsing, input
+// in scripts/lib/review/redgreen-scratch.js. This file keeps CLI parsing, input
 // validation, structural finding checks, and orchestration.
 "use strict";
 
@@ -69,8 +69,8 @@ const {
   computeMissingAuditViolation,
   computeCrossRuntimeWarnings,
   selectCause,
-} = require("./lib/review-convergence-rules");
-const { isFullSha, verifyCheck } = require("./lib/redgreen-scratch");
+} = require("./lib/review/review-convergence-rules");
+const { isFullSha, verifyCheck } = require("./lib/review/redgreen-scratch");
 
 const KNOWN_FLAGS = new Set(["--static", "--max-rounds", "--timeout", "--strikes"]);
 const DEFAULT_STRIKES = 2;
@@ -171,7 +171,7 @@ function coerceFindings(review) {
 //
 // NOT the lifecycle witness: this is the GATE's own single-file input
 // derivation (legacy-round detection, no_go_round validation) — narrower and
-// differently-shaped than scripts/lib/review-lifecycle.js's deriveRoundState,
+// differently-shaped than scripts/lib/review/review-lifecycle.js's deriveRoundState,
 // which derives the NEXT draft's round/cycle from the PRIOR verdict. Named
 // distinctly (deriveGateRoundInputs) to reserve `deriveRoundState` for that
 // lifecycle witness and avoid the two being confused (review finding LOW-1).

@@ -35,7 +35,7 @@ const DEFAULT_TIMEOUT_SEC = 120;
 const PROVIDES_VALUES = ["gate", "audit-section", "init"];
 
 // ---------------------------------------------------------------------------
-// Frontmatter (CJS mirror of scripts/lib/frontmatter.ts — flat key:value only;
+// Frontmatter (CJS mirror of scripts/lib/catalog/frontmatter.ts — flat key:value only;
 // indented/nested YAML is intentionally skipped, lists must be inline `[a, b]`)
 // ---------------------------------------------------------------------------
 

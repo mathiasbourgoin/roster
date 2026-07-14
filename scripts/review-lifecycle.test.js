@@ -1,4 +1,4 @@
-// Tests for scripts/lib/review-lifecycle.js (spec: specs/review-v2-corrections.md
+// Tests for scripts/lib/review/review-lifecycle.js (spec: specs/review-v2-corrections.md
 // INV-3, CHECK-2, Amendments E-5/E-6). Two layers:
 //   1. Pure unit coverage of deriveRoundState()'s two-event lifecycle.
 //   2. An end-to-end drive — NO-GO -> GO -> QA-return -> resumed review —
@@ -17,12 +17,12 @@ const { execFileSync, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { isFreshCycle, deriveRoundState } = require("./lib/review-lifecycle");
+const { isFreshCycle, deriveRoundState } = require("./lib/review/review-lifecycle");
 const { normalize } = require("./review-normalize");
 
 const XRUNTIME_SCRIPT = path.resolve(__dirname, "xruntime-review.js");
 const GATE_SCRIPT = path.resolve(__dirname, "check-review-convergence.js");
-const LIFECYCLE_SCRIPT = path.resolve(__dirname, "lib", "review-lifecycle.js");
+const LIFECYCLE_SCRIPT = path.resolve(__dirname, "lib", "review", "review-lifecycle.js");
 
 // ── 0. the CLI itself (review finding FIX-1: this module was previously
 //      unwired — only its own test imported it) ─────────────────────────

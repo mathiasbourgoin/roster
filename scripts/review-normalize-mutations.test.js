@@ -1,4 +1,4 @@
-// Adversarial mutation tests for scripts/lib/normalize-rules.js (spec:
+// Adversarial mutation tests for scripts/lib/review/normalize-rules.js (spec:
 // specs/review-v2-corrections.md CHECK-1, INV-1, INV-2, Amendments E-3/E-4).
 //
 // These two mutations are the health-report reproductions this slice fixes:
@@ -8,7 +8,7 @@
 //       a REGRESSION (reopened), never a metadata-only reobservation.
 //
 // Per the implementer contract, this file was committed and run RED against
-// the pre-fix scripts/lib/normalize-rules.js BEFORE the fix landed — see
+// the pre-fix scripts/lib/review/normalize-rules.js BEFORE the fix landed — see
 // briefs/review-v2-corrections-impl.md for the recorded red-run evidence.
 "use strict";
 

@@ -112,7 +112,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-spec | 2.4.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.3.8 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
 | roster-implement | 1.7.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
-| roster-review | 2.2.1 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
+| roster-review | 2.2.2 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
 | roster-qa | 1.8.1 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
 | roster-ship | 1.4.4 | Carries a reviewed, QA'd branch through to a merged PR |
 | roster-investigate | 1.3.3 | Analyzes a bug or unexpected behavior to find its root cause, read-only |

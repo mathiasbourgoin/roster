@@ -69,9 +69,9 @@ ingests it, and the envelope around the findings arrays.
 Int, incremented at each fresh-cycle initialization (a persisted GO, or an absent prior file) and
 retained unchanged across every NO-GO round within that cycle. Distinct from `round`, which resets
 to 1 at each fresh cycle — `cycle` is what tells two same-numbered rounds in different cycles apart.
-`scripts/lib/review-lifecycle.js` is the executable rule, both in-process (`deriveRoundState`,
+`scripts/lib/review/review-lifecycle.js` is the executable rule, both in-process (`deriveRoundState`,
 required directly by `scripts/review-normalize.js` to cross-check a caller-supplied `--round`) and
-via its own CLI (`node scripts/lib/review-lifecycle.js --prior <path>` → `{round, cycle,
+via its own CLI (`node scripts/lib/review/review-lifecycle.js --prior <path>` → `{round, cycle,
 fresh_cycle}`), which `skills/pipeline/roster-review.md` §5.5 shells out to at draft composition.
 
 ### Human-skip cross_runtime entry shape (E-10/INV-7)

@@ -45,8 +45,8 @@ const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
 const { spawnSync } = require("child_process");
-const { computeDigest, computeDigests } = require("./lib/xruntime-digest");
-const { classify, isSpawnError } = require("./lib/xruntime-classify");
+const { computeDigest, computeDigests } = require("./lib/xruntime/xruntime-digest");
+const { classify, isSpawnError } = require("./lib/xruntime/xruntime-classify");
 const {
   validSlug,
   warnIfBriefsNotIgnored,
@@ -54,7 +54,7 @@ const {
   readReviewJson,
   readLatestJournalEntry,
   shouldRefuseDegraded,
-} = require("./lib/xruntime-journal");
+} = require("./lib/xruntime/xruntime-journal");
 
 const WRAPPER = path.resolve(__dirname, "xruntime-exec.sh");
 

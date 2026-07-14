@@ -32,7 +32,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import yaml from "js-yaml";
-import { collectStepsWithContext, skillInstalled } from "./lib/hook-lint-helpers";
+import { collectStepsWithContext, skillInstalled } from "./lib/hooks/hook-lint-helpers";
 
 const DEFAULT_DIR = path.resolve(process.cwd(), ".harness/hooks/skills");
 const SCAN_DIR = process.argv[2] ? path.resolve(process.argv[2]) : DEFAULT_DIR;

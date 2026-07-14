@@ -17,7 +17,7 @@ const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
 const { computeClosure } = require("./review-bundle-closure");
-const { sha256 } = require("../review-bundle-manifest");
+const { sha256 } = require("../../review-bundle-manifest");
 
 const JS_TOOL_ENTRIES = [
   "scripts/xruntime-review.js",

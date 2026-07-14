@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { parseFrontmatter } from "../lib/frontmatter.js";
+import { parseFrontmatter } from "../lib/catalog/frontmatter.js";
 
 const execFileAsync = promisify(execFile);
 

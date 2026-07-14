@@ -3,7 +3,7 @@
 //
 // Generates scripts/review-bundle.manifest.json from the review-tool closure — FR-125:
 // "node generator regenerates from the closure; never hand-maintained." The closure is derived
-// from the require graph (scripts/lib/review-bundle-closure.js) starting at the 4 tool entry
+// from the require graph (scripts/lib/bundle/review-bundle-closure.js) starting at the 4 tool entry
 // points, plus the wrapper script marked `shared: true` (FR-124). The manifest is the sole
 // committed sentinel (FR-129) — no per-runtime version files.
 //
@@ -20,7 +20,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { computeClosure } = require("./lib/review-bundle-closure");
+const { computeClosure } = require("./lib/bundle/review-bundle-closure");
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.resolve(ROOT, "scripts", "review-bundle.manifest.json");
@@ -32,7 +32,7 @@ const WRAPPER_REL = "scripts/xruntime-exec.sh";
 // FIX-4: a consumer-facing doc, distributed/installed/removed like any bundle file (sha-
 // verified, no special-casing in the installer), but NOT part of the require-graph closure —
 // nothing require()s a .md file, so it is appended explicitly, tagged `kind: "doc"`. The
-// closure-escape check (scripts/lib/review-bundle-check.js) compares CODE entries only —
+// closure-escape check (scripts/lib/bundle/review-bundle-check.js) compares CODE entries only —
 // a doc entry can never "escape" a require graph it was never a member of.
 const DOC_REL = "scripts/REVIEW-BUNDLE.md";
 // Consumer-local integrity check. Lifecycle ownership remains external in

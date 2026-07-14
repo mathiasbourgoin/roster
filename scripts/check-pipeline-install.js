@@ -279,7 +279,7 @@ if (!errors.some((e) => e.startsWith(GATE_SCRIPT_TAG))) {
   if (!fs.existsSync(bundleManifestPath)) {
     errors.push("bundle-manifest: scripts/review-bundle.manifest.json is missing — run `node scripts/review-bundle-manifest.js`");
   } else {
-    const bundleCheck = require("./lib/review-bundle-check");
+    const bundleCheck = require("./lib/bundle/review-bundle-check");
     let manifest;
     try {
       manifest = JSON.parse(fs.readFileSync(bundleManifestPath, "utf8"));
@@ -309,7 +309,7 @@ if (!errors.some((e) => e.startsWith(GATE_SCRIPT_TAG))) {
 // FR-115 (schema half): schema/review-finding.schema.json must exist and both
 // new scripts must load it via require() (FR-109 — never an embedded copy).
 const FINDING_SCHEMA = "schema/review-finding.schema.json";
-const SCHEMA_CONSUMERS = ["scripts/lib/finding-schema.js"];
+const SCHEMA_CONSUMERS = ["scripts/lib/review/finding-schema.js"];
 const schemaPath = path.resolve(root, FINDING_SCHEMA);
 if (!fs.existsSync(schemaPath)) {
   errors.push(`canonical finding schema missing on disk: ${FINDING_SCHEMA}`);
