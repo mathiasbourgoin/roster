@@ -17,6 +17,7 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const crypto = require("crypto");
 const { execFileSync, spawnSync } = require("child_process");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -415,6 +416,120 @@ printf '\`\`\`json\\n[]\\n\`\`\`\\n'
   assert.equal(findingValidator.validate(validFinding).valid, true);
   assert.equal(findingValidator.validate(invalidFinding).valid, false);
 });
+
+// ── BPC-1/BPC-2/BPC-3: manifest-path containment guard (validate_rel_path) ─────────────────
+//
+// specs/review-bundle-path-containment.md. A hostile or corrupted manifest.files[].path must
+// never reach a filesystem/network op. All fixtures are runtime-assembled — no checked-in
+// escape payload. Note the `sha256` values below are dummy 64-char hex; the guard must reject
+// the path BEFORE any sha comparison is even reached.
+
+function buildManifestJson(files) {
+  return JSON.stringify({ bundle_version: "1.0.0", files });
+}
+
+const DUMMY_SHA = "0".repeat(64);
+
+test("BPC-1/BPC-2: a `..`-segment manifest path aborts install with zero FS effect, decided lexically before any fetch", () => {
+  const mockRoot = mkScratch("hostile-dotdot-src");
+  fs.mkdirSync(path.join(mockRoot, "scripts"), { recursive: true });
+  // No backing file for "../escape.js" exists anywhere in mockRoot — the guard must still fire
+  // purely from the manifest string, proving rejection precedes the network/file fetch (BPC-2).
+  fs.writeFileSync(
+    path.join(mockRoot, MANIFEST_REL),
+    buildManifestJson([{ path: "../escape.js", sha256: DUMMY_SHA }])
+  );
+  const target = mkScratch("hostile-dotdot-target");
+  const canaryPath = path.join(path.dirname(target), `escape-canary-${process.pid}.js`);
+  fs.writeFileSync(canaryPath, "canary-untouched\n");
+  try {
+    const r = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
+    assert.notEqual(r.code, 0);
+    assert.match(r.stderr, /unsafe manifest path/);
+    assert.match(r.stderr, /\.\. segment/);
+    assert.doesNotMatch(r.stderr, /failed to fetch/, "must be the containment error, not a fetch-failure error");
+    assert.equal(fs.readFileSync(canaryPath, "utf8"), "canary-untouched\n", "canary outside --target must be byte-unchanged");
+    assert.deepEqual(fs.readdirSync(target), [], "target must have zero FS effect (no staging dir, no manifest)");
+  } finally {
+    fs.unlinkSync(canaryPath);
+  }
+});
+
+test("BPC-1: an absolute manifest path aborts install with zero FS effect", () => {
+  const mockRoot = mkScratch("hostile-abs-src");
+  fs.mkdirSync(path.join(mockRoot, "scripts"), { recursive: true });
+  const absEscapeTarget = path.join(os.tmpdir(), `review-bundle-abs-escape-${process.pid}-${Date.now()}.js`);
+  fs.writeFileSync(
+    path.join(mockRoot, MANIFEST_REL),
+    buildManifestJson([{ path: absEscapeTarget, sha256: DUMMY_SHA }])
+  );
+  const target = mkScratch("hostile-abs-target");
+  const r = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
+  assert.notEqual(r.code, 0);
+  assert.match(r.stderr, /unsafe manifest path/);
+  assert.match(r.stderr, /absolute/);
+  assert.equal(fs.existsSync(absEscapeTarget), false, "no file may be created at the absolute escape target");
+  assert.deepEqual(fs.readdirSync(target), []);
+});
+
+test("BPC-1: an empty manifest path aborts install with zero FS effect", () => {
+  const mockRoot = mkScratch("hostile-empty-src");
+  fs.mkdirSync(path.join(mockRoot, "scripts"), { recursive: true });
+  fs.writeFileSync(path.join(mockRoot, MANIFEST_REL), buildManifestJson([{ path: "", sha256: DUMMY_SHA }]));
+  const target = mkScratch("hostile-empty-target");
+  const r = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
+  assert.notEqual(r.code, 0);
+  assert.match(r.stderr, /unsafe manifest path/);
+  assert.match(r.stderr, /empty/);
+  assert.deepEqual(fs.readdirSync(target), []);
+});
+
+test("BPC-1: verify and remove reject a hostile-swapped installed manifest without deleting anything (sites 5/6)", () => {
+  const target = mkScratch("hostile-swap");
+  const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+  assert.equal(installed.code, 0, installed.stderr);
+  const legitFile = path.join(target, "scripts/xruntime-review.js");
+  assert.ok(fs.existsSync(legitFile), "sanity: legit install landed the file");
+
+  fs.writeFileSync(
+    path.join(target, MANIFEST_REL),
+    buildManifestJson([{ path: "../escape.js", sha256: DUMMY_SHA }])
+  );
+
+  const verified = run(["verify", "--target", target]);
+  assert.notEqual(verified.code, 0);
+  assert.match(verified.stderr, /unsafe manifest path/);
+
+  const removed = run(["remove", "--target", target]);
+  assert.notEqual(removed.code, 0);
+  assert.match(removed.stderr, /unsafe manifest path/);
+  assert.ok(fs.existsSync(legitFile), "remove must abort before deleting anything once a hostile path is hit");
+});
+
+test("BPC-3/D-2: a legitimate path whose filename merely contains `..` (not a `..` segment) installs and verifies normally", () => {
+  const mockRoot = mkScratch("dotdot-filename-src");
+  const relPath = "scripts/lib/a..b.js";
+  fs.mkdirSync(path.join(mockRoot, "scripts/lib"), { recursive: true });
+  const content = "module.exports = {};\n";
+  fs.writeFileSync(path.join(mockRoot, relPath), content);
+  const sha = crypto.createHash("sha256").update(content).digest("hex");
+  fs.writeFileSync(
+    path.join(mockRoot, MANIFEST_REL),
+    buildManifestJson([{ path: relPath, sha256: sha, shared: false }])
+  );
+  const target = mkScratch("dotdot-filename-target");
+  const installed = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
+  assert.equal(installed.code, 0, installed.stderr);
+  assert.ok(fs.existsSync(path.join(target, relPath)), "legit `..`-containing filename must install");
+
+  const verified = run(["verify", "--target", target]);
+  assert.equal(verified.code, 0, verified.stderr);
+});
+
+// BPC-3 (normal nested paths, e.g. scripts/lib/finding-schema.js) is already exercised by the
+// existing --from-checkout/--from-raw happy-path suite above against the real 18-file bundle
+// manifest, which contains genuinely nested scripts/lib/* paths — that suite passing with the
+// guard active is itself the no-false-rejection proof; no separate fixture duplicated here.
 
 // ── F-8: no-.bak/no-stray tripwire, no allowlist (scoped to the installer itself) ───────────
 
