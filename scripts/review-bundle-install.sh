@@ -59,6 +59,31 @@ sha256_of() {
 
 abort() { echo "review-bundle-install: $*" >&2; exit 1; }
 
+# BPC-1/BPC-2/D-2: fail-closed containment guard for every manifest-derived path, called BEFORE
+# any filesystem or network op touches it (all 6 sites: fetch_one write, check_collisions stat,
+# move_staged_into_place mkdir+mv, delete_upgrade_orphans rm, run_remove rm, run_verify read).
+# Pure-bash lexical rejection (no realpath -m dependency — BSD/macOS portability, per binding OQ
+# ruling). Rejects: empty path; absolute path (leading /); any path SEGMENT equal to "..". This is
+# segment-aware (split on "/" via parameter expansion — no globbing/word-splitting), NOT a
+# substring test — so a legitimate filename merely containing ".." (e.g. "a..b/c.js") is NOT
+# falsely rejected (D-2).
+validate_rel_path() {
+  local rel="$1" rest seg
+  [ -n "$rel" ] || abort "unsafe manifest path: empty path"
+  case "$rel" in
+    /*) abort "unsafe manifest path: absolute path: $rel" ;;
+  esac
+  rest="$rel"
+  while [ -n "$rest" ]; do
+    seg="${rest%%/*}"
+    [ "$seg" = ".." ] && abort "unsafe manifest path: .. segment in: $rel"
+    case "$rest" in
+      */*) rest="${rest#*/}" ;;
+      *) rest="" ;;
+    esac
+  done
+}
+
 MODE="${1:-}"; shift || usage
 case "$MODE" in install|upgrade|remove|verify) ;; *) usage ;; esac
 
@@ -121,6 +146,7 @@ run_verify() {
   count=$(manifest_count "$manifest")
   for i in $(seq 0 $((count - 1))); do
     path=$(manifest_path "$manifest" "$i"); want=$(manifest_sha "$manifest" "$i")
+    validate_rel_path "$path"
     if [ ! -f "$TARGET/$path" ]; then
       echo "review-bundle-install: verify: MISSING $path" >&2; problems=$((problems + 1)); continue
     fi
@@ -140,6 +166,7 @@ run_remove() {
   count=$(manifest_count "$manifest")
   for i in $(seq 0 $((count - 1))); do
     path=$(manifest_path "$manifest" "$i"); sha=$(manifest_sha "$manifest" "$i"); shared=$(manifest_shared "$manifest" "$i")
+    validate_rel_path "$path"
     if [ "$shared" = "true" ]; then echo "review-bundle-install: remove: keeping shared file $path"; continue; fi
     if [ ! -f "$TARGET/$path" ]; then echo "review-bundle-install: remove: WARN $path already missing, continuing" >&2; continue; fi
     if [ "$(sha256_of "$TARGET/$path")" != "$sha" ]; then
@@ -157,6 +184,7 @@ stage_all_files() {
   count=$(manifest_count "$manifest")
   for i in $(seq 0 $((count - 1))); do
     rel=$(manifest_path "$manifest" "$i"); want=$(manifest_sha "$manifest" "$i")
+    validate_rel_path "$rel"
     fetch_one "$rel" "$STAGING/$rel" || abort "failed to fetch $rel after one retry. Staging left at $STAGING for inspection."
     got="$(sha256_of "$STAGING/$rel")"
     [ "$got" = "$want" ] || abort "sha256 mismatch staging $rel (got $got, want $want). Staging left at $STAGING for inspection."
@@ -171,6 +199,7 @@ check_collisions() {
   count=$(manifest_count "$new_manifest")
   for i in $(seq 0 $((count - 1))); do
     rel=$(manifest_path "$new_manifest" "$i"); new_sha=$(manifest_sha "$new_manifest" "$i")
+    validate_rel_path "$rel"
     [ -f "$TARGET/$rel" ] || continue
     local current; current="$(sha256_of "$TARGET/$rel")"
     [ "$current" = "$new_sha" ] && continue
@@ -190,6 +219,7 @@ move_staged_into_place() {
   count=$(manifest_count "$manifest")
   for i in $(seq 0 $((count - 1))); do
     rel=$(manifest_path "$manifest" "$i")
+    validate_rel_path "$rel"
     mkdir -p "$TARGET/$(dirname "$rel")" || abort "could not create $TARGET/$(dirname "$rel") — target left partially updated, staging at $STAGING for inspection."
     mv -f "$STAGING/$rel" "$TARGET/$rel" || abort "failed to move staged $rel into place — the manifest was NOT written; target left partially updated, staging at $STAGING for inspection."
   done
@@ -202,6 +232,7 @@ delete_upgrade_orphans() {
   count=$(manifest_count "$old_manifest")
   for i in $(seq 0 $((count - 1))); do
     rel=$(manifest_path "$old_manifest" "$i"); sha=$(manifest_sha "$old_manifest" "$i"); shared=$(manifest_shared "$old_manifest" "$i")
+    validate_rel_path "$rel"
     [ "$shared" = "true" ] && continue
     echo "$new_manifest" | jq -e --arg p "$rel" '.files[] | select(.path == $p)' >/dev/null && continue
     [ -f "$TARGET/$rel" ] || continue
