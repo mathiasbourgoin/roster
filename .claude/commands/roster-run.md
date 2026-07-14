@@ -2,7 +2,7 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.10.1
+version: 1.10.2
 ---
 
 # Roster Run
@@ -92,7 +92,11 @@ description for **every** task, before mode is recorded — it feeds a full-mode
 an automatic upgrade:
 
 ```bash
-echo "<task>" | grep -qiE "auth|attest|evidence|authority|permission|token|signature|custody|integrity" && echo "TRUST_BOUNDARY_HIT"
+desc=$(cat <<'EOF'
+<task>
+EOF
+)
+printf '%s' "$desc" | grep -qiE "auth|attest|evidence|authority|permission|token|signature|custody|integrity" && echo "TRUST_BOUNDARY_HIT"
 ```
 
 If it fires and the task would not already route to Full: recommend Full mode to the human before
@@ -111,7 +115,11 @@ Run the following deterministic Tier A checks against the task description and t
 
 ```bash
 # Keyword check on task description
-echo "<task>" | grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle|attestat|certif|vulnerability|exploit|attack|adversar|malicious|untrusted.input|invariant|correct.by.construction" && echo "KEYWORD_HIT"
+desc=$(cat <<'EOF'
+<task>
+EOF
+)
+printf '%s' "$desc" | grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle|attestat|certif|vulnerability|exploit|attack|adversar|malicious|untrusted.input|invariant|correct.by.construction" && echo "KEYWORD_HIT"
 
 # Adjacent formal spec file
 [ -f "$(dirname <target>)/<basename>.v" ]   && echo "ADJACENT_V"

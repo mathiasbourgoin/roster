@@ -2,7 +2,7 @@
 name: roster-intake
 description: Turns a raw task description into a human-validated contractual brief.
 when_to_use: "Use as the first pipeline step for any new task. Trigger: '/roster-run', 'start work on X'."
-version: 1.3.0
+version: 1.3.1
 domain: pipeline
 phase: intake
 preamble: true
@@ -243,7 +243,11 @@ Run this deterministic check against the task description before writing the bri
 only, no LLM judgment:
 
 ```bash
-echo "<task description>" | grep -qiE "auth|attest|evidence|authority|permission|token|signature|custody|integrity" && echo "TRUST_BOUNDARY_HIT"
+desc=$(cat <<'EOF'
+<task description>
+EOF
+)
+printf '%s' "$desc" | grep -qiE "auth|attest|evidence|authority|permission|token|signature|custody|integrity" && echo "TRUST_BOUNDARY_HIT"
 ```
 
 If it fires, propose `**Trust boundary:** yes` in the brief; otherwise propose `no`. This is a
