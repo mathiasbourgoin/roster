@@ -343,13 +343,14 @@
       {
         "name": "roster-qa",
         "source": "roster",
-        "version": "1.8.1",
+        "version": "1.9.0",
         "domain": "pipeline",
         "phase": "qa",
         "tunables": {
           "require_tmux_matrix_for_tui": true,
           "run_full_suite": true,
-          "code_intel_gate_timeout": 120
+          "code_intel_gate_timeout": 120,
+          "max_qa_rounds": 5
         }
       },
       {

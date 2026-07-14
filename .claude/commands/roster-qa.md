@@ -2,7 +2,7 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.8.1
+version: 1.9.0
 domain: pipeline
 phase: qa
 preamble: true
@@ -14,13 +14,19 @@ tunables:
   require_tmux_matrix_for_tui: true
   run_full_suite: true
   code_intel_gate_timeout: 120
+  max_qa_rounds: 5 # QA-side round cap (spec: specs/qa-loop-bounding.md) — deliberately a
+    # distinct name from roster-review's max_no_go_rounds (C-13): tunables are
+    # per-skill-namespaced either way, and the distinct name keeps cross-skill
+    # grep/config unambiguous. Do not rename to match review's.
 artifacts:
   reads:
     - briefs/<task>-review.json
     - briefs/<task>-qa-scope.md
     - briefs/<task>-impl.md
+    - briefs/<task>-qa-state.json (prior round, if present — round/cycle/qa_no_go_round/rounds_audit source)
   writes:
     - briefs/<task>-qa.md
+    - briefs/<task>-qa-state.json
 pipeline_role:
   triggered_by: /roster-review with GO status
   receives: briefs/<task>-review.json GO + implementation on branch
@@ -363,6 +369,78 @@ report under a `## Cross-runtime QA` section.
 the primary run passed (a CRITICAL/HIGH discrepancy), the verdict is **NO-GO** — a gate that
 only passes under one runtime is not a pass. Surface the exact divergence.
 
+### 4.7 QA round state — derive, gate, persist (spec: specs/qa-loop-bounding.md, FR-260..286)
+
+Bounds the review-GO → QA-NO-GO → implement loop (FR-032 residual of
+`specs/pipeline-loop-convergence.md`, now superseded — see that spec's FR-032). Runs on **every**
+verdict emission, GO included. Full field shapes: `schema/qa-state-schema.md`.
+
+**1. Determine this verdict's causes** from the steps that actually ran:
+
+| Step outcome | Cause |
+|---|---|
+| Step 2 gate failure | `gate-failure` |
+| Step 3 spec runnable-check FAIL | `spec-check-failure` |
+| Step 3.5 exit 1 (invariant violated) | `code-intel-violation` |
+| Step 3.5 exit 2 (malformed block) | `code-intel-malformed` |
+| Step 4 TUI failure | `tui-failure` |
+| Step 4.5 cross-runtime discrepancy | `cross-runtime-discrepancy` |
+
+A GO verdict records `causes: []`. Step 2's short-circuit (stop at first gate failure, do not
+continue) means most NO-GOs carry a single cause; only a round that ran past Step 2 can accumulate
+more than one (EC-4) — record every cause that applies, never just the first.
+
+**2. Derive round/cycle** by shelling out (never re-derive in prose, FR-261):
+
+```bash
+node scripts/lib/review/review-lifecycle.js --prior briefs/<task>-qa-state.json
+```
+
+→ `{round, cycle, fresh_cycle}` (absent prior file is legitimate fresh-task input; a present-but-
+invalid-JSON prior fails closed — surface the lifecycle's exit 2, do not guess). **Note:** the CLI
+returns only `{round, cycle, fresh_cycle}` — it does NOT return `rounds_audit`. Read the prior
+`briefs/<task>-qa-state.json` yourself (if present) and carry its `rounds_audit` forward verbatim
+when `fresh_cycle` is false; start from `[]` when `fresh_cycle` is true. Carry `cross_runtime`
+forward the same way (C-2, inert — QA never reads or interprets it).
+
+**3. Compute `qa_no_go_round`** (two counters, never conflated — FR-267):
+- GO verdict → reset to `0` (cycle-final budget reset).
+- NO-GO verdict → prior `qa_no_go_round` (0 on a fresh cycle) **+ 1 iff** at least one recorded
+  cause is qualifying (`gate-failure`, `spec-check-failure`, `code-intel-violation`,
+  `tui-failure` — see the `[NEEDS-HUMAN]` note in `scripts/lib/qa/qa-convergence-rules.js` for the
+  C-4 interpretation this rests on), else unchanged (`cross-runtime-discrepancy` /
+  `code-intel-malformed` alone never increment it, FR-269/FR-270).
+
+**4. Append the `rounds_audit` entry** (append-only within the cycle, FR-265):
+`{round, date, verdict, causes, qualifying}` where `qualifying` is whether step 3's `+1` fired.
+
+**5. Compose the draft, gate it, before persisting anything** (fixed order, C-5):
+
+Write the composed state to `briefs/<task>-qa-state.json.draft`, then:
+
+```bash
+node scripts/check-qa-convergence.js briefs/<task>-qa-state.json.draft --max-rounds <tunables.max_qa_rounds>
+```
+
+- **Exit 0** — proceed to step 6.
+- **Exit 1** (`cause: "qa-round-cap"`) — the loop-back to `/roster-implement` is **BLOCKED**
+  (FR-273). Record `escalation: "qa-not-converging"` in the persisted state. This is a **human
+  decision point, non-overridable** (FR-275 — no `streak_override` analogue exists for QA):
+  present the `rounds_audit` trail and recorded causes, and offer the exits — revise the spec via
+  `/roster-spec` (Fast mode: stated explicitly as restart-under-full, FR-277), re-review via
+  `/roster-review`, or split/abandon the task. **MUST NOT** auto-route to any of them (FR-274).
+- **Exit 2** — degraded input (schema-invalid or malformed draft). Fail-closed: block the
+  route-back, surface the gate's stderr message to the human, stop.
+- **Exit 3** (`process-incomplete-only` — the draft's `rounds_audit` is missing/incomplete for the
+  current round) — repair the draft per the violation detail and re-gate, bounded to **2 attempts
+  total**; do not bump `round` again (no re-invocation of the lifecycle CLI). If still exit 3 after
+  2 attempts, stop and surface to the human. This cause never reaches routing.
+
+**6. Persist, in this fixed order** (FR-286 — a crash between these two writes leaves the
+persisted state authoritative and the report stale, never the reverse): write the gated draft to
+`briefs/<task>-qa-state.json` exactly once, remove the `.draft` file, **then** write
+`briefs/<task>-qa.md` (step 5) last.
+
 ### 5. Write the QA report
 
 **Report format contract (load-bearing):** the verdict line MUST be exactly `**Status:** GO ✅` or `**Status:** NO-GO ❌`, at the start of a line — the ship-gate hook greps `^\*\*Status:\*\* GO`. Do not inline the status into another sentence, indent it, or reword it; a report that fails this grep is rejected by the gate even if the verdict is GO.
@@ -376,6 +454,12 @@ Produce `briefs/<task>-qa.md`:
 
 **Date:** <ISO-8601>
 **Status:** GO ✅ / NO-GO ❌
+**Round:** <N> (qualifying <k>/<max_qa_rounds>)
+
+## Round state
+
+<one line: fresh cycle round 1, or "round N in this cycle, qa_no_go_round k/<max_qa_rounds>
+(causes: <list>)". On a qa-round-cap escalation, state it explicitly here as well as in Verdict.>
 
 ## Quality Gates
 
@@ -409,19 +493,29 @@ Produce `briefs/<task>-qa.md`:
 
 **GO** — ready for `/roster-ship`
 **NO-GO** — return to `/roster-implement` for: <precise reason>
+**NO-GO, qa-round-cap hit** — STOP. The QA loop has not converged after `<max_qa_rounds>`
+qualifying rounds. This is a non-overridable human decision point (FR-275) — do NOT return to
+`/roster-implement`. Present the `rounds_audit` trail and offer: revise the spec (`/roster-spec`),
+re-review (`/roster-review`), or split/abandon the task.
 ```
 
 ### 6. Human gate
 
-Present the report and request validation.
-If NO-GO: suggest returning to `/roster-implement` with the exact reason.
+Present the report and request validation. Surface `**Round:**` and, on a `qa-round-cap`
+escalation, the full `rounds_audit` trail with recorded causes (FR-266) — this is the only
+information the human decision point has to work with.
+If NO-GO (not cap-hit): suggest returning to `/roster-implement` with the exact reason.
+If NO-GO (cap-hit): present the exits per the Verdict section above; do not pick one.
 
 ## Output Contract
 
-`briefs/<task>-qa.md` with GO or NO-GO status documented.
+`briefs/<task>-qa.md` with GO or NO-GO status documented, and `briefs/<task>-qa-state.json` with
+the persisted round state (schema: `schema/qa-state-schema.md`).
 
 **If GO:** `/roster-ship` can start.
 **If NO-GO:** return to `/roster-implement` with the error log in the brief.
+**If NO-GO with `qa-not-converging` escalation:** STOP at the human decision point — no automatic
+route (FR-274).
 
 ## When to Go Back
 
@@ -429,6 +523,7 @@ If NO-GO: suggest returning to `/roster-implement` with the exact reason.
 |---|---|
 | Automated gate fails (build, tests, lint) | Stop — return to `/roster-implement` with the exact error log |
 | Manual verification reveals a regression not caught by tests | Stop — return to `/roster-implement` |
+| `scripts/check-qa-convergence.js` exits 1 (`cause: "qa-round-cap"`) | STOP — human decision point (non-overridable): `/roster-spec`, `/roster-review`, or split/abandon. Never auto-route. |
 
 ## What Next
 
@@ -450,3 +545,8 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Never GO if a gate fails
 - Never skip a gate — all in order
 - If a gate command is missing from the brief → note "not documented" and ask
+- Always gate the composed `qa-state.json.draft` with `scripts/check-qa-convergence.js` BEFORE
+  persisting `qa-state.json`, and persist `qa-state.json` BEFORE writing `qa.md` (C-5/FR-286) —
+  never the reverse
+- The `qa-round-cap` escalation is never overridable — no override field is honored, by the skill
+  or the gate (FR-275)
