@@ -5,10 +5,12 @@ status: DRAFT
 feature: R-5 graduation — gate-enforced reviewer invocation traces
 brief: briefs/r5-trace-enforcement-intake.md
 date: 2026-07-13
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Spec — R-5 Trace Enforcement (reviewer invocation traces, gate-enforced)
+
+> A-2 (review round 1, HIGH evasion closed): a round with `round` present, an absent/blank/invalid `task`, AND a `*-review-trace.jsonl` present in the review directory FAILS CLOSED (exit 2) — task-blanking cannot disguise a trace-obligated round (evidence file already on disk) as a legacy B-8 skip. Obligation-to-fail-closed now rests on EITHER the trace_schema_version prong OR an orphan trace file in the review dir; a round with neither prong and no task remains a legacy skip (FR-179, 28 task-less fixtures preserved). Enforced in scripts/lib/review/review-trace-dispatch.js hasOrphanTraceFile(); red fixture "A-2" in check-review-convergence-trace.test.js.
 
 > A-1 (re-validation 2026-07-14, post lib-split c0123a0): xruntime-journal.js is at scripts/lib/xruntime/ (NOT review/) — FR-164/FR-166 corrected. check-review-convergence.js now 474/500 lines (FR-178 extract-if->500 contingency more likely). roster-review base v2.2.2 (target 2.3.0 unchanged). selectCause + review-convergence-rules.js live in scripts/lib/review/. All FR logic, gate-integration, exit-contract (0/1/2/3), trust model, INV-1..8 assumptions verified intact.
 

@@ -321,3 +321,48 @@ test("D4/FR-179: round present, no task, no trace_schema_version (pre-existing f
   assert.strictEqual(report.cause, "unencodable-finding");
   assert.strictEqual(report.trace.obligated, false);
 });
+
+// ── A-2 (D4 evasion): blank task + existing trace file on disk must FAIL
+// CLOSED (exit 2), not be disguised as a legacy skip. Review finding #1. ──
+
+test("A-2: obligated-by-file round with blanked task -> exit 2 (evasion closed, not legacy skip)", () => {
+  const repo = makeRepo();
+  // A real deterministic-writer trace file exists on disk for the true task.
+  writeTraceLines(repo, "demo-task", [traceLine({ event: "normalizer" })]);
+  // Reviewer blanks `task` and omits trace_schema_version, trying to make the
+  // gate unable to locate the file and fall through to a benign B-8 skip.
+  const evade = {
+    task: "",
+    mode: "full",
+    round: 2,
+    no_go_round: 0,
+    normalized_by: "review-normalize.js@2.0.0",
+    findings: [],
+    rounds_audit: [{ round: 2, specialists_run: [{ name: "architect", selection_reason: "risk" }], strike: false }],
+  };
+  const p = writeReview(repo, evade);
+  const res = gate(repo, p);
+  assert.strictEqual(res.code, 2, `evasion must fail closed (exit 2), got ${res.code}: ${res.stdout}${res.stderr || ""}`);
+  assert.match((res.stdout || "") + (res.stderr || ""), /task must be a non-empty slug/);
+});
+
+test("A-2 control: same file with honest task set proceeds to real evaluation (not the task-validation exit 2)", () => {
+  const repo = makeRepo();
+  writeTraceLines(repo, "demo-task", [traceLine({ event: "normalizer" })]);
+  const honest = {
+    task: "demo-task",
+    mode: "full",
+    round: 2,
+    no_go_round: 0,
+    normalized_by: "review-normalize.js@2.0.0",
+    findings: [],
+    rounds_audit: [{ round: 2, specialists_run: [{ name: "architect", selection_reason: "risk" }], strike: false }],
+  };
+  const p = writeReview(repo, honest);
+  const res = gate(repo, p);
+  // Obligated + evaluated: the claimed `architect` specialist has no trace line
+  // and Full mode has no scope-gate line -> unattested-invocation (exit 1).
+  // The point: it does NOT short-circuit on task-validation, and is NOT a skip.
+  assert.notStrictEqual(res.code, 0, "honest obligated round must not silently pass");
+  assert.doesNotMatch((res.stdout || "") + (res.stderr || ""), /task must be a non-empty slug/);
+});
