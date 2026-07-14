@@ -26,7 +26,7 @@
     },
     {
       "path": "scripts/lib/redgreen-scratch.js",
-      "sha256": "63cf3f2ad7830b23e0ba7397c891d563432aa2c1437b488498bd9ed418a1c8bc"
+      "sha256": "d16a7e7e72115056c5ae5cd6a5ab13cc0e206031a5d39c6175ae19b23901078d"
     },
     {
       "path": "scripts/lib/review-convergence-rules.js",

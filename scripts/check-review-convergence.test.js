@@ -494,3 +494,135 @@ test('read-only: gate run creates/modifies no repo file and never invokes git wo
   assert.strictEqual(strip(afterStatus), strip(beforeStatus));
   assert.strictEqual(afterWorktrees, beforeWorktrees);
 });
+
+// ── FIX-A (RGC-1/4, CHECK-1/2): path-containment choke point ────────────────
+
+// A self-contained node script honoring the red-command exit convention
+// (A-6), but placed OUTSIDE the repo: on execution it writes a canary file
+// next to itself so a fixture can prove out-of-tree execution occurred.
+const ATTACKER_SRC = [
+  "const fs = require('fs');",
+  "const path = require('path');",
+  "fs.writeFileSync(path.resolve(__dirname, 'canary.txt'), 'pwned');",
+  "process.exit(1);",
+].join('\n');
+
+test('CHECK-1: traversal check path escapes repo root -> exit 2, no out-of-tree execution', () => {
+  const repo = makeRepo();
+  const attackerDir = fs.mkdtempSync(path.join(os.tmpdir(), 'redgreen-attacker-'));
+  try {
+    const attackerFile = path.join(attackerDir, 'evil.js');
+    fs.writeFileSync(attackerFile, ATTACKER_SRC);
+    const canaryPath = path.join(attackerDir, 'canary.txt');
+
+    const preFixSha = repo.base;
+    const traversalCheck = path.relative(repo.dir, attackerFile);
+    const p = writeReview(repo, {
+      no_go_round: 1,
+      findings: [
+        {
+          severity: 'HIGH',
+          status: 'RESOLVED',
+          first_seen_round: 1,
+          resolved_round: 2,
+          check: traversalCheck,
+          check_blob: null,
+          pre_fix_sha: preFixSha,
+          fingerprint: 'a.ml:1:correctness',
+        },
+      ],
+    });
+    const r = gate(repo, p);
+    assert.strictEqual(r.code, 2, r.stdout + r.stderr);
+    const report = JSON.parse(r.stdout);
+    assert.ok(report.checks.some((c) => /check path escapes repo root/.test(c.reason)), r.stdout);
+    assert.strictEqual(fs.existsSync(canaryPath), false, 'attacker script must never execute');
+  } finally {
+    fs.rmSync(attackerDir, { recursive: true, force: true });
+  }
+});
+
+test('CHECK-2: absolute check path escapes repo root -> exit 2, no out-of-tree execution', () => {
+  const repo = makeRepo();
+  const attackerDir = fs.mkdtempSync(path.join(os.tmpdir(), 'redgreen-attacker-'));
+  try {
+    const attackerFile = path.join(attackerDir, 'evil.js');
+    fs.writeFileSync(attackerFile, ATTACKER_SRC);
+    const canaryPath = path.join(attackerDir, 'canary.txt');
+
+    const preFixSha = repo.base;
+    const p = writeReview(repo, {
+      no_go_round: 1,
+      findings: [
+        {
+          severity: 'HIGH',
+          status: 'RESOLVED',
+          first_seen_round: 1,
+          resolved_round: 2,
+          check: attackerFile, // absolute path
+          check_blob: null,
+          pre_fix_sha: preFixSha,
+          fingerprint: 'a.ml:1:correctness',
+        },
+      ],
+    });
+    const r = gate(repo, p);
+    assert.strictEqual(r.code, 2, r.stdout + r.stderr);
+    const report = JSON.parse(r.stdout);
+    assert.ok(report.checks.some((c) => /check path escapes repo root/.test(c.reason)), r.stdout);
+    assert.strictEqual(fs.existsSync(canaryPath), false, 'attacker script must never execute');
+  } finally {
+    fs.rmSync(attackerDir, { recursive: true, force: true });
+  }
+});
+
+// ── FIX-B (RGC-2/4, CHECK-3): green-phase tree-integrity corroboration ──────
+
+// A check that reproduces red against the pre-fix (buggy) tree, but on the
+// green run — regardless of marker state — writes an untracked side-effect
+// file into cwd, mutating the real working tree.
+const MUTATING_CHECK_SRC = [
+  "const fs = require('fs');",
+  "const path = require('path');",
+  "fs.writeFileSync(path.resolve(process.cwd(), 'side-effect.txt'), 'mutated');",
+  "const marker = path.resolve(__dirname, '..', 'marker.txt');",
+  "let content = '';",
+  "try { content = fs.readFileSync(marker, 'utf8').trim(); } catch (e) {}",
+  "if (content === 'buggy') { process.exit(1); } else { process.exit(0); }",
+].join('\n');
+
+test('CHECK-3: green-phase mutation -> exit 2, not reported red_verified', () => {
+  const repo = makeRepo();
+  fs.writeFileSync(path.join(repo.dir, 'marker.txt'), 'buggy\n');
+  repo.run('git add -A && git commit -qm buggy-marker');
+  const preFixSha = repo.run('git rev-parse HEAD').trim();
+  commitFile(repo, 'checks/mut.js', MUTATING_CHECK_SRC);
+  // Fix the bug on the current tree (so red-against-pre-fix still fires,
+  // isolating the failure to the green-phase mutation).
+  fs.writeFileSync(path.join(repo.dir, 'marker.txt'), 'fixed\n');
+  repo.run('git add -A && git commit -qm fixed-marker');
+
+  const p = writeReview(repo, {
+    no_go_round: 1,
+    findings: [
+      {
+        severity: 'HIGH',
+        status: 'RESOLVED',
+        first_seen_round: 1,
+        resolved_round: 2,
+        check: 'checks/mut.js',
+        check_blob: null,
+        pre_fix_sha: preFixSha,
+        fingerprint: 'a.ml:1:correctness',
+      },
+    ],
+  });
+  const r = gate(repo, p);
+  assert.strictEqual(r.code, 2, r.stdout + r.stderr);
+  const report = JSON.parse(r.stdout);
+  const c = report.checks.find((c) => c.check === 'checks/mut.js');
+  assert.ok(c, r.stdout);
+  assert.ok(/green run mutated the working tree/.test(c.reason), r.stdout);
+  assert.notStrictEqual(c.red_verified, true);
+  fs.rmSync(path.join(repo.dir, 'side-effect.txt'), { force: true });
+});

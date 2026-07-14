@@ -22,6 +22,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const crypto = require("crypto");
 const { execFileSync } = require("child_process");
 
 function isFullSha(s) {
@@ -32,6 +33,16 @@ function isFullSha(s) {
 // green against the current tree. Never mutates the real repo or .git.
 // Guard clauses only — the two verification branches are extracted below.
 function verifyCheck({ repoRoot, checkRelPath, preFixSha, recordedBlob, redVerified, timeoutMs }) {
+  // FIX-A (RGC-1): path containment — single choke point above every resolve,
+  // hash-object, copyFileSync and node exec (and above the convergence-gate
+  // red-proof fast path, RGC-5). Reject before any I/O touches checkRelPath.
+  if (typeof checkRelPath !== "string" || checkRelPath === "" || path.isAbsolute(checkRelPath)) {
+    return { inconclusive: true, reason: `check path escapes repo root: ${checkRelPath}` };
+  }
+  const relToRoot = path.relative(repoRoot, path.resolve(repoRoot, checkRelPath));
+  if (relToRoot === "" || relToRoot.startsWith("..") || path.isAbsolute(relToRoot)) {
+    return { inconclusive: true, reason: `check path escapes repo root: ${checkRelPath}` };
+  }
   if (!isFullSha(preFixSha)) {
     return { inconclusive: true, reason: `pre_fix_sha is not a full 40-hex sha: ${preFixSha}` };
   }
@@ -159,9 +170,36 @@ function runRedPhase(scratchCheckPath, scratchDir, repoRoot, timeoutMs) {
   return runNode(scratchCheckPath, scratchDir, repoRoot, timeoutMs);
 }
 
+// FIX-B (RGC-3): whole-tree snapshot, the xruntime-exec.sh idiom
+// (`git status --porcelain -uall | sha256sum`). Read-only — never
+// add/commit/stash/checkout/worktree.
+function snapshotTree(repoRoot) {
+  const status = execFileSync("git", ["status", "--porcelain", "-uall"], { cwd: repoRoot, stdio: "pipe" });
+  return crypto.createHash("sha256").update(status).digest("hex");
+}
+
 // Runs the green half: the check executed against the current (real) tree.
+// FIX-B (RGC-2): before/after whole-tree snapshot around the green run.
+// D-5 (binding): if the snapshot cannot be taken (non-repo, git binary/
+// permission failure) FAIL CLOSED (inconclusive) — never skip, never crash.
 function runGreenPhase(checkAbsPath, repoRoot, timeoutMs) {
-  return runNode(checkAbsPath, repoRoot, repoRoot, timeoutMs);
+  let before;
+  try {
+    before = snapshotTree(repoRoot);
+  } catch (e) {
+    return { inconclusive: true, reason: "green-phase tree snapshot unavailable (cannot verify read-only)" };
+  }
+  const result = runNode(checkAbsPath, repoRoot, repoRoot, timeoutMs);
+  let after;
+  try {
+    after = snapshotTree(repoRoot);
+  } catch (e) {
+    return { inconclusive: true, reason: "green-phase tree snapshot failed after green run" };
+  }
+  if (before !== after) {
+    return { inconclusive: true, reason: "green run mutated the working tree" };
+  }
+  return result;
 }
 
 // Runs `node <absPath>` honoring the red-command exit convention (A-6):
