@@ -155,7 +155,7 @@ As a reviewer, I want each new ratcheted check proven to fail (assertion-red) ag
 - **FR-029** [US-3]: When an Express/Fast task hits escalation, the pipeline MUST stop and instruct the human to restart the task under full mode; it MUST NOT mutate the ledger and MUST NOT upgrade the mode automatically.
 - **FR-030** [US-3]: The gate MUST treat a legacy review.json lacking the `no_go_round` key as round 0 with a warning (not exit 2); an absent or otherwise-malformed review.json MUST produce exit 2.
 - **FR-031** [US-3]: roster-review MUST surface `no_go_round` and the checks added this task in the review human-gate one-liner.
-- **FR-032** [US-3]: The skill documentation MUST record the known residual that the review-GO → QA-NO-GO → implement loop remains unbounded (roster-qa out of scope); the gate MUST NOT attempt to bound it.
+- **FR-032** [US-3]: The skill documentation MUST record the known residual that the review-GO → QA-NO-GO → implement loop remains unbounded (roster-qa out of scope); the gate MUST NOT attempt to bound it. **superseded-by: specs/qa-loop-bounding.md** — the QA-side bound is specified there; the review gate still MUST NOT attempt to bound the QA loop.
 
 #### Red-Before-Green Proof [US-4]
 

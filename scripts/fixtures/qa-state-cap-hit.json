@@ -1,0 +1,17 @@
+{
+  "task": "fixture-task",
+  "date": "2026-07-14T00:00:00Z",
+  "status": "NO-GO",
+  "round": 6,
+  "cycle": 1,
+  "qa_no_go_round": 5,
+  "rounds_audit": [
+    { "round": 1, "date": "2026-07-09T00:00:00Z", "verdict": "NO-GO", "causes": ["gate-failure"], "qualifying": true },
+    { "round": 2, "date": "2026-07-10T00:00:00Z", "verdict": "NO-GO", "causes": ["gate-failure"], "qualifying": true },
+    { "round": 3, "date": "2026-07-11T00:00:00Z", "verdict": "NO-GO", "causes": ["spec-check-failure"], "qualifying": true },
+    { "round": 4, "date": "2026-07-12T00:00:00Z", "verdict": "NO-GO", "causes": ["code-intel-violation"], "qualifying": true },
+    { "round": 5, "date": "2026-07-13T00:00:00Z", "verdict": "NO-GO", "causes": ["tui-failure"], "qualifying": true },
+    { "round": 6, "date": "2026-07-14T00:00:00Z", "verdict": "NO-GO", "causes": ["gate-failure"], "qualifying": true }
+  ],
+  "cross_runtime": {}
+}

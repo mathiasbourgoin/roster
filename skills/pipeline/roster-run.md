@@ -328,10 +328,26 @@ node scripts/check-review-convergence.js briefs/<task>-review.json --static
 | `review` NO-GO with `no_go_reason.type == "design-not-converging"` **or** the convergence gate blocked the route-back | full (express/fast: stop + restart-under-full per above) | `/roster-spec` — the escalation context forces the minimal-freeze profile regardless of Trust boundary/Type (A-10); the un-encodable finding or round cap IS the invariant gap to spec |
 | `review` NO-GO (any other reason) | all | `/roster-implement` — pass review.json as context |
 | `qa` GO | fast, full | `/roster-ship` |
+| `qa` NO-GO with escalation `qa-not-converging` (gate exit 1 or gate blocked route-back) | fast, full | STOP — human decision point: present the `rounds_audit` trail, recorded causes, and exits (`/roster-spec` [Fast⇒restart-under-full, FR-277], `/roster-review`, split/abandon). MUST NOT auto-route. |
 | `qa` NO-GO | fast, full | `/roster-implement` |
 
-**Known residual (FR-032):** the review-GO → QA-NO-GO → implement loop is not bounded by this
-gate — `/roster-qa` is out of scope for the convergence mechanism.
+**QA convergence gate invocation (spec: specs/qa-loop-bounding.md, FR-276/C-14).** Before applying
+either `qa` row above — on both fresh detection and Step 3 resume — invoke the QA-side gate (no
+`--static` mode exists for it; unlike the review gate, it has no red/green machinery to skip):
+
+```bash
+node scripts/check-qa-convergence.js briefs/<task>-qa-state.json --max-rounds <tunables.max_qa_rounds>
+```
+
+- Exit 0 → apply the `qa` rows normally.
+- Exit 1 or the gate otherwise blocking the route-back → treat as `qa-not-converging` (row above)
+  regardless of the recorded verdict — this closes the same resume bypass the review gate closes
+  (C-14).
+
+**Superseded residual (FR-032, see specs/pipeline-loop-convergence.md's amendment):** the
+review-GO → QA-NO-GO → implement loop is now bounded by `specs/qa-loop-bounding.md` —
+`scripts/check-qa-convergence.js` + the round state above. The review-side gate still MUST NOT
+attempt to bound the QA loop; that is out of its scope by design.
 
 **Exception — critical E0 path (single authoritative statement):** on `review` GO, if
 `briefs/<task>-formal-verify.md` exists and its `**Evidence tier:**` line is `E0p`, `E0m`, or
