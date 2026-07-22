@@ -2,7 +2,7 @@
 name: roster-ship
 description: Carries a reviewed, QA'd branch through to a merged PR.
 when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
-version: 1.4.4
+version: 1.5.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -21,8 +21,10 @@ artifacts:
     - briefs/<task>-review.json
     - briefs/<task>-qa.md
     - briefs/<task>-impl.md
+    - briefs/<task>-state.json
   writes:
     - PR GitHub (external artifact — not tracked in briefs/)
+    - skills-meta/cost.jsonl (advisory, best-effort — see Step 9)
 pipeline_role:
   triggered_by: /roster-qa with GO status
   receives: ready branch, review.json GO, qa.md GO
@@ -175,6 +177,76 @@ If KB is **present**:
   ```
 → If KB is **absent**: skip silently.
 
+### 9. Cost snapshot (advisory, best-effort — never blocks ship)
+
+If `ccusage` is resolvable (mirrors `roster-doctor`'s detection — an already-resolvable binary or
+`npx --no-install`; never auto-install), capture one aggregates-only snapshot of this task's
+cost/token spend via a **time-window join** against this task's own ledger timestamps, and append
+it to `skills-meta/cost.jsonl`. This is advisory telemetry only — it never gates the ship, never
+blocks on failure, and is skipped entirely (silently) when ccusage is absent (FR-160 parity).
+
+```bash
+CCUSAGE_CMD=""
+if command -v ccusage >/dev/null 2>&1; then
+  CCUSAGE_CMD="ccusage"
+elif command -v npx >/dev/null 2>&1 && npx --no-install ccusage --version >/dev/null 2>&1; then
+  CCUSAGE_CMD="npx --no-install ccusage"
+fi
+
+if [ -n "$CCUSAGE_CMD" ] && [ -f "briefs/<task>-state.json" ]; then
+  SINCE=$(jq -r '[.events[].at | select(. != null)] | first // empty' "briefs/<task>-state.json")
+  UNTIL=$(date -u +"%Y-%m-%dT%H:%M:%SZ")   # ship is completing now — always available
+  JOIN_METHOD="time-window-ledger"
+  [ -z "$SINCE" ] && { SINCE=null_literal_below; JOIN_METHOD="time-window-ledger-partial"; }
+
+  # Degrade gracefully on a missing ledger bound — never guess a window (OQ-2).
+  if [ "$SINCE" = "null_literal_below" ]; then
+    CCUSAGE_JSON=$($CCUSAGE_CMD --json --offline --until "$UNTIL" 2>/dev/null)
+    WINDOW_SINCE="null"
+  else
+    CCUSAGE_JSON=$($CCUSAGE_CMD --json --offline --since "$SINCE" --until "$UNTIL" 2>/dev/null)
+    WINDOW_SINCE="\"$SINCE\""
+  fi
+
+  if [ -n "$CCUSAGE_JSON" ]; then
+    echo "$CCUSAGE_JSON" | jq -c \
+      --arg task "<task-slug>" \
+      --arg captured_at "$UNTIL" \
+      --arg join_method "$JOIN_METHOD" \
+      --argjson window_since "$WINDOW_SINCE" \
+      --arg until "$UNTIL" '
+      {
+        task: $task,
+        captured_at: $captured_at,
+        runtime: "cross-runtime",
+        join_method: $join_method,
+        window: { since: $window_since, until: $until },
+        attribution: "approximate",
+        cost_mode: "auto",
+        offline: true,
+        totals: {
+          input_tokens: (.totals.inputTokens // 0),
+          output_tokens: (.totals.outputTokens // 0),
+          cache_creation_tokens: (.totals.cacheCreationTokens // 0),
+          cache_read_tokens: (.totals.cacheReadTokens // 0),
+          cost_usd: (.totals.totalCost // 0)
+        }
+      }' >> skills-meta/cost.jsonl
+    # Validate before trusting the line — never leave a schema-invalid entry in place.
+    [ -f scripts/check-cost-shape.ts ] && (npx tsx scripts/check-cost-shape.ts skills-meta/cost.jsonl >/dev/null 2>&1 \
+      || echo "⚠ cost snapshot failed shape validation — see npx tsx scripts/check-cost-shape.ts skills-meta/cost.jsonl")
+  fi
+fi
+# Any failure above (ccusage absent, jq absent, no ledger, empty ccusage output) is a silent skip —
+# cost telemetry is advisory and must never block or slow down a ship (FR-161..165).
+```
+
+Per-task granularity note (OQ-3): this capture records a **task-level total only** — the
+start→ship window is not further subdivided per phase, since overlapping/concurrent sessions in
+the same window cannot be disambiguated without session ids (OQ-1). This is conformant per FR-163,
+not a shortfall; a future `phases[]` breakdown remains available in the schema if a reliable
+per-phase join is ever built (effectiveness-plan Layer 0, out of scope here).
+
 ## Output Contract
 
 GitHub PR opened (then merged after human approval), or BLOCKED status documented.
@@ -245,3 +317,4 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Never push without an explicit human gate
 - Never commit files outside the task scope
 - If CI fails after push → do not merge, report
+- Never let the cost-snapshot capture (Step 9) block, slow, or gate the ship — it is advisory-only and best-effort; never auto-install ccusage
