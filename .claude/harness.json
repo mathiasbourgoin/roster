@@ -274,7 +274,7 @@
       {
         "name": "roster-doctor",
         "source": "roster",
-        "version": "1.5.0",
+        "version": "1.6.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -364,7 +364,7 @@
       {
         "name": "roster-research",
         "source": "roster",
-        "version": "1.3.0",
+        "version": "1.4.0",
         "domain": "pipeline",
         "phase": "research",
         "tunables": {
