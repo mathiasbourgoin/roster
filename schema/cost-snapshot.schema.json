@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://roster.local/schema/cost-snapshot.schema.json",
   "title": "CostSnapshot",
-  "description": "One entry in skills-meta/cost.jsonl — an advisory, aggregates-only ccusage cost snapshot captured at ship time. Never carries transcript content. See docs/plans/roster-effectiveness-monitoring-2026-06-25.md Layer 1 and briefs/ccusage-metrics-spec.md FR-161..FR-167.",
+  "description": "One entry in skills-meta/cost.jsonl — an advisory, aggregates-only ccusage cost snapshot captured at ship time. Never carries transcript content. See docs/ccusage-metrics-adoption.md and briefs/ccusage-metrics-spec.md FR-161..FR-167.",
   "type": "object",
   "additionalProperties": false,
   "required": [

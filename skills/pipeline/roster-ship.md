@@ -194,51 +194,82 @@ elif command -v npx >/dev/null 2>&1 && npx --no-install ccusage --version >/dev/
 fi
 
 if [ -n "$CCUSAGE_CMD" ] && [ -f "briefs/<task>-state.json" ]; then
-  SINCE=$(jq -r '[.events[].at | select(. != null)] | first // empty' "briefs/<task>-state.json")
-  UNTIL=$(date -u +"%Y-%m-%dT%H:%M:%SZ")   # ship is completing now — always available
-  JOIN_METHOD="time-window-ledger"
-  [ -z "$SINCE" ] && { SINCE=null_literal_below; JOIN_METHOD="time-window-ledger-partial"; }
+  # ccusage's --since/--until are day-granular (YYYYMMDD), but ledger `at` values are full
+  # ISO-8601 timestamps. Coarsen to the day *before* querying, and record the coarsened bound
+  # — never the raw ISO value — as window.since/until, since that is what was actually measured.
+  # to_day: exact ISO-8601-UTC → YYYYMMDD, or empty on anything that doesn't match (never guess).
+  to_day() {
+    case "$1" in
+      [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*)
+        printf '%s' "${1%%T*}" | tr -d '-' ;;
+      *) printf '' ;;
+    esac
+  }
 
-  # Degrade gracefully on a missing ledger bound — never guess a window (OQ-2).
-  if [ "$SINCE" = "null_literal_below" ]; then
-    CCUSAGE_JSON=$($CCUSAGE_CMD --json --offline --until "$UNTIL" 2>/dev/null)
-    WINDOW_SINCE="null"
+  SINCE_RAW=$(jq -r '[.events[].at | select(. != null)] | first // empty' "briefs/<task>-state.json")
+  UNTIL_RAW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")   # ship is completing now — always available
+  UNTIL_DAY=$(to_day "$UNTIL_RAW")
+  JOIN_METHOD="time-window-ledger"
+  SKIP_REASON=""
+
+  if [ -z "$UNTIL_DAY" ]; then
+    SKIP_REASON="until-timestamp-unparseable"
+  elif [ -z "$SINCE_RAW" ]; then
+    SINCE_DAY=""
+    JOIN_METHOD="time-window-ledger-partial"
   else
-    CCUSAGE_JSON=$($CCUSAGE_CMD --json --offline --since "$SINCE" --until "$UNTIL" 2>/dev/null)
-    WINDOW_SINCE="\"$SINCE\""
+    SINCE_DAY=$(to_day "$SINCE_RAW")
+    [ -z "$SINCE_DAY" ] && SKIP_REASON="since-timestamp-unparseable"
   fi
 
-  if [ -n "$CCUSAGE_JSON" ]; then
-    echo "$CCUSAGE_JSON" | jq -c \
-      --arg task "<task-slug>" \
-      --arg captured_at "$UNTIL" \
-      --arg join_method "$JOIN_METHOD" \
-      --argjson window_since "$WINDOW_SINCE" \
-      --arg until "$UNTIL" '
-      {
-        task: $task,
-        captured_at: $captured_at,
-        runtime: "cross-runtime",
-        join_method: $join_method,
-        window: { since: $window_since, until: $until },
-        attribution: "approximate",
-        cost_mode: "auto",
-        offline: true,
-        totals: {
-          input_tokens: (.totals.inputTokens // 0),
-          output_tokens: (.totals.outputTokens // 0),
-          cache_creation_tokens: (.totals.cacheCreationTokens // 0),
-          cache_read_tokens: (.totals.cacheReadTokens // 0),
-          cost_usd: (.totals.totalCost // 0)
-        }
-      }' >> skills-meta/cost.jsonl
-    # Validate before trusting the line — never leave a schema-invalid entry in place.
-    [ -f scripts/check-cost-shape.ts ] && (npx tsx scripts/check-cost-shape.ts skills-meta/cost.jsonl >/dev/null 2>&1 \
-      || echo "⚠ cost snapshot failed shape validation — see npx tsx scripts/check-cost-shape.ts skills-meta/cost.jsonl")
+  if [ -n "$SKIP_REASON" ]; then
+    # Never fall back to an unbounded/all-time query — an unparseable bound skips the snapshot
+    # entirely, with the reason recorded, rather than risking a silent all-time total (OQ-2).
+    echo "⚠ cost snapshot skipped: $SKIP_REASON" >&2
+  else
+    if [ -z "$SINCE_DAY" ]; then
+      CCUSAGE_JSON=$($CCUSAGE_CMD --json --offline --until "$UNTIL_DAY" 2>/dev/null)
+      WINDOW_SINCE="null"
+    else
+      CCUSAGE_JSON=$($CCUSAGE_CMD --json --offline --since "$SINCE_DAY" --until "$UNTIL_DAY" 2>/dev/null)
+      WINDOW_SINCE="\"$SINCE_DAY\""
+    fi
+
+    if [ -n "$CCUSAGE_JSON" ]; then
+      echo "$CCUSAGE_JSON" | jq -c \
+        --arg task "<task-slug>" \
+        --arg captured_at "$UNTIL_RAW" \
+        --arg join_method "$JOIN_METHOD" \
+        --argjson window_since "$WINDOW_SINCE" \
+        --arg until "$UNTIL_DAY" '
+        {
+          task: $task,
+          captured_at: $captured_at,
+          runtime: "cross-runtime",
+          join_method: $join_method,
+          window: { since: $window_since, until: $until },
+          attribution: "approximate",
+          cost_mode: "auto",
+          offline: true,
+          totals: {
+            input_tokens: (.totals.inputTokens // 0),
+            output_tokens: (.totals.outputTokens // 0),
+            cache_creation_tokens: (.totals.cacheCreationTokens // 0),
+            cache_read_tokens: (.totals.cacheReadTokens // 0),
+            cost_usd: (.totals.totalCost // 0)
+          }
+        }' >> skills-meta/cost.jsonl
+      # Validate the appended line before trusting it — drop it on failure, never leave a
+      # schema-invalid entry in place (advisory telemetry; this never blocks or slows the ship).
+      if [ -f scripts/check-cost-shape.ts ] && ! npx tsx scripts/check-cost-shape.ts skills-meta/cost.jsonl >/dev/null 2>&1; then
+        sed -i '$d' skills-meta/cost.jsonl
+        echo "⚠ cost snapshot dropped — failed shape validation" >&2
+      fi
+    fi
   fi
 fi
-# Any failure above (ccusage absent, jq absent, no ledger, empty ccusage output) is a silent skip —
-# cost telemetry is advisory and must never block or slow down a ship (FR-161..165).
+# Any remaining failure above (ccusage absent, jq absent, no ledger, empty ccusage output) is a
+# silent skip — cost telemetry is advisory and must never block or slow down a ship (FR-161..165).
 ```
 
 Per-task granularity note (OQ-3): this capture records a **task-level total only** — the

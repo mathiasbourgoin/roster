@@ -148,7 +148,9 @@ Report the pack list and every `WARN` line verbatim. Warnings, never failures. D
 flag installed packs that are missing from the public registry — private and user-authored
 packs are legitimate and are silently tolerated (list them factually, no warning).
 
-**Cost section (advisory, `full` mode only).** Cross-runtime token/cost telemetry via
+**Cost section (advisory).** Part of Section 1, so — like every other check in this section — it
+only runs in `full` mode (skipped in `preflight`, per the Modes table above; no other Section 1
+check carries its own per-block mode guard either). Cross-runtime token/cost telemetry via
 [ccusage](https://github.com/ryoppippi/ccusage), which reads local Claude Code / Codex / OpenCode
 transcripts offline — no upload, no session-content ever surfaced. Detection must never trigger an
 install: prefer an already-resolvable binary over `npx`/`bunx`'s implicit auto-install behavior.
