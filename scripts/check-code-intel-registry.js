@@ -30,7 +30,7 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 const LANGUAGES = ["go", "rust", "typescript", "javascript", "python", "ocaml"];
-const PROVIDES = ["gate", "audit-section", "init"];
+const PROVIDES = ["gate", "audit-section", "init", "research-orientation"];
 const TIERS = ["verified", "community"];
 const KNOWN_FIELDS = ["name", "tool", "repo", "languages", "provides", "install", "tier", "notes"];
 const KEBAB_CASE = /^[a-z0-9]+(-[a-z0-9]+)*$/;

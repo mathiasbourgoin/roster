@@ -94,10 +94,12 @@ user-authored skill carrying the contract is a first-class pack.
 ```yaml
 ---
 capability: code-intel       # the seam tag — without it, consumers never see the skill
-provides: <gate|audit-section|init>
+provides: <gate|audit-section|init|research-orientation>
                              # what the pack contributes: gate → roster-qa invariant gate;
                              # audit-section → deterministic audit fragment; init → index
-                             # bootstrap. One value per skill; ship one skill per role.
+                             # bootstrap; research-orientation → advisory orientation queries
+                             # for roster-research (never a gate). One value per skill; ship
+                             # one skill per role.
 entry: bash gate.sh          # interpreter-prefixed shell command, script path relative to
                              # the skill directory. ALWAYS prefix the interpreter (`bash`,
                              # `python3`, …): installers copy files without preserving the
