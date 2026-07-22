@@ -34,9 +34,14 @@ a graph hit — this is advisory only, never a gate.
 - `fan-in` — symbols ranked by incoming-caller count (`GROUP BY callee`).
 - `definition <sym>` — the `symbols` row for `<sym>` (empty array if absent).
 - `path <A> <B>` — a depth-bounded path from `A` to `B` over `calls`, via a
-  recursive CTE using `UNION` (not `UNION ALL`) for cycle safety plus an
-  explicit depth-counter cap. `A == B` returns a trivial zero-length result;
-  no path returns an empty array — both exit 0, never an error.
+  recursive CTE with a simple-path guard (`instr` excludes any node already on
+  the walk's accumulated path) plus an explicit depth-counter cap as a
+  secondary bound. `UNION` alone only dedupes identical (node, path, level)
+  rows and is not sufficient for cycle safety on branching/cyclic graphs; the
+  simple-path guard is what actually terminates. `A == B` returns a trivial
+  zero-length result; no path returns an empty array — both exit 0, never an
+  error. Bounded by a 120s timeout (coreutils `timeout`, when on PATH) on
+  direct invocation too, matching the resolver's own bound.
 
 Every result set is capped by `TOP_N`/`LIMIT` (default 10).
 

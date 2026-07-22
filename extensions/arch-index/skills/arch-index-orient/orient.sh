@@ -12,6 +12,7 @@ set -u
 DB=".arch-index/index.db"
 TOP_N=10
 DEPTH_CAP=20
+TIMEOUT_SEC=120 # matches DEFAULT_TIMEOUT_SEC in scripts/code-intel-resolve.js
 
 fail3() { echo "DEGRADED: $*" >&2; exit 3; }
 
@@ -46,15 +47,26 @@ command -v sqlite3 >/dev/null 2>&1 && HAVE_SQLITE=1
 if [ "$HAVE_ARCH" -eq 0 ] && [ "$HAVE_SQLITE" -eq 0 ]; then
   fail3 "tool-missing: neither arch-index nor sqlite3 is on PATH"
 fi
+HAVE_TIMEOUT=0
+command -v timeout >/dev/null 2>&1 && HAVE_TIMEOUT=1
 
 # Run a SQL query, returning a JSON array on stdout (dual path: prefer
 # `arch-index query --json`, else raw `sqlite3 -json`; matches audit.sh:38-47).
+# Bounded by TIMEOUT_SEC (same bound the resolver applies) whenever coreutils
+# `timeout` is on PATH, so direct `bash orient.sh ...` invocation is bounded
+# too, not only the resolver-mediated path.
 run_query() {
   local out
+  local -a cmd
   if [ "$HAVE_ARCH" -eq 1 ]; then
-    out=$(arch-index query --json "$1" 2>/dev/null) || return 1
+    cmd=(arch-index query --json "$1")
   else
-    out=$(sqlite3 -json "$DB" "$1" 2>/dev/null) || return 1
+    cmd=(sqlite3 -json "$DB" "$1")
+  fi
+  if [ "$HAVE_TIMEOUT" -eq 1 ]; then
+    out=$(timeout --foreground -k 5 "${TIMEOUT_SEC}s" "${cmd[@]}" 2>/dev/null) || return 1
+  else
+    out=$("${cmd[@]}" 2>/dev/null) || return 1
   fi
   [ -n "$out" ] && printf '%s' "$out" || printf '[]'
 }
@@ -101,18 +113,24 @@ case "$MODE" in
   path)
     if [ "$NODE_A" = "$NODE_B" ]; then
       # Same-node request: trivial zero-length path, never an error (FR-011).
-      printf '[{"path":"%s","level":0,"note":"same-node"}]' "$(json_escape "$NODE_A")"
+      # json_escape the raw (unescaped) $2, not the SQL-escaped NODE_A — NODE_A
+      # already had its quotes doubled for SQL and must not be escaped again.
+      printf '[{"path":"%s","level":0,"note":"same-node"}]' "$(json_escape "$2")"
     else
-      # Recursive CTE, cycle-safe via UNION (not UNION ALL) plus an explicit
-      # depth-counter cap — depth cap is the primary termination guarantee on
-      # cyclic `calls` data (FR-010); UNION additionally collapses any
-      # identical (node, path, level) row a branching graph might re-derive.
+      # Recursive CTE with a simple-path guard: the accumulated `path` column
+      # is per-walk, so plain UNION only dedupes identical (node, path, level)
+      # rows — it does NOT stop a branching/cyclic graph from re-deriving the
+      # same node down countless distinct paths (exponential blowup). The
+      # `instr(...) = 0` predicate below excludes any callee already present
+      # on the walk's accumulated path, enforcing a simple path per row; the
+      # depth cap remains as a secondary bound.
       run_query "WITH RECURSIVE walk(node, path, level) AS (
         SELECT '$NODE_A', '$NODE_A', 0
         UNION
         SELECT c.callee, walk.path || '->' || c.callee, walk.level + 1
         FROM calls c JOIN walk ON c.caller = walk.node
         WHERE walk.level < $DEPTH_CAP
+          AND instr('->'||walk.path||'->', '->'||c.callee||'->') = 0
       )
       SELECT path, level FROM walk WHERE node = '$NODE_B' ORDER BY level ASC LIMIT 1" \
         || fail3 "query failed for mode path"

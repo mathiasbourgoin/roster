@@ -55,6 +55,33 @@ function makeProjectWithFixtureDb() {
   return root;
 }
 
+// Dense-cycle fixture: n1..n4 form a complete digraph (every node calls every
+// other node both ways) — the case that exposed the exponential per-walk-path
+// blowup (review finding: CTE row count 200/3361/22067/144821 at DEPTH_CAP
+// 5/8/10/12 without the simple-path guard). `z` is an isolated node,
+// unreachable from the complete digraph, to exercise the no-path case.
+function makeProjectWithDenseCycleDb() {
+  const root = makeDir("arch-index-orient-dense-");
+  fs.mkdirSync(path.join(root, ".arch-index"), { recursive: true });
+  const dbPath = path.join(root, ".arch-index", "index.db");
+  const nodes = ["n1", "n2", "n3", "n4"];
+  const edges = [];
+  for (const a of nodes) {
+    for (const b of nodes) {
+      if (a !== b) edges.push(`('${a}','${b}')`);
+    }
+  }
+  edges.push("('z','z')");
+  const sql = [
+    "CREATE TABLE calls(caller TEXT, callee TEXT);",
+    "CREATE TABLE symbols(name TEXT, visibility TEXT, comment_quality_score REAL);",
+    `INSERT INTO calls VALUES ${edges.join(",")};`,
+  ].join("\n");
+  const r = spawnSync("sqlite3", [dbPath, sql], { encoding: "utf8" });
+  assert.strictEqual(r.status, 0, r.stderr);
+  return root;
+}
+
 function runOrient(root, args, { path: pathOverride } = {}) {
   return spawnSync("bash", [ORIENT_SH, ...args], {
     cwd: root,
@@ -152,6 +179,40 @@ test("path: A == B returns a trivial same-node result, never an error", { skip: 
   assert.strictEqual(rows[0].level, 0);
   assert.strictEqual(rows[0].note, "same-node");
 });
+
+test(
+  "path: dense-cycle (4-node complete digraph) returns correct shortest path quickly, not exponential",
+  { skip: !HAVE_SQLITE3 && "sqlite3 not on PATH" },
+  () => {
+    const root = makeProjectWithDenseCycleDb();
+    const start = Date.now();
+    const r = runOrient(root, ["path", "n1", "n4"]);
+    const elapsedMs = Date.now() - start;
+    assert.strictEqual(r.status, 0, r.stderr);
+    const rows = jsonAfterHeader(r.stdout);
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].path, "n1->n4");
+    assert.strictEqual(rows[0].level, 1);
+    // Without the simple-path guard this fixture's row count explodes
+    // exponentially with DEPTH_CAP (hundreds of millions at cap 20); a
+    // generous 10s ceiling comfortably separates "fast" from "blew up".
+    assert.ok(elapsedMs < 10000, `expected < 10s, took ${elapsedMs}ms`);
+  },
+);
+
+test(
+  "path: dense-cycle to an unreachable node terminates quickly with empty result",
+  { skip: !HAVE_SQLITE3 && "sqlite3 not on PATH" },
+  () => {
+    const root = makeProjectWithDenseCycleDb();
+    const start = Date.now();
+    const r = runOrient(root, ["path", "n1", "z"]);
+    const elapsedMs = Date.now() - start;
+    assert.strictEqual(r.status, 0, r.stderr);
+    assert.deepStrictEqual(jsonAfterHeader(r.stdout), []);
+    assert.ok(elapsedMs < 10000, `expected < 10s, took ${elapsedMs}ms`);
+  },
+);
 
 // ---------------------------------------------------------------------------
 // 3. degradation — exit 3 with distinct reason tokens (CHECK-2, AC-4)
