@@ -2,7 +2,7 @@
 name: roster-question
 description: Decomposes a task into neutral research questions with the intent hidden.
 when_to_use: "Use as the first roster-run step before any research happens. Trigger: 'roster-run', new task with no scoping yet."
-version: 1.1.0
+version: 1.2.0
 domain: pipeline
 phase: question
 preamble: true
@@ -54,7 +54,10 @@ PLUS 1–2 neutral ecosystem questions about the EXISTING outside world, tagged 
 Rules:
 - Questions must describe what EXISTS — never what to BUILD
 - No question may reveal the feature or change being requested
-- Each codebase question must be answerable by reading code (grep, glob, read)
+- This is a pure text transformation of the task description below. You have no
+  file access — do NOT read, grep, or glob the codebase to generate questions.
+- Each codebase question must be answerable by reading code (grep, glob, read) —
+  that describes the downstream researcher's job, not yours
 - Each `[ecosystem]` question must be answerable by web search: how existing tools,
   libraries, standards, or community practice handle the task's domain. Same
   disclosure level as the codebase questions — a domain is revealed, never a solution
@@ -120,9 +123,17 @@ Present the questions to the user:
 
 Apply any corrections. Wait for explicit approval before proceeding.
 
-### 6. Announce next step
+### 6. Dispatch or announce next step
+
+If the human approved inline (same turn), immediately invoke `/roster-research
+roster/<task-slug>/questions.md` as a `Skill` call in that same turn — do not keep
+working under this skill's name. Otherwise, end the turn cleanly with:
 
 > "Questions approved. Run `/roster-research roster/<task-slug>/questions.md` to continue."
+
+Rationale (accounting, not style): per-skill cost is measured from one `Skill` call to
+the next, so any work after approval that isn't itself a `Skill` call gets billed to
+`roster-question` instead of the phase actually running.
 
 ## Output Contract
 
