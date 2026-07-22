@@ -32,7 +32,7 @@ const { spawnSync } = require("child_process");
 
 const EXIT_USAGE = 64;
 const DEFAULT_TIMEOUT_SEC = 120;
-const PROVIDES_VALUES = ["gate", "audit-section", "init"];
+const PROVIDES_VALUES = ["gate", "audit-section", "init", "research-orientation"];
 
 // ---------------------------------------------------------------------------
 // Frontmatter (CJS mirror of scripts/lib/catalog/frontmatter.ts — flat key:value only;
@@ -453,6 +453,34 @@ function cmdAudit(opts) {
 }
 
 // ---------------------------------------------------------------------------
+// orient — research-orientation providers (FR-060/061); always exit 0 (advisory).
+// NEVER a QA gate: filters provides === "research-orientation" exclusively —
+// cmdGate above filters provides === "gate" only, so the two are mechanically
+// disjoint (spec C-1).
+// ---------------------------------------------------------------------------
+
+function cmdOrient(opts, queryArgs) {
+  const orientPacks = listPacks(opts.root).filter((p) => p.valid && p.provides === "research-orientation");
+  if (orientPacks.length === 0) {
+    console.log("DEGRADED: no installed research-orientation packs");
+    return 0;
+  }
+  const pack = orientPacks[0];
+  if (!pack.trusted) {
+    console.log(`DEGRADED ${pack.name}: unacknowledged — not executed (${ackHint(pack)})`);
+    return 0;
+  }
+  const run = runEntry(pack, queryArgs, opts.root, opts.timeout);
+  if (run.exit !== 0) {
+    console.log(`DEGRADED ${pack.name}: ${run.reason}`);
+    if (run.stderr) process.stderr.write(run.stderr);
+    return 0;
+  }
+  process.stdout.write(run.stdout.endsWith("\n") ? run.stdout : run.stdout + "\n");
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
 // doctor — advisory only, never exits non-zero for pack problems (FR-039–044)
 // ---------------------------------------------------------------------------
 
@@ -537,6 +565,7 @@ function parseOpts(args) {
 function usage() {
   console.error(
     "usage: node scripts/code-intel-resolve.js <list|gate|audit|doctor> [--root <dir>] [--timeout <sec>] [--properties <path>]\n" +
+      "       node scripts/code-intel-resolve.js orient <mode> [args...] [--root <dir>] [--timeout <sec>]\n" +
       "       node scripts/code-intel-resolve.js ack <skill-name> [--root <dir>]",
   );
 }
@@ -551,6 +580,20 @@ function main(argv) {
       return EXIT_USAGE;
     }
     return cmdAck(skillName, ackOpts);
+  }
+  if (command === "orient") {
+    // Leading positional tokens (mode + query args) are forwarded verbatim to
+    // the pack entry via runEntry's "$@"; only tokens from the first `--flag`
+    // onward are parsed as resolver options (--root/--timeout).
+    let split = 0;
+    while (split < rest.length && !rest[split].startsWith("--")) split += 1;
+    const queryArgs = rest.slice(0, split);
+    const orientOpts = parseOpts(rest.slice(split));
+    if (queryArgs.length === 0 || !orientOpts) {
+      usage();
+      return EXIT_USAGE;
+    }
+    return cmdOrient(orientOpts, queryArgs);
   }
   const opts = parseOpts(rest);
   if (!opts) {

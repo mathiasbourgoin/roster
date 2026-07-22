@@ -21,8 +21,13 @@ const AUDIT_SH = path.join(PACK_ROOT, "skills", "arch-index-audit", "audit.sh");
 const RESOLVER = path.join(REPO_ROOT, "scripts", "code-intel-resolve.js");
 const EXTENSION_CLI = path.join(REPO_ROOT, "dist", "scripts", "roster-extension.js");
 
-const SKILL_NAMES = ["arch-index-audit", "arch-index-gate", "arch-index-init"];
-const SKILL_SCRIPTS = { "arch-index-audit": "audit.sh", "arch-index-gate": "gate.sh", "arch-index-init": "init.sh" };
+const SKILL_NAMES = ["arch-index-audit", "arch-index-gate", "arch-index-init", "arch-index-orient"];
+const SKILL_SCRIPTS = {
+  "arch-index-audit": "audit.sh",
+  "arch-index-gate": "gate.sh",
+  "arch-index-init": "init.sh",
+  "arch-index-orient": "orient.sh",
+};
 
 function makeDir(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -291,14 +296,14 @@ test("install round-trip: three skills + sibling scripts projected, recorded, re
   const registry = JSON.parse(fs.readFileSync(path.join(root, ".harness", "extensions.json"), "utf8"));
   assert.strictEqual(registry.extensions.length, 1);
   assert.strictEqual(registry.extensions[0].name, "arch-index");
-  assert.strictEqual(registry.extensions[0].version, "1.0.0");
+  assert.strictEqual(registry.extensions[0].version, "1.1.0");
 
-  // Resolver sees all three pack components with valid seam contracts.
+  // Resolver sees all four pack components with valid seam contracts.
   const list = spawnSync(process.execPath, [RESOLVER, "list", "--root", root], { encoding: "utf8" });
   assert.strictEqual(list.status, 0, list.stderr);
   const packs = JSON.parse(list.stdout);
   assert.deepStrictEqual(packs.map((p) => p.name), SKILL_NAMES);
-  assert.deepStrictEqual(packs.map((p) => p.provides), ["audit-section", "gate", "init"]);
+  assert.deepStrictEqual(packs.map((p) => p.provides), ["audit-section", "gate", "init", "research-orientation"]);
   assert.ok(packs.every((p) => p.valid && p.requires_tools.includes("arch-index")));
 
   // Key UX property of the trust model: extension install IS the consent —

@@ -43,7 +43,7 @@
       "minItems": 1,
       "description": "Consumer-seam capabilities the pack's skills provide (must match the SKILL.md `provides:` enum).",
       "items": {
-        "enum": ["gate", "audit-section", "init"]
+        "enum": ["gate", "audit-section", "init", "research-orientation"]
       }
     },
     "install": {
