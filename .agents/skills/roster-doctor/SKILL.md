@@ -2,7 +2,7 @@
 name: roster-doctor
 description: Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling.
 when_to_use: "Use before starting work, or when unsure the toolchain actually runs. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.5.0
+version: 1.6.0
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -206,8 +206,8 @@ for f in .agents/skills/*/SKILL.md .opencode/skills/*/SKILL.md; do
   echo "pack: $d ($f)"
   grep -q '^provides:' "$f" || echo "WARN contract: $d: missing provides"
   grep -q '^entry:' "$f" || echo "WARN contract: $d: missing entry"
-  grep -Eq '^provides: (gate|audit-section|init)$' "$f" || ! grep -q '^provides:' "$f" \
-    || echo "WARN contract: $d: provides is not one of gate|audit-section|init"
+  grep -Eq '^provides: (gate|audit-section|init|research-orientation)$' "$f" || ! grep -q '^provides:' "$f" \
+    || echo "WARN contract: $d: provides is not one of gate|audit-section|init|research-orientation"
 done
 # Drift between the two runtime projections (consumers use the .agents copy)
 for a in .agents/skills/*/SKILL.md; do
