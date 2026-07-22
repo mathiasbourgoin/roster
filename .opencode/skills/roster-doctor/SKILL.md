@@ -2,7 +2,7 @@
 name: roster-doctor
 description: Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling.
 when_to_use: "Use before starting work, or when unsure the toolchain actually runs. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.4.1
+version: 1.5.0
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -228,6 +228,33 @@ pack. In the inline fallback, note untrusted packs factually if the ack file is 
 Report the pack list and every `WARN` line verbatim. Warnings, never failures. Doctor MUST NOT
 flag installed packs that are missing from the public registry — private and user-authored
 packs are legitimate and are silently tolerated (list them factually, no warning).
+
+**Cost section (advisory, `full` mode only).** Cross-runtime token/cost telemetry via
+[ccusage](https://github.com/ryoppippi/ccusage), which reads local Claude Code / Codex / OpenCode
+transcripts offline — no upload, no session-content ever surfaced. Detection must never trigger an
+install: prefer an already-resolvable binary over `npx`/`bunx`'s implicit auto-install behavior.
+
+```bash
+CCUSAGE_CMD=""
+if command -v ccusage >/dev/null 2>&1; then
+  CCUSAGE_CMD="ccusage"
+elif command -v npx >/dev/null 2>&1 && npx --no-install ccusage --version >/dev/null 2>&1; then
+  CCUSAGE_CMD="npx --no-install ccusage"
+fi
+# bunx has no --no-install equivalent, so it is not probed here — a bare `bunx ccusage` would
+# silently auto-install on first use, violating "ccusage is never auto-installed" (FR-160).
+
+if [ -n "$CCUSAGE_CMD" ]; then
+  echo "--- Cost (advisory — ccusage, offline pricing, cross-runtime totals) ---"
+  $CCUSAGE_CMD --json --offline 2>/dev/null | jq -r '
+    "input: \(.totals.inputTokens // "n/a")  output: \(.totals.outputTokens // "n/a")  cache-create: \(.totals.cacheCreationTokens // "n/a")  cache-read: \(.totals.cacheReadTokens // "n/a")  cost: $\(.totals.totalCost // "n/a")"
+  ' 2>/dev/null || echo "ccusage present but output could not be summarized (advisory, non-blocking)"
+  echo "(advisory only — never affects the READY/NOT-READY verdict; ccusage = cross-runtime baseline, Claude Code OTel remains a deferred richer-but-Claude-only enhancement)"
+else
+  : # ccusage absent → silently omit this section. No WARN. Verdict and rest of the report are
+    # byte-identical to a pre-integration run minus this section (FR-160). NEVER auto-install.
+fi
+```
 
 ### 2. Project dev-env readiness
 

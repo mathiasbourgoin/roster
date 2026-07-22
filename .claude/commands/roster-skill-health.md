@@ -2,7 +2,7 @@
 name: roster-skill-health
 description: Clusters accumulated friction-log patterns into improvement proposals.
 when_to_use: "Use every 5-10 pipeline cycles or when a friction-count reminder fires. Trigger: 'analyze friction'."
-version: 1.4.0
+version: 1.5.0
 domain: meta
 phase: null
 preamble: true
@@ -15,6 +15,7 @@ tunables:
 artifacts:
   reads:
     - skills-meta/friction.jsonl
+    - skills-meta/cost.jsonl (optional — advisory context only, see Step 4.5)
   writes:
     - skills-meta/health-<date>.md
 pipeline_role:
@@ -263,6 +264,11 @@ Produce `skills-meta/health-<YYYY-MM-DD>.md`:
 
 <entries below threshold>
 
+## Cost context (advisory — omitted if skills-meta/cost.jsonl is absent)
+
+<which task/skill/cluster carried the most recorded (approximate) spend — context only, never a
+signal that changed any proposal above>
+
 ## Stability
 
 <N> clean runs — stable skills: <list>
@@ -296,3 +302,4 @@ Present the report and ask:
 
 ## Rules
 - Clean runs are a positive signal to name explicitly
+- Cost context (`skills-meta/cost.jsonl`) is advisory only — it never changes `min_entries_for_signal`, cluster ranking, or any proposal; absent cost data never changes clustering either
