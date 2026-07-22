@@ -241,7 +241,7 @@
       {
         "name": "roster-skill-health",
         "source": "roster",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "domain": "meta",
         "phase": null,
         "tunables": {
@@ -274,7 +274,7 @@
       {
         "name": "roster-doctor",
         "source": "roster",
-        "version": "1.4.1",
+        "version": "1.5.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -397,7 +397,7 @@
       {
         "name": "roster-ship",
         "source": "roster",
-        "version": "1.4.4",
+        "version": "1.5.0",
         "domain": "pipeline",
         "phase": "ship",
         "tunables": {
