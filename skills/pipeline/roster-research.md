@@ -2,7 +2,7 @@
 name: roster-research
 description: Performs blind, file:line-grounded research from a questions file, never the task itself.
 when_to_use: "Use after roster-question produces an approved questions file. Trigger: 'research this', 'roster-research'."
-version: 1.3.0
+version: 1.4.0
 domain: pipeline
 phase: research
 preamble: true
@@ -57,6 +57,37 @@ Partition them: questions starting with `[ecosystem]` are **external questions**
 questions**. The tag match is literal — do not infer external intent from phrasing.
 
 Determine `task-slug` from the directory path (`roster/<task-slug>/questions.md`).
+
+### 1a. Graph-first orientation (backend-agnostic, advisory, additive)
+
+Before spawning any sub-agent, check whether an acknowledged `provides: research-orientation`
+code-intel pack is resolvable:
+
+```bash
+node scripts/code-intel-resolve.js orient fan-in --root . 2>/dev/null
+```
+
+- **Absent, unacknowledged, crashing, or timing-out** (no `scripts/code-intel-resolve.js`, no
+  matching pack, `DEGRADED …` output, non-zero/non-JSON exit): skip this step entirely and
+  proceed to Step 2 exactly as before — byte-identical to the pre-integration blind flow.
+  Record one Friction Log line noting the skip and its reason (e.g. "no acked
+  research-orientation pack — blind flow used").
+- **Resolved and trusted:** for symbols named in the questions, query the pack via the resolver
+  for orientation, e.g. `node scripts/code-intel-resolve.js orient callers <symbol> --root .`,
+  `orient callees <symbol> --root .`, `orient path <A> <B> --root .`. Treat every returned
+  file:line-shaped pointer as a **candidate to check, never a finding** — this step only tells
+  you WHERE to look next; it proves nothing by itself.
+- **Live read wins (FR-031):** open and confirm every graph-derived candidate against the live
+  file before it is written into `research.md`. If the file contradicts the graph hit (stale,
+  moved, or deleted since indexing), drop the claim or correct it to match the file — the file
+  is authoritative, never the graph.
+- **Staleness is advisory only, never a gate:** `orient`'s output starts with an
+  `<!-- index-freshness: <mtime> vs HEAD <short> -->` header. If the index mtime predates HEAD,
+  add one advisory line to `research.md` ("index stale — verify against live files") but never
+  block, skip, or fail research over it.
+- This step never weakens the blindness rule (Step 1) or the file:line citation requirement — it
+  only prioritizes where grep/read look first; sub-agents in Step 3a/3b still independently
+  confirm every finding from source.
 
 ### 2. Determine depth
 
@@ -243,3 +274,5 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - NEVER check off questions as "unanswerable" without actually trying (grep first; for `[ecosystem]` questions, search first)
 - All findings must have at least one file:line reference — no floating claims (`[ecosystem]` findings cite URLs instead)
 - NEVER perform web research on untagged questions, and never let web findings leak solution proposals — external findings document what others have done, nothing more
+- A graph-derived pointer from an acked research-orientation pack (Step 1a) is a candidate only — NEVER write it to `research.md` until confirmed by opening the live file; a stale or contradicting hit is dropped or corrected to match the file, never trusted over it
+- Absence, unack, or failure of the research-orientation pack is silent to the output contract — research.md's shape and the blindness rule never change because of it
