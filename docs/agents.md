@@ -143,7 +143,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 
 ---
 
-## Rules (6)
+## Rules (7)
 
 | Rule | Category | Scope |
 |------|----------|-------|
@@ -153,6 +153,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 | context-budget | workflow | global |
 | human-validation | governance | global |
 | diagnostic-interview | governance | global |
+| rtk-compat | common | global |
 
 ## Hooks (2)
 

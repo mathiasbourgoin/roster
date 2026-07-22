@@ -160,7 +160,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 |-------|---------|---------|
 | image-generation | 1.0.5 | Generates or edits images through the Codex CLI, with prompt refinement and vision validation |
 
-## Rules (6)
+## Rules (7)
 
 | Rule | Category | Scope |
 |------|----------|-------|
@@ -170,26 +170,26 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | context-budget | workflow | global |
 | human-validation | governance | global |
 | diagnostic-interview | governance | global |
+| rtk-compat | common | global |
 
 ## Hooks
 
 Two distinct hook systems — do not conflate:
 
-### Tool-level hooks (3)
+### Tool-level hooks (2)
 
 Fire on runtime tool events (`PreToolUse` / `PostToolUse`). Shell commands only. Installed into `settings.json`.
 
 | Hook | Event | Matcher |
 |------|-------|---------|
 | block-dangerous-commands | PreToolUse | Bash |
-| enforce-file-manifest | PreToolUse | Edit\|Write |
 | post-edit-lint | PostToolUse | Edit\|Write |
 
 ### Skill-level hooks (DSL)
 
 Fire before/after a named roster skill runs. Full declarative DSL. Defined in `.harness/hooks/skills/<skill-name>/pre.md` and `post.md`. Interpreted by the LLM agent — no separate process.
 
-**Execution model:** `run-hook.ts` produces the portable `.harness/bin/run-hook.js` CLI, which executes shell-level steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) as real processes. Steps requiring LLM interpretation (`prompt:+agent:`, `loop:`, `parallel:`) are returned in `pending_llm_steps` for the agent to execute after the runner completes.
+**Execution model:** `run-hook.ts` (CLI: `node dist/scripts/run-hook.js`) executes shell-level steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) as real processes. Steps requiring LLM interpretation (`prompt:+agent:`, `loop:`, `parallel:`) are returned in `pending_llm_steps` for the agent to execute after the runner completes.
 
 **Supported step types:** `run:` (shell) · `prompt:+agent:` (agentic) · `test:` (conditional) · `loop:` · `goto:+label:` · `retry:+backoff:` · `timeout:` (advisory) · `log:` · `include:` (build-time inlined) · `output:` · `parallel:` (prose-parallelism hint)
 
