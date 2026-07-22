@@ -177,6 +177,30 @@ else
 fi
 ```
 
+**rtk probe (advisory, `full` mode only).** [rtk](https://github.com/rtk-ai/rtk) is an optional,
+user-environment `PreToolUse` hook that rewrites agent shell commands to save tokens — see
+`rules/common/rtk-compat.md` for known quirks. Doctor only detects it; it never installs,
+configures, or depends on it (INV-4). Cheapest signal first — presence via `command -v`, then a
+single bounded sanity read:
+
+```bash
+if command -v rtk >/dev/null 2>&1; then
+  # Bounded sanity read: prefer `rtk gain` for a savings line, fall back to `rtk --version` if it
+  # times out or errors — a `rtk gain` failure is absent-with-note, never a doctor failure.
+  if RTK_GAIN=$(timeout 5 rtk gain 2>/dev/null); then
+    echo "rtk: detected — $(printf '%s' "$RTK_GAIN" | head -1) (advisory, ±10% estimate — never affects verdict)"
+  else
+    echo "rtk: detected, \`rtk gain\` unavailable/timed out ($(timeout 5 rtk --version 2>/dev/null || echo 'version unknown')) (advisory)"
+  fi
+else
+  echo "rtk: not detected (advisory)"
+fi
+```
+
+This line NEVER contributes to the READY/NOT-READY verdict under any rtk state — present, absent,
+or erroring (INV-1). Absent is the tested default: with rtk not on `PATH`, doctor's output is
+byte-identical to a pre-integration run except for this single `rtk: not detected (advisory)` line.
+
 ### 2. Project dev-env readiness
 
 **Detect the gate commands.** Prefer explicit harness tunables when present, else infer from
