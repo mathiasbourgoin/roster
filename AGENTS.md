@@ -118,7 +118,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-investigate | 1.3.3 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
 | roster-audit | 1.4.1 | Combines code-quality and spec-compliance checks into one actionable audit report |
 | roster-doctor | 1.6.0 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
-| roster-question | 1.1.0 | Decomposes a task into neutral research questions with the intent hidden |
+| roster-question | 1.2.0 | Decomposes a task into neutral research questions with the intent hidden |
 | roster-research | 1.4.0 | Performs blind, file:line-grounded research from a questions file, never the task itself |
 | roster-workflow-build | 1.0.3 | Fills a CWR workflow template from a validated plan JSON via mechanical template-fill |
 | roster-triage-critical | 1.0.4 | Elicits formal-verification properties and proposes a backend for the critical route |
