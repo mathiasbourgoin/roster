@@ -46,7 +46,7 @@
     },
     {
       "path": "scripts/lib/review/review-trace-rules.js",
-      "sha256": "eaf1c12fb302a658506cdcc934a6e0a0102852370b147ada69611225d8fdb540"
+      "sha256": "24fccdee6f6195dd9fcc13c208f3209a6df9454cbac7c014266c221215a65f3a"
     },
     {
       "path": "scripts/lib/review/review-trace.js",

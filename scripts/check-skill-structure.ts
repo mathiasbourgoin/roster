@@ -51,7 +51,12 @@ const SKIP_FILES = new Set(["preamble.md", "preamble-pipeline.md", "preamble-fri
 // commit-message justification (FR-120, EC-10) — this is not a knob to bump
 // silently when a file grows.
 export const BUDGETS: Record<string, number> = {
-  "skills/pipeline/roster-review.md": 4000,
+  // Raised 4000 -> 4340 (FR-120 justification, 2026-07-27): P4 adds two contract rules to
+  // §3 — specialists execute rather than read, and every non-run mechanical step records a
+  // `skipped` reason. The execution rule's detail was pushed down into agents/testing/
+  // reviewer.md and architect.md (where the specialist actually reads it) rather than
+  // written out here, and both new blocks were compressed twice; 4337 is what remains.
+  "skills/pipeline/roster-review.md": 4340,
 };
 
 // Strips a leading UTF-8 BOM (U+FEFF), if present. A BOM-prefixed file with

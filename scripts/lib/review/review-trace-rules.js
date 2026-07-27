@@ -105,6 +105,12 @@ function computeRequiredCoverage({ currentLines, currentRound, mode, specialists
   const violations = [];
   const hasEvent = (event, actor) =>
     roundLines.some((l) => l.event === event && (actor === undefined || l.actor === actor));
+  // A `skipped` line records an absence — it must never attest a CLAIMED invocation,
+  // or the skip record becomes a way to launder an unperformed step (P4).
+  const ranEvent = (event, actor) =>
+    roundLines.some(
+      (l) => l.event === event && l.outcome === "ran" && (actor === undefined || l.actor === actor),
+    );
 
   if (normalizedBy && !hasEvent("normalizer")) {
     violations.push(unattested(`normalizer claimed via normalized_by ("${normalizedBy}") with no matching normalizer trace line`));
@@ -117,8 +123,12 @@ function computeRequiredCoverage({ currentLines, currentRound, mode, specialists
   for (const s of specialistsRun || []) {
     const name = s && s.name;
     if (!name) continue;
-    if (!hasEvent("specialist", name)) {
-      violations.push(unattested(`specialists_run claims "${name}" with no matching specialist trace line`));
+    if (!ranEvent("specialist", name)) {
+      violations.push(
+        hasEvent("specialist", name)
+          ? unattested(`specialists_run claims "${name}" but its specialist trace line is not outcome "ran"`)
+          : unattested(`specialists_run claims "${name}" with no matching specialist trace line`),
+      );
     }
   }
 

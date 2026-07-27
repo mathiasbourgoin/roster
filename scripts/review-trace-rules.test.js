@@ -150,6 +150,57 @@ test("FR-171: partial trace — specialist claimed but not traced -> unattested-
   assert.match(violations[0].detail, /reviewer/);
 });
 
+// ── P4: a `skipped` line records an absence, it never attests a claim ─────
+
+test("P4: specialists_run claims a specialist whose only trace line is skipped -> unattested-invocation", () => {
+  const currentLines = [
+    JSON.parse(line({ event: "normalizer", round: 2 })),
+    JSON.parse(line({ event: "specialist", actor: "architect", round: 2, outcome: "skipped", detail: "no public surface" })),
+  ];
+  const violations = computeRequiredCoverage({
+    currentLines,
+    currentRound: 2,
+    mode: "express",
+    specialistsRun: [{ name: "architect" }],
+    normalizedBy: "2.0.0",
+  });
+  assert.strictEqual(violations.length, 1);
+  assert.strictEqual(violations[0].type, "unattested-invocation");
+  assert.match(violations[0].detail, /is not outcome "ran"/);
+});
+
+test("P4: a skipped line for a specialist NOT claimed in specialists_run is clean", () => {
+  const currentLines = [
+    JSON.parse(line({ event: "normalizer", round: 2 })),
+    JSON.parse(line({ event: "specialist", actor: "reviewer", round: 2, outcome: "ran" })),
+    JSON.parse(line({ event: "specialist", actor: "architect", round: 2, outcome: "skipped", detail: "no public surface" })),
+  ];
+  const violations = computeRequiredCoverage({
+    currentLines,
+    currentRound: 2,
+    mode: "express",
+    specialistsRun: [{ name: "reviewer" }],
+    normalizedBy: "2.0.0",
+  });
+  assert.deepStrictEqual(violations, []);
+});
+
+test("P4: a ran line still attests even when a skipped line for the same actor exists", () => {
+  const currentLines = [
+    JSON.parse(line({ event: "normalizer", round: 2 })),
+    JSON.parse(line({ event: "specialist", actor: "reviewer", round: 2, outcome: "skipped", detail: "first attempt aborted" })),
+    JSON.parse(line({ event: "specialist", actor: "reviewer", round: 2, outcome: "ran" })),
+  ];
+  const violations = computeRequiredCoverage({
+    currentLines,
+    currentRound: 2,
+    mode: "express",
+    specialistsRun: [{ name: "reviewer" }],
+    normalizedBy: "2.0.0",
+  });
+  assert.deepStrictEqual(violations, []);
+});
+
 test("FR-171: normalized_by stamped but no normalizer line -> unattested-invocation", () => {
   const currentLines = [JSON.parse(line({ event: "specialist", actor: "reviewer", round: 2 }))];
   const violations = computeRequiredCoverage({

@@ -184,6 +184,7 @@ If E1 downgrade: follow the scaffold-offer step's downgrade mechanics.
   "skill": "roster-formal-verify",
   "task": "<task-slug>",
   "frictions": [],
+  "classes": [],
   "methods": [],
   "suggestion_type": null,
   "suggestion": null,

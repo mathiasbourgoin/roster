@@ -2,7 +2,7 @@
 name: roster-ship
 description: Carries a reviewed, QA'd branch through to a merged PR.
 when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
-version: 1.5.0
+version: 1.6.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -321,6 +321,44 @@ echo "💡 Friction log: ${FRICTION_COUNT} entries."
 [ "$FRICTION_COUNT" -gt "THRESHOLD" ] && echo "⚠️  Consider running /roster-skill-health to surface improvement proposals."
 ```
 
+**Log shape check.** Validate the entries written this task against the schema and the closed
+class vocabulary. The roster repo cannot gate this in CI — `skills-meta/` is gitignored in most
+projects, so a CI-side check would read green while checking nothing. Here, where the log
+actually exists, it checks something:
+
+```bash
+node scripts/check-friction-shape.js --log skills-meta/friction.jsonl --since <this task's first ledger date> || true
+```
+
+Fix any violation now — an entry with no `classes`, or `other` with no `class_note`, is an entry
+`/roster-skill-health` cannot cluster. Never let this block a completed ship.
+
+**Phase-exit coverage check (P1).** Friction entries are written at *phase exit*, so a task that
+ran N phases leaves N entries under its slug. Ship is the last phase, and therefore the only place
+that can see the whole task at once — compare what the ledger says ran against what the log
+recorded:
+
+```bash
+# Phases that reached a terminal outcome, vs. friction entries carrying this task slug.
+LEDGER_PHASES=$(jq -r '[.events[]? | select(.outcome=="COMPLETED") | .phase] | unique | .[]' "briefs/<task>-state.json" 2>/dev/null | sort -u)
+LOGGED_SKILLS=$(jq -r --arg t "<task-slug>" 'select(.task==$t) | .skill' skills-meta/friction.jsonl 2>/dev/null | sed 's/^roster-//' | sort -u)
+echo "ledger phases:  $(echo "$LEDGER_PHASES" | tr '\n' ' ')"
+echo "logged entries: $(echo "$LOGGED_SKILLS" | tr '\n' ' ')"
+comm -23 <(echo "$LEDGER_PHASES") <(echo "$LOGGED_SKILLS")   # phases that ran but wrote nothing
+```
+
+Any phase printed by the final `comm` ran without leaving an entry. **Write the missing entries
+now, and mark them as reconstructed** — `"methods": ["reconstructed at ship — not written at
+phase exit"]` — so the log distinguishes what was observed from what was remembered. Then record
+the reconstruction itself as a friction on the ship entry (`classes: ["process-bypass"]`): a
+phase that had to be backfilled is the P1 failure happening, and an unremarked backfill is how it
+stays invisible.
+
+This check cannot prove an entry was written *at* phase exit rather than composed later — only
+that one exists at all. It catches the shape the omission actually takes: a task that shipped with
+fewer entries than phases. If `jq` is unavailable or the ledger is absent, say so and move on;
+never let housekeeping block a completed ship.
+
 ## When to Go Back
 
 | Condition | Action |
@@ -340,7 +378,7 @@ echo "💡 Friction log: ${FRICTION_COUNT} entries."
 
 ## Friction Log
 
-Append one entry per run. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-ship"`.
+Append one entry AT PHASE EXIT — when this ship finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-ship"` and populate `classes` from the closed vocabulary.
 
 ## Rules
 

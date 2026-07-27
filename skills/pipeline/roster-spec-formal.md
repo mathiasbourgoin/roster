@@ -168,6 +168,7 @@ needs the implementation/driver that plan → implement produces).
   "skill": "roster-spec-formal",
   "task": "<task-slug>",
   "frictions": [],
+  "classes": [],
   "methods": [],
   "suggestion_type": null,
   "suggestion": null,

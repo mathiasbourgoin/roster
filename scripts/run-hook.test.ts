@@ -441,6 +441,37 @@ test("friction: reason strings are newline-stripped — one single-line record",
   }
 });
 
+// P2: the runner is a WRITER of friction records, so what it emits must satisfy the
+// same schema the checker enforces — otherwise every hook abort produces an entry
+// roster-skill-health cannot cluster.
+test("friction: an abort record carries a class and its class_note", async () => {
+  const metaDir = newMetaDir();
+  const r = await runHook({
+    content: makeHook("pre", [`  - run: exit 1`, `    on_error: stop`].join("\n")),
+    event: "pre", skill: "s", metaDir,
+  });
+  assert.equal(r.outcome, "abort");
+  const raw = await fs.readFile(path.join(metaDir, "friction.jsonl"), "utf-8");
+  const rec = JSON.parse(raw.split("\n").filter((l) => l.trim() !== "")[0]) as Record<string, unknown>;
+  assert.ok((rec.frictions as string[]).length > 0);
+  assert.deepStrictEqual(rec.classes, ["other"]);
+  assert.match(rec.class_note as string, /class not determinable mechanically/);
+});
+
+test("friction: a pass record has no frictions and therefore no classes", async () => {
+  const metaDir = newMetaDir();
+  const r = await runHook({
+    content: makeHook("pre", [`  - run: exit 0`].join("\n")),
+    event: "pre", skill: "s", metaDir,
+  });
+  assert.equal(r.outcome, "pass");
+  const raw = await fs.readFile(path.join(metaDir, "friction.jsonl"), "utf-8");
+  const rec = JSON.parse(raw.split("\n").filter((l) => l.trim() !== "")[0]) as Record<string, unknown>;
+  assert.deepStrictEqual(rec.frictions, []);
+  assert.deepStrictEqual(rec.classes, []);
+  assert.strictEqual(rec.class_note, null);
+});
+
 // ─── CHECK-8 integration: built CLI writes friction BEFORE process.exit ───────
 // Spawns dist/scripts/run-hook.js in a scratch project. Reading the record
 // AFTER the child has exited proves the append is awaited inside runHook —
