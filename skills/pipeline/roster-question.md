@@ -158,7 +158,7 @@ the next, so any work after approval that isn't itself a `Skill` call gets bille
 
 ## Friction Log
 
-Append one entry per run. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-question"`.
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-question"`.
 
 ## Rules
 

@@ -66,9 +66,9 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 ### Testing (3)
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| reviewer | 1.5.0 | opus | Performs structured code review focused on correctness, security, and regression risk |
+| reviewer | 1.6.0 | opus | Performs structured code review focused on correctness, security, and regression risk |
 | qa | 1.3.0 | haiku | Verifies implemented behavior through deterministic test execution and focused scenario checks |
-| architect | 1.5.0 | sonnet | Code quality and architecture guardian — spawned by `reviewer` on medium/large blast radius diffs |
+| architect | 1.6.0 | sonnet | Code quality and architecture guardian — spawned by `reviewer` on medium/large blast radius diffs |
 
 > **Note:** `architect` is a conditional specialist invoked by `/roster-review`, not a standalone agent. Do not invoke it directly — let the reviewer decide.
 
@@ -112,9 +112,9 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-spec | 2.4.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.3.8 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
 | roster-implement | 1.7.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
-| roster-review | 2.3.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
+| roster-review | 2.4.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
 | roster-qa | 1.9.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
-| roster-ship | 1.5.0 | Carries a reviewed, QA'd branch through to a merged PR |
+| roster-ship | 1.6.0 | Carries a reviewed, QA'd branch through to a merged PR |
 | roster-investigate | 1.3.3 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
 | roster-audit | 1.4.1 | Combines code-quality and spec-compliance checks into one actionable audit report |
 | roster-doctor | 1.6.0 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
@@ -128,7 +128,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Meta (3)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-skill-health | 1.5.0 | Clusters accumulated friction-log patterns into improvement proposals |
+| roster-skill-health | 1.6.0 | Clusters accumulated friction-log patterns into improvement proposals |
 | roster-skill-evolve | 1.5.1 | Installs skill-health-approved improvements to skills, tools, adaptations, and agents |
 | roster-upgrade | 0.1.2 | Propose-only upgrader for roster-contract skills — evidence-mined, gate-checked, human-landed diffs |
 

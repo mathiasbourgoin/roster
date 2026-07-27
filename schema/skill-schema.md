@@ -56,7 +56,9 @@ isolation: <fork|worktree>   # fork → run in an isolated sub-agent context (on
                              # returns to the parent); worktree → run in an isolated git worktree
                              # (auto-cleaned if unchanged). Use for blind/read-only or parallel work.
 preamble: <bool>             # true → inject skills/shared/preamble.md content
-friction_log: <bool>         # true → skill appends to skills-meta/friction.jsonl at end of run
+friction_log: <bool>         # true → skill appends to skills-meta/friction.jsonl AT PHASE EXIT
+                             # (when this skill finishes), not at session end — see
+                             # "Friction Log Entry Schema" below
 tunables:
   <key>: <value>             # overridable per-project in harness.json
 artifacts:
@@ -146,6 +148,10 @@ Each entry appended to `skills-meta/friction.jsonl` follows this structure:
   "skill": "<skill-name>",          // the skill that logged this entry
   "task": "<task-slug>",
   "frictions": ["<string>", ...],   // observed friction events (empty array if none)
+  "classes": ["<value>", ...],      // CLOSED vocabulary — see "Friction classes" below.
+                                    // The set of classes covering this entry's frictions[],
+                                    // most load-bearing first. MUST be empty iff frictions
+                                    // is empty (a clean run has no classes).
   "methods": ["<string>", ...],     // methods used during the run
   "suggestion_type": "<value>|null",// improvement proposal type — open lowercase vocabulary:
                                     //   skill | tool | adapt | agent | research | null
@@ -154,6 +160,14 @@ Each entry appended to `skills-meta/friction.jsonl` follows this structure:
                                     // routing/telemetry events into this field.
   "suggestion": "<string>|null",    // the concrete improvement proposal (or null)
   "effort_estimate": "<string>|null",// e.g. "small", "medium", "large" (or null)
+  "class_note": "<string>|null",    // REQUIRED (non-empty) iff classes contains "other".
+                                    // One line: what the friction was, in class terms.
+                                    // Its accumulation is the evidence for extending the
+                                    // vocabulary — an unexplained "other" is not admissible.
+  "skipped": ["<string>", ...],     // OPTIONAL. Mandated steps this run did NOT perform, one
+                                    // "<step>: <reason>" per entry. Silence is not evidence of
+                                    // absence: a phase that skipped its scripts records the
+                                    // skip here. Omit the key entirely when nothing was skipped.
   "event": "<string>|null"          // routing/telemetry events — separate from suggestion_type.
                                     // Current values: "critical_declined"
                                     // Write-only; not consumed by roster-skill-health.
@@ -164,10 +178,65 @@ Each entry appended to `skills-meta/friction.jsonl` follows this structure:
 addition to the documented `skill|tool|adapt|agent`. Do not treat the documented set as closed
 when authoring new skills or creating the schema block in a project.
 
-The first eight keys (`date`, `skill`, `task`, `frictions`, `methods`, `suggestion_type`,
+The nine keys (`date`, `skill`, `task`, `frictions`, `classes`, `methods`, `suggestion_type`,
 `suggestion`, `effort_estimate`) are the **required minimum** every skill's `## Friction Log`
-template carries; per-skill extra fields (e.g. `event`, `mode`) are allowed on top. Placeholder
-values validate as keys being present, not as value formats.
+template carries; per-skill extra fields (e.g. `class_note`, `skipped`, `event`, `mode`) are
+allowed on top. Placeholder values validate as keys being present, not as value formats.
+
+### When an entry is written
+
+**At phase exit — when the skill finishes, before it hands off.** Not at session end.
+
+This is a contract, not a preference. A log written once, late, from memory loses the corrections
+and keeps the narrative; and a session that never ends writes nothing at all. The entry belongs to
+the phase, so a task that ran five phases leaves five entries sharing one `task` slug.
+
+Mechanically: `scripts/check-friction-shape.js --log <path>` validates a real log's shape and
+classes; `/roster-ship` reports per-task entry coverage at ship time (see `skills/pipeline/
+roster-ship.md`). Neither can prove an entry was written *at* phase exit rather than reconstructed
+later — that part is prose, and it is prose on purpose. What *is* detectable is a task that shipped
+with fewer entries than phases, which is the shape the omission actually takes.
+
+### Friction classes
+
+The closed vocabulary. Distilled from 172 friction strings across 56 real entries; every value
+below is carried by ≥3 of them, and each names a distinct *remedy*, not a distinct symptom.
+
+```
+classes: <gate-vacuous|evidence|process-bypass|missing-artifact|stale-tooling|agent-isolation|parallel-collision|schema-drift|scope|git-mechanics|human-gate|runtime-limits|external-dep|positive-signal|other>
+```
+
+| Value | The failure it names | Canonical instance |
+|---|---|---|
+| `gate-vacuous` | A check passed while checking nothing — silent degrade, absent oracle, coverage gap that reads as approval, control that never armed. | A convergence gate emits `violations: []` and exits 0 when a key is absent. |
+| `evidence` | A conclusion asserted without, or against, the evidence — and later refuted. Includes stale docs that seed false premises. | Two successive confident root-cause verdicts, both wrong. |
+| `process-bypass` | A mandated step was not performed, and nothing recorded its absence. | Cross-runtime review declared mandatory, skipped silently on every PR. |
+| `missing-artifact` | A file the contract references does not exist, is untracked, or is absent from the install. | The review-tool bundle neither tracked nor gitignored — a fresh clone gets no gates. |
+| `stale-tooling` | A tool is present but stale, misbehaving, or environment-sensitive; its output cannot be trusted. | A fetch reporting success while not updating refs. |
+| `agent-isolation` | Worktree / shared-checkout / sub-agent boundary damage. | `isolation: worktree` resolving against the wrong repo; an agent losing work in the shared checkout. |
+| `parallel-collision` | Concurrent agents contending for one shared resource. | Four simultaneous cross-runtime passes; a shared scratchpad basename. |
+| `schema-drift` | Two artifacts disagree about a shape, or a required contract is undocumented at the call site. | A trace schema whose event enum the gate does not accept. |
+| `scope` | Work scoped too narrowly or too broadly, or duplicating already-delivered work. | A reviewer prompt so tightly scoped the reviewer walked past a bug in the file it was reading. |
+| `git-mechanics` | A git or forge operation whose real result differs from its reported result. | `git rebase` silently dropping a commit; `git stash push` no-oping on a committed tree. |
+| `human-gate` | A human decision was required and was unavailable, deferred, or handed back to the human. | A validation quiz presented async because the human was AFK; asking the human to arbitrate a backlog instead of draining it. |
+| `runtime-limits` | The agent runtime constrained the work — session limit, compaction, killed background job, rejected tool arity. | A phase run inline because per-phase skill invocation was too context-heavy. |
+| `external-dep` | A third-party service or a physical machine was unavailable, rate-limited, or flaky. | Account-wide review-bot rate limiting serialising PRs over hours. |
+| `positive-signal` | **Not a friction.** A gate that worked, a discovery, a product bug the process caught. Recorded because it is evidence *for* the process. Excluded from clustering. | "cross-runtime found 2 HIGH the primary reviewer missed". |
+| `other` | None of the above. Requires a non-empty `class_note`. | — |
+
+**Rules.**
+
+- `classes` is closed. A value outside this list is a schema violation, not a new class.
+- `other` is legal and must stay cheap to use and impossible to hide: `class_note` is required, and
+  `/roster-skill-health` reports the `other` rate every run. A vocabulary that pushes everything
+  into `other` has failed and should be extended — from the accumulated notes, deliberately.
+- Prefer the **remedy**, not the symptom. A stale binary that produced a green build is
+  `gate-vacuous` (the build lied) — not `stale-tooling` — because the fix is to arm the check.
+- An entry may carry several classes; write the most load-bearing first. In the corpus this
+  vocabulary was tested against, 8 of 56 entries genuinely spanned two or more, which is why this
+  is an array and not a scalar.
+- `positive-signal` alone does **not** make an entry a clean run. A clean run is `frictions: []`
+  and `classes: []`.
 
 ## Body
 

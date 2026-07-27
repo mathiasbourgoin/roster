@@ -82,7 +82,10 @@ test("FR-119: a budget-map entry matching zero files fails the check (fail-close
 });
 
 test("FR-120: exceeding budget fails with a commit-message-justification message", async () => {
-  const words = Array.from({ length: 4001 }, (_, i) => `word${i}`).join(" ");
+  // Derived from BUDGETS, not hardcoded: a literal count silently stops testing
+  // anything the moment the budget is raised (it did, at the 4000 -> 4340 raise).
+  const over = BUDGETS["skills/pipeline/roster-review.md"] + 1;
+  const words = Array.from({ length: over }, (_, i) => `word${i}`).join(" ");
   const repoRoot = withFixtureRepo({ "skills/pipeline/roster-review.md": words });
   const violations = await checkBudgetForRepo(repoRoot);
   assert.equal(violations.length, 1);

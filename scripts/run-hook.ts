@@ -64,6 +64,8 @@ export interface HookFrictionRecord {
   skill: string;
   task: string | null;
   frictions: string[];
+  classes: string[];
+  class_note: string | null;
   methods: string[];
   suggestion_type: null;
   suggestion: null;
@@ -424,6 +426,15 @@ export function buildFrictionRecord(result: HookResult, durationMs: number): Hoo
     skill: result.skill,
     task: process.env.TASK ?? null,
     frictions,
+    // The runner cannot classify semantically — the class of a hook abort depends on
+    // what the guard was guarding. `other` + a note is the honest answer, and it is
+    // exactly what `other` is for. roster-skill-health excludes hook records (`hook`
+    // key present) from the `other`-rate, so this cannot mask a stale vocabulary.
+    classes: frictions.length > 0 ? ["other"] : [],
+    class_note:
+      frictions.length > 0
+        ? `hook-runner record — class not determinable mechanically (${result.event} hook, outcome ${result.outcome})`
+        : null,
     methods: [],
     suggestion_type: null,
     suggestion: null,

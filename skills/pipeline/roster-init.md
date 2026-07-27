@@ -310,6 +310,7 @@ Triggered when an adversarial question reveals a fundamental problem and the use
   "task": "<task-slug or short description>",
   "mode": "<greenfield|onboard>",
   "frictions": ["<friction 1>", "..."],
+  "classes": ["<friction-class>", "..."],
   "methods": ["<workaround used>"],
   "suggestion_type": "<skill|tool|adapt|agent|null>",
   "suggestion": "<description if suggestion_type non null>",

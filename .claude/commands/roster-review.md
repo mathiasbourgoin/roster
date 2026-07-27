@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 2.3.0
+version: 2.4.0
 domain: pipeline
 phase: review
 preamble: true
@@ -149,15 +149,29 @@ Rules for writing your event:
 
 ### Friction Log
 
-At the end of each run, honestly record:
-- frictions encountered (workarounds, long searches, ambiguities)
-- methods used
-- any suggestion for a tool, skill, or adaptation
+**Write your entry when THIS phase ends — before you hand off, before you report, before you
+stop.** Not at session end. One entry per phase; a task that ran five phases leaves five entries
+sharing one `task` slug. Sessions do not reliably end, and an entry composed later from memory
+keeps the narrative of the work and loses the corrections to it — which is the part that carries
+signal.
+
+Record honestly:
+- **frictions** — workarounds, long searches, ambiguities, and every place a confident conclusion
+  of yours was later refuted. A user correction is the highest-value entry there is; write it.
+- **classes** — the closed vocabulary below, most load-bearing first.
+- **methods** used, and any suggestion for a tool, skill, or adaptation.
+- **skipped** — any mandated step this phase did not perform, as `"<step>: <reason>"`. A skipped
+  step that goes unrecorded is indistinguishable from a step that ran. Omit the key if nothing
+  was skipped; never omit it *instead of* admitting a skip.
+
+A run with nothing to report is a **clean run**: `"frictions": []` and `"classes": []`. Log it.
+Clean runs are the denominator — without them no rate can be computed, and "zero clean runs" is
+then an artefact of the log rather than a fact about the work.
 
 This is not a performance review. It is cross-run memory.
 
 Canonical entry template (append to `skills-meta/friction.jsonl`; set `"skill"` to your
-skill's name — extra documented fields like `event` or `mode` are allowed):
+skill's name — extra documented fields like `class_note`, `event` or `mode` are allowed):
 
 ```jsonl
 {
@@ -165,6 +179,7 @@ skill's name — extra documented fields like `event` or `mode` are allowed):
   "skill": "<skill-name>",
   "task": "<task-slug>",
   "frictions": [],
+  "classes": [],
   "methods": [],
   "suggestion_type": null,
   "suggestion": null,
@@ -172,7 +187,30 @@ skill's name — extra documented fields like `event` or `mode` are allowed):
 }
 ```
 
-Schema: `schema/skill-schema.md`.
+**Friction classes — closed vocabulary.** Pick by *remedy*, not by symptom:
+
+`gate-vacuous` (a check passed while checking nothing) · `evidence` (a conclusion asserted
+without, or against, the evidence) · `process-bypass` (a mandated step not performed, absence
+unrecorded) · `missing-artifact` (a referenced file absent, untracked, or not installed) ·
+`stale-tooling` (tool present but stale/misbehaving) · `agent-isolation` (worktree or
+shared-checkout boundary damage) · `parallel-collision` (concurrent agents contending) ·
+`schema-drift` (two artifacts disagree about a shape, or a contract is undocumented at the call
+site) · `scope` (scoped too narrowly/broadly, or duplicating delivered work) · `git-mechanics`
+(a git/forge operation whose real result differs from its reported one) · `human-gate` (a human
+decision unavailable, deferred, or handed back) · `runtime-limits` (session limit, compaction,
+killed job, rejected tool arity) · `external-dep` (third-party service or machine unavailable) ·
+`positive-signal` (**not** a friction — a gate that worked, a discovery; excluded from
+clustering) · `other` (requires a non-empty `class_note`).
+
+The list above is the contract — it is injected into this skill, so it is readable wherever this
+skill runs. Do not invent values: use `other` plus a `class_note`, which is how the vocabulary
+earns its next entry.
+
+Full definitions, one canonical instance per class, and the classification rules live in the
+roster source at `schema/skill-schema.md` → *Friction classes*, where the vocabulary is closed
+and validated by `scripts/check-friction-shape.js --log`. **That path resolves in the roster
+repo, not necessarily in an installed harness** — if it is absent here, the list above is
+complete and authoritative on its own; nothing above depends on opening it.
 
 
 # Roster Review
@@ -310,6 +348,24 @@ their own instructions (path below), and whether the scope gate (§2.5) ran.
 recorded at task start) and pass it to every specialist, so scope-discipline claims are verifiable
 without session history.
 
+#### A specialist EXECUTES — it does not read
+
+**Every specialist builds the branch and runs the gates itself**, and reports each command with
+its exit code; reasoning from the diff about whether the gates *would* pass is not a review. State
+this obligation in every specialist prompt — the agent definitions carry the detail. Where
+building is genuinely impossible, that is a legitimate answer **and a `skipped` record**.
+
+#### Skips are recorded, always
+
+**A mechanical step that did not run is recorded as skipped, with a reason** — bundle preflight,
+scope gate, each specialist, cross-runtime pass, normalizer, gate. A skipped step and a run step
+are indistinguishable unless the skip is written down. "I judged it unnecessary" is a reason; not
+writing it is drift. Record it in **both**: the invocation trace (one line per *candidate*
+specialist, `outcome: skipped`, `--detail <reason>`) and this phase's Friction Log `skipped`
+array (`"<step>: <reason>"`), which is what makes a *pattern* of skipping visible to
+`/roster-skill-health`. A `skipped` line never attests a `specialists_run` claim — the gate
+enforces that, which is what makes the skip safe to write honestly.
+
 | Specialist | Condition | Path / Invocation |
 |---|---|---|
 | `spec-compliance` (per-feature) | `specs/<task-slug>.md` exists | Invoke `spec-compliance-auditor` with spec path as `$ARGUMENTS` |
@@ -346,11 +402,19 @@ specialists re-run.
   survives the dedup (§4), that surviving specialist's name is what selection keys on.
 
 **Invocation trace (R-5, FR-165):** before composing `rounds_audit`, append a `specialist` line
-per specialist, `actor` == its name:
+per **candidate** specialist — one for each row the selection rules picked for this round,
+whether or not it actually ran. `actor` == its name:
 
 ```bash
+# ran:
 [ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome ran || echo "review-trace.js missing — stale install"
+# selected but not run — the reason is mandatory:
+[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome skipped --detail "<why>" || echo "review-trace.js missing — stale install"
 ```
+
+Only `outcome: ran` attests an entry in `specialists_run`. Claiming a specialist ran while its
+trace line says `skipped` is an `unattested-invocation` violation — which is the point: the skip
+line costs nothing to write honestly and cannot be used to launder a claim.
 
 Append **one entry per round — including GO drafts** — to `rounds_audit` (append-only, carried
 forward, **retained on GO**) before invoking the gate (§5.5), with `round`, `reviewed_sha`,
@@ -654,7 +718,7 @@ gate — `/roster-qa` is explicitly out of scope for this mechanism.
 
 ## Friction Log
 
-Append one entry per run. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-review"`.
+Append one entry AT PHASE EXIT — when this review finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-review"`. Populate `classes` from the closed vocabulary, and `skipped` with every mechanical step this phase did not run.
 
 ## Rules
 
@@ -673,3 +737,6 @@ Append one entry per run. Canonical template and key set: `skills/shared/preambl
 - Never persist a draft verdict when the gate's report is missing `config.strikes` or `trace` — treat it as a stale gate script and surface it, never silently proceed
 - Never route `review-integrity-failure` to `/roster-spec` or the streak override (FR-175)
 - Never append a trace line for an invocation that didn't occur — only running the missed tool repairs `missing-trace` (FR-177/C-3)
+- A specialist builds the branch and runs the gates itself; a review assembled from reading alone is not a review
+- Never skip a mechanical step silently — a step that did not run is recorded as `skipped` with a reason, in the trace and in this phase's Friction Log `skipped` array. "I judged it unnecessary" is a reason; an unwritten skip is a drift
+- Never claim a specialist in `specialists_run` whose trace line is `skipped` — a skip record cannot attest a run, and the gate enforces it

@@ -2,7 +2,7 @@
 name: roster-ship
 description: Carries a reviewed, QA'd branch through to a merged PR.
 when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
-version: 1.5.0
+version: 1.6.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -149,15 +149,29 @@ Rules for writing your event:
 
 ### Friction Log
 
-At the end of each run, honestly record:
-- frictions encountered (workarounds, long searches, ambiguities)
-- methods used
-- any suggestion for a tool, skill, or adaptation
+**Write your entry when THIS phase ends — before you hand off, before you report, before you
+stop.** Not at session end. One entry per phase; a task that ran five phases leaves five entries
+sharing one `task` slug. Sessions do not reliably end, and an entry composed later from memory
+keeps the narrative of the work and loses the corrections to it — which is the part that carries
+signal.
+
+Record honestly:
+- **frictions** — workarounds, long searches, ambiguities, and every place a confident conclusion
+  of yours was later refuted. A user correction is the highest-value entry there is; write it.
+- **classes** — the closed vocabulary below, most load-bearing first.
+- **methods** used, and any suggestion for a tool, skill, or adaptation.
+- **skipped** — any mandated step this phase did not perform, as `"<step>: <reason>"`. A skipped
+  step that goes unrecorded is indistinguishable from a step that ran. Omit the key if nothing
+  was skipped; never omit it *instead of* admitting a skip.
+
+A run with nothing to report is a **clean run**: `"frictions": []` and `"classes": []`. Log it.
+Clean runs are the denominator — without them no rate can be computed, and "zero clean runs" is
+then an artefact of the log rather than a fact about the work.
 
 This is not a performance review. It is cross-run memory.
 
 Canonical entry template (append to `skills-meta/friction.jsonl`; set `"skill"` to your
-skill's name — extra documented fields like `event` or `mode` are allowed):
+skill's name — extra documented fields like `class_note`, `event` or `mode` are allowed):
 
 ```jsonl
 {
@@ -165,6 +179,7 @@ skill's name — extra documented fields like `event` or `mode` are allowed):
   "skill": "<skill-name>",
   "task": "<task-slug>",
   "frictions": [],
+  "classes": [],
   "methods": [],
   "suggestion_type": null,
   "suggestion": null,
@@ -172,7 +187,30 @@ skill's name — extra documented fields like `event` or `mode` are allowed):
 }
 ```
 
-Schema: `schema/skill-schema.md`.
+**Friction classes — closed vocabulary.** Pick by *remedy*, not by symptom:
+
+`gate-vacuous` (a check passed while checking nothing) · `evidence` (a conclusion asserted
+without, or against, the evidence) · `process-bypass` (a mandated step not performed, absence
+unrecorded) · `missing-artifact` (a referenced file absent, untracked, or not installed) ·
+`stale-tooling` (tool present but stale/misbehaving) · `agent-isolation` (worktree or
+shared-checkout boundary damage) · `parallel-collision` (concurrent agents contending) ·
+`schema-drift` (two artifacts disagree about a shape, or a contract is undocumented at the call
+site) · `scope` (scoped too narrowly/broadly, or duplicating delivered work) · `git-mechanics`
+(a git/forge operation whose real result differs from its reported one) · `human-gate` (a human
+decision unavailable, deferred, or handed back) · `runtime-limits` (session limit, compaction,
+killed job, rejected tool arity) · `external-dep` (third-party service or machine unavailable) ·
+`positive-signal` (**not** a friction — a gate that worked, a discovery; excluded from
+clustering) · `other` (requires a non-empty `class_note`).
+
+The list above is the contract — it is injected into this skill, so it is readable wherever this
+skill runs. Do not invent values: use `other` plus a `class_note`, which is how the vocabulary
+earns its next entry.
+
+Full definitions, one canonical instance per class, and the classification rules live in the
+roster source at `schema/skill-schema.md` → *Friction classes*, where the vocabulary is closed
+and validated by `scripts/check-friction-shape.js --log`. **That path resolves in the roster
+repo, not necessarily in an installed harness** — if it is absent here, the list above is
+complete and authoritative on its own; nothing above depends on opening it.
 
 
 # Roster Ship
@@ -465,6 +503,44 @@ echo "💡 Friction log: ${FRICTION_COUNT} entries."
 [ "$FRICTION_COUNT" -gt "THRESHOLD" ] && echo "⚠️  Consider running /roster-skill-health to surface improvement proposals."
 ```
 
+**Log shape check.** Validate the entries written this task against the schema and the closed
+class vocabulary. The roster repo cannot gate this in CI — `skills-meta/` is gitignored in most
+projects, so a CI-side check would read green while checking nothing. Here, where the log
+actually exists, it checks something:
+
+```bash
+node scripts/check-friction-shape.js --log skills-meta/friction.jsonl --since <this task's first ledger date> || true
+```
+
+Fix any violation now — an entry with no `classes`, or `other` with no `class_note`, is an entry
+`/roster-skill-health` cannot cluster. Never let this block a completed ship.
+
+**Phase-exit coverage check (P1).** Friction entries are written at *phase exit*, so a task that
+ran N phases leaves N entries under its slug. Ship is the last phase, and therefore the only place
+that can see the whole task at once — compare what the ledger says ran against what the log
+recorded:
+
+```bash
+# Phases that reached a terminal outcome, vs. friction entries carrying this task slug.
+LEDGER_PHASES=$(jq -r '[.events[]? | select(.outcome=="COMPLETED") | .phase] | unique | .[]' "briefs/<task>-state.json" 2>/dev/null | sort -u)
+LOGGED_SKILLS=$(jq -r --arg t "<task-slug>" 'select(.task==$t) | .skill' skills-meta/friction.jsonl 2>/dev/null | sed 's/^roster-//' | sort -u)
+echo "ledger phases:  $(echo "$LEDGER_PHASES" | tr '\n' ' ')"
+echo "logged entries: $(echo "$LOGGED_SKILLS" | tr '\n' ' ')"
+comm -23 <(echo "$LEDGER_PHASES") <(echo "$LOGGED_SKILLS")   # phases that ran but wrote nothing
+```
+
+Any phase printed by the final `comm` ran without leaving an entry. **Write the missing entries
+now, and mark them as reconstructed** — `"methods": ["reconstructed at ship — not written at
+phase exit"]` — so the log distinguishes what was observed from what was remembered. Then record
+the reconstruction itself as a friction on the ship entry (`classes: ["process-bypass"]`): a
+phase that had to be backfilled is the P1 failure happening, and an unremarked backfill is how it
+stays invisible.
+
+This check cannot prove an entry was written *at* phase exit rather than composed later — only
+that one exists at all. It catches the shape the omission actually takes: a task that shipped with
+fewer entries than phases. If `jq` is unavailable or the ledger is absent, say so and move on;
+never let housekeeping block a completed ship.
+
 ## When to Go Back
 
 | Condition | Action |
@@ -484,7 +560,7 @@ echo "💡 Friction log: ${FRICTION_COUNT} entries."
 
 ## Friction Log
 
-Append one entry per run. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-ship"`.
+Append one entry AT PHASE EXIT — when this ship finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-ship"` and populate `classes` from the closed vocabulary.
 
 ## Rules
 

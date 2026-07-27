@@ -244,6 +244,7 @@ roster-triage-critical
   "skill": "roster-triage-critical",
   "task": "<task-slug>",
   "frictions": [],
+  "classes": [],
   "methods": [],
   "suggestion_type": null,
   "suggestion": null,
