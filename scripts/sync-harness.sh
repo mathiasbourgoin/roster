@@ -118,10 +118,33 @@ if [ "$CHECK" -eq 1 ]; then
             _drift=1
         fi
         if [ -n "$_stale" ]; then
-            echo "✗ harness-sync: stale projection(s) in $_rel (source deleted, projection still present):" >&2
-            printf '%s\n' "$_stale" | sed "s|^|    ${_rel}/|" >&2
-            echo "  To clean up: $(printf '%s\n' "$_stale" | sed "s|^|${_real}/|" | tr '\n' ' ' | xargs echo rm -f)" >&2
-            _drift=1
+            # A file present in the tree but absent from the regeneration is NOT
+            # evidence that it is stale when it sits in an overwrite-only dir:
+            # those dirs are overwrite-only *precisely* so they preserve the
+            # user's own files (see the limitation note above). A project whose
+            # team is richer than its profile — agents picked per project, or
+            # authored locally — legitimately has files the source never
+            # produced. Emitting `rm -f` for them recommends deleting the user's
+            # work, so the destructive suggestion is withheld and the finding is
+            # reported as unattributed instead of as drift.
+            case " .claude .opencode " in
+                *" $_rel "*) _preserves_user_files=1 ;;
+                *) _preserves_user_files=0 ;;
+            esac
+            if [ "$_preserves_user_files" -eq 1 ]; then
+                echo "! harness-sync: $_rel holds file(s) the .harness source does not produce:" >&2
+                printf '%s\n' "$_stale" | sed "s|^|    ${_rel}/|" >&2
+                echo "  These are either yours (kept on purpose — $_rel is overwrite-only) or" >&2
+                echo "  lingering projections of a deleted source. Only you can tell which." >&2
+                echo "  If they belong to this project, add them under .harness/ so the source" >&2
+                echo "  describes what the project actually runs; if they are leftovers, remove" >&2
+                echo "  them by hand. No automatic removal is suggested for this directory." >&2
+            else
+                echo "✗ harness-sync: stale projection(s) in $_rel (source deleted, projection still present):" >&2
+                printf '%s\n' "$_stale" | sed "s|^|    ${_rel}/|" >&2
+                echo "  To clean up: $(printf '%s\n' "$_stale" | sed "s|^|${_real}/|" | tr '\n' ' ' | xargs echo rm -f)" >&2
+                _drift=1
+            fi
         fi
     done
 
