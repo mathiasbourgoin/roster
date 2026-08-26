@@ -233,7 +233,7 @@
       {
         "name": "roster-skill-evolve",
         "source": "roster",
-        "version": "1.5.1",
+        "version": "1.6.0",
         "domain": "meta",
         "phase": null,
         "tunables": {}
@@ -241,7 +241,7 @@
       {
         "name": "roster-skill-health",
         "source": "roster",
-        "version": "1.6.0",
+        "version": "1.7.0",
         "domain": "meta",
         "phase": null,
         "tunables": {
@@ -324,7 +324,7 @@
       {
         "name": "roster-investigate",
         "source": "roster",
-        "version": "1.3.3",
+        "version": "1.4.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -335,7 +335,7 @@
       {
         "name": "roster-plan",
         "source": "roster",
-        "version": "1.3.8",
+        "version": "1.4.0",
         "domain": "pipeline",
         "phase": "plan",
         "tunables": {}
@@ -356,7 +356,7 @@
       {
         "name": "roster-question",
         "source": "roster",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "domain": "pipeline",
         "phase": "question",
         "tunables": {}
@@ -389,7 +389,7 @@
       {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.10.3",
+        "version": "1.10.4",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
