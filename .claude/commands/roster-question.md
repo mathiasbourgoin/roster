@@ -2,7 +2,7 @@
 name: roster-question
 description: Decomposes a task into neutral research questions with the intent hidden.
 when_to_use: "Use as the first roster-run step before any research happens. Trigger: 'roster-run', new task with no scoping yet."
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: question
 preamble: true
@@ -254,6 +254,15 @@ Bad: "How should we implement webhook retry logic?"
 Good: "[ecosystem] How do established HTTP client libraries implement retry/backoff, and what interfaces do they expose?"
 Bad: "[ecosystem] Which retry library should we adopt?"
 
+A question must ask what EXISTS. Any question a reader could only answer by predicting,
+imagining, or reasoning about consequences is out of contract, even when it discloses nothing —
+the researcher's job is documentary. Reject "what would happen if", "what could make", "why
+might".
+
+Bad: "What would make this gate pass while measuring nothing?"
+Good: "List every assertion this gate makes, and for each, state whether it is conditional on
+its input being non-empty."
+
 Task description (DO NOT include this in the output):
 <$ARGUMENTS>
 
@@ -270,7 +279,10 @@ mkdir -p roster/<task-slug>
 Write `roster/<task-slug>/questions.md`:
 
 ```markdown
-# Research Questions — <task-slug>
+<!-- No title. The path roster/<task-slug>/questions.md already identifies this
+     file, and a descriptive slug in an H1 briefs the researcher on the very
+     thing this skill requires be withheld. The mandated title contradicted the
+     skill's own zero-disclosure rule. -->
 
 _Generated: <ISO-8601>_
 _DO NOT include the task description in this file or share it with the researcher._

@@ -2,7 +2,7 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.3.8
+version: 1.4.0
 domain: pipeline
 phase: plan
 preamble: true
@@ -141,6 +141,21 @@ Statuses:
 ### 4. Resolve DISAGREE items
 
 For each DISAGREE, present both options with each voice's reasoning and a recommendation if one is clearly better. Wait for the decision before continuing.
+
+**Verify each option is reachable before presenting it.** Not "plausible" — reachable in the
+current tree, checked. On 2026-08-25 four dependency mechanisms were offered to a human, and all
+four shared one unmet prerequisite: the target library exposed no installable name, so none of
+them could work. It was found one step after the decision, and the work done on the chosen option
+was thrown away.
+
+Two verified options beat four unverified ones, and cost less to produce. If a check would be
+expensive, say what is unverified and what would settle it — never present an option whose
+feasibility you have not established as though it were equal to one you have.
+
+**Re-check reachability when the tree moves.** If an earlier step in this session changed what is
+installed, exposed, or published, the option set may have changed with it. In the case above the
+eventually-correct mechanism became available only because an earlier step in the same session
+had made it so, and nobody revisited the decision until the human asked.
 
 ### 5. Write the plan
 
