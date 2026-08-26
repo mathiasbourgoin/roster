@@ -2,7 +2,7 @@
 name: roster-skill-health
 description: Clusters accumulated friction-log patterns into improvement proposals.
 when_to_use: "Use every 5-10 pipeline cycles or when a friction-count reminder fires. Trigger: 'analyze friction'."
-version: 1.6.0
+version: 1.7.0
 domain: meta
 phase: null
 preamble: true
@@ -202,9 +202,66 @@ earlier report. Waiting for three more is waiting to re-learn something already 
 
 ### 4. Produce proposals
 
-Six categories (A–F), in recommended priority order. **This A–F tag list is the shared
-contract with `/roster-skill-evolve`** — every tag emitted here has a matching handler there;
-a change to this list is a change to both skills.
+Seven categories — **S first, then A–F**, in recommended priority order. **This S + A–F tag
+list is the shared contract with `/roster-skill-evolve`** — every tag emitted here has a
+matching handler there; a change to this list is a change to both skills.
+
+### The subtraction test — run it on every cluster before emitting A–F
+
+For each cluster, answer in writing: **would removing or shortening something have prevented
+this?** Emit `[SIMPLIFY]` when the answer is yes, and fall through to A–F only when it is no.
+
+This is a different question from §3's class check, and both are required. The class check asks
+whether this class recurred despite a shipped fix. The subtraction test asks whether the fix
+should be a removal at all. A `CLASS-NOT-CLOSED` cluster answered with a removal satisfies both:
+a removal is one way to change what *produces* the class rather than patch its latest instance.
+
+Categories A–F are all additions — new skills, new tools, new prose, new hooks, new agents. A
+taxonomy that offers only additions produces only additions, whatever the data says. `[SIMPLIFY]`
+exists to break that. Three shapes recur often enough to check by name:
+
+| shape | question |
+|---|---|
+| The step exists but is manual and multi-part | can the parts become one command? A ritual fails on whichever part is forgotten |
+| The same fact is stated in N artifacts | can it be stated once and referenced? N places to write is N places to be wrong together |
+| A skill's own template or heuristic works against its stated rule | can the offending clause be deleted rather than qualified? |
+
+**Three hard rules, because this is where the bias hides:**
+
+- An `[ADAPT]` that adds prose to a skill MUST state why the prose already in that skill was not
+  followed. "The rule was missing" and "the rule was there and ignored" call for opposite
+  remedies, and only the first is served by adding text.
+- A proposal whose remedy is *more* tracking of a bypassed step MUST first consider whether the
+  step was bypassed because the path is too long for the case at hand. Instrumenting a bypass is
+  an addition; shortening the path is a removal.
+- **Every proposal MUST cite the file(s) it would change, verified to exist.** Approval given on
+  a guessed target is not informed approval, and the cost lands entirely on the apply phase. On
+  2026-08-26 four of eight approved proposals named the wrong place: one target did not exist in
+  any skill, one would have deleted a load-bearing gate, and two described mechanisms that were
+  already present.
+
+Prefer removals also when the data is thin: a removal that turns out unnecessary costs once, an
+addition costs on every future run.
+
+#### S. Simplifications and removals
+
+Signal: any cluster where a removal, a shortening, or a merge into an existing mechanism prevents
+the friction — regardless of cluster size, since the cost of a removal is bounded.
+
+```
+**[SIMPLIFY] <what is removed, shortened, or merged>**
+class: <friction-class>
+Signal: <N> occurrences — <friction ids>
+Cause shape: process too long / duplicated statement / self-defeating clause / manual ritual
+Target: <file(s) that change, verified to exist>
+Removal: <what stops existing, or what replaces N steps with one>
+What it stops costing: <the recurring cost that disappears>
+Effort: <XS/S/M>
+```
+
+An `[ADAPT]` or `[HOOK]` that folds a guard into a mechanism **that already runs** (an existing
+pre-commit hook, an existing Makefile target, an existing canonical command) is a simplification,
+not an addition — tag it `[SIMPLIFY]` and name the mechanism that absorbs it.
 
 #### A. New skills
 
@@ -343,7 +400,13 @@ the period is unlogged, that is the finding, and it outranks every cluster below
 
 ## Proposals (strong signals)
 
-<proposals A–F — each carries its `class:` line>
+<proposals: [SIMPLIFY] first, then A–F — each carries its `class:` line and its verified target>
+
+## Withdrawn by the subtraction test
+
+<any A–F proposal the subtraction test replaced, with the removal that replaced it. An empty
+section on a report carrying several additions is itself a warning sign: it means the test was
+not run.>
 
 ## Weak signals (< threshold — to monitor)
 
@@ -389,6 +452,10 @@ Present the report and ask:
 > 💡 Run after every 5–10 pipeline cycles to maintain a healthy improvement metabolism.
 
 ## Rules
+- Run the subtraction test on every cluster before emitting any A–F proposal, and show its
+  result in the report — including the additions it withdrew
+- Cite a verified target file for every proposal; never propose a hook, tool, or runner into a
+  directory whose executor does not exist, and say how you verified that it runs
 - Clean runs are a positive signal to name explicitly
 - Cluster by `classes` before anything else — the class is the recurrence key
 - A `CLASS-NOT-CLOSED` cluster is never answered with another instance fix, and never waits for

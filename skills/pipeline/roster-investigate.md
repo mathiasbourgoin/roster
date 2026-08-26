@@ -2,7 +2,7 @@
 name: roster-investigate
 description: Analyzes a bug or unexpected behavior to find its root cause, read-only.
 when_to_use: "Use when a failure is unclear, flaky, or ambiguous and needs diagnosis before any fix. Trigger: 'why does X fail', 'investigate'."
-version: 1.3.3
+version: 1.4.0
 domain: pipeline
 phase: null
 preamble: true
@@ -177,7 +177,17 @@ Present the report and ask:
 
 ## What Next
 
-**Primary path:** `/roster-intake` — formalize the fix plan using the investigation report as context
+**Primary path — a confirmed root cause is a Fast-mode task.** This report already produced what
+question/research/spec produce, so route to **Fast**: `implement → review → qa → ship`
+(`/roster-run` §modes). Announce the mode so it is recorded.
+
+**`review` is not the optional part.** On 2026-08-26 a human said "corrige le" on a defect with
+exactly this report in hand; the fix went straight to shipping and review was skipped. The human
+caught it, not the ledger — nothing distinguished "not started" from "deliberately bypassed",
+because no mode had been recorded. Skipping question/research/spec here is correct; skipping
+review is not.
+
+**Alternative:** `/roster-intake` — when the fix's scope is contested, or it changes a contract
 **Alternatives:**
 - `/roster-plan` — if root cause and fix are unambiguous and intake is not needed
 

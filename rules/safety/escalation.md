@@ -3,7 +3,7 @@ name: escalation
 description: Default escalation triggers — pause and ask the human before destructive or high-impact actions.
 scope: global
 category: safety
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Default Escalation Triggers
@@ -18,6 +18,11 @@ Pause and ask the human for explicit confirmation before performing any of the f
 - **CI/CD pipeline modifications:** Changing workflow files, build configs, deployment scripts, or pipeline triggers.
 - **Auth and security changes:** Modifying permissions, access tokens, secrets, firewall rules, or auth configuration.
 - **MCP server changes:** Installing, removing, or modifying MCP server configurations.
+- **Handing a write-capable runtime a list of exact edits:** never embed mutation tables,
+  patches, or exact before/after pairs in a prompt for a runtime that can write. What is in a
+  prompt may be executed, not just read. On 2026-08-25 two secondary review runtimes both exited
+  3 with `reason=tree-mutation` on a prompt carrying a table of named code edits. Name the check
+  that performs the edits instead of the edits themselves.
 - **Shared infrastructure:** Any action affecting resources used by other people or services (databases, message queues, DNS, load balancers).
 - **Cost threshold:** Any action exceeding a configurable cost threshold (default: warn on operations that may incur billing).
 - **Properties file:** Any action listed in `kb/properties.md` as requiring human approval.

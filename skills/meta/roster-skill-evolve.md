@@ -2,7 +2,7 @@
 name: roster-skill-evolve
 description: Installs skill-health-approved improvements to skills, tools, adaptations, and agents.
 when_to_use: "Use after roster-skill-health produces APPROVED proposals ready to apply. Trigger: 'apply the skill-health proposals'."
-version: 1.5.1
+version: 1.6.0
 domain: meta
 phase: null
 preamble: true
@@ -48,11 +48,36 @@ If no APPROVED proposal:
 ## Steps
 
 **Category vocabulary is owned by `/roster-skill-health`** (its §4 A–F list is the shared
-contract): A `[SKILL]`, B `[TOOL]`, C `[ADAPT]`, D `[HOOK]`, E `[AGENT]`, F `[WORKFLOW]`.
+contract): S `[SIMPLIFY]`, A `[SKILL]`, B `[TOOL]`, C `[ADAPT]`, D `[HOOK]`, E `[AGENT]`,
+F `[WORKFLOW]`.
 Each tag has a handler below. A report tag with no handler here is a contract violation —
 stop and escalate rather than improvising.
 
-For each APPROVED proposal, in order A → B → C → D → E → F:
+For each APPROVED proposal, in order S → A → B → C → D → E → F. `[SIMPLIFY]` runs first on
+purpose: a removal can make a later addition unnecessary, and applying the addition first would
+keep it alive.
+
+### Proposal [SIMPLIFY] — Removal, shortening, or merge into an existing mechanism
+
+1. **Gate before**: state exactly what stops existing, and what depended on it. Enumerate the
+   dependents — by grep, not by memory. A removal whose dependents are unknown is not ready:
+   say so and stop. On 2026-08-26 this step caught four of eight approved proposals naming the
+   wrong target, including one whose deletion would have disarmed a trust-boundary gate.
+2. **Do less than approved when the evidence contradicts the approval.** A proposal approved on
+   a mis-stated target does not become correct by being approved. Narrow it, say plainly that
+   you narrowed it and why, and leave the wider change to the human.
+3. **Locate the mechanism that absorbs it**, when the proposal is a merge, and verify it actually
+   runs (executable hook, reachable target, command in CI). Record how you verified. Merging a
+   guard into a mechanism that does not run recreates the inert safeguard the proposal was
+   written to remove.
+4. **Apply the removal**, then re-run the checks the removed thing was supposed to protect. A
+   removal is verified by the protection still holding, not by the tree still building. Prove it
+   in the environment the removal claims to fix — a bare shell, a fresh clone — not in the one
+   already carrying the workaround.
+5. **Re-read the remaining APPROVED proposals**: a removal often makes a later `[ADAPT]` or
+   `[HOOK]` unnecessary. Report which ones it obsoleted and skip them rather than applying both.
+6. **Friction Log**: record what the removal stops costing, in the units it cost (lines re-typed
+   per command, artifacts to edit per correction, phases per fix).
 
 ### Proposal [SKILL] — New skill
 
