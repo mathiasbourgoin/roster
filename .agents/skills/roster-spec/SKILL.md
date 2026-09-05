@@ -2,7 +2,7 @@
 name: roster-spec
 description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
 when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
-version: 2.4.0
+version: 2.5.0
 domain: pipeline
 phase: spec
 preamble: true
@@ -486,7 +486,7 @@ Challenge resolutions: <challenge/resolution table>
 ### 7. Cross-Spec Consistency Check
 
 ```bash
-ls specs/*.md 2>/dev/null | head -20
+find specs -maxdepth 1 -type f -name '*.md' -print 2>/dev/null | LC_ALL=C sort
 ```
 
 If existing specs found: grep their `## Entities` sections for names that appear in your draft entities. For each definition mismatch, report the conflict and ask the user which definition is canonical. Update accordingly.
@@ -548,10 +548,42 @@ version: 1.0.0
 - CHECK-1 [AC-1]: `<command>` → expected: <exit code / output>
 - CHECK-2 [AC-2]: `<command>` → expected: <what success looks like>
 
+## Claims Metadata
+
+The normative statements and commands stay in the Markdown sections above. Add exactly one
+metadata record for every FR, AC, and CHECK; do not copy their prose or commands into JSONL.
+
+```claims
+{"record":"claims-header","schema_version":1,"namespace":"<task-slug>","spec_lifecycle":"draft"}
+{"record":"requirement","id":"FR-001","lifecycle":"draft","external_sources":[],"depends_on":[]}
+{"record":"acceptance-criterion","id":"AC-1","for":["FR-001"]}
+{"record":"check","id":"CHECK-1","for":["AC-1"]}
+```
+
 ## Entities
 
 - `<EntityName>`: <one-sentence definition>
 ```
+
+The claims block is metadata only. Fields such as `statement`, `command`, `command_ref`, and
+`authority` are forbidden. Use local IDs inside a spec and `<namespace>/<ID>` for dependencies
+outside it. Lifecycle values are `draft`, `pending-confirmation`, `active`, `superseded`, and
+`retired`. An item may not be more active than its containing spec; inherited status can
+only reduce authority. Authority assignments live only in `specs/claims-authority.json`, external
+registry revisions only in `specs/claims.lock`, and neither is embedded in a spec.
+
+After writing the file, run:
+
+```bash
+CLAIMS_CLI=scripts/claims-reconcile.js
+[ -f "$CLAIMS_CLI" ] || CLAIMS_CLI=.harness/bin/claims-reconcile.js
+node "$CLAIMS_CLI" validate --root .
+node "$CLAIMS_CLI" project --root .
+```
+
+If the repository does not install that command, retain the block and report that deterministic
+validation/projection is unavailable; do not simulate a validation result. If validation fails,
+do not project.
 
 If `tunables.require_runnable_checks` is true and no concrete checks can be written: mark them as `CHECK-N: manual — <description>`.
 

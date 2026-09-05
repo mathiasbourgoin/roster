@@ -2,7 +2,7 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.9.0
+version: 1.10.0
 domain: pipeline
 phase: qa
 preamble: true
@@ -228,6 +228,9 @@ You run deterministic checks and produce a GO/NO-GO verdict. No code writing —
 intentionally 0644, always invoked via `bash` — never test `-x`). If either is missing, stop with
 `stale-install`; QA cannot safely bypass the shared breaker. Roster-review's earlier preflight
 normally makes this impossible, but files can disappear between phases.
+
+Then run the available claims reconciler's `check --root .`; stop before verdict on stale managed
+claims. Legacy passes. If a task context manifest exists, also require its current freshness digest.
 
 Read `briefs/<task>-review.json` in full.
 

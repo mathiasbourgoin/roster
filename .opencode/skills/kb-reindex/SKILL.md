@@ -2,7 +2,9 @@
 name: kb-reindex
 description: Builds or incrementally updates the LanceDB semantic search index over KB files.
 when_to_use: "Use when semantic search over the KB is enabled but the index is missing or stale. Trigger: 'reindex the KB', 'rebuild the search index'."
-version: 1.0.3
+version: 1.1.0
+tunables:
+  embedding_mode: remote
 ---
 
 # KB Reindex
@@ -28,6 +30,16 @@ grep -Eq '^[[:space:]]*search_index:[[:space:]]*true' "$AGENT_FILE" 2>/dev/null 
 ```
 
 If `kb/` is absent: report and stop.
+
+Read the configured `embedding_mode` before doing any network or credential check:
+
+- `remote` (default): use the configured embedding provider and model.
+- `disabled`: report `semantic index disabled; Markdown and deterministic claims remain
+  available` and stop successfully without creating or changing `kb/.index/`.
+
+Index availability is optional and MUST NOT affect claims validation, dependency closure,
+projection freshness, spec compliance, or any mandatory Roster gate. Never silently replace a
+disabled or failed embedding provider with agent-generated similarity judgments.
 
 **Migration warning**: if any KB file lacks `schema-version: 2` in frontmatter, emit:
 > ⚠️ Some KB files have not been migrated to schema v2. Run `/kb-migrate` first for best results. Continuing anyway — legacy files will be indexed with status inferred from old values.
@@ -99,6 +111,7 @@ Report:
 
 | Tunable | Default | Description |
 |---------|---------|-------------|
+| `embedding_mode` | `remote` | `remote` enables the configured provider; `disabled` performs no network call and no index mutation |
 | `embedding_model` | `text-embedding-3-small` | OpenAI embedding model |
 | `embedding_dim` | `1536` | Vector dimensions (must match model) |
 | `chunk_by` | `section` | Chunking strategy: `section` (by `## ` heading) or `fixed` (N chars) |

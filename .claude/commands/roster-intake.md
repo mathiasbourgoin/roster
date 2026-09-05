@@ -2,7 +2,7 @@
 name: roster-intake
 description: Turns a raw task description into a human-validated contractual brief.
 when_to_use: "Use as the first pipeline step for any new task. Trigger: '/roster-run', 'start work on X'."
-version: 1.3.1
+version: 1.4.0
 domain: pipeline
 phase: intake
 preamble: true
@@ -19,6 +19,7 @@ artifacts:
     - roster/<task-slug>/research.md (optional — read if present)
   writes:
     - briefs/<task>-intake.md
+    - roster/<task-slug>/context.manifest.json (when managed claims exist)
 pipeline_role:
   triggered_by: /roster-run or human with a task
   receives: task description in $ARGUMENTS
@@ -237,6 +238,14 @@ If present: read it fully before any other step. Use it to pre-populate the Rele
 
 Before any question:
 
+- If `scripts/claims-reconcile.js` or `.harness/bin/claims-reconcile.js` exists, run its
+  `check --root .` subcommand. Stop on an invalid or stale claims projection;
+  report the deterministic error and direct the maintainer to validate/project the authoritative
+  specs. Do not use stale generated KB content as intake context. When the check reports managed
+  claims, run the same CLI's `context --root .` subcommand and write its exact JSON output to
+  `roster/<task-slug>/context.manifest.json`. Record that manifest's model and freshness digests in
+  the intake Architecture Notes. Optional semantic candidates remain labeled hints and may add
+  context, never remove or replace `mandatory_claims`.
 - Read the KB if it exists
 - Read `AGENTS.md` and `README.md`
 - Identify files likely involved (grep if needed)

@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 2.4.0
+version: 2.5.0
 domain: pipeline
 phase: review
 preamble: true
@@ -256,11 +256,12 @@ If escalation is needed: set `escalation_needed: true` and `escalation_reason`. 
 node scripts/review-bundle-verify.js
 ```
 
-Before reading any input: run this. On any problem, stop immediately — before writing
-`review.json`, before any ledger event, no new verdict status. Print exactly: "stale-install:
+Run before reading input. On failure, write no verdict or ledger event. Print exactly: "stale-install:
 the review-tool bundle is missing or out of date. Fetch review-bundle-install.sh from a trusted
 roster source, run its install or upgrade mode with --from-raw <url> (or --from-checkout <dir>),
-then /recruit update." Never proceed past this line degraded.
+then /recruit update."
+
+Require any available claims `check` and task-context freshness; legacy passes.
 
 Read in order:
 1. `briefs/<task>-reviewer.md` — context and points of attention
@@ -478,7 +479,8 @@ violations are auto-classified as HIGH severity.
 
 When findings have `category: "spec"` and severity CRITICAL or HIGH: set
 `no_go_reason.type = "spec-ac-failure"` and populate `no_go_reason.failed_acs` from each finding's
-`acs` array (`AC-N`/`FR-NNN` for a `specs/<task-slug>.md` contract, `S<N>` claim ids for `kb/spec.md`).
+`acs` array (`AC-N`/`FR-NNN` for a source spec, qualified IDs for projected `kb/spec.md`, or
+`legacy:S<N>` only for legacy prose).
 
 **Expected findings format from each specialist** (validated against
 `schema/review-finding.schema.json`):

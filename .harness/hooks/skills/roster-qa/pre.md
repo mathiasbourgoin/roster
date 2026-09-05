@@ -31,4 +31,6 @@ steps:
     on_false:
       - log: "BLOCKED: review verdict is not GO — resolve review findings before QA"
       - run: "exit 1"
+
+  - include: shared/claims-freshness.md
 ```

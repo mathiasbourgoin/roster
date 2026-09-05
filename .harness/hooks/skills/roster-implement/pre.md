@@ -37,4 +37,6 @@ steps:
       - log: "✓ both sub-briefs present"
     on_false:
       - log: "⚠ WARN: Full mode with only one sub-brief present. If reviewer.md is absent, roster-review will infer scope from diff alone."
+
+  - include: shared/claims-freshness.md
 ```

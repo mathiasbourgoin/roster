@@ -2,7 +2,7 @@
 name: roster-config
 description: Interactive editor for tunables exposed by installed roster agents.
 when_to_use: "Use to change a setting or turn on an optional feature after install. Trigger: 'configure roster', 'change a tunable'."
-version: 1.0.2
+version: 1.1.0
 ---
 
 # Roster Config
@@ -54,6 +54,7 @@ Present tunables grouped by tier:
   pr-workflow › pre_pr_checks             ""    # project-specific pre-PR command
 
 🟢 Tier 3 — Feature toggles (safe defaults, may want to flip)
+  kb-agent     › embedding_mode              remote    # remote | disabled; disabled keeps deterministic gates offline
   implementer  › use_worktree              true
   reviewer     › require_security_pass     true
   tech-lead    › require_review            true
@@ -111,6 +112,7 @@ Roster Config — Changes Applied
 
 Next steps:
   - If search_index was enabled: run /kb-reindex to build the initial index
+  - If embedding_mode was disabled: no index is changed; Markdown and deterministic claims remain available
   - If harness sync is needed: ./scripts/sync-harness.sh <project-root>
 ```
 
