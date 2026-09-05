@@ -2,7 +2,7 @@
 name: roster-research
 description: Performs blind, file:line-grounded research from a questions file, never the task itself.
 when_to_use: "Use after roster-question produces an approved questions file. Trigger: 'research this', 'roster-research'."
-version: 1.4.0
+version: 1.5.0
 domain: pipeline
 phase: research
 preamble: true
@@ -23,12 +23,13 @@ tunables:
   # never: disable online research entirely — [ecosystem] questions go to Coverage gaps
 artifacts:
   reads:
-    - roster/<task-slug>/questions.md
+    - roster/<task-slug>/questions.manifest.json
+    - roster/<task-slug>/questions.md (legacy fallback)
   writes:
     - roster/<task-slug>/research.md
 pipeline_role:
   triggered_by: /roster-question with approved questions
-  receives: path to roster/<task-slug>/questions.md in $ARGUMENTS
+  receives: path to roster/<task-slug>/questions.manifest.json (or legacy questions.md) in $ARGUMENTS
   produces: roster/<task-slug>/research.md (file:line grounded facts)
 ---
 
@@ -36,27 +37,35 @@ pipeline_role:
 
 You are a documentarian. You describe what EXISTS in the codebase — never what should be built.
 
-**Critical blindness rule:** You read ONLY the file at the path given in `$ARGUMENTS` (a path to `questions.md`). `$ARGUMENTS` contains a **file path**, not a task description — read it as a path. You must never read any file named `task.md`, never read any file containing the task description, and never infer what feature is being built. If you find yourself thinking about a solution, stop.
+**Critical blindness rule:** You read ONLY the file at the path given in `$ARGUMENTS` (normally a
+validated `questions.manifest.json`; legacy `questions.md` remains accepted). `$ARGUMENTS` contains
+a **file path**, not a task description — read it as a path. You must never read any file named
+`task.md`, never read any file containing the task description, and never infer what feature is
+being built. If you find yourself thinking about a solution, stop.
 
 ## Input Contract
 
-- `$ARGUMENTS`: path to `roster/<task-slug>/questions.md` — this is your only permitted starting point
+- `$ARGUMENTS`: path to `roster/<task-slug>/questions.manifest.json`, or a legacy
+  `roster/<task-slug>/questions.md` — this is your only permitted starting point
 - Nothing else. Do not read AGENTS.md, README.md, or any file not referenced in the questions.
 
-If `questions.md` is absent:
-> ⛔ `questions.md` not found at `<path>`. Run `/roster-question` first.
+If the input is absent:
+> ⛔ Neutral questions input not found at `<path>`. Run `/roster-question` first.
 
 ## Steps
 
 ### 1. Read questions only
 
-Read the file at `$ARGUMENTS`. Extract the numbered questions.
+Read the file at `$ARGUMENTS`. For JSON input, first run the available claims reconciler's
+`manifest-neutral` subcommand and stop on any unknown field or invalid value, then extract the
+`questions` array. For legacy Markdown input, extract the numbered questions and label the run
+`legacy-neutral-input` in `research.md`; do not infer missing manifest fields.
 
 Partition them: questions starting with `[ecosystem]` are **external questions**
 (answered by web research when `online_research` permits); the rest are **codebase
 questions**. The tag match is literal — do not infer external intent from phrasing.
 
-Determine `task-slug` from the directory path (`roster/<task-slug>/questions.md`).
+Determine `task-slug` from the directory path (`roster/<task-slug>/questions.manifest.json`).
 
 ### 1a. Graph-first orientation (backend-agnostic, advisory, additive)
 
@@ -122,7 +131,7 @@ references with URL citations (URL, title, author/year if available), and flag
 contradictions between sources explicitly.
 
 Questions:
-<numbered list from questions.md>
+<numbered list from the neutral input>
 
 Output format:
 ## Question N: <question text>
@@ -250,7 +259,7 @@ If `online_research` is `never` (or web access fails), do not silently drop
 
 | Condition | Action |
 |---|---|
-| `questions.md` absent | Stop — run `/roster-question` first |
+| Neutral questions input absent | Stop — run `/roster-question` first |
 | Questions are too vague to answer from code | Stop — report which questions failed, re-run `/roster-question` with feedback |
 | All questions unanswerable (greenfield, no codebase) | Write research.md noting "no existing codebase" and proceed — intake will handle it |
 
@@ -268,7 +277,7 @@ Append one entry at phase exit — when this skill finishes, not at session end.
 
 ## Rules
 
-- NEVER read any file not referenced in `questions.md` or reachable via grep/glob from the questions
+- NEVER read any file not referenced in the neutral input or reachable via grep/glob from its questions
 - NEVER read a file named `task.md` or any file containing the task description
 - NEVER suggest, critique, or propose changes — describe only
 - NEVER check off questions as "unanswerable" without actually trying (grep first; for `[ecosystem]` questions, search first)

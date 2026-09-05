@@ -2,7 +2,7 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.4.0
+version: 1.5.0
 domain: pipeline
 phase: plan
 preamble: true
@@ -50,6 +50,11 @@ If absent or not VALIDATED/SKIPPED:
 > ⛔ Feature/api-change task requires a spec. Run `/roster-spec` first.
 
 ## Steps
+
+### 0. Claims projection pre-check (conditional)
+
+Run the available claims reconciler's `check --root .`; stop on stale managed claims. Legacy
+passes. Also require a task context manifest's current freshness digest.
 
 ### 0. KB ambiguity pre-check (conditional)
 

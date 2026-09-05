@@ -45,7 +45,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | recruiter | 2.7.0 | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
 | governor | 2.1.1 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
-| kb-agent | 2.4.1 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
+| kb-agent | 2.5.0 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
 | project-auditor | 1.1.0 | opus | Performs exhaustive project mapping and multi-slice audits, producing a hierarchical kb/ with components, invariants, risks, and fix candidates |
 | skill-creator | 1.4.0 | opus | Designs reusable workflow skills from repeated patterns, with search-first and safety checks |
 | planner | 1.2.0 | opus | Sub-agent behind `/roster-plan` — decomposes a validated brief into per-role sub-briefs with fresh context |
@@ -108,18 +108,18 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 |-------|---------|---------|
 | roster-run | 1.10.4 | Classifies an incoming task and routes it to the right pipeline skill |
 | roster-init | 1.4.0 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
-| roster-intake | 1.3.1 | Turns a raw task description into a human-validated contractual brief |
-| roster-spec | 2.4.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
-| roster-plan | 1.4.0 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
-| roster-implement | 1.7.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
-| roster-review | 2.4.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
-| roster-qa | 1.9.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
+| roster-intake | 1.4.0 | Turns a raw task description into a human-validated contractual brief |
+| roster-spec | 2.5.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
+| roster-plan | 1.5.0 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
+| roster-implement | 1.8.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
+| roster-review | 2.5.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
+| roster-qa | 1.10.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
 | roster-ship | 1.6.0 | Carries a reviewed, QA'd branch through to a merged PR |
 | roster-investigate | 1.4.0 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
 | roster-audit | 1.4.1 | Combines code-quality and spec-compliance checks into one actionable audit report |
 | roster-doctor | 1.6.0 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
-| roster-question | 1.3.0 | Decomposes a task into neutral research questions with the intent hidden |
-| roster-research | 1.4.0 | Performs blind, file:line-grounded research from a questions file, never the task itself |
+| roster-question | 1.4.0 | Decomposes a task into neutral research questions with the intent hidden |
+| roster-research | 1.5.0 | Performs blind, file:line-grounded research from a questions file, never the task itself |
 | roster-workflow-build | 1.0.3 | Fills a CWR workflow template from a validated plan JSON via mechanical template-fill |
 | roster-triage-critical | 1.0.4 | Elicits formal-verification properties and proposes a backend for the critical route |
 | roster-spec-formal | 1.0.4 | Extends a validated roster-spec into a formal Rocq (.v) or Quint (.qnt) specification |
@@ -135,14 +135,14 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### KB/Audit (9)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| kb-update | 1.1.3 | Synchronizes the KB with recent code changes, standalone from the KB agent's update mode |
+| kb-update | 1.2.0 | Synchronizes the KB with recent code changes, standalone from the KB agent's update mode |
 | ambiguity-auditor | 1.0.3 | Scans the KB for undefined terms, vague requirements, contradictions, and stale content |
 | code-quality-auditor | 1.2.0 | Checks implementation code against KB-defined properties, invariants, and naming conventions |
-| spec-compliance-auditor | 1.1.0 | Compares the implementation against kb/spec.md to verify spec/code parity |
+| spec-compliance-auditor | 1.2.0 | Compares the implementation against kb/spec.md to verify spec/code parity |
 | harness-validator | 1.0.2 | Meta-auditor that verifies the KB harness's own structural and operational integrity |
 | roster-spec-infer | 1.0.4 | Reverse-engineers an evidence-tiered spec artifact from existing code, tests, docs, and git history |
 | kb-migrate | 1.0.2 | Runs a phased, human-gated migration of an existing KB to the current schema |
-| kb-reindex | 1.0.3 | Builds or incrementally updates the LanceDB semantic search index over KB files |
+| kb-reindex | 1.1.0 | Builds or incrementally updates the LanceDB semantic search index over KB files |
 | kb-search | 1.0.2 | Runs hybrid semantic and keyword search over the KB's LanceDB index |
 
 ### Workflow (6)
@@ -151,7 +151,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | git-conventions | 1.0.3 | Standardizes commit messages, branch names, and PR structure for the current action |
 | improvement-loop | 1.1.2 | Executes a human-approved, bounded improvement loop with verification at each step |
 | improvement-loop-planner | 1.2.2 | Synthesizes KB, code, test, and CI signals into candidate bounded improvement loops |
-| roster-config | 1.0.2 | Interactive editor for tunables exposed by installed roster agents |
+| roster-config | 1.1.0 | Interactive editor for tunables exposed by installed roster agents |
 | team | 1.0.3 | Build, review, or run the installed agent team via one dispatch skill |
 | tdd-workflow | 1.0.2 | Drives a strict red-green-refactor TDD cycle with coverage verification |
 

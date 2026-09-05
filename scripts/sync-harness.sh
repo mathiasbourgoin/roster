@@ -677,6 +677,23 @@ install_skill_hook_runtime() {
     fi
 }
 
+install_claims_reconciler() {
+    local cli_source="$SCRIPT_DIR/claims-reconcile.js"
+    local lib_source="$SCRIPT_DIR/lib/claims-reconcile.js"
+    local modules_source="$SCRIPT_DIR/lib/claims-reconcile"
+    [ -f "$cli_source" ] && [ -f "$lib_source" ] && [ -d "$modules_source" ] || return 0
+
+    local cli_target="$HARNESS_DIR/bin/claims-reconcile.js"
+    local lib_target="$HARNESS_DIR/bin/lib/claims-reconcile.js"
+    local modules_target="$HARNESS_DIR/bin/lib/claims-reconcile"
+    mkdir -p "$(dirname "$lib_target")"
+    cp "$cli_source" "$cli_target"
+    cp "$lib_source" "$lib_target"
+    rm -rf "$modules_target"
+    cp -R "$modules_source" "$modules_target"
+    chmod 0755 "$cli_target"
+}
+
 # Canonical-hook adoption check (health 2026-07-10 P6): sync converges .harness/ → runtimes
 # but never adopts NEW canonical hooks from hooks/{safety,quality}/ into an existing
 # .harness/hooks/ — a new safety hook silently doesn't install. Warn on the gap; copy with
@@ -719,6 +736,7 @@ check_canonical_hooks
 # Inline shared skill-hook fragments before any runtime projection
 sync_skill_hooks
 install_skill_hook_runtime
+install_claims_reconciler
 
 if runtime_enabled "claude-code"; then
     mkdir -p "$CLAUDE_DIR/agents" "$CLAUDE_DIR/commands" "$CLAUDE_DIR/rules"

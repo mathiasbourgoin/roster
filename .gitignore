@@ -8,8 +8,7 @@ Thumbs.db
 *.swp
 *.swo
 
-# Claude
-/kb/
+# Generated KB projections are a repository contract once claims are enabled.
 
 # Node
 node_modules/

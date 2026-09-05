@@ -142,6 +142,75 @@ Agents may propose changes to spec files but must not apply them without human a
 - The block is **additive**: prose invariants elsewhere in the file keep their existing meaning and consumers. A `properties.md` without the block is fully valid.
 - The block is machine-checked by roster-qa's code-intel gate (`scripts/code-intel-resolve.js gate`); prose-reading auditors skip its contents to avoid double-reporting.
 
+## Claims Metadata (`specs/*.md`)
+
+A spec MAY contain one fenced `claims` JSONL block. Normative FR, AC, and CHECK text remains in
+the Markdown sections and is paired one-to-one with metadata records by local ID. The first record
+is a `claims-header` with schema version, globally unique namespace, and spec lifecycle. Remaining
+record kinds form a closed vocabulary: `requirement`, `acceptance-criterion`, `check`, `decision`,
+`term`, `risk`, `invariant`, and `import`.
+
+Claims records MUST NOT contain normative `statement`, `command`, `command_ref`, or `authority`
+fields. Local references use the local ID; cross-spec references use `<namespace>/<ID>`. Lifecycle
+values are `draft`, `pending-confirmation`, `active`, `superseded`, and `retired`; inherited
+status may only reduce applicability. Authority assignments live exclusively in
+`specs/claims-authority.json`. Pinned external registry revisions live exclusively in the single
+repository lockfile `specs/claims.lock`.
+
+The exact normative grammar is a top-level list item under `## Functional Requirements`,
+`## Acceptance Criteria`, `## Runnable Checks`, `## Decisions`, `## Terms`, `## Risks`, or
+`## Invariants`: `- <ID> [optional trace]: <text>` or `- **<ID>** [optional trace]: <text>`. IDs are respectively `FR-NNN`, `AC-N`,
+`CHECK-N`, `D-N` or `DEC-N`, `TERM-N`, `RISK-N`, and `INV-N`. Other headings, indentation, tables,
+prose mentions, and all fenced content are ignored.
+
+`requirement` requires `id`, `depends_on`, and `external_sources`.
+`acceptance-criterion` and `check` require `id` plus a non-empty `for` array. Claim records may
+also carry `lifecycle`, `incompatible_with`, `components`, `domains`, `repositories`, and
+`superseded_by`; a superseded claim requires the latter. Each external source is
+`{"uri":"...","digest":"<lowercase sha256>"}`. An `import` has only `id`, `registry`, and a
+qualified `target`; its revision is never inline.
+
+The authority file has this closed shape:
+
+```json
+{"schema_version":1,"authorities":{"session-auth":{"requirement":"security-reviewers"}}}
+```
+
+Every active claim type requires a non-empty authority entry. Draft and `pending-confirmation`
+claims can be inspected and projected without assigning an approver. The map identifies the
+required authority but does not authenticate a Git reviewer; branch policy must enforce identity.
+
+The root lock has this closed shape:
+
+```json
+{"schema_version":1,"registries":{"risk-registry":{"revision":"<40-64 lowercase hex>","path":"vendor/risk-claims.json","sha256":"<lowercase sha256>"}}}
+```
+
+Paths are repository-relative and must resolve inside the repository. The pinned registry file is
+a canonical external claims model; unavailable or digest-mismatched inputs fail closed. Imported
+claims use `verification: absent` in V1: a registry revision establishes identity, not proof.
+
+An `external_sources` entry equal to the claim's own spec anchor is allowed for traceability but
+does not count toward independent-source coverage. Audit denominators count every normative FR,
+AC, CHECK, decision, term, risk, and invariant line recognized under the canonical Markdown
+headings and outside fenced blocks or generated views.
+
+An audit reports every source spec with zero recognized normative lines in
+`metrics.unrecognized_specifications` and marks that file with
+`recognition_gap: no-recognized-normative-lines`; zero is never silent.
+
+`code-intel` fences are source data only when they occur in `specs/*.md`. Their normalized fence
+bytes, source path, and line enter the canonical model and therefore the freshness digest; the
+projection copies those bytes to `kb/properties.md`. A legacy `kb/properties.md` fence with no
+source fence is stale, and `project` refuses to discard it (`code-intel-source-missing`) until it
+has been moved into a source spec.
+
+Generated `kb/spec.md`, `kb/properties.md`, and `kb/index.md` are deterministic derived views.
+Their freshness digest covers the authoritative specs (including source `code-intel` fences),
+authority file, lockfile, renderer version, and policy version. They must never be used as evidence for the claims from which they were
+generated. A repository without claims blocks remains a supported legacy corpus: audit may propose
+migration candidates, but must not invent authority or silently rewrite a spec.
+
 ## Auditor Report Format
 
 Audit reports in `reports/` use this frontmatter:

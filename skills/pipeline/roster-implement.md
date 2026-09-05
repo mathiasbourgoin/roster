@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.7.0
+version: 1.8.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -64,6 +64,9 @@ loop-back, from `briefs/<task>-review.json`). Establish the quality gates yourse
 
 In all modes, verify the quality gates are known before changing code — escalate if you cannot
 determine them.
+
+**Claims projection (conditional):** run the available reconciler's `check --root .` before edits;
+stop on stale managed claims. Legacy passes. Also require a task context manifest's current digest.
 
 **KB invariants (conditional):**
 

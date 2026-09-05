@@ -2,7 +2,7 @@
 name: roster-question
 description: Decomposes a task into neutral research questions with the intent hidden.
 when_to_use: "Use as the first roster-run step before any research happens. Trigger: 'roster-run', new task with no scoping yet."
-version: 1.3.0
+version: 1.4.0
 domain: pipeline
 phase: question
 preamble: true
@@ -15,10 +15,11 @@ artifacts:
     - README.md
   writes:
     - roster/<task-slug>/questions.md
+    - roster/<task-slug>/questions.manifest.json
 pipeline_role:
   triggered_by: /roster-run (always, as first step)
   receives: task description in $ARGUMENTS
-  produces: roster/<task-slug>/questions.md (neutral questions, task intent hidden)
+  produces: roster/<task-slug>/questions.manifest.json plus a Markdown review view (task intent hidden)
 ---
 
 # Roster Question
@@ -123,6 +124,8 @@ Write `roster/<task-slug>/task.md` with the full task description (this is the d
 <full task description, verbatim from the user>
 ```
 
+Do not create the neutral manifest until the human has approved the questions.
+
 ### 5. Human review gate
 
 Present the questions to the user:
@@ -133,15 +136,31 @@ Present the questions to the user:
 >
 > Approve, edit, or ask me to regenerate?"
 
-Apply any corrections. Wait for explicit approval before proceeding.
+Apply any corrections. Wait for explicit approval before proceeding. Then write
+`roster/<task-slug>/questions.manifest.json` as the researcher's machine input:
+
+```json
+{
+  "questions": ["<question 1>", "<question 2>"],
+  "technical_ids": ["<only paths, symbols, or other technical IDs already present in the approved questions>"],
+  "digests": {"questions": "<lowercase SHA-256 of the canonical questions array>"}
+}
+```
+
+These are the only three allowed top-level keys. Do not include task text, normative statements,
+lifecycle, authority, recommendations, rationale, titles, timestamps, or user-profile data.
+Canonicalize strings to NFC/LF, sort object keys and set-like `technical_ids`, serialize compact
+JSON, and hash the `questions` array. If a claims reconciler exists at
+`scripts/claims-reconcile.js` or `.harness/bin/claims-reconcile.js`, validate the manifest with its
+`manifest-neutral` subcommand and stop on failure.
 
 ### 6. Dispatch or announce next step
 
 If the human approved inline (same turn), immediately invoke `/roster-research
-roster/<task-slug>/questions.md` as a `Skill` call in that same turn — do not keep
+roster/<task-slug>/questions.manifest.json` as a `Skill` call in that same turn — do not keep
 working under this skill's name. Otherwise, end the turn cleanly with:
 
-> "Questions approved. Run `/roster-research roster/<task-slug>/questions.md` to continue."
+> "Questions approved. Run `/roster-research roster/<task-slug>/questions.manifest.json` to continue."
 
 Rationale (accounting, not style): per-skill cost is measured from one `Skill` call to
 the next, so any work after approval that isn't itself a `Skill` call gets billed to
@@ -149,7 +168,9 @@ the next, so any work after approval that isn't itself a `Skill` call gets bille
 
 ## Output Contract
 
-`roster/<task-slug>/questions.md` — neutral questions only, no task intent, human-approved.
+`roster/<task-slug>/questions.md` — human-readable approved questions.
+
+`roster/<task-slug>/questions.manifest.json` — closed, validated neutral input for research.
 
 **Next:** `/roster-research` reads this file as its only input.
 
@@ -162,7 +183,7 @@ the next, so any work after approval that isn't itself a `Skill` call gets bille
 
 ## What Next
 
-**Primary path:** `/roster-research roster/<task-slug>/questions.md`
+**Primary path:** `/roster-research roster/<task-slug>/questions.manifest.json`
 **Alternatives:**
 - Skip research and go directly to `/roster-intake` — only for trivial single-file tasks with no codebase exploration needed
 
