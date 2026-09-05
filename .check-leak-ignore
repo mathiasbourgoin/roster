@@ -1,3 +1,8 @@
 # check-leak-diff ignore globs (gitignore-style). The scanner test legitimately holds
 # secret-shaped fixtures.
 scripts/check-leak.test.js
+package-lock.json
+kb/index.md
+kb/properties.md
+kb/spec.md
+.harness/bin/run-hook.js

@@ -1,16 +1,19 @@
 ---
 name: roster-plan
-description: Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs.
-version: 1.3.1
+description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
+when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
+version: 1.5.0
 domain: pipeline
 phase: plan
 preamble: true
 friction_log: true
-allowed_tools: [Read, Write, Agent, AskUserQuestion]
+allowed_tools: [Read, Write, Bash, Agent, AskUserQuestion]
 human_gate: after
 artifacts:
   reads:
     - briefs/<task>-intake.md
+    - briefs/<task>-spec.md (feature/api-change: status gate only)
+    - briefs/<task>-formal-triage.md (critical route: mode signal only)
   writes:
     - briefs/<task>-plan.md
     - briefs/<task>-plan.json
@@ -19,7 +22,7 @@ artifacts:
     - briefs/<task>-qa-scope.md
 pipeline_role:
   triggered_by: /roster-intake with validated brief
-  receives: briefs/<task>-intake.md (single source of truth)
+  receives: briefs/<task>-intake.md (single decomposition source; spec/formal-triage consulted as gates, not mined)
   produces: per-role sub-briefs + sequenced plan
 ---
 
@@ -47,6 +50,11 @@ If absent or not VALIDATED/SKIPPED:
 > ⛔ Feature/api-change task requires a spec. Run `/roster-spec` first.
 
 ## Steps
+
+### 0. Claims projection pre-check (conditional)
+
+Run the available claims reconciler's `check --root .`; stop on stale managed claims. Legacy
+passes. Also require a task context manifest's current freshness digest.
 
 ### 0. KB ambiguity pre-check (conditional)
 
@@ -139,6 +147,21 @@ Statuses:
 
 For each DISAGREE, present both options with each voice's reasoning and a recommendation if one is clearly better. Wait for the decision before continuing.
 
+**Verify each option is reachable before presenting it.** Not "plausible" — reachable in the
+current tree, checked. On 2026-08-25 four dependency mechanisms were offered to a human, and all
+four shared one unmet prerequisite: the target library exposed no installable name, so none of
+them could work. It was found one step after the decision, and the work done on the chosen option
+was thrown away.
+
+Two verified options beat four unverified ones, and cost less to produce. If a check would be
+expensive, say what is unverified and what would settle it — never present an option whose
+feasibility you have not established as though it were equal to one you have.
+
+**Re-check reachability when the tree moves.** If an earlier step in this session changed what is
+installed, exposed, or published, the option set may have changed with it. In the case above the
+eventually-correct mechanism became available only because an earlier step in the same session
+had made it so, and nobody revisited the decision until the human asked.
+
 ### 5. Write the plan
 
 Produce `briefs/<task>-plan.md`:
@@ -147,7 +170,7 @@ Produce `briefs/<task>-plan.md`:
 # Plan — <task-slug>
 
 **Date:** <ISO-8601>
-**Status:** DRAFT
+**Status: DRAFT**
 
 ## Sequential steps
 
@@ -183,33 +206,35 @@ Produce `briefs/<task>-plan.md`:
 
 ### 7. Human validation quiz
 
-Write the full plan to `briefs/<task>-plan.md` first, then run the quiz per `human-validation.md`. Present 3 questions in uniform format (do not label by type):
+Write the full plan to `briefs/<task>-plan.md` first, then run a 3-question quiz per the `human-validation.md` protocol. Plan-specific question targets:
 
-1. **Comprehension** — the ordering or dependency between the two highest-risk steps; can only be answered by someone who read the plan.
-2. **Clarification** — an implicit decision (batching order, rollback strategy, migration approach) that must be made explicit; the user's answer is binding — update the plan accordingly.
-3. **Consistency-check** — a deliberately wrong recommendation targeting the highest-risk step (e.g. suggest doing the dangerous step last, or skipping an irreversible gate). Phrase as a plausible option; format identically to the other questions.
+1. **Comprehension** — the ordering or dependency between the two highest-risk steps.
+2. **Clarification** — an implicit decision (batching order, rollback strategy, migration approach); the user's answer is binding — update the plan accordingly.
+3. **Consistency-check** — target the highest-risk step (e.g. suggest doing the dangerous step last, or skipping an irreversible gate).
 
-Gate on `human-validation.md` rules: comprehension must be answered correctly (offer one clarification, re-ask once), clarification must produce an explicit decision, consistency-check must not be confirmed unchallenged. Wait for answers before finalizing sub-briefs.
+Gate per `human-validation.md` rules; wait for answers before finalizing sub-briefs.
 
 ### 8. Final human gate
 
-Present the sub-briefs with their paths. Request validation before spawning execution agents. Set `**Status:** VALIDATED` in each sub-brief after approval.
+Present the sub-briefs with their paths. Request validation before spawning execution agents. After approval, set `**Status: VALIDATED**` in `briefs/<task>-plan.md` **and** in each sub-brief — the Output Contract and roster-run's routing both key on a validated plan.md.
 
 ### 8.5. Write plan JSON (after VALIDATED only)
 
 After approval, write `briefs/<task>-plan.json` atomically:
 
-1. **Detect critical mode:**
+1. **Detect the mode:**
 ```bash
-[ -f briefs/<task>-formal-triage.md ] && TASK_MODE="critical" || TASK_MODE="<mode from intake brief>"
+if [ -f briefs/<task>-formal-triage.md ]; then TASK_MODE="critical"
+else TASK_MODE=$(jq -r '.mode // "full"' briefs/<task>-state.json 2>/dev/null || echo "full")
+fi
 ```
-Use `$TASK_MODE` as the `"mode"` field. File existence is the signal — applies to both full triage briefs and minimal placeholder briefs from `--critical=rocq`/`--critical=quint`.
+Use `$TASK_MODE` as the `"mode"` field. Triage-brief existence is the critical signal — applies to both full triage briefs and minimal placeholder briefs from `--critical=rocq`/`--critical=quint`. Otherwise the mode comes from the state ledger (`mode` is set on the ledger's first write — pipeline preamble); a missing ledger defaults to `full`, the only non-critical route that reaches this skill.
 
 2. Build the JSON:
 ```json
 {
   "task": "<slug>",
-  "mode": "express|fast|full|critical",
+  "mode": "full|critical",
   "schema_version": "1.0",
   "steps": [
     {
@@ -235,8 +260,10 @@ Use `$TASK_MODE` as the `"mode"` field. File existence is the signal — applies
 ## Output Contract
 
 - `briefs/<task>-plan.md` (VALIDATED)
+- `briefs/<task>-plan.json` (machine-readable plan, atomic `.tmp`-then-rename write)
 - `briefs/<task>-implementer.md` (VALIDATED)
 - `briefs/<task>-reviewer.md` (VALIDATED)
+- `briefs/<task>-qa-scope.md`
 
 **Next:** `/roster-implement` reads `briefs/<task>-implementer.md`.
 
@@ -257,18 +284,7 @@ Use `$TASK_MODE` as the `"mode"` field. File existence is the signal — applies
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-plan",
-  "task": "<task-slug>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-plan"`.
 
 ## Rules
 

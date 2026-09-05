@@ -40,7 +40,7 @@ const REPO_ROOT = path.resolve(__dirname, "../..");
 
 // Fields consulted per schema file. Everything else in the docs is out of scope.
 const SCHEMA_FIELDS: Record<string, string[]> = {
-  "schema/skill-schema.md": ["domain", "phase", "human_gate"],
+  "schema/skill-schema.md": ["domain", "phase", "human_gate", "capability"],
   "schema/harness-schema.md": ["name", "domain", "phase", "category"],
   "schema/agent-schema.md": ["human_gate"],
 };
@@ -86,20 +86,40 @@ function leadingToken(line: string): string {
   return value.split(" — ")[0].trim().split(/\s+/)[0];
 }
 
+function collectSkillFileUsage(used: Used[], absPath: string, rel: string): void {
+  const fm = frontmatterOf(fs.readFileSync(absPath, "utf-8"));
+  if (!fm) return;
+  for (const field of ["domain", "phase", "human_gate", "capability"]) {
+    const line = fmLine(fm, field, false);
+    if (!line || line.endsWith(":") || /:\s*\[/.test(line)) continue; // absent or list
+    used.push({ schema: "schema/skill-schema.md", field, value: leadingToken(line), where: rel, line });
+  }
+}
+
 function collectSkillUsage(used: Used[]): void {
   const skillsDir = path.join(REPO_ROOT, "skills");
   for (const domainDir of fs.readdirSync(skillsDir)) {
     const dir = path.join(skillsDir, domainDir);
     if (!fs.statSync(dir).isDirectory()) continue;
     for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".md"))) {
-      const rel = `skills/${domainDir}/${file}`;
-      const fm = frontmatterOf(fs.readFileSync(path.join(dir, file), "utf-8"));
-      if (!fm) continue;
-      for (const field of ["domain", "phase", "human_gate"]) {
-        const line = fmLine(fm, field, false);
-        if (!line || line.endsWith(":") || /:\s*\[/.test(line)) continue; // absent or list
-        used.push({ schema: "schema/skill-schema.md", field, value: leadingToken(line), where: rel, line });
-      }
+      collectSkillFileUsage(used, path.join(dir, file), `skills/${domainDir}/${file}`);
+    }
+  }
+  collectExtensionSkillUsage(used);
+}
+
+/** extensions/*[star]/skills/*[star]/SKILL.md — pack skills carry the same enum fields.
+ *  The glob may match nothing today (no extensions/ dir yet) — that is not an error. */
+function collectExtensionSkillUsage(used: Used[]): void {
+  const extRoot = path.join(REPO_ROOT, "extensions");
+  if (!fs.existsSync(extRoot) || !fs.statSync(extRoot).isDirectory()) return;
+  for (const extName of fs.readdirSync(extRoot)) {
+    const skillsRoot = path.join(extRoot, extName, "skills");
+    if (!fs.existsSync(skillsRoot) || !fs.statSync(skillsRoot).isDirectory()) continue;
+    for (const skillDir of fs.readdirSync(skillsRoot)) {
+      const skillFile = path.join(skillsRoot, skillDir, "SKILL.md");
+      if (!fs.existsSync(skillFile)) continue;
+      collectSkillFileUsage(used, skillFile, `extensions/${extName}/skills/${skillDir}/SKILL.md`);
     }
   }
 }

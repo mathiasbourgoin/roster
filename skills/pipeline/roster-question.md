@@ -1,7 +1,8 @@
 ---
 name: roster-question
-description: Decompose a task into neutral research questions — blind research prep, task intent not revealed.
-version: 1.0.0
+description: Decomposes a task into neutral research questions with the intent hidden.
+when_to_use: "Use as the first roster-run step before any research happens. Trigger: 'roster-run', new task with no scoping yet."
+version: 1.4.0
 domain: pipeline
 phase: question
 preamble: true
@@ -14,10 +15,11 @@ artifacts:
     - README.md
   writes:
     - roster/<task-slug>/questions.md
+    - roster/<task-slug>/questions.manifest.json
 pipeline_role:
   triggered_by: /roster-run (always, as first step)
   receives: task description in $ARGUMENTS
-  produces: roster/<task-slug>/questions.md (neutral questions, task intent hidden)
+  produces: roster/<task-slug>/questions.manifest.json plus a Markdown review view (task intent hidden)
 ---
 
 # Roster Question
@@ -39,7 +41,7 @@ Read `AGENTS.md` and `README.md` silently. Do not read the codebase yet.
 
 ### 2. Derive the task slug
 
-Kebab-case, max 4 words from $ARGUMENTS. Example: "add webhook retry logic" → `webhook-retry-logic`.
+Derive the canonical slug per the preamble's *Pipeline State* rule (it must be byte-identical across every phase). Example: "add webhook retry logic" → `webhook-retry-logic`.
 
 ### 3. Spawn question-generation sub-agent
 
@@ -47,19 +49,38 @@ Spawn a sub-agent with this exact prompt:
 
 ```
 You are a research planner. You will receive a task description.
-Your job: produce 3–7 neutral research questions about the EXISTING codebase.
+Your job: produce 3–7 neutral research questions about the EXISTING codebase,
+PLUS 1–2 neutral ecosystem questions about the EXISTING outside world, tagged `[ecosystem]`.
 
 Rules:
 - Questions must describe what EXISTS — never what to BUILD
 - No question may reveal the feature or change being requested
-- Each question must be answerable by reading code (grep, glob, read)
-- Questions must be specific enough to direct a code reader to the right areas
+- This is a pure text transformation of the task description below. You have no
+  file access — do NOT read, grep, or glob the codebase to generate questions.
+- Each codebase question must be answerable by reading code (grep, glob, read) —
+  that describes the downstream researcher's job, not yours
+- Each `[ecosystem]` question must be answerable by web search: how existing tools,
+  libraries, standards, or community practice handle the task's domain. Same
+  disclosure level as the codebase questions — a domain is revealed, never a solution
+- Questions must be specific enough to direct a reader to the right areas
 
 Good: "How does the middleware chain handle request authentication, and where are auth policies defined?"
 Bad: "What's the best way to add a new authenticated endpoint?"
 
 Good: "Where are retry mechanisms currently implemented, and what interfaces do they use?"
 Bad: "How should we implement webhook retry logic?"
+
+Good: "[ecosystem] How do established HTTP client libraries implement retry/backoff, and what interfaces do they expose?"
+Bad: "[ecosystem] Which retry library should we adopt?"
+
+A question must ask what EXISTS. Any question a reader could only answer by predicting,
+imagining, or reasoning about consequences is out of contract, even when it discloses nothing —
+the researcher's job is documentary. Reject "what would happen if", "what could make", "why
+might".
+
+Bad: "What would make this gate pass while measuring nothing?"
+Good: "List every assertion this gate makes, and for each, state whether it is conditional on
+its input being non-empty."
 
 Task description (DO NOT include this in the output):
 <$ARGUMENTS>
@@ -77,7 +98,10 @@ mkdir -p roster/<task-slug>
 Write `roster/<task-slug>/questions.md`:
 
 ```markdown
-# Research Questions — <task-slug>
+<!-- No title. The path roster/<task-slug>/questions.md already identifies this
+     file, and a descriptive slug in an H1 briefs the researcher on the very
+     thing this skill requires be withheld. The mandated title contradicted the
+     skill's own zero-disclosure rule. -->
 
 _Generated: <ISO-8601>_
 _DO NOT include the task description in this file or share it with the researcher._
@@ -85,10 +109,12 @@ _DO NOT include the task description in this file or share it with the researche
 1. <neutral question>
 2. <neutral question>
 3. <neutral question>
+4. [ecosystem] <neutral ecosystem/prior-art question>
 ...
 ```
 
-**Do not include the task description in this file.**
+The `[ecosystem]` tag is load-bearing: `/roster-research` keys its external (web)
+research on it. Keep it verbatim at the start of the question text.
 
 Write `roster/<task-slug>/task.md` with the full task description (this is the durable record downstream phases read to recover the goal if context is lost):
 
@@ -97,6 +123,8 @@ Write `roster/<task-slug>/task.md` with the full task description (this is the d
 
 <full task description, verbatim from the user>
 ```
+
+Do not create the neutral manifest until the human has approved the questions.
 
 ### 5. Human review gate
 
@@ -108,15 +136,41 @@ Present the questions to the user:
 >
 > Approve, edit, or ask me to regenerate?"
 
-Apply any corrections. Wait for explicit approval before proceeding.
+Apply any corrections. Wait for explicit approval before proceeding. Then write
+`roster/<task-slug>/questions.manifest.json` as the researcher's machine input:
 
-### 6. Announce next step
+```json
+{
+  "questions": ["<question 1>", "<question 2>"],
+  "technical_ids": ["<only paths, symbols, or other technical IDs already present in the approved questions>"],
+  "digests": {"questions": "<lowercase SHA-256 of the canonical questions array>"}
+}
+```
 
-> "Questions approved. Run `/roster-research roster/<task-slug>/questions.md` to continue."
+These are the only three allowed top-level keys. Do not include task text, normative statements,
+lifecycle, authority, recommendations, rationale, titles, timestamps, or user-profile data.
+Canonicalize strings to NFC/LF, sort object keys and set-like `technical_ids`, serialize compact
+JSON, and hash the `questions` array. If a claims reconciler exists at
+`scripts/claims-reconcile.js` or `.harness/bin/claims-reconcile.js`, validate the manifest with its
+`manifest-neutral` subcommand and stop on failure.
+
+### 6. Dispatch or announce next step
+
+If the human approved inline (same turn), immediately invoke `/roster-research
+roster/<task-slug>/questions.manifest.json` as a `Skill` call in that same turn — do not keep
+working under this skill's name. Otherwise, end the turn cleanly with:
+
+> "Questions approved. Run `/roster-research roster/<task-slug>/questions.manifest.json` to continue."
+
+Rationale (accounting, not style): per-skill cost is measured from one `Skill` call to
+the next, so any work after approval that isn't itself a `Skill` call gets billed to
+`roster-question` instead of the phase actually running.
 
 ## Output Contract
 
-`roster/<task-slug>/questions.md` — neutral questions only, no task intent, human-approved.
+`roster/<task-slug>/questions.md` — human-readable approved questions.
+
+`roster/<task-slug>/questions.manifest.json` — closed, validated neutral input for research.
 
 **Next:** `/roster-research` reads this file as its only input.
 
@@ -129,7 +183,7 @@ Apply any corrections. Wait for explicit approval before proceeding.
 
 ## What Next
 
-**Primary path:** `/roster-research roster/<task-slug>/questions.md`
+**Primary path:** `/roster-research roster/<task-slug>/questions.manifest.json`
 **Alternatives:**
 - Skip research and go directly to `/roster-intake` — only for trivial single-file tasks with no codebase exploration needed
 
@@ -137,21 +191,10 @@ Apply any corrections. Wait for explicit approval before proceeding.
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-question",
-  "task": "<task-slug>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-question"`.
 
 ## Rules
 
-- Never include the task description or solution intent in `questions.md`
 - Never skip the human review gate — questions shape the quality of all downstream research
+- Always include 1–2 `[ecosystem]` questions unless the task domain genuinely has no outside prior art (rare — say so explicitly if you omit them)
 - If the task is in a domain with no existing codebase (greenfield), note this and generate architectural questions about conventions and tooling instead

@@ -1,8 +1,8 @@
 ---
 name: spec-compliance-auditor
-description: Audit implementation against kb/spec.md — flag unimplemented spec items and behavioral divergence.
-when_to_use: "Use to flag unimplemented spec items or behavioral divergence from kb/spec.md. Trigger: 'does the code match the spec'."
-version: 1.0.1
+description: Compares the implementation against kb/spec.md to verify spec/code parity.
+when_to_use: "Use before shipping a feature to confirm nothing drifted from spec. Trigger: 'does the code match the spec'."
+version: 1.2.0
 ---
 
 # Spec Compliance Auditor
@@ -25,12 +25,17 @@ SPEC_PATH="${ARGUMENTS:-kb/spec.md}"
 ```
 
 - Read the spec file at `$SPEC_PATH` in full.
+- For a generated `kb/spec.md`, use each projected qualified identifier
+  (`<namespace>/FR-NNN`, `<namespace>/AC-N`, `<namespace>/CHECK-N`) as the claim reference. Do not
+  collapse it back to an unqualified local ID. Exclude the projection itself as evidence that the
+  claim is implemented.
 - Extract every concrete, testable claim. A testable claim is a statement that can be verified by reading code or running a test. Examples:
   - "The API returns 404 when the resource is not found"
   - "Passwords are hashed with bcrypt, cost factor 12"
   - "The retry limit is 3 attempts with exponential backoff"
 - Ignore aspirational or process-oriented statements ("we aim to...", "the team will...").
-- Number each claim for reference: S1, S2, S3, etc.
+- For legacy prose without qualified identifiers, number each claim `legacy:S1`, `legacy:S2`,
+  etc. The prefix makes the weaker extraction path visible in reports.
 
 ### 2. Verify Each Claim
 
@@ -44,7 +49,7 @@ For each testable claim:
 | Status | Meaning |
 |--------|---------|
 | **PASS** | Code matches spec, test exists |
-| **PARTIAL** | Code matches spec, no test covering it |
+| **UNTESTED** | Code matches spec, no test covering it |
 | **DIVERGE** | Code behaves differently than spec states |
 | **MISSING** | No implementation found for this spec item |
 
@@ -70,7 +75,7 @@ coverage: X/Y claims verified (Z%)
 
 | Claim | Status | Location | Test | Notes |
 |-------|--------|----------|------|-------|
-| S1: <short desc> | PASS/PARTIAL/DIVERGE/MISSING | <file:line> | <test file> | <notes> |
+| S1: <short desc> | PASS/UNTESTED/DIVERGE/MISSING | <file:line> | <test file> | <notes> |
 
 ## Critical
 
@@ -95,8 +100,25 @@ coverage: X/Y claims verified (Z%)
 
 **Severity mapping:**
 - **Critical**: DIVERGE (code contradicts spec), MISSING (spec item not implemented).
-- **Warning**: PARTIAL (implemented but untested), unspecified features in critical paths.
+- **Warning**: UNTESTED (implemented but untested), unspecified features in critical paths.
 - **Info**: Unspecified features in non-critical paths, minor spec ambiguities discovered.
+
+### 5. Embedded mode (invoked from `/roster-review`)
+
+When this skill runs as a review specialist, the markdown report above is still written,
+but the specialist's **return value** must additionally be the findings as JSON objects in
+roster-review's standard finding schema (severity, confidence, path, line, category,
+summary, evidence, fix, fingerprint, specialist) with:
+
+- `category: "spec"` and `specialist: "spec-compliance"`
+- one finding per Critical/Warning issue (severity CRITICAL for DIVERGE/MISSING, MEDIUM for UNTESTED)
+- an `acs` array on each finding carrying the qualified spec identifiers the violated claim traces
+  to: when the spec source is a `specs/<task-slug>.md` contract, cite its `AC-N` (and
+  `FR-NNN`) identifiers; for a generated `kb/spec.md`, retain `<namespace>/AC-N` and
+  `<namespace>/FR-NNN`; for legacy prose cite `legacy:S<N>` instead — roster-review consumes this array to populate
+  `no_go_reason.failed_acs`.
+
+Free-form text is not an acceptable return value in embedded mode.
 
 ## Rules
 

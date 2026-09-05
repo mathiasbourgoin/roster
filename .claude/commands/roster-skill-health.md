@@ -23,11 +23,6 @@ pipeline_role:
   produces: skills-meta/health-<date>.md with approved proposals
 ---
 
----
-name: roster-preamble
-version: 1.6.1
-description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
----
 
 # Roster Preamble
 

@@ -233,4 +233,5 @@ To add or update components:
 → **[Skill Overlap Guide](docs/skill-overlap.md)** — when to use each audit/spec/research skill  
 → **[Skill hooks DSL and tutorial](docs/hooks.md)**  
 → **[Roster extensions](docs/extensions.md)** — local extension packs, install registry, converge checks  
+→ **[Claims reconciliation](docs/claims-reconciliation.md)** — stable spec identities, deterministic KB projections, and offline behavior
 → **[Changelog](CHANGES.md)**

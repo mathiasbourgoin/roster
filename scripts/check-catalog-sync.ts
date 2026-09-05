@@ -85,7 +85,7 @@ function groundTruthAgents(): Map<string, Component> {
 function groundTruthSkills(): Map<string, Component> {
   const skills = new Map<string, Component>();
   for (const f of mdFilesUnder("skills")) {
-    if (f === "skills/shared/preamble.md") continue;
+    if (f.startsWith("skills/shared/preamble")) continue;
     const name = path.basename(f, ".md");
     skills.set(name, { name, version: frontmatterField(f, "version") });
   }

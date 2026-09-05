@@ -59,7 +59,7 @@
       {
         "name": "kb-agent",
         "source": "roster",
-        "version": "2.4.0",
+        "version": "2.5.0",
         "role": "Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture.",
         "tunables": {}
       },
@@ -157,7 +157,7 @@
       {
         "name": "code-quality-auditor",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -181,10 +181,12 @@
       {
         "name": "kb-reindex",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "domain": "kb",
         "phase": null,
-        "tunables": {}
+        "tunables": {
+          "embedding_mode": "remote"
+        }
       },
       {
         "name": "kb-search",
@@ -197,7 +199,7 @@
       {
         "name": "kb-update",
         "source": "roster",
-        "version": "1.1.1",
+        "version": "1.2.0",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -217,7 +219,7 @@
       {
         "name": "spec-compliance-auditor",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.2.0",
         "domain": "kb",
         "phase": null,
         "tunables": {}
@@ -225,7 +227,7 @@
       {
         "name": "image-generation",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "domain": "media",
         "phase": null,
         "tunables": {}
@@ -241,7 +243,7 @@
       {
         "name": "roster-skill-health",
         "source": "roster",
-        "version": "1.2.1",
+        "version": "1.2.2",
         "domain": "meta",
         "phase": null,
         "tunables": {
@@ -260,7 +262,7 @@
       {
         "name": "roster-audit",
         "source": "roster",
-        "version": "1.1.1",
+        "version": "1.3.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -274,7 +276,7 @@
       {
         "name": "roster-doctor",
         "source": "roster",
-        "version": "1.2.0",
+        "version": "1.3.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -290,7 +292,7 @@
       {
         "name": "roster-implement",
         "source": "roster",
-        "version": "1.5.0",
+        "version": "1.8.0",
         "domain": "pipeline",
         "phase": "implement",
         "tunables": {
@@ -302,7 +304,7 @@
       {
         "name": "roster-init",
         "source": "roster",
-        "version": "1.2.1",
+        "version": "1.2.2",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -316,7 +318,7 @@
       {
         "name": "roster-intake",
         "source": "roster",
-        "version": "1.1.0",
+        "version": "1.4.0",
         "domain": "pipeline",
         "phase": "intake",
         "tunables": {}
@@ -335,7 +337,7 @@
       {
         "name": "roster-plan",
         "source": "roster",
-        "version": "1.3.0",
+        "version": "1.5.0",
         "domain": "pipeline",
         "phase": "plan",
         "tunables": {}
@@ -343,18 +345,20 @@
       {
         "name": "roster-qa",
         "source": "roster",
-        "version": "1.3.1",
+        "version": "1.10.0",
         "domain": "pipeline",
         "phase": "qa",
         "tunables": {
           "require_tmux_matrix_for_tui": true,
-          "run_full_suite": true
+          "run_full_suite": true,
+          "code_intel_gate_timeout": 120,
+          "max_qa_rounds": 5
         }
       },
       {
         "name": "roster-question",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.4.0",
         "domain": "pipeline",
         "phase": "question",
         "tunables": {}
@@ -362,7 +366,7 @@
       {
         "name": "roster-research",
         "source": "roster",
-        "version": "1.2.0",
+        "version": "1.5.0",
         "domain": "pipeline",
         "phase": "research",
         "tunables": {
@@ -373,12 +377,15 @@
       {
         "name": "roster-review",
         "source": "roster",
-        "version": "1.5.0",
+        "version": "2.5.0",
         "domain": "pipeline",
         "phase": "review",
         "tunables": {
           "auto_fix_threshold_lines": 20,
-          "always_run_spec_compliance": true
+          "always_run_spec_compliance": true,
+          "max_no_go_rounds": 5,
+          "novel_finding_strikes": 2,
+          "cross_runtime_probe_timeout": 120
         }
       },
       {
@@ -392,14 +399,16 @@
       {
         "name": "roster-ship",
         "source": "roster",
-        "version": "1.3.0",
+        "version": "1.4.0",
         "domain": "pipeline",
         "phase": "ship",
         "tunables": {
           "merge_strategy": "rebase-merge",
           "commit_convention": "conventional",
           "pre_pr_checks": "",
-          "friction_warn_threshold": 10
+          "friction_warn_threshold": 10,
+          "push_mode": "pr",
+          "push_target": "main"
         }
       },
       {
@@ -413,7 +422,7 @@
       {
         "name": "roster-spec",
         "source": "roster",
-        "version": "2.0.0",
+        "version": "2.5.0",
         "domain": "pipeline",
         "phase": "spec",
         "tunables": {
@@ -441,9 +450,27 @@
         "tunables": {}
       },
       {
+        "name": "roster-preamble-friction",
+        "source": "roster",
+        "version": "1.2.0",
+        "domain": "shared",
+        "phase": null,
+        "tunables": {},
+        "file": "preamble-friction"
+      },
+      {
+        "name": "roster-preamble-pipeline",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "shared",
+        "phase": null,
+        "tunables": {},
+        "file": "preamble-pipeline"
+      },
+      {
         "name": "roster-preamble",
         "source": "roster",
-        "version": "1.5.0",
+        "version": "1.6.1",
         "domain": "shared",
         "phase": null,
         "tunables": {},
@@ -484,7 +511,7 @@
       {
         "name": "roster-config",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.1.0",
         "domain": "workflow",
         "phase": null,
         "tunables": {}
@@ -510,7 +537,7 @@
       "health_schedule": "manual",
       "health_reports_dir": "skills-meta/",
       "last_health_run": null,
-      "completed_tasks": 10
+      "completed_tasks": 26
     }
   }
 }

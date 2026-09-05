@@ -14,11 +14,6 @@ pipeline_role:
   produces: harness changes (build), audit report (review), or pipeline execution (run)
 ---
 
----
-name: roster-preamble
-version: 1.6.1
-description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
----
 
 # Roster Preamble
 
