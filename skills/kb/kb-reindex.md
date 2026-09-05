@@ -1,7 +1,10 @@
 ---
 name: kb-reindex
-description: Build or update the LanceDB semantic search index for KB files — opt-in, cold-start or incremental.
-version: 1.0.0
+description: Builds or incrementally updates the LanceDB semantic search index over KB files.
+when_to_use: "Use when semantic search over the KB is enabled but the index is missing or stale. Trigger: 'reindex the KB', 'rebuild the search index'."
+version: 1.1.0
+tunables:
+  embedding_mode: remote
 ---
 
 # KB Reindex
@@ -13,12 +16,30 @@ The index is a search cache. Markdown files remain the primary source of truth. 
 ## Pre-conditions
 
 ```bash
-# Check opt-in flag (read from harness.json or inform user to set it)
+# Opt-in flag lives in the installed kb-agent's frontmatter tunables (the file /roster-config
+# edits) — NOT in .harness/harness.json, whose agents[].tunables carry no per-agent values.
+AGENT_FILE=""
+for f in .harness/agents/kb-agent.md .claude/agents/kb-agent.md .opencode/agents/kb-agent.md agents/management/kb-agent.md; do
+  [ -f "$f" ] && AGENT_FILE="$f" && break
+done
+grep -Eq '^[[:space:]]*search_index:[[:space:]]*true' "$AGENT_FILE" 2>/dev/null \
+  && echo "search_index: enabled ($AGENT_FILE)" \
+  || echo "search_index: disabled — enable via /roster-config (kb-agent › search_index), or proceed only on explicit user request"
 # Check LanceDB is available (Python: pip install lancedb; JS: npm install @lancedb/lancedb)
 [ -d kb ] && echo "KB present" || echo "KB absent — nothing to index"
 ```
 
 If `kb/` is absent: report and stop.
+
+Read the configured `embedding_mode` before doing any network or credential check:
+
+- `remote` (default): use the configured embedding provider and model.
+- `disabled`: report `semantic index disabled; Markdown and deterministic claims remain
+  available` and stop successfully without creating or changing `kb/.index/`.
+
+Index availability is optional and MUST NOT affect claims validation, dependency closure,
+projection freshness, spec compliance, or any mandatory Roster gate. Never silently replace a
+disabled or failed embedding provider with agent-generated similarity judgments.
 
 **Migration warning**: if any KB file lacks `schema-version: 2` in frontmatter, emit:
 > ⚠️ Some KB files have not been migrated to schema v2. Run `/kb-migrate` first for best results. Continuing anyway — legacy files will be indexed with status inferred from old values.
@@ -45,7 +66,7 @@ If `kb/` is absent: report and stop.
 2. For each file, chunk by section:
    - Split content on `## ` heading boundaries
    - Each chunk: `{file_path, section_heading, content, status, schema_version}`
-   - Infer `status` from frontmatter (`status:` field). Map legacy values: `draft`/`reviewed` → `live-doctrine`, `stale` → `historical`.
+   - Infer `status` from frontmatter (`status:` field). Map legacy values per the canonical mapping owned by `kb-migrate` (Phase D — Frontmatter Migration, step 3; currently `draft`/`reviewed` → `live-doctrine`, `stale` → `historical`, quoted here as a non-authoritative hint).
 
 3. Embed each chunk using the configured embedding model (default: `text-embedding-3-small`, 1536 dimensions). Batch embed for efficiency.
 
@@ -90,6 +111,7 @@ Report:
 
 | Tunable | Default | Description |
 |---------|---------|-------------|
+| `embedding_mode` | `remote` | `remote` enables the configured provider; `disabled` performs no network call and no index mutation |
 | `embedding_model` | `text-embedding-3-small` | OpenAI embedding model |
 | `embedding_dim` | `1536` | Vector dimensions (must match model) |
 | `chunk_by` | `section` | Chunking strategy: `section` (by `## ` heading) or `fixed` (N chars) |

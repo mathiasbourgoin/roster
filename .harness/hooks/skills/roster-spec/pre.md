@@ -34,4 +34,6 @@ steps:
     on_false:
       - log: "BLOCKED: briefs/${TASK}-intake.md exists but Status is not VALIDATED"
       - run: "exit 1"
+
+  - include: shared/claims-freshness.md
 ```

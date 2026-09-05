@@ -1,8 +1,8 @@
 ---
 name: roster-doctor
-description: Health check + pipeline pre-flight — verifies roster install integrity and that the project's dev environment (build/test/lint/format) is actually runnable before work starts.
-when_to_use: "Use to check install health or as a pre-flight before work — tools, pipeline skills, projection drift, and whether build/test/lint actually run. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.2.0
+description: Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling.
+when_to_use: "Use before starting work, or when unsure the toolchain actually runs. Trigger: 'is my setup ok', 'roster-doctor'."
+version: 1.3.0
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -74,9 +74,7 @@ if ls workflows/*.cwr.json 2>/dev/null | grep -v '/templates/' | grep -q .; then
 fi
 ```
 
-**Capability tag check (formal skills).**
-
-Scan pipeline skills for a mismatch between description content and the presence of a `capability:` frontmatter field. A skill that mentions formal tools but omits the tag will be invisible to `roster-formal-verify`'s tool-resolution grep:
+**Capability tag check (formal skills).** Flag skills whose description mentions formal tools but whose frontmatter lacks a `capability:` tag — they are invisible to `roster-formal-verify`'s tool resolution:
 
 ```bash
 for f in skills/pipeline/*.md; do
@@ -94,7 +92,44 @@ for f in skills/pipeline/*.md; do
 done
 ```
 
-Report each match as a warning, not a failure. The fix is to add `capability: formal-rocq` or `capability: formal-quint` to the skill's frontmatter. If `formal-apparatus` was installed without this tag, patch it before running `roster-formal-verify`.
+Warnings, not failures. Fix: add `capability: formal-rocq` or `capability: formal-quint` to the skill's frontmatter (patch `formal-apparatus` before running `roster-formal-verify` if it was installed untagged).
+
+**Code-intel packs.** List installed code-intel packs and their contract health. In the roster
+dev checkout the resolver does this deterministically — prefer it when the script exists:
+
+```bash
+[ -f scripts/code-intel-resolve.js ] && node scripts/code-intel-resolve.js doctor
+```
+
+When the resolver is absent (a consumer project), run the equivalent greps inline over the
+projected runtime skill dirs (`.agents/skills/` first, then `.opencode/skills/`, deduplicated
+by directory name — the `.agents` copy wins):
+
+```bash
+seen=""
+for f in .agents/skills/*/SKILL.md .opencode/skills/*/SKILL.md; do
+  [ -f "$f" ] || continue
+  d=$(basename "$(dirname "$f")")
+  case " $seen " in *" $d "*) continue ;; esac; seen="$seen $d"
+  grep -q '^capability: code-intel' "$f" || continue
+  echo "pack: $d ($f)"
+  grep -q '^provides:' "$f" || echo "WARN contract: $d: missing provides"
+  grep -q '^entry:' "$f" || echo "WARN contract: $d: missing entry"
+  grep -Eq '^provides: (gate|audit-section|init)$' "$f" || ! grep -q '^provides:' "$f" \
+    || echo "WARN contract: $d: provides is not one of gate|audit-section|init"
+done
+# Drift between the two runtime projections (consumers use the .agents copy)
+for a in .agents/skills/*/SKILL.md; do
+  [ -f "$a" ] || continue
+  grep -q '^capability: code-intel' "$a" || continue
+  o=".opencode/skills/$(basename "$(dirname "$a")")/SKILL.md"
+  [ -f "$o" ] && ! cmp -s "$a" "$o" && echo "WARN drift: $(basename "$(dirname "$a")")"
+done
+```
+
+Report the pack list and every `WARN` line verbatim. Warnings, never failures. Doctor MUST NOT
+flag installed packs that are missing from the public registry — private and user-authored
+packs are legitimate and are silently tolerated (list them factually, no warning).
 
 ### 2. Project dev-env readiness
 
@@ -130,6 +165,29 @@ ls package.json Cargo.toml dune-project pyproject.toml go.mod 2>/dev/null
    harness is wired without paying full runtime.
 
 Record, per gate, one of: `runnable` / `tool-missing:<tool>` / `not-configured` / `fails:<short reason>`.
+
+**Code-intel pack tools (ADVISORY — runs in preflight too).** Check each installed pack's
+`requires_tools` binaries with `command -v` (the resolver's `doctor` subcommand does this when
+`scripts/code-intel-resolve.js` exists; otherwise inline):
+
+```bash
+seen=""
+for f in .agents/skills/*/SKILL.md .opencode/skills/*/SKILL.md; do
+  [ -f "$f" ] && grep -q '^capability: code-intel' "$f" || continue
+  d=$(basename "$(dirname "$f")")
+  case " $seen " in *" $d "*) continue ;; esac; seen="$seen $d"
+  tools=$(grep -m1 '^requires_tools:' "$f" | sed 's/^requires_tools:[[:space:]]*\[//; s/\].*//; s/,/ /g')
+  for t in $tools; do
+    command -v "$t" >/dev/null 2>&1 || echo "ADVISORY pack degraded: tool-missing:$t ($d)"
+  done
+done
+```
+
+These lines are ADVISORY only: they MUST NOT contribute to a NOT-READY verdict. Code-intel
+packs are optional additions — a missing pack binary degrades that pack (its gate reports
+exit 3 and its audit section is skipped), it never blocks pipeline routing. Report the
+`ADVISORY pack degraded: tool-missing:<tool>` lines alongside the gate records, but compute
+READY/NOT-READY from the project's own gates exclusively.
 
 ### 3. Verdict + escalation
 
@@ -175,14 +233,14 @@ For each selected ledger, print the timeline in **recorded (append) order** — 
 actually completed, which for a re-run after a NO-GO is e.g. `implement, review, implement,
 review` and is itself informative:
 
-Validate each ledger against the **byte-identical schema gate roster-run's Step 1.4 uses** (not
+Validate each ledger against the **byte-identical schema gate roster-run's Step 3 uses** (not
 just a JSON parse), so `status` flags exactly the ledgers a resume would reject — a
 valid-JSON-but-malformed ledger (empty `events`, bad `mode`, slug/`current_phase` mismatch,
 `current_phase` not in the mode's sequence, or an illegal last-event outcome) is a finding, not a
 clean render. The expected slug is the file's own basename (`briefs/<slug>-state.json`):
 
 ```bash
-# LEDGER_SCHEMA is the SAME predicate as roster-run Step 1.4 — keep the two copies identical.
+# LEDGER_SCHEMA is the SAME predicate as roster-run Step 3 — keep the two copies identical.
 # Byte-identity mechanically enforced by `scripts/check-pipeline-install.js`.
 LEDGER_SCHEMA='
   {express:["implement","review","ship"],
@@ -263,18 +321,7 @@ Tool installation happens only after explicit human approval.
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-doctor",
-  "task": "<task-slug>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry per run. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-doctor"`.
 
 ## Rules
 

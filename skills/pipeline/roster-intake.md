@@ -1,7 +1,8 @@
 ---
 name: roster-intake
-description: Intake phase — transforms a task into a contractual brief validated by the human.
-version: 1.1.1
+description: Turns a raw task description into a human-validated contractual brief.
+when_to_use: "Use as the first pipeline step for any new task. Trigger: '/roster-run', 'start work on X'."
+version: 1.4.0
 domain: pipeline
 phase: intake
 preamble: true
@@ -18,6 +19,7 @@ artifacts:
     - roster/<task-slug>/research.md (optional — read if present)
   writes:
     - briefs/<task>-intake.md
+    - roster/<task-slug>/context.manifest.json (when managed claims exist)
 pipeline_role:
   triggered_by: /roster-run or human with a task
   receives: task description in $ARGUMENTS
@@ -42,7 +44,7 @@ You transform a task into a contractual brief. This brief is the single source o
 
 ### 0. Consume research (if available)
 
-Derive the task slug from `$ARGUMENTS`. Check for `roster/<task-slug>/research.md`:
+Derive the canonical task slug from `$ARGUMENTS` per the preamble's *Pipeline State* rule (reuse the slug on any existing `roster/<task-slug>/` or `briefs/<task>-*` files). Check for `roster/<task-slug>/research.md`:
 
 ```bash
 ls roster/<task-slug>/research.md 2>/dev/null && echo "research: present" || echo "research: absent"
@@ -54,6 +56,14 @@ If present: read it fully before any other step. Use it to pre-populate the Rele
 
 Before any question:
 
+- If `scripts/claims-reconcile.js` or `.harness/bin/claims-reconcile.js` exists, run its
+  `check --root .` subcommand. Stop on an invalid or stale claims projection;
+  report the deterministic error and direct the maintainer to validate/project the authoritative
+  specs. Do not use stale generated KB content as intake context. When the check reports managed
+  claims, run the same CLI's `context --root .` subcommand and write its exact JSON output to
+  `roster/<task-slug>/context.manifest.json`. Record that manifest's model and freshness digests in
+  the intake Architecture Notes. Optional semantic candidates remain labeled hints and may add
+  context, never remove or replace `mandatory_claims`.
 - Read the KB if it exists
 - Read `AGENTS.md` and `README.md`
 - Identify files likely involved (grep if needed)
@@ -92,19 +102,38 @@ From `AGENTS.md`, README, or KB — find the exact commands for:
 
 If no gate is documented, explicitly note "not documented" — do not invent.
 
+### 4.5 Trust-boundary keyword heuristic
+
+Run this deterministic check against the task description before writing the brief — grep/keyword
+only, no LLM judgment:
+
+```bash
+desc=$(cat <<'EOF'
+<task description>
+EOF
+)
+printf '%s' "$desc" | grep -qiE "auth|attest|evidence|authority|permission|token|signature|custody|integrity" && echo "TRUST_BOUNDARY_HIT"
+```
+
+If it fires, propose `**Trust boundary:** yes` in the brief; otherwise propose `no`. This is a
+proposal, not a verdict — the human gate (step 6) must explicitly confirm it before the brief can
+be VALIDATED. A false positive (e.g. "token" hit in an LLM-focused repo) is expected and
+acceptable: the human confirmation is what bounds the cost, not heuristic precision.
+
 ### 5. Write the brief
 
 Produce `briefs/<task>-intake.md` in the exact format below.
 
-**Derive the task slug** from $ARGUMENTS: kebab-case, max 4 words.
+**Derive the task slug** from $ARGUMENTS per the preamble's *Pipeline State* rule (byte-identical across phases; reuse the slug on existing `briefs/<task>-*` files if any).
 Example: "add webhook support" → `webhook-support`
 
 ```markdown
 # Intake Brief — <task-slug>
 
 **Date:** <ISO-8601>
-**Status:** DRAFT — pending validation
+**Status: DRAFT — pending validation**
 **Type:** feature|api-change|fix|chore|docs|refactor  ← delete all but the applicable type
+**Trust boundary:** yes|no  ← proposed by the step 4.5 keyword heuristic; human confirms at step 6
 
 ## Goal
 
@@ -150,9 +179,15 @@ _(empty if everything is resolved)_
 ### 6. Human gate
 
 Present the brief and ask:
-> "Brief ready. Validate or correct before I proceed. Confirm the Type field reflects the correct task type."
+> "Brief ready. Validate or correct before I proceed. Confirm the Type field reflects the correct
+> task type, and confirm the proposed Trust boundary value (`yes`/`no`)."
 
-Wait for explicit validation. Apply corrections if requested, then set `**Status:** VALIDATED` in the brief.
+Wait for explicit validation. Apply corrections if requested, then set `**Status: VALIDATED**` in the brief.
+
+> **Format contract (load-bearing):** the status line MUST read exactly `**Status: VALIDATED**`
+> — colon INSIDE the bold. The roster-spec pre-hook gates on `grep -q 'Status: VALIDATED'`, which
+> the `**Status:** VALIDATED` form does not match (both recorded hook aborts, 2026-07-09 and
+> 2026-07-10, were this exact mismatch).
 
 ## Output Contract
 
@@ -178,18 +213,7 @@ Wait for explicit validation. Apply corrections if requested, then set `**Status
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-intake",
-  "task": "<task-slug>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-intake"`.
 
 ## Rules
 

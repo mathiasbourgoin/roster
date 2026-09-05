@@ -1,16 +1,19 @@
 ---
 name: roster-plan
-description: Dual-voice decomposition — reads the intake brief, produces per-role sub-briefs.
-version: 1.3.1
+description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
+when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
+version: 1.5.0
 domain: pipeline
 phase: plan
 preamble: true
 friction_log: true
-allowed_tools: [Read, Write, Agent, AskUserQuestion]
+allowed_tools: [Read, Write, Bash, Agent, AskUserQuestion]
 human_gate: after
 artifacts:
   reads:
     - briefs/<task>-intake.md
+    - briefs/<task>-spec.md (feature/api-change: status gate only)
+    - briefs/<task>-formal-triage.md (critical route: mode signal only)
   writes:
     - briefs/<task>-plan.md
     - briefs/<task>-plan.json
@@ -19,15 +22,10 @@ artifacts:
     - briefs/<task>-qa-scope.md
 pipeline_role:
   triggered_by: /roster-intake with validated brief
-  receives: briefs/<task>-intake.md (single source of truth)
+  receives: briefs/<task>-intake.md (single decomposition source; spec/formal-triage consulted as gates, not mined)
   produces: per-role sub-briefs + sequenced plan
 ---
 
----
-name: roster-preamble
-version: 1.6.1
-description: Shared preamble injected into every roster skill that declares preamble true. Not a standalone command.
----
 
 # Roster Preamble
 
@@ -167,6 +165,135 @@ Rules for writing your event:
   hooks manually.
 
 
+### Pipeline State
+
+If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
+pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
+event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
+`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
+is `null` (the standalone skills — e.g. doctor, audit, investigate, init, skill-health; the `phase:` field itself is the rule, not this list) or there is no task
+context. Create the file if absent; preserve every prior `events` entry:
+
+```json
+{
+  "task": "<slug>",
+  "mode": "express|fast|full",
+  "current_phase": "implement",
+  "events": [
+    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
+  ]
+}
+```
+
+Rules for writing your event:
+
+- **`task` is the canonical slug**, derived once from the task description and reused identically
+  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
+  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
+  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
+  ledger will not be found. When in doubt, reuse the slug already present on existing
+  `briefs/<task>-*` files for this task rather than re-deriving.
+- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
+  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
+  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
+- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
+  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
+  `ship`: `COMPLETED` or `BLOCKED`; `implement`: `COMPLETED` or `PARTIAL`;
+  `question`/`research`/`plan`: `COMPLETED`. Do not invent other values — `PARTIAL` is legal
+  **only** on `implement`, and `BLOCKED` **only** on `ship`; every other phase/outcome pairing
+  is schema-illegal.
+- **Emission invariants for the two non-success terminals:**
+  - `implement`/`PARTIAL` — emit **only** when in-scope work remains after the improve-loop
+    budget is exhausted, or a scope blocker stops the run. Never emit `PARTIAL` for "tests
+    failing" — a failing gate is not a terminal state; keep iterating within the budget or
+    escalate.
+  - `ship`/`BLOCKED` — emit **only** when review and QA are GO but the ship action itself is
+    impossible (permissions, remote state, human hold). A NO-GO gate is not `BLOCKED`.
+  - Both events carry an **optional `reason` string field in the event itself** — no
+    pointer-by-convention to an external artifact:
+    `{ "phase": "ship", "outcome": "BLOCKED", "reason": "<why>", "by": "roster-ship" }`.
+  - **Artifact writes happen BEFORE the event append.** Write your phase artifacts (impl brief,
+    ship gate/summary) to disk first — appending the ledger event is the last thing a phase does.
+- **Resume semantics** (read by `/roster-run` Step 3): a latest event `implement`/`PARTIAL`
+  re-routes to `/roster-implement`; a latest event `ship`/`BLOCKED` halts the pipeline and
+  surfaces the event's `reason` to the human.
+- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
+  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
+  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
+- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
+  skill name (or `human-gate` for a gate decision).
+- Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
+  hooks manually.
+
+
+### Friction Log
+
+**Write your entry when THIS phase ends — before you hand off, before you report, before you
+stop.** Not at session end. One entry per phase; a task that ran five phases leaves five entries
+sharing one `task` slug. Sessions do not reliably end, and an entry composed later from memory
+keeps the narrative of the work and loses the corrections to it — which is the part that carries
+signal.
+
+Record honestly:
+- **frictions** — workarounds, long searches, ambiguities, and every place a confident conclusion
+  of yours was later refuted. A user correction is the highest-value entry there is; write it.
+- **classes** — the closed vocabulary below, most load-bearing first.
+- **methods** used, and any suggestion for a tool, skill, or adaptation.
+- **skipped** — any mandated step this phase did not perform, as `"<step>: <reason>"`. A skipped
+  step that goes unrecorded is indistinguishable from a step that ran. Omit the key if nothing
+  was skipped; never omit it *instead of* admitting a skip.
+
+A run with nothing to report is a **clean run**: `"frictions": []` and `"classes": []`. Log it.
+Clean runs are the denominator — without them no rate can be computed, and "zero clean runs" is
+then an artefact of the log rather than a fact about the work.
+
+This is not a performance review. It is cross-run memory.
+
+Canonical entry template (append to `skills-meta/friction.jsonl`; set `"skill"` to your
+skill's name — extra documented fields like `class_note`, `event` or `mode` are allowed):
+
+```jsonl
+{
+  "date": "<ISO-8601>",
+  "skill": "<skill-name>",
+  "task": "<task-slug>",
+  "frictions": [],
+  "classes": [],
+  "methods": [],
+  "suggestion_type": null,
+  "suggestion": null,
+  "effort_estimate": null
+}
+```
+
+**Friction classes — closed vocabulary.** Pick by *remedy*, not by symptom:
+
+`gate-vacuous` (a check passed while checking nothing) · `evidence` (a conclusion asserted
+without, or against, the evidence) · `process-bypass` (a mandated step not performed, absence
+unrecorded) · `missing-artifact` (a referenced file absent, untracked, or not installed) ·
+`stale-tooling` (tool present but stale/misbehaving) · `agent-isolation` (worktree or
+shared-checkout boundary damage) · `parallel-collision` (concurrent agents contending) ·
+`schema-drift` (two artifacts disagree about a shape, or a contract is undocumented at the call
+site) · `scope` (scoped too narrowly/broadly, or duplicating delivered work) · `git-mechanics`
+(a git/forge operation whose real result differs from its reported one) · `human-gate` (a human
+decision unavailable, deferred, or handed back) · `runtime-limits` (session limit, compaction,
+killed job, rejected tool arity) · `external-dep` (third-party service or machine unavailable) ·
+`positive-signal` (**not** a friction — a gate that worked, a discovery; excluded from
+clustering) · `other` (requires a non-empty `class_note`).
+
+The list above is the contract — it is injected into this skill, so it is readable wherever this
+skill runs. Do not invent values: use `other` plus a `class_note`, which is how the vocabulary
+earns its next entry.
+
+Full definitions, one canonical instance per class, and the classification rules live in the
+roster source at `schema/skill-schema.md` → *Friction classes*, where the vocabulary is closed
+and validated by `scripts/check-friction-shape.js --log`. **That path resolves in the roster
+repo, not necessarily in an installed harness** — if it is absent here, the list above is
+complete and authoritative on its own; nothing above depends on opening it.
+
+
 # Roster Plan
 
 You decompose a validated brief into executable sub-briefs. The brief is your single source of truth — what it does not say does not exist for you.
@@ -191,6 +318,11 @@ If absent or not VALIDATED/SKIPPED:
 > ⛔ Feature/api-change task requires a spec. Run `/roster-spec` first.
 
 ## Steps
+
+### 0. Claims projection pre-check (conditional)
+
+Run the available claims reconciler's `check --root .`; stop on stale managed claims. Legacy
+passes. Also require a task context manifest's current freshness digest.
 
 ### 0. KB ambiguity pre-check (conditional)
 
@@ -283,6 +415,21 @@ Statuses:
 
 For each DISAGREE, present both options with each voice's reasoning and a recommendation if one is clearly better. Wait for the decision before continuing.
 
+**Verify each option is reachable before presenting it.** Not "plausible" — reachable in the
+current tree, checked. On 2026-08-25 four dependency mechanisms were offered to a human, and all
+four shared one unmet prerequisite: the target library exposed no installable name, so none of
+them could work. It was found one step after the decision, and the work done on the chosen option
+was thrown away.
+
+Two verified options beat four unverified ones, and cost less to produce. If a check would be
+expensive, say what is unverified and what would settle it — never present an option whose
+feasibility you have not established as though it were equal to one you have.
+
+**Re-check reachability when the tree moves.** If an earlier step in this session changed what is
+installed, exposed, or published, the option set may have changed with it. In the case above the
+eventually-correct mechanism became available only because an earlier step in the same session
+had made it so, and nobody revisited the decision until the human asked.
+
 ### 5. Write the plan
 
 Produce `briefs/<task>-plan.md`:
@@ -291,7 +438,7 @@ Produce `briefs/<task>-plan.md`:
 # Plan — <task-slug>
 
 **Date:** <ISO-8601>
-**Status:** DRAFT
+**Status: DRAFT**
 
 ## Sequential steps
 
@@ -327,33 +474,35 @@ Produce `briefs/<task>-plan.md`:
 
 ### 7. Human validation quiz
 
-Write the full plan to `briefs/<task>-plan.md` first, then run the quiz per `human-validation.md`. Present 3 questions in uniform format (do not label by type):
+Write the full plan to `briefs/<task>-plan.md` first, then run a 3-question quiz per the `human-validation.md` protocol. Plan-specific question targets:
 
-1. **Comprehension** — the ordering or dependency between the two highest-risk steps; can only be answered by someone who read the plan.
-2. **Clarification** — an implicit decision (batching order, rollback strategy, migration approach) that must be made explicit; the user's answer is binding — update the plan accordingly.
-3. **Consistency-check** — a deliberately wrong recommendation targeting the highest-risk step (e.g. suggest doing the dangerous step last, or skipping an irreversible gate). Phrase as a plausible option; format identically to the other questions.
+1. **Comprehension** — the ordering or dependency between the two highest-risk steps.
+2. **Clarification** — an implicit decision (batching order, rollback strategy, migration approach); the user's answer is binding — update the plan accordingly.
+3. **Consistency-check** — target the highest-risk step (e.g. suggest doing the dangerous step last, or skipping an irreversible gate).
 
-Gate on `human-validation.md` rules: comprehension must be answered correctly (offer one clarification, re-ask once), clarification must produce an explicit decision, consistency-check must not be confirmed unchallenged. Wait for answers before finalizing sub-briefs.
+Gate per `human-validation.md` rules; wait for answers before finalizing sub-briefs.
 
 ### 8. Final human gate
 
-Present the sub-briefs with their paths. Request validation before spawning execution agents. Set `**Status:** VALIDATED` in each sub-brief after approval.
+Present the sub-briefs with their paths. Request validation before spawning execution agents. After approval, set `**Status: VALIDATED**` in `briefs/<task>-plan.md` **and** in each sub-brief — the Output Contract and roster-run's routing both key on a validated plan.md.
 
 ### 8.5. Write plan JSON (after VALIDATED only)
 
 After approval, write `briefs/<task>-plan.json` atomically:
 
-1. **Detect critical mode:**
+1. **Detect the mode:**
 ```bash
-[ -f briefs/<task>-formal-triage.md ] && TASK_MODE="critical" || TASK_MODE="<mode from intake brief>"
+if [ -f briefs/<task>-formal-triage.md ]; then TASK_MODE="critical"
+else TASK_MODE=$(jq -r '.mode // "full"' briefs/<task>-state.json 2>/dev/null || echo "full")
+fi
 ```
-Use `$TASK_MODE` as the `"mode"` field. File existence is the signal — applies to both full triage briefs and minimal placeholder briefs from `--critical=rocq`/`--critical=quint`.
+Use `$TASK_MODE` as the `"mode"` field. Triage-brief existence is the critical signal — applies to both full triage briefs and minimal placeholder briefs from `--critical=rocq`/`--critical=quint`. Otherwise the mode comes from the state ledger (`mode` is set on the ledger's first write — pipeline preamble); a missing ledger defaults to `full`, the only non-critical route that reaches this skill.
 
 2. Build the JSON:
 ```json
 {
   "task": "<slug>",
-  "mode": "express|fast|full|critical",
+  "mode": "full|critical",
   "schema_version": "1.0",
   "steps": [
     {
@@ -379,8 +528,10 @@ Use `$TASK_MODE` as the `"mode"` field. File existence is the signal — applies
 ## Output Contract
 
 - `briefs/<task>-plan.md` (VALIDATED)
+- `briefs/<task>-plan.json` (machine-readable plan, atomic `.tmp`-then-rename write)
 - `briefs/<task>-implementer.md` (VALIDATED)
 - `briefs/<task>-reviewer.md` (VALIDATED)
+- `briefs/<task>-qa-scope.md`
 
 **Next:** `/roster-implement` reads `briefs/<task>-implementer.md`.
 
@@ -401,18 +552,7 @@ Use `$TASK_MODE` as the `"mode"` field. File existence is the signal — applies
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-plan",
-  "task": "<task-slug>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-plan"`.
 
 ## Rules
 

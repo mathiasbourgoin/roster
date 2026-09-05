@@ -26,7 +26,7 @@ import path from "node:path";
 import * as yaml from "js-yaml";
 
 const SKILLS_DIR = path.resolve(__dirname, "../../skills");
-const SKIP_FILES = new Set(["preamble.md"]);
+const SKIP_FILES = new Set(["preamble.md", "preamble-pipeline.md", "preamble-friction.md"]);
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
@@ -90,6 +90,14 @@ function hasJsonlFence(content: string): boolean {
   return section.includes("```jsonl");
 }
 
+function frictionLogSection(content: string): string {
+  const marker = "\n## Friction Log";
+  const start = content.indexOf(marker);
+  if (start === -1) return content.startsWith("## Friction Log") ? content : "";
+  const next = content.indexOf("\n## ", start + marker.length);
+  return next === -1 ? content.slice(start) : content.slice(start, next);
+}
+
 function checkSkill(content: string): string[] {
   const errors: string[] = [];
 
@@ -149,7 +157,7 @@ function checkSkill(content: string): string[] {
     // 7. ## Friction Log
     if (!hasSection(content, "Friction Log")) {
       errors.push('missing "## Friction Log" section (required when friction_log: true)');
-    } else if (!hasJsonlFence(content)) {
+    } else if (!hasJsonlFence(content) && !frictionLogSection(content).includes("preamble-friction.md")) {
       // 8. jsonl fence
       errors.push('## Friction Log section missing ```jsonl fence (required by convention)');
     }

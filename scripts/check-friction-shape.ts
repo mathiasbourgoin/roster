@@ -105,6 +105,7 @@ function checkFile(rel: string): void {
   if (!section) return; // section presence is check-skill-structure's job, not ours
   const blocks = fencedBlocks(section);
   if (blocks.length === 0) {
+    if (section.includes("preamble-friction.md")) return;
     errors.push(`${rel}: "## Friction Log" section contains no fenced json/jsonl block — nothing to validate is an error, not a pass`);
     return;
   }

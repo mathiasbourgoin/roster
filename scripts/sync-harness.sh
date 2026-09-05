@@ -7,14 +7,17 @@
 set -euo pipefail
 
 CHECK=0
+ADOPT=0
 PROJECT_ROOT=""
 for _arg in "$@"; do
     case "$_arg" in
         --check) CHECK=1 ;;
+        --adopt) ADOPT=1 ;;
         *) [ -z "$PROJECT_ROOT" ] && PROJECT_ROOT="$_arg" ;;
     esac
 done
 PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HARNESS_DIR="$PROJECT_ROOT/.harness"
 CLAUDE_DIR="$PROJECT_ROOT/.claude"
 CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
@@ -94,11 +97,20 @@ if [ "$CHECK" -eq 1 ]; then
             _out="$(printf '%s\n' "$_all_diff" | { grep -v -- "Only in $_real" || true; })"
             # Stale projection detection: files that exist in the real tree but NOT in the generated
             # tree are lingering projections from deleted or renamed sources. Report them with a
-            # cleanup command so they can be removed deliberately.
+            # cleanup command so they can be removed deliberately. Only flat runtime projections
+            # are ownership-safe here. Nested skill directories may contain required companion
+            # docs installed by a campaign/extension, so an absent regenerated companion is never
+            # evidence that it is stale (and must never produce an `rm` recommendation).
             _stale="$(printf '%s\n' "$_all_diff" \
                 | { grep -- "Only in $_real" || true; } \
                 | sed "s|Only in ${_real}/\(.*\): \(.*\)|\1/\2|" \
-                | { grep '\.md$' || true; })"
+                | awk -F/ -v runtime="$_rel" '
+                    /\.md$/ {
+                        companion = ((runtime == ".agents" || runtime == ".opencode") &&
+                                     $1 == "skills" && NF == 3 && $3 != "SKILL.md")
+                        if (!companion) print
+                    }
+                  ')"
         fi
         if [ -n "$_out" ]; then
             echo "✗ harness-sync: $_rel drifts from .harness source:" >&2
@@ -127,14 +139,18 @@ if [ "$CHECK" -eq 1 ]; then
             _sname=$(echo "$_entry" | jq -r '.name')
             _sdomain=$(echo "$_entry" | jq -r '.domain // empty')
             _sfile=$(echo "$_entry" | jq -r '.file // .name')
-            if [ -z "$_sdomain" ]; then
-                echo "✗ harness-sync: layers.skills entry '${_sname}' is missing the 'domain' field." >&2
-                _skills_invalid=1
-                continue
-            fi
-            _src="${HARNESS_DIR%/.harness}/skills/${_sdomain}/${_sfile}.md"
-            if [ ! -f "$_src" ]; then
-                echo "✗ harness-sync: layers.skills entry '${_sname}' (domain: ${_sdomain}) has no source file at skills/${_sdomain}/${_sname}.md" >&2
+            _flat_src="$HARNESS_DIR/skills/${_sfile}.md"
+            _native_src="$ROSTER_SKILLS_DIR/${_sfile}/SKILL.md"
+            _domain_src=""
+            [ -n "$_sdomain" ] && _domain_src="$ROSTER_SKILLS_DIR/${_sdomain}/${_sfile}.md"
+            # Source checkouts use skills/<domain>/<file>.md; installed
+            # consumers may instead keep canonical skills flat under
+            # .harness/skills or in native skills/<name>/SKILL.md directories.
+            # All three are valid canonical layouts. Legacy consumer manifests
+            # may omit domain as long as one of the consumer layouts exists.
+            if { [ -z "$_domain_src" ] || [ ! -f "$_domain_src" ]; } &&
+               [ ! -f "$_flat_src" ] && [ ! -f "$_native_src" ]; then
+                echo "✗ harness-sync: layers.skills entry '${_sname}' has no canonical source (checked .harness/skills/${_sfile}.md, skills/${_sfile}/SKILL.md${_sdomain:+, and skills/${_sdomain}/${_sfile}.md})." >&2
                 _skills_invalid=1
             fi
         done < <(jq -c '.layers.skills // [] | .[]' "$MANIFEST" 2>/dev/null)
@@ -142,6 +158,22 @@ if [ "$CHECK" -eq 1 ]; then
     if [ "$_skills_invalid" -eq 1 ]; then
         echo "harness.json layers.skills validation failed — remove stale entries or add the missing skill files." >&2
         exit 1
+    fi
+
+    # Skill hooks are executable only when their portable runner is present.
+    # Runtime projections can be perfectly synchronized while this project-local
+    # dependency is absent, so check it explicitly outside the projection diff.
+    if [ -d "$HARNESS_DIR/hooks/skills" ] && find "$HARNESS_DIR/hooks/skills" -type f -name '*.md' -print -quit | grep -q .; then
+        _runner_source="$SCRIPT_DIR/../.harness/bin/run-hook.js"
+        _runner_target="$HARNESS_DIR/bin/run-hook.js"
+        if [ ! -f "$_runner_source" ]; then
+            echo "✗ harness-sync: portable hook runner source missing: $_runner_source" >&2
+            exit 1
+        fi
+        if [ ! -f "$_runner_target" ] || ! cmp -s "$_runner_source" "$_runner_target"; then
+            echo "✗ harness-sync: .harness/bin/run-hook.js is missing or stale; run bash scripts/sync-harness.sh" >&2
+            exit 1
+        fi
     fi
 
     echo "✓ harness-sync: all runtime projections match the .harness source."
@@ -314,8 +346,25 @@ render_skill_source() {
             }
         ' "$adjusted" > "$dest"
         printf '\n' >> "$dest"
-        cat "$preamble" >> "$dest"
+        strip_frontmatter "$preamble" >> "$dest"
         printf '\n' >> "$dest"
+        # Frontmatter-gated preamble fragments: Pipeline State only for staged phases
+        # (phase: non-null), Friction Log only for friction_log: true. Gates read the
+        # parsed frontmatter (extract_frontmatter_field) normalized against trailing
+        # YAML comments, quotes, and CR — never the body. Fragments are injected
+        # body-only (strip_frontmatter), same as the core preamble.
+        local frag_dir phase_val friction_val
+        frag_dir="$(dirname "$preamble")"
+        phase_val="$(extract_frontmatter_field "$adjusted" "phase" | sed 's/[[:space:]]*#.*$//; s/^["'"'"']//; s/["'"'"']$//; s/\r$//; s/[[:space:]]*$//')"
+        friction_val="$(extract_frontmatter_field "$adjusted" "friction_log" | sed 's/[[:space:]]*#.*$//; s/^["'"'"']//; s/["'"'"']$//; s/\r$//; s/[[:space:]]*$//')"
+        if [ -n "$phase_val" ] && [ "$phase_val" != "null" ] && [ -f "$frag_dir/preamble-pipeline.md" ]; then
+            strip_frontmatter "$frag_dir/preamble-pipeline.md" >> "$dest"
+            printf '\n' >> "$dest"
+        fi
+        if [ "$friction_val" = "true" ] && [ -f "$frag_dir/preamble-friction.md" ]; then
+            strip_frontmatter "$frag_dir/preamble-friction.md" >> "$dest"
+            printf '\n' >> "$dest"
+        fi
         strip_frontmatter "$adjusted" >> "$dest"
     else
         cp "$adjusted" "$dest"
@@ -349,11 +398,21 @@ copy_skill_resources() {
     # scans subdirs and would register each resource as an invocable command, so
     # we deliberately skip resources there.
     [ "$kind" = "dir" ] || return 0
-    local res_dir="${src%.md}.resources"
-    [ -d "$res_dir" ] || return 0
     local target="$out_dir/$name"
     mkdir -p "$target"
-    find "$res_dir" -maxdepth 1 -type f -name '*.md' -print0 | while IFS= read -r -d '' f; do
+    local res_dir="${src%.md}.resources"
+    local find_args=(-maxdepth 1 -type f -name '*.md')
+    if [ "$(basename "$src")" = "SKILL.md" ]; then
+        # Native Agent Skills layout: skills/<name>/SKILL.md with sibling
+        # resources. Copy every direct sibling (docs, JSON handoffs, helper
+        # scripts) beside the projected SKILL.md, but never the source
+        # entrypoint itself. This is also what prevents sibling docs from being
+        # mis-projected as standalone skills.
+        res_dir="$(dirname "$src")"
+        find_args=(-maxdepth 1 -type f ! -name 'SKILL.md')
+    fi
+    [ -d "$res_dir" ] || return 0
+    find "$res_dir" "${find_args[@]}" -print0 | while IFS= read -r -d '' f; do
         local rbase; rbase="$(basename "$f")"
         reject_traversal "$rbase"
         cp "$f" "$target/$rbase"
@@ -372,7 +431,7 @@ sync_skill_sources_to_claude() {
         name="$(extract_frontmatter_field "$src" "name")"
         [ -n "$name" ] || name="$(basename "$src" .md)"
         case "$name" in
-            preamble|roster-preamble) continue ;;
+            preamble*|roster-preamble*) continue ;;  # reserved prefix: preamble fragments, never standalone skills
         esac
         require_safe_name "$name"
         render_skill_source "$src" "$name" "$out_dir/$name.md" "$preamble"
@@ -388,9 +447,17 @@ sync_skill_sources_to_skill_dir() {
 
     mkdir -p "$out_dir"
     find "$out_dir" -maxdepth 1 -type f -name '*.md' -delete
+    # Clear only files whose ownership is unambiguous. A roster-managed skill
+    # directory may also contain required companion docs installed by a campaign
+    # or extension after the main SKILL.md was projected. Deleting the whole
+    # directory destroys those files. Removing the generated entrypoint + marker
+    # makes removed skills non-invocable while preserving co-installed resources;
+    # current skills are rendered again below.
     find "$out_dir" -mindepth 2 -maxdepth 2 -type f -name '.roster-managed' -print0 |
         while IFS= read -r -d '' marker; do
-            rm -rf "$(dirname "$marker")"
+            skill_dir="$(dirname "$marker")"
+            rm -f "$skill_dir/SKILL.md" "$marker"
+            rmdir "$skill_dir" 2>/dev/null || true
         done
 
     for src in "$@"; do
@@ -399,7 +466,7 @@ sync_skill_sources_to_skill_dir() {
         name="$(extract_frontmatter_field "$src" "name")"
         [ -n "$name" ] || name="$(basename "$src" .md)"
         case "$name" in
-            preamble|roster-preamble) continue ;;
+            preamble*|roster-preamble*) continue ;;  # reserved prefix: preamble fragments, never standalone skills
         esac
         require_safe_name "$name"
         local extension_owned=0
@@ -459,6 +526,13 @@ collect_skill_sources() {
 
     if [ -d "$ROSTER_SKILLS_DIR" ]; then
         while IFS= read -r -d '' file; do
+            # Support both roster's domain-flat layout
+            # (skills/<domain>/<name>.md) and native Agent Skills directories
+            # (skills/<name>/SKILL.md + sibling resources). In a native
+            # directory only SKILL.md is invocable; siblings are resources.
+            if [ -f "$(dirname "$file")/SKILL.md" ] && [ "$(basename "$file")" != "SKILL.md" ]; then
+                continue
+            fi
             files+=("$file")
         done < <(find "$ROSTER_SKILLS_DIR" -mindepth 2 -maxdepth 2 -type f -name '*.md' -print0 | sort -z)
     fi
@@ -583,8 +657,86 @@ sync_skill_hooks() {
     done
 }
 
+install_skill_hook_runtime() {
+    local hooks_skills_dir="$HARNESS_DIR/hooks/skills"
+    [ -d "$hooks_skills_dir" ] || return 0
+    find "$hooks_skills_dir" -type f -name '*.md' -print -quit | grep -q . || return 0
+
+    local source="$SCRIPT_DIR/../.harness/bin/run-hook.js"
+    local target="$HARNESS_DIR/bin/run-hook.js"
+    if [ ! -f "$source" ]; then
+        echo "sync-harness: skill hooks exist but portable runner is missing: $source" >&2
+        echo "Run: npm ci && npm run build:hook-runtime" >&2
+        return 1
+    fi
+    mkdir -p "$(dirname "$target")"
+    if [ ! -f "$target" ] || ! cmp -s "$source" "$target"; then
+        cp "$source" "$target"
+        chmod 0755 "$target"
+        echo "✓ installed portable skill-hook runner: .harness/bin/run-hook.js" >&2
+    fi
+}
+
+install_claims_reconciler() {
+    local cli_source="$SCRIPT_DIR/claims-reconcile.js"
+    local lib_source="$SCRIPT_DIR/lib/claims-reconcile.js"
+    local modules_source="$SCRIPT_DIR/lib/claims-reconcile"
+    [ -f "$cli_source" ] && [ -f "$lib_source" ] && [ -d "$modules_source" ] || return 0
+
+    local cli_target="$HARNESS_DIR/bin/claims-reconcile.js"
+    local lib_target="$HARNESS_DIR/bin/lib/claims-reconcile.js"
+    local modules_target="$HARNESS_DIR/bin/lib/claims-reconcile"
+    mkdir -p "$(dirname "$lib_target")"
+    cp "$cli_source" "$cli_target"
+    cp "$lib_source" "$lib_target"
+    rm -rf "$modules_target"
+    cp -R "$modules_source" "$modules_target"
+    chmod 0755 "$cli_target"
+}
+
+# Canonical-hook adoption check (health 2026-07-10 P6): sync converges .harness/ → runtimes
+# but never adopts NEW canonical hooks from hooks/{safety,quality}/ into an existing
+# .harness/hooks/ — a new safety hook silently doesn't install. Warn on the gap; copy with
+# --adopt. Warn-only (never fatal): adoption is profile-dependent in host projects, and
+# hooks/ only exists in the roster repo itself (skipped silently elsewhere).
+# Limitation: runs on real syncs only — the --check path re-invokes into a sandbox and
+# exits before reaching this point, so gap warnings appear on `sync`, not on `--check`.
+check_canonical_hooks() {
+    local canon_dir missing=()
+    for canon_dir in "$PROJECT_ROOT/hooks/safety" "$PROJECT_ROOT/hooks/quality"; do
+        [ -d "$canon_dir" ] || continue
+        local f base
+        for f in "$canon_dir"/*.md; do
+            [ -f "$f" ] || continue
+            base="$(basename "$f")"
+            if [ ! -f "$HARNESS_DIR/hooks/$base" ]; then
+                missing+=("$f")
+            elif ! cmp -s "$f" "$HARNESS_DIR/hooks/$base"; then
+                # stale content counts as a gap too — a canonical fix that never
+                # reconverges leaves the installed hook running the old logic
+                missing+=("$f")
+            fi
+        done
+    done
+    [ "${#missing[@]}" -eq 0 ] && return 0
+    if [ "$ADOPT" -eq 1 ] && [ "$CHECK" -eq 0 ]; then
+        local m
+        for m in "${missing[@]}"; do
+            cp "$m" "$HARNESS_DIR/hooks/$(basename "$m")"
+            echo "✓ adopted canonical hook: $(basename "$m") → .harness/hooks/" >&2
+        done
+    else
+        echo "⚠ canonical hook(s) not in .harness/hooks/ (will NOT install until adopted):" >&2
+        printf '    %s\n' "${missing[@]}" >&2
+        echo "  Adopt with: bash scripts/sync-harness.sh --adopt" >&2
+    fi
+}
+check_canonical_hooks
+
 # Inline shared skill-hook fragments before any runtime projection
 sync_skill_hooks
+install_skill_hook_runtime
+install_claims_reconciler
 
 if runtime_enabled "claude-code"; then
     mkdir -p "$CLAUDE_DIR/agents" "$CLAUDE_DIR/commands" "$CLAUDE_DIR/rules"
@@ -829,6 +981,12 @@ generate_copilot_instructions() {
 if runtime_enabled "copilot"; then
     COPILOT_GITHUB_DIR="$(resolve_entrypoint "$(runtime_entrypoint "copilot" ".github")")"
     generate_copilot_instructions "$COPILOT_GITHUB_DIR"
+fi
+
+# Regenerate AGENTS.md skill-catalog rows from frontmatter (writer counterpart of
+# check-catalog-sync, which stays the verifier). Best-effort: dev-checkout only.
+if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/scripts/populate-catalog-rows.js" ]; then
+    node "$PROJECT_ROOT/scripts/populate-catalog-rows.js" || echo "⚠ catalog-rows regeneration failed — run node scripts/populate-catalog-rows.js manually" >&2
 fi
 
 printf 'Synced shared harness from %s\n' "$HARNESS_DIR"
