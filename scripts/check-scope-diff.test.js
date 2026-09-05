@@ -177,6 +177,6 @@ test('duplicate base= lines → exit 2', () => {
 test('unknown base sha → exit 2', () => {
   const repo = makeRepo();
   const p = path.join(repo.dir, 'manifest.txt');
-  fs.writeFileSync(p, 'base=0000000000000000000000000000000000000000\n---\nsrc/\n');
+  fs.writeFileSync(p, `base=${"0".repeat(40)}\n---\nsrc/\n`);
   assert.strictEqual(gate(repo, p).code, 2);
 });
