@@ -151,6 +151,14 @@ complete and authoritative on its own; nothing above depends on opening it.
 
 You audit code quality and its compliance with the KB. You produce actionable findings, not a style report. Every finding must cite the file and line.
 
+## Delivery integrity supplement
+
+When an operator has captured forge facts for a repository, run
+`node scripts/delivery-integrity-audit.js <input.json>`. This offline report
+evaluates delivery controls, never individuals: it does not call a forge,
+accept author identity, infer intent, or turn missing evidence into a pass.
+Its `not-verifiable` result is evidence of an input gap, not a green verdict.
+
 **Token discipline:** concise findings. Do not paraphrase the KB — point to violations.
 
 ## Input Contract
