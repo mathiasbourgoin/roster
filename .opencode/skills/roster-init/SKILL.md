@@ -1,8 +1,8 @@
 ---
 name: roster-init
-description: Bootstrap a new project or onboard an existing project into the roster ecosystem.
-when_to_use: "Use when starting a new project or onboarding an existing one into roster — bootstraps harness, KB, and pipeline. Trigger: 'set up roster here', greenfield/onboard."
-version: 1.2.2
+description: Bootstraps the roster harness, KB, and pipeline into a new or existing project.
+when_to_use: "Use the first time roster is installed in a repo. Trigger: 'set up roster here', 'greenfield onboard'."
+version: 1.4.0
 domain: pipeline
 phase: null
 preamble: true
@@ -33,17 +33,11 @@ pipeline_role:
 
 # Roster Preamble
 
-This preamble is injected into every roster skill that declares `preamble: true`.
-It encodes the non-negotiable principles that govern all skill runs.
-
----
-
 ## Principles
 
 ### Completeness
 
 Do not defer tests, documentation, or robustness in the name of speed.
-A short-term shortcut is rarely faster than a complete solution.
 "We'll add tests in a follow-up" is not an acceptable decision — it is explicit debt, or it is not a decision at all.
 
 ### Search Before Build
@@ -52,9 +46,6 @@ Before creating anything, verify what already exists:
 1. Local (current repo, harness, KB)
 2. Roster (index.json, roster GitHub)
 3. Web (if webfetch available)
-
-A false positive (checking for something that didn't exist) costs seconds.
-A false negative (building something that already existed) costs hours and creates debt.
 
 ### Anti-Sycophancy
 
@@ -65,13 +56,8 @@ State your recommendation, explain why, mention what context you might be missin
 
 ### User Sovereignty
 
-When you and a sub-agent both agree to change the user's direction:
-→ present the recommendation
-→ explain why you both think it is better
-→ state what context you might be missing
-→ ask
-
-Never act unilaterally in this case. The decision belongs to the user.
+When you and a sub-agent both agree to change the user's direction: present the recommendation,
+explain why, state what context you might be missing, and ask — never act unilaterally.
 
 ### Escalation
 
@@ -95,78 +81,6 @@ Rules:
 - One question at a time — never bundle multiple questions into one message
 - Prefer multiple-choice options over open-ended when the answer space is predictable
 - If no interactive tool is available, output a clearly marked plain-text question and wait for the user's reply before proceeding
-
-### Friction Log
-
-At the end of each run, honestly record:
-- frictions encountered (workarounds, long searches, ambiguities)
-- methods used
-- any suggestion for a tool, skill, or adaptation
-
-This is not a performance review. It is cross-run memory.
-Format: see `skills-meta/friction.jsonl`.
-
-### Pipeline State
-
-If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
-pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
-event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
-`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
-is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
-context. Create the file if absent; preserve every prior `events` entry:
-
-```json
-{
-  "task": "<slug>",
-  "mode": "express|fast|full",
-  "current_phase": "implement",
-  "events": [
-    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
-  ]
-}
-```
-
-Rules for writing your event:
-
-- **`task` is the canonical slug**, derived once from the task description and reused identically
-  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
-  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
-  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
-  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
-  ledger will not be found. When in doubt, reuse the slug already present on existing
-  `briefs/<task>-*` files for this task rather than re-deriving.
-- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
-  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
-  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
-- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
-  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
-  `ship`: `COMPLETED` or `BLOCKED`; `implement`: `COMPLETED` or `PARTIAL`;
-  `question`/`research`/`plan`: `COMPLETED`. Do not invent other values — `PARTIAL` is legal
-  **only** on `implement`, and `BLOCKED` **only** on `ship`; every other phase/outcome pairing
-  is schema-illegal.
-- **Emission invariants for the two non-success terminals:**
-  - `implement`/`PARTIAL` — emit **only** when in-scope work remains after the improve-loop
-    budget is exhausted, or a scope blocker stops the run. Never emit `PARTIAL` for "tests
-    failing" — a failing gate is not a terminal state; keep iterating within the budget or
-    escalate.
-  - `ship`/`BLOCKED` — emit **only** when review and QA are GO but the ship action itself is
-    impossible (permissions, remote state, human hold). A NO-GO gate is not `BLOCKED`.
-  - Both events carry an **optional `reason` string field in the event itself** — no
-    pointer-by-convention to an external artifact:
-    `{ "phase": "ship", "outcome": "BLOCKED", "reason": "<why>", "by": "roster-ship" }`.
-  - **Artifact writes happen BEFORE the event append.** Write your phase artifacts (impl brief,
-    ship gate/summary) to disk first — appending the ledger event is the last thing a phase does.
-- **Resume semantics** (read by `/roster-run` Step 1.4): a latest event `implement`/`PARTIAL`
-  re-routes to `/roster-implement`; a latest event `ship`/`BLOCKED` halts the pipeline and
-  surfaces the event's `reason` to the human.
-- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
-  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
-  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
-- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
-- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
-  skill name (or `human-gate` for a gate decision).
-- Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
-  hooks manually.
 
 
 ### Friction Log
@@ -343,7 +257,18 @@ Validate or correct before I install anything.
 
 Human gate: wait for explicit validation.
 
-### A4. Install (after validation)
+### A4. Code-intel tools step (after validation, before install)
+
+This step is not part of the interview — it consumes none of the interview question budget. It is a deterministic suggestion procedure:
+
+1. **Detect languages** from manifest files: `dune-project` → `ocaml`; `Cargo.toml` → `rust`; `go.mod` → `go`; `pyproject.toml` → `python`; `package.json` → `javascript`, plus `typescript` when `tsconfig.json` is also present. These map to the registry `languages` enum (`go`/`rust`/`typescript`/`javascript`/`python`/`ocaml`). In Mode A (greenfield — manifests may not exist yet), merge in the language(s) the user gave in Q1; manifests confirm rather than gate.
+2. **Load the registry:** when running inside or alongside a roster checkout, read `registry/code-intel.jsonl` from it; otherwise fetch `https://raw.githubusercontent.com/mathiasbourgoin/roster/main/registry/code-intel.jsonl` (20s timeout). On any failure, skip this step silently — no question, no error.
+3. **Filter:** keep entries whose `languages` overlap the detected languages. Exclude already-installed packs — run `node scripts/code-intel-resolve.js list` when the resolver is available, otherwise grep `.agents/skills/*/SKILL.md` and `.opencode/skills/*/SKILL.md` frontmatter for `capability: code-intel`.
+4. **Zero matches** → skip the step entirely (never present a question whose only option is "none").
+5. **Present the suggestion** via the runtime's interactive question tool (AskUserQuestion or equivalent), ranked: `verified` tier first, alphabetical within each tier; at most 3 pack options plus a mandatory "none of these" option, which is the DEFAULT. If more than 3 entries match, note the overflow count in the question text (e.g. "2 more matches not shown"). Label every community-tier option "(community — not verified by roster)".
+6. **On approval of a pack:** present the entry's `install` field text verbatim in a fenced code block for the user to run themselves — NEVER execute any of it. **On "none":** continue to the install step, change nothing, and do not persist the decline (a re-run may re-ask).
+
+### A5. Install (after validation)
 
 1. `git init` if not already done
 2. Create a minimal `.gitignore` adapted to detected languages
@@ -356,8 +281,9 @@ Human gate: wait for explicit validation.
 7. Create `skills-meta/friction.jsonl` (empty array)
 8. Add `skills-meta/` to `.gitignore` if absent
 9. Bootstrap episodic memory: `mkdir -p memory/sessions memory/agents`. Write `memory/index.md` with YAML front-matter (`title`, `date`, `owner: agents`), a short description referencing `schema/memory-schema.md`, and stub `## Sessions` / `## Agent Notes` sections. Add `kb/.index/` to `.gitignore` (LanceDB vector index — never committed).
-10. Create `briefs/project-intake.md` ready for the first `/roster-run`
-11. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
+10. Add exactly these four globs to `.gitignore` if absent (FR-155/156 — per-task machine state, never `briefs/` wholesale): `briefs/*-xruntime.jsonl`, `briefs/*-gate-report.json`, `briefs/*-state.json`, `briefs/*.json.draft`.
+11. Create `briefs/project-intake.md` ready for the first `/roster-run`
+12. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
 
 ---
 
@@ -450,7 +376,11 @@ Validate before I write anything.
 
 Human gate: wait for explicit validation.
 
-### B4. Non-destructive install (after validation)
+### B4. Code-intel tools step (after validation, before install)
+
+Run the Code-intel tools step exactly as in Mode A (A4) — same registry load chain, filtering, ranking, option cap, labels, "none" default, verbatim install presentation, and no-execution/no-persistence rules. Language detection reuses the B1 findings instead of a fresh manifest scan. Outside the interview question budget.
+
+### B5. Non-destructive install (after validation)
 
 1. Merge the harness (do not overwrite): recruiter Mode 2 if team exists, Mode 1 if not.
 2. Propose the KB in the terminal (infer from README, docs, tests):
@@ -458,9 +388,10 @@ Human gate: wait for explicit validation.
    - Gate: "Here is the KB draft — shall I write it?"
 3. If a domain lacks an adapted roster skill: ask "Shall I create these via skill-creator?" If yes → spawn `skill-creator` if available; otherwise describe manually and open a roster issue.
 4. Create `skills-meta/friction.jsonl` (empty). Add `skills-meta/` to `.gitignore` if absent.
-5. Bootstrap episodic memory (non-destructive): if `memory/` absent, create it with `memory/sessions`, `memory/agents`, and `memory/index.md` (same structure as A4 step 9); otherwise skip silently. Add `kb/.index/` to `.gitignore` if absent.
-6. Create `briefs/project-intake.md` with project state and first objective.
-7. Project the harness to runtimes.
+5. Bootstrap episodic memory (non-destructive): if `memory/` absent, create it with `memory/sessions`, `memory/agents`, and `memory/index.md` (same structure as A5 step 9); otherwise skip silently. Add `kb/.index/` to `.gitignore` if absent.
+6. Add the same exactly-four globs as A5 step 10 to `.gitignore` if absent: `briefs/*-xruntime.jsonl`, `briefs/*-gate-report.json`, `briefs/*-state.json`, `briefs/*.json.draft`.
+7. Create `briefs/project-intake.md` with project state and first objective.
+8. Project the harness to runtimes.
 
 ---
 
@@ -498,6 +429,7 @@ Triggered when an adversarial question reveals a fundamental problem and the use
   "task": "<task-slug or short description>",
   "mode": "<greenfield|onboard>",
   "frictions": ["<friction 1>", "..."],
+  "classes": ["<friction-class>", "..."],
   "methods": ["<workaround used>"],
   "suggestion_type": "<skill|tool|adapt|agent|null>",
   "suggestion": "<description if suggestion_type non null>",

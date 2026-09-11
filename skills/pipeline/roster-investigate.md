@@ -1,13 +1,13 @@
 ---
 name: roster-investigate
-description: Root-cause investigation — analyzes a bug or unexpected behavior without modifying out-of-scope code.
-when_to_use: "Use when a bug's root cause is unclear and you must analyze without touching out-of-scope code. Trigger: 'why does X fail', 'investigate', flaky/ambiguous failures."
-version: 1.3.0
+description: Analyzes a bug or unexpected behavior to find its root cause, read-only.
+when_to_use: "Use when a failure is unclear, flaky, or ambiguous and needs diagnosis before any fix. Trigger: 'why does X fail', 'investigate'."
+version: 1.4.0
 domain: pipeline
 phase: null
 preamble: true
 friction_log: true
-allowed_tools: [Read, Bash, AskUserQuestion]
+allowed_tools: [Read, Write, Bash, AskUserQuestion]
 isolation: fork
 human_gate: before
 tunables:
@@ -177,7 +177,17 @@ Present the report and ask:
 
 ## What Next
 
-**Primary path:** `/roster-intake` — formalize the fix plan using the investigation report as context
+**Primary path — a confirmed root cause is a Fast-mode task.** This report already produced what
+question/research/spec produce, so route to **Fast**: `implement → review → qa → ship`
+(`/roster-run` §modes). Announce the mode so it is recorded.
+
+**`review` is not the optional part.** On 2026-08-26 a human said "corrige le" on a defect with
+exactly this report in hand; the fix went straight to shipping and review was skipped. The human
+caught it, not the ledger — nothing distinguished "not started" from "deliberately bypassed",
+because no mode had been recorded. Skipping question/research/spec here is correct; skipping
+review is not.
+
+**Alternative:** `/roster-intake` — when the fix's scope is contested, or it changes a contract
 **Alternatives:**
 - `/roster-plan` — if root cause and fix are unambiguous and intake is not needed
 
@@ -185,18 +195,7 @@ Present the report and ask:
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-investigate",
-  "task": "<task-slug>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-investigate"`.
 
 ## Rules
 
@@ -205,7 +204,3 @@ Present the report and ask:
 - Every causal claim must cite the file and line
 - "Looks like" is not a root cause — confirm or refute
 - If reproducible: reproduce before analyzing statically
-- Code-confirmed is not observed: if the symptom is reproducible, confirm by observation, not by reading alone
-- Anchor causal claims on ground-truth state, not on logs or intermediate reports
-- Find the empirical discriminator before theorizing; a clean reproduction may be the wrong scenario, not the absence of the bug
-- An investigation is not closed until its result — including ruled-out hypotheses — is folded into the KB (when one exists)

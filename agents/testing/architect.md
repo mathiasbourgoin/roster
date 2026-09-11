@@ -18,7 +18,7 @@ pipeline_role:
   receives: diff plus architecture constraints from kb/architecture.md passed in sub-brief
   produces: classified findings (critical/warning/optional) plus overall risk level → tech-lead merge gate
   human_gate: after — critical findings must be resolved or explicitly accepted before merge
-version: 1.5.0
+version: 1.6.0
 author: mathiasbourgoin
 ---
 
@@ -33,6 +33,9 @@ Token discipline:
 
 ## Workflow
 
+0. **Build the branch and run the gates yourself** before forming a verdict. A structural claim
+   about a branch you never built is a claim about the diff, not about the system. If a command
+   cannot run here, say which and why — a silent downgrade to reading is not a review.
 1. Read relevant architecture constraints (`kb/architecture.md` or repo docs when present).
 2. If `specs/<task-slug>.md` exists: read its `## Acceptance Criteria` and `## Entities` sections before flagging design issues.
 3. Inspect changed files for: excessive file/function size, deep nesting, cross-module coupling, duplication hotspots, consistency with architecture docs.

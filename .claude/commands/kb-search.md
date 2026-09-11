@@ -1,7 +1,8 @@
 ---
 name: kb-search
-description: Hybrid semantic+keyword search over the KB LanceDB index — returns ranked chunks with source, section, and status.
-version: 1.0.0
+description: Runs hybrid semantic and keyword search over the KB's LanceDB index.
+when_to_use: "Use to find a specific concept or constraint without loading the whole KB. Trigger: 'search the KB', 'find where X is defined'."
+version: 1.0.2
 ---
 
 # KB Search
@@ -77,7 +78,5 @@ After returning results, offer:
 
 ## Rules
 
-- Never return `historical` or `superseded` chunks as primary results (unless `include_all_statuses: true`)
 - Never modify the KB index from this skill — read-only
 - If the index is stale (kb files modified after last reindex), note: "Index may be stale — run `/kb-reindex` for fresh results"
-- Score threshold 0.3 is the default low-confidence floor — do not suppress results, just warn

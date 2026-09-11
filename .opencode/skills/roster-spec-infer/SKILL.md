@@ -1,8 +1,8 @@
 ---
 name: roster-spec-infer
-description: Reverse-engineer what existing code actually does into a structured, evidence-tiered inferred spec artifact (specs/<slug>-inferred.md). Mines tests, code, documentation, and git history. Labels every claim [E1]/[E2]/[E3] by evidence strength. Produces GWT scenarios, FR-NNN requirements, and surfaces doc-drift conflicts.
-when_to_use: "Use to reverse-engineer what existing code actually does into an evidence-tiered inferred spec. Trigger: 'what does this code do', 'infer the spec', undocumented legacy code."
-version: 1.0.1
+description: Reverse-engineers an evidence-tiered spec artifact from existing code, tests, docs, and git history.
+when_to_use: "Use on undocumented or legacy code to recover its actual behavior as a spec. Trigger: 'what does this code do', 'infer the spec', 'undocumented legacy code'."
+version: 1.0.4
 tunables:
   include_git_history: true
   conflict_policy: surface
@@ -36,7 +36,7 @@ silently resolved.
 | Tunable | Default | Effect |
 |---|---|---|
 | `include_git_history` | `true` | Run Sub-agent 4 (Git History Miner) |
-| `conflict_policy` | `surface` | Only valid value in v1.0.0: always surface conflicts, never auto-resolve. Reserved for future extension. |
+| `conflict_policy` | `surface` | Only supported value: always surface conflicts, never auto-resolve. Reserved for future extension. |
 | `gap_threshold` | `0` | Register every uncovered public symbol as a GAP |
 
 ## Steps
@@ -88,7 +88,7 @@ Spawn a sub-agent (fresh context) with this prompt:
 ```
 You are a Code-Only Analyzer producing E2 claims.
 
-CRITICAL EXCLUSION: Your context contains ONLY implementation source files.
+CRITICAL EXCLUSION: read ONLY implementation source files.
 The following are EXCLUDED and must NOT be referenced:
 - ALL .md files and README files
 - Docstring content (Python """ """, JSDoc /** */, Ruby =begin/=end)
@@ -139,17 +139,18 @@ the orchestrator will diff them.
 
 ### Sub-agent 4: Git History Miner *(skipped if `include_git_history: false`)*
 
-Spawn a sub-agent (fresh context) with this prompt:
+First collect the list of key implementation files from Sub-agents 2 and 3's outputs
+(the files containing the most public/exported symbols), then spawn a sub-agent
+(fresh context) with this prompt, substituting the list for `<file list>`:
 
 ```
 You are a Git History Miner. Annotate behavioral claims with design-decision
 context from commit history.
 
-1. Collect the list of key implementation files identified by Sub-agents 2 and 3
-   (files containing the most public/exported symbols). Pass this concrete list to
-   Sub-agent 4.
-2. Run: `git log --follow --oneline -- <collected file list>`
-3. Run: `git log --oneline -50`
+Key implementation files (provided by the orchestrator): <file list>
+
+1. For each file in the list, run: `git log --follow --oneline -- <file>` (one file per invocation — `--follow` requires exactly one pathspec; merge and dedupe the results)
+2. Run: `git log --oneline -50`
 
 If not a git repo or no history: emit "Git history unavailable — commit
 annotations omitted." and return empty.
@@ -274,11 +275,8 @@ version: 1.0.0
 1. Evidence labels: `[E1]`, `[E2]`, `[E3]` only — never "Tier 1/2/3" (reserved for Ralph Loop quality gates).
 2. **E1** requires: (a) a test assertion found in a test file AND (b) the test suite exits 0.
 3. **E2** is best-effort static inference. Not equivalent to E1.
-4. **E3** annotation `[E3: lowest confidence — verify against code]` is mandatory on every E3 claim.
-5. CONFLICT entries appear ONLY in `## Conflicts` — never in `## Claims`.
-6. Absence of conflicts does not certify correctness. Both analyzers may agree on a wrong claim if the bug exists in both code and docs simultaneously (TRACE blind spot — not a substitute for human review).
-7. Gap registration is mandatory — every uncovered public surface is a GAP-N entry. Silence never implies completeness.
-8. FRs derived from E3-only sources are prohibited — E3 claims are documentation assertions, not behavioral evidence.
-9. Output frontmatter must contain `type: inferred-spec` and filename must end in `-inferred.md`.
-10. This skill is read-only with respect to the target codebase. Only `specs/<slug>-inferred.md` is written.
-11. Cross-module behavioral invariants requiring simultaneous knowledge of multiple modules may not appear in E2 claims (V1 limitation).
+4. Absence of conflicts does not certify correctness. Both analyzers may agree on a wrong claim if the bug exists in both code and docs simultaneously (TRACE blind spot — not a substitute for human review).
+5. Gap registration is mandatory — every uncovered public surface is a GAP-N entry. Silence never implies completeness.
+6. FRs derived from E3-only sources are prohibited — E3 claims are documentation assertions, not behavioral evidence.
+7. Output frontmatter must contain `type: inferred-spec` and filename must end in `-inferred.md`.
+8. Cross-module behavioral invariants requiring simultaneous knowledge of multiple modules may not appear in E2 claims (V1 limitation).

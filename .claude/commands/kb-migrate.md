@@ -1,8 +1,8 @@
 ---
 name: kb-migrate
-description: Audit, clean, reorg, and migrate an existing KB to the current schema — idempotent, human-gated at each phase.
-when_to_use: "Use to audit, clean, reorg, and migrate an existing KB to the current schema. Trigger: 'migrate the KB', KB schema upgrade."
-version: 1.0.1
+description: Runs a phased, human-gated migration of an existing KB to the current schema.
+when_to_use: "Use when a KB predates the current schema or needs structural cleanup. Trigger: 'migrate the KB', 'KB schema upgrade'."
+version: 1.0.2
 ---
 
 # KB Migrate

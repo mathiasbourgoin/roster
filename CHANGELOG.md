@@ -6,6 +6,54 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Friction-log `classes` field + closed vocabulary** (P2) — `schema/skill-schema.md` documents
+  15 classes distilled from 354 real friction strings across two independent corpora, each named
+  by its *remedy*. `other` is legal but requires a `class_note`, so a stale vocabulary shows up
+  as a rising rate rather than as silent misclassification.
+- **`check-friction-shape --log <path> [--since <date>]`** — validates a real
+  `skills-meta/friction.jsonl` against the entry schema and the closed vocabulary. The vocabulary
+  is *parsed from the schema doc*, not duplicated in the checker, so the two cannot drift;
+  removing the enum line makes the checker throw rather than accept everything (mutation-tested).
+  `--since` gates new entries without a retroactive re-classification of historical ones.
+  Wired into `npm test`.
+- **`roster-skill-health` §2.5 recurrence check** (P2) — clusters key on `classes`; a class with a
+  prior *shipped* proposal is marked `CLASS-NOT-CLOSED` and may not be answered with another
+  instance fix. `CLOSURE-PENDING` covers approved-but-unshipped. `CLASS-NOT-CLOSED` has no
+  threshold. Proposals now carry a greppable `class:` line.
+- **`skipped` field** on friction entries — mandated steps a phase did not perform,
+  `"<step>: <reason>"`.
+- **Phase-exit coverage check** in `roster-ship` (P1) — compares ledger phases against friction
+  entries for the task slug and requires missing entries to be backfilled *and marked as
+  reconstructed*.
+
+### Changed
+
+- **Friction entries are written at phase exit, not session end** (P1) — stated in
+  `skills/shared/preamble-friction.md` (the single inherited contract) and echoed in the pointer
+  line of all 18 friction-log skills. A log written once, late, from memory keeps the narrative
+  and loses the corrections.
+- **`roster-review`: a review is not a review unless it executed** (P4) — specialists build the
+  branch and run the gates themselves (detail in `agents/testing/reviewer.md` and
+  `architect.md`); every mechanical step that did not run records `skipped` with a reason, in
+  both the invocation trace and the Friction Log.
+- **`roster-review.md` word budget 4000 → 4340** (FR-120 justification) — P4's two contract
+  rules, after pushing the execution detail down to the agent definitions and compressing twice.
+
+### Fixed
+
+- **The convergence gate accepted a `skipped` trace line as attestation of a claimed specialist
+  run.** `specialists_run` now requires `outcome: "ran"`; a skip record can no longer launder an
+  unperformed step. Without this, P4's skip rule would have been an easier way to pass the gate
+  than running the specialist.
+- **`FR-120` budget test hardcoded 4001 words**, so it stopped testing anything the moment the
+  budget was raised. Now derived from `BUDGETS`.
+
+---
+
 ## [1.2.0] — 2026-06-03
 
 ### Added

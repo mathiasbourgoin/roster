@@ -57,7 +57,7 @@ Populated by: **governor**, **tech-lead**
 - name: <string>             # Rule name (kebab-case)
   source: <roster|governor-generated|custom>  # Origin
   scope: <global|path:glob>  # Where the rule applies
-  category: <safety|style|workflow|language|governance>  # Classification
+  category: <safety|style|workflow|language|governance|common>  # Classification
 ```
 
 ### `layers.hooks`

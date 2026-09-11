@@ -2,7 +2,7 @@
 name: roster-doctor
 description: Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling.
 when_to_use: "Use before starting work, or when unsure the toolchain actually runs. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.3.0
+version: 1.6.0
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -57,6 +57,16 @@ for p in .claude/commands/roster-run.md .agents/skills/roster-run/SKILL.md; do [
 ```
 
 Report each as ✓ / ✗ / absent. `gh` absent is a warning (only `/roster-ship` PR creation needs it), not a failure.
+
+**Review-tool bundle (detailed report; the gate itself lives in Section 2 — F-3).**
+
+```bash
+[ -f scripts/review-bundle-verify.js ] && node scripts/review-bundle-verify.js || echo "review bundle: portable verifier absent or reported problems (see Section 2)"
+```
+
+Print the verifier's summary or exact integrity errors. FR-157/158: if `git ls-files` shows any of
+the manifest's paths tracked while also matching a machine-state pattern (see roster-init.md's
+four gitignore globs), print the exact `git rm --cached <path>` remediation — never execute it.
 
 ```bash
 # Workflow templates health (Phase 1: JSON syntax only — cwr lint requires cwr CLI)
@@ -115,8 +125,8 @@ for f in .agents/skills/*/SKILL.md .opencode/skills/*/SKILL.md; do
   echo "pack: $d ($f)"
   grep -q '^provides:' "$f" || echo "WARN contract: $d: missing provides"
   grep -q '^entry:' "$f" || echo "WARN contract: $d: missing entry"
-  grep -Eq '^provides: (gate|audit-section|init)$' "$f" || ! grep -q '^provides:' "$f" \
-    || echo "WARN contract: $d: provides is not one of gate|audit-section|init"
+  grep -Eq '^provides: (gate|audit-section|init|research-orientation)$' "$f" || ! grep -q '^provides:' "$f" \
+    || echo "WARN contract: $d: provides is not one of gate|audit-section|init|research-orientation"
 done
 # Drift between the two runtime projections (consumers use the .agents copy)
 for a in .agents/skills/*/SKILL.md; do
@@ -127,9 +137,69 @@ for a in .agents/skills/*/SKILL.md; do
 done
 ```
 
+The resolver additionally checks each pack's execution trust (execution trust model,
+`schema/skill-schema.md`): a pack whose SKILL.md matches neither an extension install
+record in `.harness/extensions.json` nor an explicit ack in `.harness/code-intel-ack.json`
+is reported as `WARN unacknowledged: <skill> (entry will not execute until acked)` — the
+fix is a one-time `node scripts/code-intel-resolve.js ack <skill>` after reviewing the
+pack. In the inline fallback, note untrusted packs factually if the ack file is absent.
+
 Report the pack list and every `WARN` line verbatim. Warnings, never failures. Doctor MUST NOT
 flag installed packs that are missing from the public registry — private and user-authored
 packs are legitimate and are silently tolerated (list them factually, no warning).
+
+**Cost section (advisory).** Part of Section 1, so — like every other check in this section — it
+only runs in `full` mode (skipped in `preflight`, per the Modes table above; no other Section 1
+check carries its own per-block mode guard either). Cross-runtime token/cost telemetry via
+[ccusage](https://github.com/ryoppippi/ccusage), which reads local Claude Code / Codex / OpenCode
+transcripts offline — no upload, no session-content ever surfaced. Detection must never trigger an
+install: prefer an already-resolvable binary over `npx`/`bunx`'s implicit auto-install behavior.
+
+```bash
+CCUSAGE_CMD=""
+if command -v ccusage >/dev/null 2>&1; then
+  CCUSAGE_CMD="ccusage"
+elif command -v npx >/dev/null 2>&1 && npx --no-install ccusage --version >/dev/null 2>&1; then
+  CCUSAGE_CMD="npx --no-install ccusage"
+fi
+# bunx has no --no-install equivalent, so it is not probed here — a bare `bunx ccusage` would
+# silently auto-install on first use, violating "ccusage is never auto-installed" (FR-160).
+
+if [ -n "$CCUSAGE_CMD" ]; then
+  echo "--- Cost (advisory — ccusage, offline pricing, cross-runtime totals) ---"
+  $CCUSAGE_CMD --json --offline 2>/dev/null | jq -r '
+    "input: \(.totals.inputTokens // "n/a")  output: \(.totals.outputTokens // "n/a")  cache-create: \(.totals.cacheCreationTokens // "n/a")  cache-read: \(.totals.cacheReadTokens // "n/a")  cost: $\(.totals.totalCost // "n/a")"
+  ' 2>/dev/null || echo "ccusage present but output could not be summarized (advisory, non-blocking)"
+  echo "(advisory only — never affects the READY/NOT-READY verdict; ccusage = cross-runtime baseline, Claude Code OTel remains a deferred richer-but-Claude-only enhancement)"
+else
+  : # ccusage absent → silently omit this section. No WARN. Verdict and rest of the report are
+    # byte-identical to a pre-integration run minus this section (FR-160). NEVER auto-install.
+fi
+```
+
+**rtk probe (advisory, `full` mode only).** [rtk](https://github.com/rtk-ai/rtk) is an optional,
+user-environment `PreToolUse` hook that rewrites agent shell commands to save tokens — see
+`rules/common/rtk-compat.md` for known quirks. Doctor only detects it; it never installs,
+configures, or depends on it (INV-4). Cheapest signal first — presence via `command -v`, then a
+single bounded sanity read:
+
+```bash
+if command -v rtk >/dev/null 2>&1; then
+  # Bounded sanity read: prefer `rtk gain` for a savings line, fall back to `rtk --version` if it
+  # times out or errors — a `rtk gain` failure is absent-with-note, never a doctor failure.
+  if RTK_GAIN=$(timeout 5 rtk gain 2>/dev/null); then
+    echo "rtk: detected — $(printf '%s' "$RTK_GAIN" | head -1) (advisory, ±10% estimate — never affects verdict)"
+  else
+    echo "rtk: detected, \`rtk gain\` unavailable/timed out ($(timeout 5 rtk --version 2>/dev/null || echo 'version unknown')) (advisory)"
+  fi
+else
+  echo "rtk: not detected (advisory)"
+fi
+```
+
+This line NEVER contributes to the READY/NOT-READY verdict under any rtk state — present, absent,
+or erroring (INV-1). Absent is the tested default: with rtk not on `PATH`, doctor's output is
+byte-identical to a pre-integration run except for this single `rtk: not detected (advisory)` line.
 
 ### 2. Project dev-env readiness
 
@@ -151,6 +221,36 @@ ls package.json Cargo.toml dune-project pyproject.toml go.mod 2>/dev/null
 | `dune-project` | `dune build` | `dune test` | `dune fmt` (`.ocamlformat`) | `dune`, `opam` |
 | `pyproject.toml` | — | `pytest` | `ruff`/`flake8` if configured | `python`, `pytest`, `ruff` |
 | `go.mod` | `go build ./...` | `go test ./...` | `golangci-lint` if `.golangci.yml` | `go` |
+
+**Review-tool bundle gate (F-3 — runs here so `/roster-doctor preflight` enforces it; contributes to NOT-READY).**
+
+Only a gate when a bundle-requiring skill is installed (FR-141 — check `requires_review_bundle`
+in the installed projection, `.claude/commands/` primary, `.agents/skills/` fallback; a
+disagreement between the two is a drift warning, and the stricter (max) requirement wins):
+
+```bash
+req=$(grep -h '^requires_review_bundle:' .claude/commands/roster-review.md .agents/skills/roster-review/SKILL.md 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' | sort -Vr | head -1)
+if [ -n "$req" ]; then
+  if [ -f scripts/review-bundle-verify.js ]; then node scripts/review-bundle-verify.js; ok=$?
+  else ok=1
+  fi
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 && \
+    { git check-ignore -q scripts/review-bundle.manifest.json 2>/dev/null || ! git ls-files --error-unmatch scripts/review-bundle.manifest.json >/dev/null 2>&1; } && \
+    echo "bundle not committed"
+fi
+```
+
+No network call (FR-142 — `verify` only reads local files). On any failure — absent, sha
+mismatch, `node` missing, or "bundle not committed" (F-6: gitignored/untracked in a git
+consumer repo) — the verdict is **NOT-READY**, reason `stale-install`, with the runbook: "Run:
+fetch review-bundle-install.sh from a trusted roster source, run its install or upgrade mode with
+`--from-raw <url>` (or `--from-checkout <dir>`), then /recruit update." (FR-143). A repo with no
+bundle-requiring skill installed skips this gate entirely — it is not a general-purpose readiness
+check.
+
+A sha-mismatch specifically (a modified file, the shared wrapper included, F-5) carries the
+portable verifier's trusted-source recovery line. Report that line as-is — do not replace it with
+a command that assumes the lifecycle installer is present in the consumer.
 
 **Verify, cheapest signal first — do not run the full suite blindly:**
 
@@ -178,21 +278,23 @@ for f in .agents/skills/*/SKILL.md .opencode/skills/*/SKILL.md; do
   case " $seen " in *" $d "*) continue ;; esac; seen="$seen $d"
   tools=$(grep -m1 '^requires_tools:' "$f" | sed 's/^requires_tools:[[:space:]]*\[//; s/\].*//; s/,/ /g')
   for t in $tools; do
-    command -v "$t" >/dev/null 2>&1 || echo "ADVISORY pack degraded: tool-missing:$t ($d)"
+    command -v "$t" >/dev/null 2>&1 || echo "WARN pack degraded: tool-missing:$t ($d)"
   done
 done
 ```
 
-These lines are ADVISORY only: they MUST NOT contribute to a NOT-READY verdict. Code-intel
+These lines are advisory only: they MUST NOT contribute to a NOT-READY verdict. Code-intel
 packs are optional additions — a missing pack binary degrades that pack (its gate reports
 exit 3 and its audit section is skipped), it never blocks pipeline routing. Report the
-`ADVISORY pack degraded: tool-missing:<tool>` lines alongside the gate records, but compute
+`WARN pack degraded: tool-missing:<tool>` lines alongside the gate records, but compute
 READY/NOT-READY from the project's own gates exclusively.
 
 ### 3. Verdict + escalation
 
 - **READY** — every detected gate is `runnable` (or legitimately absent for the project type).
-- **NOT-READY** — any gate is `tool-missing`, `not-configured`, or `fails`.
+- **NOT-READY** — any gate is `tool-missing`, `not-configured`, or `fails` — including the
+  review-tool bundle gate above (reason `stale-install`, with its runbook) when a
+  bundle-requiring skill is installed.
 
 On **NOT-READY**, present exactly what is missing with concrete remediation, then ask
 (via the interactive question tool) before changing anything:
@@ -321,7 +423,7 @@ Tool installation happens only after explicit human approval.
 
 ## Friction Log
 
-Append one entry per run. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-doctor"`.
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-doctor"`.
 
 ## Rules
 

@@ -1,8 +1,8 @@
 ---
 name: roster-run
-description: Pipeline entry point — detects context and routes to the right skill.
-when_to_use: "Default entry point for any task — classifies Express/Fast/Full and routes. Trigger: '/roster-run', 'work on X', or any task with no obvious phase."
-version: 1.7.0
+description: Classifies an incoming task and routes it to the right pipeline skill.
+when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
+version: 1.10.4
 ---
 
 # Roster Run
@@ -46,70 +46,28 @@ You are the entry point of the roster pipeline. Your only job is to detect conte
 
 ## Hook Execution
 
-Before routing to a skill, check for skill hooks. Shell steps (`run:`, `test:`, `timeout:`, `retry:`, `log:`, `label:`, `goto:`) are executed by the hook runner (`scripts/run-hook.ts`). LLM-interpreted steps (`prompt:`, `loop:`, `parallel:`) are returned by the runner as `pending_llm_steps` and executed by the agent after reading the JSON output.
-
-### Non-Reentrance Guard
-
-**Before executing any hook:** check whether `HOOK_RUNNING` is set in your current context. If it is, skip hook execution silently for all nested skill invocations — do not error. This is a prose convention, not a process mechanism.
-
-**When executing a hook:** set `HOOK_RUNNING: true` in your context for the duration of hook execution, then clear it after.
-
-### Discovery (before routing)
-
-1. Determine the `name:` frontmatter field of the target skill file in `.harness/skills/<skill-file>.md` — this is the lookup key, **not** the routing slug.
-2. Check if `.harness/hooks/skills/<name>/pre.md` exists.
-3. If present **and** `HOOK_RUNNING` is not set in current context: execute the pre-hook (see execution instructions below).
-
-### Pre-Hook Execution
-
-1. Read the hook `.md` file (use `.inlined.md` variant if present, fall back to original).
-2. Extract the `steps:` fenced YAML block.
-3. Execute each step in order by type using the step-type dispatch table below.
-4. If any step fails and `on_error:` (step-level, or hook-level default `stop` for pre-hooks) is `stop`:
-   - Print: `Hook <hook-name> aborted at step <N> (on_error: stop) — skill dispatch cancelled. Hook output: <stdout>`
-   - Do **not** dispatch the skill.
-5. If `on_error: warn` — log the failure and continue.
-6. If `on_error: skip` — suppress this step's failure and continue.
-7. If `on_error: ignore` — silently continue. (For a real retry loop use the dedicated `retry:` step type, not an `on_error` value.)
-
-### Post-Hook Execution
-
-1. After the skill completes (regardless of skill outcome), check for `.harness/hooks/skills/<name>/post.md`.
-2. If present and `HOOK_RUNNING` is not set: execute similarly to pre-hook.
-3. Pass skill outcome as implicit context (available in `prompt:` steps).
-4. Default `on_error:` for post-hooks is `warn` (log and continue — do not retroactively affect skill outcome).
-
-### Step-Type Dispatch
-
-The hook executor (`scripts/run-hook.ts`, CLI: `node dist/scripts/run-hook.js <pre|post> <skill>`) enforces real execution for shell steps. Call it before routing for pre-hooks and after the skill completes for post-hooks.
-
-**Export `TASK=<task-slug>` when invoking** — pipeline hooks reference `${TASK}` to locate
-`briefs/<task>-*` artifacts (e.g. the spec/qa/ship gates). The runner inherits the
-environment, so set it on the same command; a hook that needs `$TASK` aborts with a clear
-message if it is unset.
+Before routing, check for skill hooks: using the target skill's `name:` frontmatter field as the
+lookup key (not the routing slug), look for `.harness/hooks/skills/<name>/pre.md` — prefer the
+`.inlined.md` variant if present. After the skill completes, do the same for `post.md`. Execute
+shell steps via the hook runner:
 
 ```bash
-TASK=<task-slug> node dist/scripts/run-hook.js pre <skill-name>
+TASK=<task-slug> node .harness/bin/run-hook.js pre <skill-name>   # or: post <skill-name>
 # exit 0=pass  1=abort (skip dispatch)  2=warn  3=pending_llm_steps  4=skip (no hook)
 ```
 
-For steps the runner returns in `pending_llm_steps` (prompt:, loop:, parallel:), execute them as LLM-interpreted steps after reading the JSON output.
+Export `TASK=<task-slug>` on the same command — pipeline hooks reference `${TASK}` to locate
+`briefs/<task>-*` artifacts. Default `on_error` is `stop` for pre-hooks (an abort cancels the
+skill dispatch) and `warn` for post-hooks (log and continue). Steps the runner returns in
+`pending_llm_steps` (`prompt:`, `loop:`, `parallel:`) are executed by you, the agent, after
+reading the runner's JSON output.
 
-| Step operator | Executed by | Behaviour |
-|---|---|---|
-| `run: <cmd>` | **Runner (real shell)** | Enforced exit code, real timeout via AbortController, retry loop |
-| `test: <cmd>` | **Runner** | Real exit code → on_true / on_false branch |
-| `timeout: <ms>` | **Runner** | Updates shell timeout for all subsequent `run:` steps |
-| `retry: N` + `backoff:` | **Runner** | Real retry loop with setTimeout backoff |
-| `log: <text>` | **Runner** | process.stderr.write — always fires |
-| `label: <name>` | **Runner** | Jump target (index-based) |
-| `goto: <label>` | **Runner** (intra-hook) / **LLM** (pipeline) | Intra-hook: index jump. Pipeline target: returned in pending_llm_steps |
-| `on_error: stop/warn/skip/ignore` | **Runner** | Enforced by exit code logic |
-| `prompt:` + `agent:` | **LLM** (pending_llm_steps) | Returned by runner, executed by agent |
-| `loop:` | **LLM** (pending_llm_steps) | Returned by runner, executed by agent |
-| `parallel:` | **LLM** (pending_llm_steps) | Sequential in v1 |
-| `include:` | Build-time (sync-harness.sh) | Already inlined as `.inlined.md` variant |
-| `output:` | Metadata | Noted, not enforced |
+**Non-Reentrance Guard.** Before executing any hook, check whether `HOOK_RUNNING` is set in your
+current context — if it is, skip hook execution silently for all nested skill invocations. When
+executing a hook, set `HOOK_RUNNING: true` for its duration, then clear it.
+
+Full operator reference — hook file format, step-type dispatch table, pre/post execution details,
+DSL, linting, exit codes: `docs/hooks.md`.
 
 ## Routing
 
@@ -123,34 +81,33 @@ honored **unless** classification detects a Full signal that would skip a mandat
 new public API, an unspecced design decision) — in that case, surface the conflict and ask
 before downgrading. Otherwise infer the mode from the signals below.
 
+**Step 2 — critical suggestion check.**
 
 **If `--critical` is passed explicitly:** strip the flag, skip the critical suggestion check below, and dispatch directly to `/roster-triage-critical`. The human flag is the only thing that changes routing.
 
-**If `--critical=rocq` or `--critical=quint` is passed explicitly:** skip triage (backend pre-chosen) but **write a minimal triage brief** before entering the pipeline — downstream skills (`roster-spec-formal`, `roster-formal-verify`) hard-require it:
+**If `--critical=rocq` or `--critical=quint` is passed explicitly:** skip triage (backend pre-chosen) but **write the minimal triage brief per roster-triage-critical §Flag-preselected backend (invoked from roster-run)** — downstream skills (`roster-spec-formal`, `roster-formal-verify`) hard-require it. Then route directly to the full pipeline, skipping `roster-triage-critical`.
 
-```markdown
----
-slug: <slug>
-date: <ISO date>
-component: <target>
-backend_recommendation: <rocq|quint>
-human_decision: <rocq|quint>
-downgrade_reason: null
----
+**Trust-boundary heuristic (FR-009).** Run this deterministic keyword check against the task
+description for **every** task, before mode is recorded — it feeds a full-mode recommendation, not
+an automatic upgrade:
 
-## Properties
-(to be elicited during the pipeline — triage abbreviated, backend pre-selected by flag)
-
-## Backend Argument
-Backend pre-selected by user via --critical=<backend> flag.
-
-## Q3 Answer
-(to be completed if full triage is later requested)
+```bash
+desc=$(cat <<'EOF'
+<task>
+EOF
+)
+printf '%s' "$desc" | grep -qiE "auth|attest|evidence|authority|permission|token|custody|integrity" && echo "TRUST_BOUNDARY_HIT"
 ```
 
-Then route directly to the full pipeline, skipping `roster-triage-critical`.
+If it fires and the task would not already route to Full: recommend Full mode to the human before
+the mode is recorded (so `/roster-intake` and `/roster-spec` run and the trust boundary is
+minimally frozen — see roster-spec's Trigger Check).
 
-**Step 1.1 — critical suggestion check (runs in parallel with Step 1 classification).**
+**Combined-prompt rule (A-9):** if this heuristic fires **and** the Tier A `--critical` check below
+also fires on the same task, present **one single combined prompt** covering both signals — do not
+ask twice. The critical route takes precedence (it already implies full mode), so the combined
+prompt's options are exactly the Tier A options below; the trust-boundary signal is folded into
+the rationale text shown above them.
 
 Run the following deterministic Tier A checks against the task description and target path. These are grep/file-presence checks only — no LLM judgment. If any Tier A check fires AND the task would route to Full or Fast (not Express), emit a suggestion before routing.
 
@@ -158,7 +115,11 @@ Run the following deterministic Tier A checks against the task description and t
 
 ```bash
 # Keyword check on task description
-echo "<task>" | grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle|attestat|certif|vulnerability|exploit|attack|adversar|malicious|untrusted.input|invariant|correct.by.construction" && echo "KEYWORD_HIT"
+desc=$(cat <<'EOF'
+<task>
+EOF
+)
+printf '%s' "$desc" | grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle|attestat|certif|vulnerability|exploit|attack|adversar|malicious|untrusted.input|invariant|correct.by.construction" && echo "KEYWORD_HIT"
 
 # Adjacent formal spec file
 [ -f "$(dirname <target>)/<basename>.v" ]   && echo "ADJACENT_V"
@@ -200,19 +161,9 @@ Default is `--full`. The human must explicitly choose `--critical`. **This is a 
 
 If the task would route to Express: skip the critical check entirely (formal verification is incompatible with Express-classified changes).
 
-**If `--critical` is chosen:** dispatch to `/roster-triage-critical` before the normal pipeline. The triage skill produces `briefs/<slug>-formal-triage.md`, then the human confirms the backend, then the pipeline routes:
+**If `--critical` is chosen:** dispatch to `/roster-triage-critical` before the normal pipeline. The triage skill produces `briefs/<slug>-formal-triage.md`, then the human confirms the backend, then the pipeline routes per roster-triage-critical §Flag-preselected backend (invoked from roster-run) — see its post-choice pipeline route.
 
-```
-roster-triage-critical
-  → question → research → intake → roster-spec → roster-spec-formal
-  → plan → implement → roster-formal-verify → review → ship
-```
-
-(E1 downgrade path, when formal verification is declined: `roster-formal-verify → review → qa → ship`)
-
-
-
-**Step 1.4 — resume from durable state (all modes, before per-mode routing).**
+**Step 3 — resume from durable state (all modes, before per-mode routing).**
 If this task has already run one or more phases, the append-only ledger `briefs/<task>-state.json`
 is the authoritative position — read it **here**, before the per-mode routing below, so Express
 and Fast tasks resume too (not only Full). Split existence from parse-and-schema validity so a
@@ -294,32 +245,23 @@ authoritative.
        the ship or route elsewhere.
   2. **Outcome-bearing phases are verdict-aware, not positional.** `intake`, `spec`, `review`, and
      `qa` can complete with a non-success outcome, so do not advance on ledger position alone —
-     read that phase's brief and route by its verdict, scoped to the recorded mode. **The verdict
-     artifact must exist and carry a recognized verdict** (`briefs/<task>-intake.md` status,
+     read that phase's verdict artifact and route via the **Verdict routing table** (in the
+     Full-mode routing section below), scoped to the recorded mode. **The verdict artifact must
+     exist and carry a recognized verdict** (`briefs/<task>-intake.md` status,
      `briefs/<task>-spec.md` status, `briefs/<task>-review.json` `.status`, `briefs/<task>-qa.md`
      status); if it is absent or unreadable, **stop** with `BLOCKED: missing verdict artifact for
      <phase>` rather than guessing a route.
-     - `intake` VALIDATED → next phase in sequence (intake has no other terminal status)
-     - `spec` VALIDATED **or** SKIPPED → next phase in sequence (`plan`); `spec` BOUNCED → `/roster-intake`
-     - `review` GO → next phase in *this mode's* sequence (express → `ship`; fast/full → `qa`);
-       **Exception — critical E0 path:** if `briefs/<task>-formal-verify.md` exists and its
-       `**Evidence tier:**` line is `E0p`, `E0m`, or `E0m-abstract`, route directly to `ship`
-       (formal-verify replaced the QA gate; `qa` is not in the E0 sequence);
-       `review` NO-GO with `no_go_reason.type == "spec-ac-failure"` → `/roster-spec` (full only —
-       express/fast have no spec phase, so their NO-GO always routes to implement);
-       `review` NO-GO (any other reason) → `/roster-implement`
-     - `qa` GO → next phase (`ship`); `qa` NO-GO → `/roster-implement`
      - `implement` COMPLETED → the positional successor (`review`); `implement` PARTIAL →
        re-route to `/roster-implement` to finish the remaining in-scope work (surface the
        event's `reason` when announcing the route)
   3. **Otherwise** (`question`, `research`, `plan` — always `COMPLETED`) → the positional
      successor in the mode's sequence.
 
-  Then run **Step 1.5** before re-entering `/roster-implement`. Announce:
+  Then run **Step 4** before re-entering `/roster-implement`. Announce:
   `→ resuming <task> after <current_phase> (<mode> mode)`. roster-run never writes the ledger —
   each phase appends its own event (preamble *Pipeline State*); roster-run only reads it.
 
-**Step 1.5 — environment readiness pre-flight (before any code/test work).**
+**Step 4 — environment readiness pre-flight (before any code/test work).**
 The moment you are about to route to a phase that builds, tests, or edits code
 (`/roster-implement`, and any Full-mode route that leads there), first confirm the project's
 dev environment is actually runnable. Invoke `/roster-doctor preflight` (skip only for
@@ -342,20 +284,76 @@ If Full mode: check briefs/ state and use the routing table below.
 | Detected signal | Route to |
 |---|---|
 | No brief, new feature, vague or multi-file task | `/roster-question` (then research → intake) |
-| `briefs/<task>-intake.md` VALIDATED + `**Type:**` is feature/api-change + `briefs/<task>-spec.md` absent | `/roster-spec` |
-| `briefs/<task>-spec.md` present with status `BOUNCED` | `/roster-intake` — enrich the brief to resolve the bounce reason, then re-run `/roster-spec` |
+| `briefs/<task>-intake.md` VALIDATED + (`**Type:**` is feature/api-change OR `**Trust boundary:** yes`) + `briefs/<task>-spec.md` absent | `/roster-spec` |
 | `briefs/<task>-intake.md` exists and is validated | `/roster-plan` |
 | `briefs/<task>-plan.md` exists and is validated | workflow dispatch (if `briefs/<task>-plan.json` present) → `/roster-implement` — see Post-plan workflow dispatch below |
 | Implementation complete, branch ready | `/roster-review` |
-| `briefs/<task>-review.json` with GO status + `briefs/<task>-formal-verify.md` with E0p/E0m/E0m-abstract tier | `/roster-ship` — E0 path; formal-verify replaced the QA gate |
-| `briefs/<task>-review.json` with GO status | `/roster-qa` |
-| `briefs/<task>-review.json` with NO-GO + `no_go_reason.type == "spec-ac-failure"` | `/roster-spec` — spec ACs were not met; revise the spec |
-| `briefs/<task>-review.json` with NO-GO (any other reason) | `/roster-implement` — pass review.json as context |
-| `briefs/<task>-qa.md` with GO status | `/roster-ship` |
+| A verdict artifact is present (`briefs/<task>-spec.md` status, `briefs/<task>-review.json` `.status`, `briefs/<task>-qa.md` status) | Route via the **Verdict routing table** below |
 | Complex bug with unclear root cause, no obvious fix | `/roster-investigate` |
 | New project or existing project without harness | `/roster-init` |
 | Periodic analysis, friction patterns | `/roster-skill-health` |
 | No signal matches | Stop — ask the user: "What are we doing?" before routing |
+
+### Verdict routing table (authoritative — all modes)
+
+One table owns every verdict edge. Fresh Full-mode detection (above) and Step 3 resume both
+route through it; on resume, scope rows to the ledger's recorded mode.
+
+**Convergence gate invocation (FR-024, A-1/A-2).** Before applying any `review`-phase row below —
+on both the fresh-detection path and the Step 3 resume edge — invoke the mechanical gate in
+`--static` mode (structural checks only, no command execution; roster-review already ran full-mode
+verification and persisted results at verdict time):
+
+```bash
+node scripts/check-review-convergence.js briefs/<task>-review.json --static
+```
+
+- Exit 0 → apply the table below normally.
+- Exit 1 or 2 → the route-back is **blocked** regardless of the recorded verdict (this closes the
+  resume bypass, C-14/AC-14). Treat it as `design-not-converging` for routing purposes (row below)
+  in Fast/Full. **In Express/Fast when no `/roster-spec` phase exists for this mode**, do not route
+  anywhere — **stop** and instruct the human to restart the task under full mode; make **zero**
+  ledger writes and do **not** upgrade the mode automatically (FR-029). This is a distinct,
+  binding stop — separate from the informational Mode Escalation Check in roster-review.
+
+| Phase verdict | Mode scope | Route to |
+|---|---|---|
+| `intake` VALIDATED | all | Next phase in sequence (intake has no other terminal status) |
+| `spec` VALIDATED **or** SKIPPED | full | Next phase in sequence (`plan`) |
+| `spec` BOUNCED | full | `/roster-intake` — enrich the brief to resolve the bounce reason, then re-run `/roster-spec` |
+| `review` GO | express | `/roster-ship` |
+| `review` GO | fast, full | `/roster-qa` — unless the critical E0 exception below applies, in which case `/roster-ship` |
+| `review` NO-GO with `no_go_reason.type == "spec-ac-failure"` | full only (express/fast have no spec phase — their NO-GO always routes to implement) | `/roster-spec` — spec ACs were not met; revise the spec |
+| `review` NO-GO with `no_go_reason.cause == "novel-finding-streak"` **and** a `streak_override` valid for the CURRENT `round` (`{round, by: "human"}`, matching — E-1) | full | `/roster-implement` — one bounded extra round; the gate itself suppresses the streak violation on re-check (§ convergence gate invocation below still passes), so this row is reachable; stale (non-matching-round) overrides fall through to the row below |
+| `review` NO-GO with `no_go_reason.type == "design-not-converging"` **or** the convergence gate blocked the route-back | full (express/fast: stop + restart-under-full per above) | `/roster-spec` — the escalation context forces the minimal-freeze profile regardless of Trust boundary/Type (A-10); the un-encodable finding or round cap IS the invariant gap to spec |
+| `review` NO-GO with `no_go_reason.type == "review-integrity-failure"` (`specs/r5-trace-enforcement.md` FR-175/C-1) | all | Re-run the round's claimed tooling for real (the tool named in `no_go_reason`'s surfaced violation detail), then re-review — **never** `/roster-spec`, **never** streak-override-eligible (INV-8); a claimed invocation (scope-gate, specialist, normalizer, or cross-runtime pass) left no corresponding trace/journal line, which is a review-process integrity gap, not a design-convergence one |
+| `review` NO-GO (any other reason) | all | `/roster-implement` — pass review.json as context |
+| `qa` GO | fast, full | `/roster-ship` |
+| `qa` NO-GO with escalation `qa-not-converging` (gate exit 1 or gate blocked route-back) | fast, full | STOP — human decision point: present the `rounds_audit` trail, recorded causes, and exits (`/roster-spec` [Fast⇒restart-under-full, FR-277], `/roster-review`, split/abandon). MUST NOT auto-route. |
+| `qa` NO-GO | fast, full | `/roster-implement` |
+
+**QA convergence gate invocation (spec: specs/qa-loop-bounding.md, FR-276/C-14).** Before applying
+either `qa` row above — on both fresh detection and Step 3 resume — invoke the QA-side gate (no
+`--static` mode exists for it; unlike the review gate, it has no red/green machinery to skip):
+
+```bash
+node scripts/check-qa-convergence.js briefs/<task>-qa-state.json --max-rounds <tunables.max_qa_rounds>
+```
+
+- Exit 0 → apply the `qa` rows normally.
+- Exit 1 or the gate otherwise blocking the route-back → treat as `qa-not-converging` (row above)
+  regardless of the recorded verdict — this closes the same resume bypass the review gate closes
+  (C-14).
+
+**Superseded residual (FR-032, see specs/pipeline-loop-convergence.md's amendment):** the
+review-GO → QA-NO-GO → implement loop is now bounded by `specs/qa-loop-bounding.md` —
+`scripts/check-qa-convergence.js` + the round state above. The review-side gate still MUST NOT
+attempt to bound the QA loop; that is out of its scope by design.
+
+**Exception — critical E0 path (single authoritative statement):** on `review` GO, if
+`briefs/<task>-formal-verify.md` exists and its `**Evidence tier:**` line is `E0p`, `E0m`, or
+`E0m-abstract`, route directly to `/roster-ship` — formal-verify replaced the QA gate, so `qa`
+is not in the E0 sequence.
 
 ### Post-plan workflow dispatch (Full mode only)
 
@@ -412,8 +410,8 @@ Otherwise present AskUserQuestion:
 ### Detection
 
 This is the **fresh-task** path for Full mode (no durable ledger — a resumable task is handled
-earlier and authoritatively by **Step 1.4** when `briefs/<task>-state.json` exists). It is also
-the brief-file source of truth that Step 1.4 reads when routing an outcome-bearing phase
+earlier and authoritatively by **Step 3** when `briefs/<task>-state.json` exists). It is also
+the brief-file source of truth that Step 3 reads when routing an outcome-bearing phase
 (intake/spec/review/qa) by verdict.
 
 1. Check for the existence of `briefs/` artifacts with explicit bash commands:
@@ -448,8 +446,6 @@ Before routing, announce in one line:
 ## What Next
 
 After routing, the destination skill announces its own **What Next** upon completion — follow that chain.
-
-> 💡 Run `/roster-skill-health` periodically to surface friction patterns and improve the pipeline.
 
 ## Rules
 

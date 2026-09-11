@@ -19,7 +19,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | kb-agent | 2.5.0 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
 | project-auditor | 1.1.0 | opus | Performs exhaustive project mapping and multi-slice audits, producing a hierarchical kb/ with components, invariants, risks, and fix candidates |
 | skill-creator | 1.4.0 | opus | Designs reusable workflow skills from repeated patterns, with search-first and safety checks |
-| architect | 1.5.0 | sonnet | Code quality and architecture guardian focused on structural regressions, duplication, and maintainability risks |
+| architect | 1.6.0 | sonnet | Code quality and architecture guardian focused on structural regressions, duplication, and maintainability risks |
 | context-manager | 1.3.0 | haiku | Maintains concise shared context for multi-agent execution to reduce drift and duplication |
 | planner | 1.2.0 | opus | Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent |
 | pr-workflow | 1.2.0 | sonnet | Owns the project PR/git workflow — conventional commits, rebase merge, pre-push validation, and review rounds |
@@ -30,7 +30,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| implementer | 1.3.0 | sonnet | Executes scoped feature/fix tasks in isolated worktrees with deterministic verification before handoff |
+| implementer | 1.4.0 | sonnet | Executes scoped feature/fix tasks in isolated worktrees with deterministic verification before handoff |
 | ocaml-implementer | 1.2.0 | sonnet | Implements OCaml changes with eio_posix, Caqti, Result-style errors, and mandatory .mli discipline |
 
 > **Note:** `ocaml-implementer` and `ocaml-dune-specialist` are OCaml/Dune specific. They are included in the default catalog as useful general patterns but require OCaml tooling.
@@ -39,7 +39,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
-| reviewer | 1.4.0 | opus | Performs structured code review focused on correctness, security, and regression risk |
+| reviewer | 1.6.0 | opus | Performs structured code review focused on correctness, security, and regression risk |
 | qa | 1.3.0 | haiku | Verifies implemented behavior through deterministic test execution and focused scenario checks |
 
 ### DevOps (2)
@@ -143,7 +143,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 
 ---
 
-## Rules (6)
+## Rules (7)
 
 | Rule | Category | Scope |
 |------|----------|-------|
@@ -153,6 +153,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 | context-budget | workflow | global |
 | human-validation | governance | global |
 | diagnostic-interview | governance | global |
+| rtk-compat | common | global |
 
 ## Hooks (2)
 

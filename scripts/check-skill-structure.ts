@@ -16,6 +16,21 @@
  *     7. `## Friction Log` section exists
  *     8. Friction Log section contains a ```jsonl fence
  *
+ *   SIZE RATCHET (specs/review-skill-slimming.md US-4, FR-117..122): budgeted
+ *   files (see BUDGETS below) are word-counted with the pinned counter
+ *   (BOM/CRLF normalized, frontmatter/fenced-code/Friction-Log stripped) and
+ *   must stay under budget. A budget-map entry matching zero files on disk
+ *   fails closed (guards a silent rename). This ratchet is upstream-only — it
+ *   MUST NOT be added to the portable scripts/check-skill-contract.js
+ *   (FR-121).
+ *
+ *   ASSEMBLED-PROJECTION METRIC (specs/review-v2-corrections.md, skill-sizing
+ *   follow-up): the pinned counter above strips fences/frontmatter/Friction
+ *   Log, so it never caps the complete text a runtime actually loads.
+ *   `countAssembledWords` is a second, INFORMATIONAL-ONLY metric (never
+ *   gated) — total words per file including fences and injected material —
+ *   reported in this check's console output for visibility.
+ *
  * Skipped: skills/shared/preamble.md (injected fragment, not a standalone skill)
  *
  * Exit 0 = clean. Exit 1 = violations found.
@@ -25,12 +40,110 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import * as yaml from "js-yaml";
 
-const SKILLS_DIR = path.resolve(__dirname, "../../skills");
+// SKILLS_DIR injection (D-5): overridable via env var so the ratchet's fixture
+// test can point at a scratch directory instead of the repo's real skills/.
+export const SKILLS_DIR = process.env.SKILLS_DIR
+  ? path.resolve(process.env.SKILLS_DIR)
+  : path.resolve(__dirname, "../../skills");
 const SKIP_FILES = new Set(["preamble.md", "preamble-pipeline.md", "preamble-friction.md"]);
+
+// Budget map keyed by repo-relative path (FR-118). Raising a budget requires
+// commit-message justification (FR-120, EC-10) — this is not a knob to bump
+// silently when a file grows.
+export const BUDGETS: Record<string, number> = {
+  // Raised 4000 -> 4340 (FR-120 justification, 2026-07-27): P4 adds two contract rules to
+  // §3 — specialists execute rather than read, and every non-run mechanical step records a
+  // `skipped` reason. The execution rule's detail was pushed down into agents/testing/
+  // reviewer.md and architect.md (where the specialist actually reads it) rather than
+  // written out here, and both new blocks were compressed twice; 4337 is what remains.
+  "skills/pipeline/roster-review.md": 4340,
+};
+
+// Strips a leading UTF-8 BOM (U+FEFF), if present. A BOM-prefixed file with
+// no fence-stripping bug previously counted as 8 words for a real 2-word
+// skill (probe result, skill-sizing follow-up) — an un-stripped BOM merges
+// into the first "word" as a stray character, corrupting the split.
+function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+}
+
+// FR-117: strip a leading BOM, normalize CRLF -> LF, strip frontmatter, strip
+// fenced code blocks, strip the `## Friction Log` section, split on
+// whitespace filtering empties. V-1: fence-stripping MUST fail loudly
+// (throw) on an unbalanced fence count — silently tolerating it would
+// undercount by stripping past the real boundary.
+export function countSkillWords(raw: string): number {
+  const normalized = stripBom(raw).replace(/\r\n/g, "\n");
+  const noFrontmatter = normalized.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  const noFences = stripFencedBlocks(noFrontmatter);
+  const noFriction = stripFrictionLogSection(noFences);
+  return noFriction.split(/\s+/).filter(Boolean).length;
+}
+
+// Skill-sizing follow-up: total words per file INCLUDING fences/Friction Log
+// (never gated — informational only, see the module comment above).
+export function countAssembledWords(raw: string): number {
+  const normalized = stripBom(raw).replace(/\r\n/g, "\n");
+  const noFrontmatter = normalized.replace(/^---\n[\s\S]*?\n---\n?/, "");
+  return noFrontmatter.split(/\s+/).filter(Boolean).length;
+}
+
+function stripFencedBlocks(text: string): string {
+  const markers = text.match(/```/g) || [];
+  if (markers.length % 2 !== 0) {
+    throw new Error(`unbalanced fenced code blocks (found ${markers.length} \`\`\` markers — must be even)`);
+  }
+  return text.replace(/```[\s\S]*?```/g, "");
+}
+
+function stripFrictionLogSection(text: string): string {
+  const marker = "\n## Friction Log";
+  const start = text.indexOf(marker);
+  if (start === -1) return text;
+  const next = text.indexOf("\n## ", start + marker.length);
+  return next === -1 ? text.slice(0, start) : text.slice(0, start) + text.slice(next);
+}
+
+// FR-119: a budget-map entry matching zero files fails the check (fail-closed
+// against renames) rather than silently skipping. FR-120: exceeding a budget
+// states that raising it requires commit-message justification.
+export async function checkBudgetForRepo(repoRoot: string): Promise<Violation[]> {
+  const violations: Violation[] = [];
+  for (const [relPath, budget] of Object.entries(BUDGETS)) {
+    const full = path.resolve(repoRoot, relPath);
+    let raw: string;
+    try {
+      raw = await fs.readFile(full, "utf-8");
+    } catch {
+      violations.push({
+        file: relPath,
+        message: `word-count ratchet budget entry matches no file on disk (fail-closed against a silent rename) — budget: ${budget} words`,
+      });
+      continue;
+    }
+    let words: number;
+    try {
+      words = countSkillWords(raw);
+    } catch (e) {
+      violations.push({ file: relPath, message: `word-count ratchet: ${(e as Error).message}` });
+      continue;
+    }
+    if (words > budget) {
+      violations.push({
+        file: relPath,
+        message:
+          `word-count ratchet: ${words} words exceeds the budget of ${budget} (FR-118) — ` +
+          "raising the budget requires commit-message justification (FR-120); compress the file " +
+          "deliberately rather than silently raising the number",
+      });
+    }
+  }
+  return violations;
+}
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
-type Violation = { file: string; message: string };
+export type Violation = { file: string; message: string };
 
 function parseFrontmatter(content: string): { raw: string; body: string } | null {
   // Match --- ... --- at the very start of the file (CRLF-safe)
@@ -70,6 +183,20 @@ function hasStepsSection(content: string): boolean {
   return /^## Steps?(?:\s|$)/m.test(content) || /^## Routing\s*$/m.test(content);
 }
 
+function frictionLogSection(content: string): string {
+  const sectionMark = "\n## Friction Log";
+  let sectionStart = content.indexOf(sectionMark);
+  if (sectionStart === -1) {
+    if (!content.startsWith("## Friction Log")) return "";
+    sectionStart = -1;
+  }
+  const headingEnd = sectionStart === -1 ? content.indexOf("\n") : content.indexOf("\n", sectionStart + 1);
+  if (headingEnd === -1) return "";
+  const bodyStart = headingEnd + 1;
+  const nextSection = content.indexOf("\n## ", bodyStart);
+  return nextSection === -1 ? content.slice(bodyStart) : content.slice(bodyStart, nextSection);
+}
+
 function hasJsonlFence(content: string): boolean {
   // Find ## Friction Log section boundary using indexOf to avoid regex lookahead pitfalls.
   // Also handle the (theoretical) case where the heading starts at position 0.
@@ -88,14 +215,6 @@ function hasJsonlFence(content: string): boolean {
   const nextSection = content.indexOf("\n## ", bodyStart);
   const section = nextSection === -1 ? content.slice(bodyStart) : content.slice(bodyStart, nextSection);
   return section.includes("```jsonl");
-}
-
-function frictionLogSection(content: string): string {
-  const marker = "\n## Friction Log";
-  const start = content.indexOf(marker);
-  if (start === -1) return content.startsWith("## Friction Log") ? content : "";
-  const next = content.indexOf("\n## ", start + marker.length);
-  return next === -1 ? content.slice(start) : content.slice(start, next);
 }
 
 function checkSkill(content: string): string[] {
@@ -158,8 +277,8 @@ function checkSkill(content: string): string[] {
     if (!hasSection(content, "Friction Log")) {
       errors.push('missing "## Friction Log" section (required when friction_log: true)');
     } else if (!hasJsonlFence(content) && !frictionLogSection(content).includes("preamble-friction.md")) {
-      // 8. jsonl fence
-      errors.push('## Friction Log section missing ```jsonl fence (required by convention)');
+      // 8. jsonl fence, or the deduplicated pointer to the canonical template
+      errors.push('## Friction Log section missing a ```jsonl fence or a pointer to the canonical template (preamble-friction.md)');
     }
   }
 
@@ -185,6 +304,7 @@ async function collectSkillFiles(dir: string): Promise<string[]> {
 async function main(): Promise<void> {
   const files = await collectSkillFiles(SKILLS_DIR);
   const violations: Violation[] = [];
+  let assembledTotal = 0;
 
   for (const file of files.sort()) {
     const content = await fs.readFile(file, "utf-8");
@@ -193,7 +313,16 @@ async function main(): Promise<void> {
     for (const msg of checkSkill(content)) {
       violations.push({ file: rel, message: msg });
     }
+    assembledTotal += countAssembledWords(content);
   }
+
+  // US-4 size ratchet (FR-117..122) — runs via this same check-skill-structure
+  // invocation, no new npm test chain entry (FR-122).
+  violations.push(...(await checkBudgetForRepo(path.resolve(SKILLS_DIR, ".."))));
+
+  // Skill-sizing follow-up: report the assembled-projection metric —
+  // informational only, never gated (see module comment).
+  console.log(`  assembled-projection: ${assembledTotal} total words across ${files.length} skill file(s) (informational, not gated)`);
 
   if (violations.length === 0) {
     console.log(`✓ all ${files.length} skill files pass structure checks`);
@@ -208,7 +337,11 @@ async function main(): Promise<void> {
   process.exit(1);
 }
 
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+// D-5: guarded so this module can be `require()`d by its fixture test
+// without re-running main() as a side effect.
+if (require.main === module) {
+  main().catch((err: unknown) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

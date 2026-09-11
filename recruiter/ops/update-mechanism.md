@@ -189,13 +189,13 @@ Also check roster skills (`component_type: "skill"`, `source: "local"`) against 
 
 ```
 New skills available in roster:
-  - roster-run (v1.0.0) — Entry point du pipeline roster
-  - roster-init (v1.0.0) — Bootstrap greenfield or onboard existing project
+  - roster-run — Classifies an incoming task and routes it to the right pipeline skill
+  - roster-init — Bootstrap greenfield or onboard existing project
   - roster-intake, roster-plan, roster-implement, roster-review, roster-qa, roster-ship — Full pipeline
   - roster-investigate, roster-audit — Operational skills
   - roster-skill-health, roster-skill-evolve — Skill metabolism (self-improvement)
 
-Install the pipeline skills? They add intake→plan→implement→review→qa→ship as slash commands,
+Install the pipeline skills? They add question→research→intake→spec→plan→implement→review→qa→ship as slash commands,
 plus `/roster-init` for project bootstrapping and `/roster-skill-health` for self-improvement.
 [Y/n]
 ```
@@ -207,11 +207,19 @@ On approval, install using the following concrete procedure:
 mkdir -p .harness/skills .claude/commands .agents/skills
 ```
 
-**Step 2 — Fetch the shared preamble:**
+**Step 2 — Fetch the shared preamble and its frontmatter-gated fragments:**
 ```bash
 ROSTER_RAW="https://raw.githubusercontent.com/<roster_repo>/main"
 PREAMBLE=$(curl -sL "$ROSTER_RAW/skills/shared/preamble.md")
+PREAMBLE_PIPELINE=$(curl -sL "$ROSTER_RAW/skills/shared/preamble-pipeline.md")
+PREAMBLE_FRICTION=$(curl -sL "$ROSTER_RAW/skills/shared/preamble-friction.md")
 ```
+
+The two fragments are injected conditionally (mirroring `sync-harness.sh`):
+`preamble-pipeline.md` (the Pipeline State ledger contract) only into skills whose
+frontmatter `phase:` is non-null; `preamble-friction.md` (the canonical friction-log
+template) only into skills with `friction_log: true`. Installing without them breaks
+durable-state resume and the metabolism loop on the target project.
 
 **Step 3 — Install each skill:**
 
@@ -254,17 +262,59 @@ Skills to install:
 - `skills/testing/tdd-workflow.md`
 - `skills/media/image-generation.md`
 
+**Step 2.5 — Review-tool bundle (F-1):** if any installed skill declares `requires_review_bundle`,
+fetch and run the one distributed installer script — it owns the entire install/upgrade/remove/
+verify state machine, nothing here re-implements it:
+```bash
+curl -fsSL "$ROSTER_RAW/scripts/review-bundle-install.sh" -o /tmp/review-bundle-install.sh
+bash /tmp/review-bundle-install.sh install --from-raw "$ROSTER_RAW"
+```
+
+**Step 3.5 — Portable skill-hook runtime:** if the target already has one or more
+`.harness/hooks/skills/**/*.md` files, install the self-contained hook runner. The
+runner bundles its parser dependency, so the target does not need this repository's
+`node_modules` or compiled `dist/` tree:
+
+```bash
+if find .harness/hooks/skills -type f -name '*.md' -print -quit 2>/dev/null | grep -q .; then
+  mkdir -p .harness/bin
+  HOOK_RUNNER_TMP=$(mktemp)
+  curl -fsSL "$ROSTER_RAW/.harness/bin/run-hook.js" -o "$HOOK_RUNNER_TMP"
+  node --check "$HOOK_RUNNER_TMP"
+  chmod 0755 "$HOOK_RUNNER_TMP"
+  mv "$HOOK_RUNNER_TMP" .harness/bin/run-hook.js
+fi
+```
+
+Do not point installed skill instructions at `dist/scripts/run-hook.js`: that path is
+only guaranteed in a roster source checkout. Installed workflows invoke
+`node .harness/bin/run-hook.js`.
+
 For each skill at path `<skill-path>` with filename `<name>.md`:
 ```bash
 SKILL_CONTENT=$(curl -sL "$ROSTER_RAW/<skill-path>")
 
-# Check if preamble: true in frontmatter
-if echo "$SKILL_CONTENT" | grep -q "^preamble: true"; then
-  PROJECTED="${PREAMBLE}
+# Split frontmatter (through the 2nd ---) from body; fragments inject body-only,
+# AFTER the frontmatter — same order sync-harness.sh renders.
+FM=$(printf '%s\n' "$SKILL_CONTENT"    | awk '{print} /^---$/{n++; if(n==2) exit}')
+BODY=$(printf '%s\n' "$SKILL_CONTENT"  | awk 'n==2{print} /^---$/{n++}')
+strip_fm() { printf '%s\n' "$1" | awk 'n==2{print} /^---$/{n++}'; }
 
----
+if printf '%s' "$FM" | grep -q "^preamble: true"; then
+  INJECT="$(strip_fm "$PREAMBLE")"
+  if printf '%s' "$FM" | grep -q '^phase:' && ! printf '%s' "$FM" | grep -q '^phase: null'; then
+    INJECT="${INJECT}
+$(strip_fm "$PREAMBLE_PIPELINE")"
+  fi
+  if printf '%s' "$FM" | grep -q '^friction_log: true'; then
+    INJECT="${INJECT}
+$(strip_fm "$PREAMBLE_FRICTION")"
+  fi
+  PROJECTED="${FM}
 
-${SKILL_CONTENT}"
+${INJECT}
+
+${BODY}"
 else
   PROJECTED="$SKILL_CONTENT"
 fi
@@ -285,20 +335,52 @@ echo "$PROJECTED" > .agents/skills/<name>/SKILL.md
 **Step 4 — Verify:**
 ```bash
 find .agents/skills -maxdepth 2 -name SKILL.md
+if find .harness/hooks/skills -type f -name '*.md' -print -quit 2>/dev/null | grep -q .; then
+  test -x .harness/bin/run-hook.js
+fi
 ```
 
 If `.harness/` or `.claude/` do not exist (e.g., Codex-only environment), write only to the
 configured Codex runtime entrypoint and skip the other targets — do not fail.
 
-**Note on preamble injection:** The preamble (`skills/shared/preamble.md`) encodes the project's
-shared ethos (anti-sycophancy, completeness, user sovereignty, friction log instructions). It must
-be injected after frontmatter for all skills where `preamble: true` appears in the frontmatter YAML
-block. Skills without this field or with `preamble: false` are written as-is.
+**Note on preamble injection:** The core preamble (`skills/shared/preamble.md`) encodes the
+shared ethos (anti-sycophancy, completeness, user sovereignty, asking-questions protocol). The
+Pipeline State ledger contract lives in `preamble-pipeline.md` and the canonical friction-log
+template in `preamble-friction.md` — both injected only when the skill's frontmatter gates match
+(see Step 2). All injection happens after the skill's frontmatter, body-only. Skills without
+`preamble: true` are written as-is.
 
 **Runtime note:** OpenCode and Copilot each have a dedicated renderer in `sync-harness.sh`. Enable
 them in `.harness/harness.json` (`"enabled": true`) and re-run `sync-harness.sh`. OpenCode uses
 flat `.md` files; Copilot uses `.github/copilot-instructions.md` + per-agent `.github/instructions/`
 files.
+
+### Code-Intel Pack Discovery
+
+Presented alongside the pipeline-skills offer (Mode 1 step 8 of the recruiter, and after New Skill
+Discovery on `/recruit update`). This is an **offer, not a clarification question** — it never
+consumes the recruiter's 3–5 focused-question budget. Deterministic procedure:
+
+1. **Languages:** reuse the languages the recruiter already detected during project analysis
+   (Mode 1 step 1 — `Cargo.toml`, `dune-project`, `go.mod`, `pyproject.toml`, `package.json`
+   plus `tsconfig.json`), mapped to the registry enum `go`/`rust`/`typescript`/`javascript`/`python`/`ocaml`.
+2. **Load the registry:** from a local roster checkout when running inside or alongside one
+   (`registry/code-intel.jsonl`); otherwise fetch
+   `https://raw.githubusercontent.com/mathiasbourgoin/roster/main/registry/code-intel.jsonl`
+   (20s timeout). On any failure, skip this offer silently — no question, no error.
+3. **Filter:** keep entries whose `languages` overlap the detected languages. Exclude
+   already-installed packs — run `node scripts/code-intel-resolve.js list` when the resolver is
+   available, otherwise grep `.agents/skills/*/SKILL.md` then `.opencode/skills/*/SKILL.md`
+   frontmatter for `capability: code-intel`.
+4. **Zero matches → skip the offer entirely** (never present a question whose only option is "none").
+5. **Present** via AskUserQuestion (or numbered options), ranked: `verified` tier first,
+   alphabetical within each tier; at most 3 pack options plus a mandatory "none of these" option,
+   which is the DEFAULT. If more than 3 entries match, note the overflow count in the question
+   text (e.g. "2 more matches not shown"). Label every community-tier option
+   "(community — not verified by roster)".
+6. **On approval of a pack:** present the entry's `install` field text verbatim in a fenced code
+   block for the user to run themselves — NEVER execute any of it. **On "none":** continue,
+   change nothing, and do not persist the decline (a re-run may re-ask).
 
 ---
 

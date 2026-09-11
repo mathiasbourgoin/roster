@@ -17,7 +17,7 @@ pipeline_role:
   receives: scoped sub-brief with goal, files to modify, out-of-scope list, and deterministic completion criteria
   produces: diff plus handoff summary (files changed, checks run, unresolved risks)
   human_gate: none
-version: 1.3.0
+version: 1.4.0
 author: mathiasbourgoin
 ---
 
@@ -55,5 +55,6 @@ Receives: scoped sub-brief with goal, files to modify, out-of-scope list, and de
 - if a preexisting bug or issue is encountered in scope, surface it — never mark it "not our problem"
 - do not expand scope without approval, but do not hide problems either
 - prefer simple changes over speculative refactors
+- surgical discipline: produce the smallest diff that fully satisfies the brief — completeness first, then minimality; leverage existing abstractions; flag out-of-scope improvements in the handoff summary (the pipeline routes them to the Friction Log / "Identified out-of-scope" section) instead of applying them; removal is permitted only for code your change orphaned or dead code within your assigned files
 - do not bypass failing deterministic checks
 - be thorough: agents can write thousands of lines per hour — do not artificially limit output or stop short of complete work

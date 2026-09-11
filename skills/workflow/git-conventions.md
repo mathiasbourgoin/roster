@@ -1,8 +1,8 @@
 ---
 name: git-conventions
-description: Apply git workflow conventions — commits, branches, PRs.
-when_to_use: "Use when committing, branching, or opening PRs to apply roster's git conventions. Trigger: 'commit this', 'open a PR'."
-version: 1.0.1
+description: Standardizes commit messages, branch names, and PR structure for the current action.
+when_to_use: "Use whenever git history or a PR is about to be created. Trigger: 'commit this', 'open a PR'."
+version: 1.0.3
 ---
 
 # Git Conventions
@@ -82,7 +82,7 @@ When committing:
 
 - **Never** force-push to `main` or `master`.
 - **Always** push with `-u` to set upstream tracking.
-- **Never** use `git add .` or `git add -A` — stage specific files.
+- Stage specific files by default — `git add .` / `git add -A` are permitted **only** immediately after a full-tree generator run (e.g. `scripts/sync-harness.sh` projection regeneration, where CI's harness-sync check requires every regenerated file staged), and only when everything else in the tree was already staged or clean before the generator ran — never as a way to sweep in unrelated edits.
 - **Never** skip pre-commit hooks (`--no-verify`).
 - **Never** commit `.env`, credentials, or secrets — warn the user if these are staged.
 - PR descriptions must be comprehensive — reviewers should understand the change without reading code.
@@ -90,17 +90,4 @@ When committing:
 
 ## Friction Log
 
-At the end of each run, append to `skills-meta/friction.jsonl` :
-
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "git-conventions",
-  "task": "<task-slug or short description>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "git-conventions"`.

@@ -5,7 +5,7 @@
  * were invisible to `npm test` — pipeline-ledger-coherence friction entry).
  *
  * PARSED CONVENTION — the predicate is LLM-prose bash inside
- * skills/pipeline/roster-run.md Step 1.4, extracted with the SAME regex as
+ * skills/pipeline/roster-run.md Step 3, extracted with the SAME regex as
  * scripts/check-pipeline-install.js Check 4 (byte-identity with roster-doctor is
  * that checker's job, not ours): /LEDGER_SCHEMA='([\s\S]*?)'\n/  — sample:
  *

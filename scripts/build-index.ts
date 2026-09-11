@@ -1,30 +1,30 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-export type { ComponentType, IndexEntry, SourceCache } from "./lib/types.js";
-export { parseFrontmatter, parseLooseMetadata } from "./lib/frontmatter.js";
-export { inferComponentType, inferComplexity } from "./lib/infer.js";
-export { normalizeEntry, enrichRemoteEntry, fallbackRemoteEntry } from "./lib/normalize.js";
-export { chooseBestSourceEntries } from "./lib/cache.js";
-export { sortEntries } from "./lib/remote.js";
+export type { ComponentType, IndexEntry, SourceCache } from "./lib/catalog/types.js";
+export { parseFrontmatter, parseLooseMetadata } from "./lib/catalog/frontmatter.js";
+export { inferComponentType, inferComplexity } from "./lib/catalog/infer.js";
+export { normalizeEntry, enrichRemoteEntry, fallbackRemoteEntry } from "./lib/catalog/normalize.js";
+export { chooseBestSourceEntries } from "./lib/catalog/cache.js";
+export { sortEntries } from "./lib/catalog/remote.js";
 
-import type { IndexEntry, RemoteSource, SourceCache } from "./lib/types.js";
-import { parseFrontmatter, parseLooseMetadata } from "./lib/frontmatter.js";
-import { normalizeEntry, enrichRemoteEntry, fallbackRemoteEntry } from "./lib/normalize.js";
+import type { IndexEntry, RemoteSource, SourceCache } from "./lib/catalog/types.js";
+import { parseFrontmatter, parseLooseMetadata } from "./lib/catalog/frontmatter.js";
+import { normalizeEntry, enrichRemoteEntry, fallbackRemoteEntry } from "./lib/catalog/normalize.js";
 import {
   collectRemoteCandidates,
   collectCatalogEntries,
   sortEntries,
   toRawUrl,
   fetchText,
-} from "./lib/remote.js";
+} from "./lib/catalog/remote.js";
 import {
   readSourceCacheRecord,
   writeSourceCache,
   fingerprintParts,
   fingerprintCandidates,
   chooseBestSourceEntries,
-} from "./lib/cache.js";
+} from "./lib/catalog/cache.js";
 
 type SourceConfig = {
   local: {

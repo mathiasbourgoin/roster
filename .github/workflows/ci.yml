@@ -35,6 +35,8 @@ jobs:
       - run: npm test
       - name: Verify committed claims projections
         run: npm run claims:check
+      - name: Review bundle scratch install/upgrade/removal (F-10 — outside the npm test chain)
+        run: npm run test:review-bundle
       - name: Verify skill manifest is current (H16 — prevent populate-manifest-skills drift)
         run: node scripts/populate-manifest-skills.js --check
       - name: Leak scan changed files (enforce check-leak via git diff, not agent-supplied)
