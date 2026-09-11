@@ -1,7 +1,8 @@
 ---
 name: roster-triage-critical
-description: Critical-route triage — property elicitation, priority ordering, backend proposal, cost disclosure. Dispatched by roster-run when --critical is chosen. Checkpoints to briefs/<slug>-formal-triage.md.
-version: 1.0.0
+description: Elicits formal-verification properties and proposes a backend for the critical route.
+when_to_use: "Use when roster-run dispatches a --critical task. Trigger: 'triage critical', '--critical route'."
+version: 1.0.4
 domain: pipeline
 phase: null
 preamble: true
@@ -14,17 +15,11 @@ artifacts:
 
 # Roster Preamble
 
-This preamble is injected into every roster skill that declares `preamble: true`.
-It encodes the non-negotiable principles that govern all skill runs.
-
----
-
 ## Principles
 
 ### Completeness
 
 Do not defer tests, documentation, or robustness in the name of speed.
-A short-term shortcut is rarely faster than a complete solution.
 "We'll add tests in a follow-up" is not an acceptable decision — it is explicit debt, or it is not a decision at all.
 
 ### Search Before Build
@@ -33,9 +28,6 @@ Before creating anything, verify what already exists:
 1. Local (current repo, harness, KB)
 2. Roster (index.json, roster GitHub)
 3. Web (if webfetch available)
-
-A false positive (checking for something that didn't exist) costs seconds.
-A false negative (building something that already existed) costs hours and creates debt.
 
 ### Anti-Sycophancy
 
@@ -46,13 +38,8 @@ State your recommendation, explain why, mention what context you might be missin
 
 ### User Sovereignty
 
-When you and a sub-agent both agree to change the user's direction:
-→ present the recommendation
-→ explain why you both think it is better
-→ state what context you might be missing
-→ ask
-
-Never act unilaterally in this case. The decision belongs to the user.
+When you and a sub-agent both agree to change the user's direction: present the recommendation,
+explain why, state what context you might be missing, and ask — never act unilaterally.
 
 ### Escalation
 
@@ -76,78 +63,6 @@ Rules:
 - One question at a time — never bundle multiple questions into one message
 - Prefer multiple-choice options over open-ended when the answer space is predictable
 - If no interactive tool is available, output a clearly marked plain-text question and wait for the user's reply before proceeding
-
-### Friction Log
-
-At the end of each run, honestly record:
-- frictions encountered (workarounds, long searches, ambiguities)
-- methods used
-- any suggestion for a tool, skill, or adaptation
-
-This is not a performance review. It is cross-run memory.
-Format: see `skills-meta/friction.jsonl`.
-
-### Pipeline State
-
-If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
-pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
-event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
-`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
-is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
-context. Create the file if absent; preserve every prior `events` entry:
-
-```json
-{
-  "task": "<slug>",
-  "mode": "express|fast|full",
-  "current_phase": "implement",
-  "events": [
-    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
-  ]
-}
-```
-
-Rules for writing your event:
-
-- **`task` is the canonical slug**, derived once from the task description and reused identically
-  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
-  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
-  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
-  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
-  ledger will not be found. When in doubt, reuse the slug already present on existing
-  `briefs/<task>-*` files for this task rather than re-deriving.
-- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
-  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
-  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
-- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
-  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
-  `ship`: `COMPLETED` or `BLOCKED`; `implement`: `COMPLETED` or `PARTIAL`;
-  `question`/`research`/`plan`: `COMPLETED`. Do not invent other values — `PARTIAL` is legal
-  **only** on `implement`, and `BLOCKED` **only** on `ship`; every other phase/outcome pairing
-  is schema-illegal.
-- **Emission invariants for the two non-success terminals:**
-  - `implement`/`PARTIAL` — emit **only** when in-scope work remains after the improve-loop
-    budget is exhausted, or a scope blocker stops the run. Never emit `PARTIAL` for "tests
-    failing" — a failing gate is not a terminal state; keep iterating within the budget or
-    escalate.
-  - `ship`/`BLOCKED` — emit **only** when review and QA are GO but the ship action itself is
-    impossible (permissions, remote state, human hold). A NO-GO gate is not `BLOCKED`.
-  - Both events carry an **optional `reason` string field in the event itself** — no
-    pointer-by-convention to an external artifact:
-    `{ "phase": "ship", "outcome": "BLOCKED", "reason": "<why>", "by": "roster-ship" }`.
-  - **Artifact writes happen BEFORE the event append.** Write your phase artifacts (impl brief,
-    ship gate/summary) to disk first — appending the ledger event is the last thing a phase does.
-- **Resume semantics** (read by `/roster-run` Step 1.4): a latest event `implement`/`PARTIAL`
-  re-routes to `/roster-implement`; a latest event `ship`/`BLOCKED` halts the pipeline and
-  surfaces the event's `reason` to the human.
-- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
-  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
-  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
-- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
-- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
-  skill name (or `human-gate` for a gate decision).
-- Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
-  hooks manually.
 
 
 ### Friction Log
@@ -223,7 +138,13 @@ You run Stages 2–5 of the `--critical` pipeline route: property elicitation, p
 ## Input Contract
 
 - The target component (file path, module, or description) provided as your argument.
-- Task slug (derive from the component name: lowercase kebab-case, ≤4 significant words).
+- Task slug: **reuse the pipeline task slug** — the one already present on existing
+  `briefs/<task>-*` artifacts or passed by roster-run (the preamble's Pipeline State rule
+  requires it byte-identical across every phase; roster-run and roster-plan look up
+  `briefs/<slug>-formal-triage.md` / `briefs/<slug>-formal-verify.md` by that slug).
+  Only if no pipeline slug exists yet (direct invocation, no prior artifacts): derive one
+  from the component name (lowercase kebab-case, ≤4 significant words) — it becomes the
+  pipeline slug from then on.
 
 ## Steps
 
@@ -342,7 +263,7 @@ Write `briefs/<slug>-formal-triage.md` before exiting. Schema:
 
 ```markdown
 ---
-slug: <component-slug>
+slug: <task-slug — the pipeline slug from the Input Contract>
 date: <ISO date>
 component: <file or module path>
 backend_recommendation: <rocq|quint|both>
@@ -368,10 +289,52 @@ downgrade_reason: null
 
 The human's backend decision (or downgrade reason) is filled in by the intake gate, not here. Leave as `null`.
 
+## Flag-preselected backend (invoked from roster-run)
+
+When the user passes `--critical=rocq` or `--critical=quint` explicitly, `roster-run` skips this
+skill's interactive stages (the backend is pre-chosen) but must still **write a minimal triage
+brief** before entering the pipeline — downstream skills (`roster-spec-formal`,
+`roster-formal-verify`) hard-require `briefs/<slug>-formal-triage.md`:
+
+```markdown
+---
+slug: <slug>
+date: <ISO date>
+component: <target>
+backend_recommendation: <rocq|quint>
+human_decision: <rocq|quint>
+downgrade_reason: null
+---
+
+## Properties
+(to be elicited during the pipeline — triage abbreviated, backend pre-selected by flag)
+
+## Backend Argument
+Backend pre-selected by user via --critical=<backend> flag.
+
+## Q3 Answer
+(to be completed if full triage is later requested)
+```
+
+`roster-run` then routes directly to the full pipeline, skipping `roster-triage-critical`.
+
+### Post-choice pipeline route
+
+When `--critical` is chosen (via flag or roster-run's suggestion) and — on the interactive path —
+this skill has produced `briefs/<slug>-formal-triage.md` and the human has confirmed the backend,
+the pipeline routes:
+
+```
+roster-triage-critical
+  → question → research → intake → roster-spec → roster-spec-formal
+  → plan → implement → roster-formal-verify → review → ship
+```
+
+(E1 downgrade path, when formal verification is declined: `roster-formal-verify → review → qa → ship`)
+
 ## Rules
 
 - Read-only scan only — never modify source files
-- Q3 is closed-choice; do not paraphrase or reinterpret the answer
 - The five elicitation questions are fixed; do not regenerate them
 - This skill does not run the intake validation quiz — that is roster-spec-formal's job
 - If the human declines --critical entirely, log `"event": "critical_declined"` in friction.jsonl (separate from suggestion_type)
@@ -400,6 +363,7 @@ The human's backend decision (or downgrade reason) is filled in by the intake ga
   "skill": "roster-triage-critical",
   "task": "<task-slug>",
   "frictions": [],
+  "classes": [],
   "methods": [],
   "suggestion_type": null,
   "suggestion": null,

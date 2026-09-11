@@ -14,6 +14,10 @@
 #   --channel <c>        Release channel: stable (default → main) | next (edge branch)
 #   --branch <ref>       Install from an arbitrary git ref (overrides --channel)
 #   --team               Append the install one-liner to AGENTS.md for teammates
+#
+# FR-133: this script explicitly does NOT fetch the review-tool bundle — that is
+# scripts/review-bundle-install.sh's job, run by the recruiter (Skills-to-install step) or
+# scripts/init-harness.sh (--from-checkout), never here.
 
 set -euo pipefail
 

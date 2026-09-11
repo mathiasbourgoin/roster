@@ -1,7 +1,8 @@
 ---
 name: roster-skill-evolve
-description: Implements skill-health approved improvements — skills, tools, adaptations, agents.
-version: 1.3.0
+description: Installs skill-health-approved improvements to skills, tools, adaptations, and agents.
+when_to_use: "Use after roster-skill-health produces APPROVED proposals ready to apply. Trigger: 'apply the skill-health proposals'."
+version: 1.6.0
 domain: meta
 phase: null
 preamble: true
@@ -15,6 +16,9 @@ artifacts:
   writes:
     - skills/<domain>/<name>.md
     - scripts/<name>.sh
+    - .harness/hooks/skills/<skill>/<pre|post>.md
+    - .harness/hooks/shared/<fragment>.md
+    - workflows/templates/<mode>.cwr.json
     - .harness/harness.json (via sync-harness.sh)
 pipeline_role:
   triggered_by: /roster-skill-health with APPROVED proposals
@@ -25,17 +29,11 @@ pipeline_role:
 
 # Roster Preamble
 
-This preamble is injected into every roster skill that declares `preamble: true`.
-It encodes the non-negotiable principles that govern all skill runs.
-
----
-
 ## Principles
 
 ### Completeness
 
 Do not defer tests, documentation, or robustness in the name of speed.
-A short-term shortcut is rarely faster than a complete solution.
 "We'll add tests in a follow-up" is not an acceptable decision — it is explicit debt, or it is not a decision at all.
 
 ### Search Before Build
@@ -44,9 +42,6 @@ Before creating anything, verify what already exists:
 1. Local (current repo, harness, KB)
 2. Roster (index.json, roster GitHub)
 3. Web (if webfetch available)
-
-A false positive (checking for something that didn't exist) costs seconds.
-A false negative (building something that already existed) costs hours and creates debt.
 
 ### Anti-Sycophancy
 
@@ -57,13 +52,8 @@ State your recommendation, explain why, mention what context you might be missin
 
 ### User Sovereignty
 
-When you and a sub-agent both agree to change the user's direction:
-→ present the recommendation
-→ explain why you both think it is better
-→ state what context you might be missing
-→ ask
-
-Never act unilaterally in this case. The decision belongs to the user.
+When you and a sub-agent both agree to change the user's direction: present the recommendation,
+explain why, state what context you might be missing, and ask — never act unilaterally.
 
 ### Escalation
 
@@ -87,78 +77,6 @@ Rules:
 - One question at a time — never bundle multiple questions into one message
 - Prefer multiple-choice options over open-ended when the answer space is predictable
 - If no interactive tool is available, output a clearly marked plain-text question and wait for the user's reply before proceeding
-
-### Friction Log
-
-At the end of each run, honestly record:
-- frictions encountered (workarounds, long searches, ambiguities)
-- methods used
-- any suggestion for a tool, skill, or adaptation
-
-This is not a performance review. It is cross-run memory.
-Format: see `skills-meta/friction.jsonl`.
-
-### Pipeline State
-
-If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
-pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
-event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
-`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
-is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
-context. Create the file if absent; preserve every prior `events` entry:
-
-```json
-{
-  "task": "<slug>",
-  "mode": "express|fast|full",
-  "current_phase": "implement",
-  "events": [
-    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
-  ]
-}
-```
-
-Rules for writing your event:
-
-- **`task` is the canonical slug**, derived once from the task description and reused identically
-  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
-  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
-  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
-  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
-  ledger will not be found. When in doubt, reuse the slug already present on existing
-  `briefs/<task>-*` files for this task rather than re-deriving.
-- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
-  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
-  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
-- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
-  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
-  `ship`: `COMPLETED` or `BLOCKED`; `implement`: `COMPLETED` or `PARTIAL`;
-  `question`/`research`/`plan`: `COMPLETED`. Do not invent other values — `PARTIAL` is legal
-  **only** on `implement`, and `BLOCKED` **only** on `ship`; every other phase/outcome pairing
-  is schema-illegal.
-- **Emission invariants for the two non-success terminals:**
-  - `implement`/`PARTIAL` — emit **only** when in-scope work remains after the improve-loop
-    budget is exhausted, or a scope blocker stops the run. Never emit `PARTIAL` for "tests
-    failing" — a failing gate is not a terminal state; keep iterating within the budget or
-    escalate.
-  - `ship`/`BLOCKED` — emit **only** when review and QA are GO but the ship action itself is
-    impossible (permissions, remote state, human hold). A NO-GO gate is not `BLOCKED`.
-  - Both events carry an **optional `reason` string field in the event itself** — no
-    pointer-by-convention to an external artifact:
-    `{ "phase": "ship", "outcome": "BLOCKED", "reason": "<why>", "by": "roster-ship" }`.
-  - **Artifact writes happen BEFORE the event append.** Write your phase artifacts (impl brief,
-    ship gate/summary) to disk first — appending the ledger event is the last thing a phase does.
-- **Resume semantics** (read by `/roster-run` Step 1.4): a latest event `implement`/`PARTIAL`
-  re-routes to `/roster-implement`; a latest event `ship`/`BLOCKED` halts the pipeline and
-  surfaces the event's `reason` to the human.
-- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
-  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
-  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
-- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
-- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
-  skill name (or `human-gate` for a gate decision).
-- Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
-  hooks manually.
 
 
 ### Friction Log
@@ -248,7 +166,37 @@ If no APPROVED proposal:
 
 ## Steps
 
-For each APPROVED proposal, in order A → B → C → D:
+**Category vocabulary is owned by `/roster-skill-health`** (its §4 A–F list is the shared
+contract): S `[SIMPLIFY]`, A `[SKILL]`, B `[TOOL]`, C `[ADAPT]`, D `[HOOK]`, E `[AGENT]`,
+F `[WORKFLOW]`.
+Each tag has a handler below. A report tag with no handler here is a contract violation —
+stop and escalate rather than improvising.
+
+For each APPROVED proposal, in order S → A → B → C → D → E → F. `[SIMPLIFY]` runs first on
+purpose: a removal can make a later addition unnecessary, and applying the addition first would
+keep it alive.
+
+### Proposal [SIMPLIFY] — Removal, shortening, or merge into an existing mechanism
+
+1. **Gate before**: state exactly what stops existing, and what depended on it. Enumerate the
+   dependents — by grep, not by memory. A removal whose dependents are unknown is not ready:
+   say so and stop. On 2026-08-26 this step caught four of eight approved proposals naming the
+   wrong target, including one whose deletion would have disarmed a trust-boundary gate.
+2. **Do less than approved when the evidence contradicts the approval.** A proposal approved on
+   a mis-stated target does not become correct by being approved. Narrow it, say plainly that
+   you narrowed it and why, and leave the wider change to the human.
+3. **Locate the mechanism that absorbs it**, when the proposal is a merge, and verify it actually
+   runs (executable hook, reachable target, command in CI). Record how you verified. Merging a
+   guard into a mechanism that does not run recreates the inert safeguard the proposal was
+   written to remove.
+4. **Apply the removal**, then re-run the checks the removed thing was supposed to protect. A
+   removal is verified by the protection still holding, not by the tree still building. Prove it
+   in the environment the removal claims to fix — a bare shell, a fresh clone — not in the one
+   already carrying the workaround.
+5. **Re-read the remaining APPROVED proposals**: a removal often makes a later `[ADAPT]` or
+   `[HOOK]` unnecessary. Report which ones it obsoleted and skip them rather than applying both.
+6. **Friction Log**: record what the removal stops costing, in the units it cost (lines re-typed
+   per command, artifacts to edit per correction, phases per fix).
 
 ### Proposal [SKILL] — New skill
 
@@ -349,6 +297,39 @@ For each APPROVED proposal, in order A → B → C → D:
 
 ---
 
+### Proposal [HOOK] — Skill hook
+
+1. **Gate before**: present the target skill, the phase (`pre` or `post`), and what the hook
+   automates (the guard / cleanup / feedback loop cited in the proposal).
+
+2. **Author the hook** at `.harness/hooks/skills/<skill-name>/<pre|post>.md`:
+   - Frontmatter: `name`, `version`, `event: pre|post`, `skill: <skill-name>`, `on_error`,
+     `description` (see `docs/hooks.md` for the format and step operators)
+   - A fenced ` ```yaml ` block with `steps:` — prefer deterministic `run:`/`test:` steps;
+     `prompt:`/`loop:` steps only when the check genuinely needs LLM judgment
+
+3. **Validate and dry-run**:
+   ```bash
+   node dist/scripts/check-hook-structure.js
+   TASK=<sample-slug> node .harness/bin/run-hook.js <pre|post> <skill-name>
+   ```
+   Both must exit clean (run-hook exit 0/2/3 are acceptable outcomes; 1 means the hook's
+   abort path fired — verify that is the intended behavior for the sample input; 4 means
+   the runner did not find the hook — a red flag right after authoring it: check the
+   path and `skill:` frontmatter).
+
+4. **Gate after**: show the hook file and the dry-run output. Request install approval,
+   then `bash scripts/sync-harness.sh`.
+
+5. **Lifecycle proposals** (hook→skill migration, skill→hook extraction — see
+   `/roster-skill-health` §4.D): treat as `[ADAPT]` on the affected skill plus a hook
+   file add/delete; both diffs go through the same before/after gates. A skill→hook
+   extraction that health proposed as a **shared fragment** writes
+   `.harness/hooks/shared/<fragment>.md` and updates each affected skill hook to
+   `include:` it — run `node dist/scripts/check-hook-structure.js` after sync.
+
+---
+
 ### Proposal [AGENT] — New dedicated agent
 
 1. **Gate before**: present the role, domain, and frictions motivating it. This is a large investment — confirm explicitly.
@@ -367,18 +348,30 @@ For each APPROVED proposal, in order A → B → C → D:
    ls workflows/*.cwr.json 2>/dev/null | grep -v 'templates/' || echo "no instances"
    ```
    For each instance:
-   - Read `_roster_template_version` to identify the source template
-   - Load `workflows/templates/<mode>.cwr.json`
-   - Compute structural diff: compare steps by (position, id, skill) — **ignore prompt content**
+   - Identify the source template **structurally**: match the instance's step sequence
+     (id, skill) against each `workflows/templates/*.cwr.json`. `_roster_template_version`
+     alone cannot identify the template — it is a version string and multiple templates
+     share versions. If zero or multiple templates match → mark the instance
+     `[AMBIGUOUS]`, skip it.
+   - Load the matched `workflows/templates/<mode>.cwr.json`
+   - Compute the diff at two levels: **structural** (compare steps by position, id, skill)
+     and **prompt-level** (compare each step's prompt text). Instances are generated as
+     verbatim template copies, so any diff reflects deliberate manual instance edits —
+     prompt-level diffs are the common promotion case; structural diffs are rare.
+     (Template identification above stays structural only, so it survives prompt edits.)
    - If template has been updated since `_roster_template_version` → mark diff as `[CONFLICT]`, skip
 
-2. **Cluster diffs**: group instances by (template, structural-diff-signature). For clusters with count ≥ `min_entries_for_signal` (default 3, shared with roster-skill-health tunable), generate a unified structural diff.
+2. **Cluster diffs**: group instances by (template, diff-signature) — the signature covers both structural and prompt-level diffs. For clusters with count ≥ `min_entries_for_signal` (default 3, shared with roster-skill-health tunable), generate a unified diff.
 
 3. **Gate before**: present the unified diff to the human. Show how many instances share this modification and what it does. Do not apply without explicit approval.
 
 4. **Apply patch** (on approval):
    - Edit `workflows/templates/<mode>.cwr.json` to incorporate the diff
    - Bump `_roster_version`: minor (x.Y.0) if steps added/removed; patch (x.y.Z) for wording changes
+   - Validate before the after-gate counts as satisfied:
+     `jq empty workflows/templates/<mode>.cwr.json && node scripts/check-cwr-templates.js`
+     (plus `cwr lint` when the CLI is available) — a template that fails validation is a
+     failed apply: revert it
    - Run `bash scripts/sync-harness.sh`
 
 5. **Gate after**: present the final template diff. Request commit approval.
@@ -392,16 +385,12 @@ For each APPROVED proposal, in order A → B → C → D:
 After any edit to skill `.md` files, run this integrity check:
 
 ```bash
-# Verify all friction_log: true skills have a valid jsonl block
-missing=$(grep -rL '```jsonl' $(grep -rl 'friction_log: true' skills/ --include='*.md') 2>/dev/null)
-if [ -n "$missing" ]; then
-  echo "❌ Missing jsonl wrapper in: $missing"
-else
-  echo "✅ All friction_log skills have valid jsonl wrapper"
-fi
+# Friction Log sections are validated by the canonical checker (accepts the inline
+# jsonl template OR the deduplicated pointer to skills/shared/preamble-friction.md):
+node dist/scripts/check-friction-shape.js && node dist/scripts/check-skill-structure.js
 ```
 
-If any skill fails: restore the `## Friction Log` block with the correct format before proceeding to the next proposal.
+If either check fails: restore the `## Friction Log` section (inline template or canonical pointer) before proceeding to the next proposal.
 
 ### Harness coherence check (run after every proposal)
 
@@ -427,7 +416,9 @@ For each APPROVED proposal:
 - [SKILL] → `skills/<domain>/roster-<name>.md` installed + harness updated
 - [TOOL] → `scripts/<name>.sh` created + affected skill patched
 - [ADAPT] → skill patched + version bumped
+- [HOOK] → `.harness/hooks/skills/<skill>/<pre|post>.md` installed + structure check green
 - [AGENT] → agent installed via recruiter
+- [WORKFLOW] → template patched + `_roster_version` bumped
 
 ## When to Go Back
 
@@ -447,18 +438,7 @@ For each APPROVED proposal:
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-skill-evolve",
-  "task": "skill-evolution",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-skill-evolve"`.
 
 ## Rules
 

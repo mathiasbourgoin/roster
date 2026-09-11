@@ -1,8 +1,8 @@
 ---
 name: tdd-workflow
-description: Run TDD cycle — write failing test, implement, refactor, verify coverage.
-when_to_use: "Use to drive a strict red-green-refactor cycle. Trigger: 'TDD', 'write the test first', test-driven implementation."
-version: 1.0.1
+description: Drives a strict red-green-refactor TDD cycle with coverage verification.
+when_to_use: "Use when a feature or fix should be built test-first. Trigger: 'TDD', 'write the test first'."
+version: 1.0.2
 ---
 
 # TDD Workflow
@@ -74,17 +74,4 @@ Summarize: what behavior was added, how many tests pass, coverage %, and any ref
 
 ## Friction Log
 
-At the end of each run, append to `skills-meta/friction.jsonl` :
-
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "tdd-workflow",
-  "task": "<task-slug or short description>",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "tdd-workflow"`.

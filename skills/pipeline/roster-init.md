@@ -1,8 +1,8 @@
 ---
 name: roster-init
-description: Bootstrap a new project or onboard an existing project into the roster ecosystem.
-when_to_use: "Use when starting a new project or onboarding an existing one into roster — bootstraps harness, KB, and pipeline. Trigger: 'set up roster here', greenfield/onboard."
-version: 1.2.2
+description: Bootstraps the roster harness, KB, and pipeline into a new or existing project.
+when_to_use: "Use the first time roster is installed in a repo. Trigger: 'set up roster here', 'greenfield onboard'."
+version: 1.4.0
 domain: pipeline
 phase: null
 preamble: true
@@ -138,7 +138,18 @@ Validate or correct before I install anything.
 
 Human gate: wait for explicit validation.
 
-### A4. Install (after validation)
+### A4. Code-intel tools step (after validation, before install)
+
+This step is not part of the interview — it consumes none of the interview question budget. It is a deterministic suggestion procedure:
+
+1. **Detect languages** from manifest files: `dune-project` → `ocaml`; `Cargo.toml` → `rust`; `go.mod` → `go`; `pyproject.toml` → `python`; `package.json` → `javascript`, plus `typescript` when `tsconfig.json` is also present. These map to the registry `languages` enum (`go`/`rust`/`typescript`/`javascript`/`python`/`ocaml`). In Mode A (greenfield — manifests may not exist yet), merge in the language(s) the user gave in Q1; manifests confirm rather than gate.
+2. **Load the registry:** when running inside or alongside a roster checkout, read `registry/code-intel.jsonl` from it; otherwise fetch `https://raw.githubusercontent.com/mathiasbourgoin/roster/main/registry/code-intel.jsonl` (20s timeout). On any failure, skip this step silently — no question, no error.
+3. **Filter:** keep entries whose `languages` overlap the detected languages. Exclude already-installed packs — run `node scripts/code-intel-resolve.js list` when the resolver is available, otherwise grep `.agents/skills/*/SKILL.md` and `.opencode/skills/*/SKILL.md` frontmatter for `capability: code-intel`.
+4. **Zero matches** → skip the step entirely (never present a question whose only option is "none").
+5. **Present the suggestion** via the runtime's interactive question tool (AskUserQuestion or equivalent), ranked: `verified` tier first, alphabetical within each tier; at most 3 pack options plus a mandatory "none of these" option, which is the DEFAULT. If more than 3 entries match, note the overflow count in the question text (e.g. "2 more matches not shown"). Label every community-tier option "(community — not verified by roster)".
+6. **On approval of a pack:** present the entry's `install` field text verbatim in a fenced code block for the user to run themselves — NEVER execute any of it. **On "none":** continue to the install step, change nothing, and do not persist the decline (a re-run may re-ask).
+
+### A5. Install (after validation)
 
 1. `git init` if not already done
 2. Create a minimal `.gitignore` adapted to detected languages
@@ -151,8 +162,9 @@ Human gate: wait for explicit validation.
 7. Create `skills-meta/friction.jsonl` (empty array)
 8. Add `skills-meta/` to `.gitignore` if absent
 9. Bootstrap episodic memory: `mkdir -p memory/sessions memory/agents`. Write `memory/index.md` with YAML front-matter (`title`, `date`, `owner: agents`), a short description referencing `schema/memory-schema.md`, and stub `## Sessions` / `## Agent Notes` sections. Add `kb/.index/` to `.gitignore` (LanceDB vector index — never committed).
-10. Create `briefs/project-intake.md` ready for the first `/roster-run`
-11. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
+10. Add exactly these four globs to `.gitignore` if absent (FR-155/156 — per-task machine state, never `briefs/` wholesale): `briefs/*-xruntime.jsonl`, `briefs/*-gate-report.json`, `briefs/*-state.json`, `briefs/*.json.draft`.
+11. Create `briefs/project-intake.md` ready for the first `/roster-run`
+12. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
 
 ---
 
@@ -245,7 +257,11 @@ Validate before I write anything.
 
 Human gate: wait for explicit validation.
 
-### B4. Non-destructive install (after validation)
+### B4. Code-intel tools step (after validation, before install)
+
+Run the Code-intel tools step exactly as in Mode A (A4) — same registry load chain, filtering, ranking, option cap, labels, "none" default, verbatim install presentation, and no-execution/no-persistence rules. Language detection reuses the B1 findings instead of a fresh manifest scan. Outside the interview question budget.
+
+### B5. Non-destructive install (after validation)
 
 1. Merge the harness (do not overwrite): recruiter Mode 2 if team exists, Mode 1 if not.
 2. Propose the KB in the terminal (infer from README, docs, tests):
@@ -253,9 +269,10 @@ Human gate: wait for explicit validation.
    - Gate: "Here is the KB draft — shall I write it?"
 3. If a domain lacks an adapted roster skill: ask "Shall I create these via skill-creator?" If yes → spawn `skill-creator` if available; otherwise describe manually and open a roster issue.
 4. Create `skills-meta/friction.jsonl` (empty). Add `skills-meta/` to `.gitignore` if absent.
-5. Bootstrap episodic memory (non-destructive): if `memory/` absent, create it with `memory/sessions`, `memory/agents`, and `memory/index.md` (same structure as A4 step 9); otherwise skip silently. Add `kb/.index/` to `.gitignore` if absent.
-6. Create `briefs/project-intake.md` with project state and first objective.
-7. Project the harness to runtimes.
+5. Bootstrap episodic memory (non-destructive): if `memory/` absent, create it with `memory/sessions`, `memory/agents`, and `memory/index.md` (same structure as A5 step 9); otherwise skip silently. Add `kb/.index/` to `.gitignore` if absent.
+6. Add the same exactly-four globs as A5 step 10 to `.gitignore` if absent: `briefs/*-xruntime.jsonl`, `briefs/*-gate-report.json`, `briefs/*-state.json`, `briefs/*.json.draft`.
+7. Create `briefs/project-intake.md` with project state and first objective.
+8. Project the harness to runtimes.
 
 ---
 
@@ -293,6 +310,7 @@ Triggered when an adversarial question reveals a fundamental problem and the use
   "task": "<task-slug or short description>",
   "mode": "<greenfield|onboard>",
   "frictions": ["<friction 1>", "..."],
+  "classes": ["<friction-class>", "..."],
   "methods": ["<workaround used>"],
   "suggestion_type": "<skill|tool|adapt|agent|null>",
   "suggestion": "<description if suggestion_type non null>",

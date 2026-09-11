@@ -1,8 +1,12 @@
 # check-leak-diff ignore globs (gitignore-style). The scanner test legitimately holds
 # secret-shaped fixtures.
 scripts/check-leak.test.js
+# npm lockfile integrity fields are public registry sha512 checksums — machine-generated
+# high-entropy base64 that the HIGH_BLOB pattern always flags (false positive by construction).
 package-lock.json
-kb/index.md
-kb/properties.md
-kb/spec.md
+# review-bundle manifest: machine-generated sha256 integrity hashes (64-hex), same false-positive
+# class as package-lock.json integrity fields.
+scripts/review-bundle.manifest.json
+# .harness/bin/run-hook.js is an esbuild-generated minified bundle (embeds js-yaml);
+# high-entropy by construction — same machine-generated-artifact class as package-lock.json.
 .harness/bin/run-hook.js

@@ -250,13 +250,23 @@ Use index artifacts, not ad-hoc remote crawling.
    flow fails for every new user. After the team is written, offer:
 
    > Install the roster pipeline skills? They add `/roster-run` (entry point) and
-   > intake→spec→plan→implement→review→qa→ship as slash commands, plus `/roster-init`
+   > question→research→intake→spec→plan→implement→review→qa→ship as slash commands, plus `/roster-init`
    > for bootstrapping and `/roster-skill-health` for self-improvement. [Y/n]
 
    On approval (default yes), run the **New Skill Discovery** install procedure in
    `recruiter/ops/update-mechanism.md` to fetch and write every pipeline skill to the
    project's runtime entrypoints, then re-run `./scripts/sync-harness.sh <project-root>`.
    Skip absent runtime directories — do not fail.
+
+8. **Offer code-intel tool packs (an offer, not a gap question — it never consumes the
+   3–5 clarification-question budget of step 2).**
+
+   Reusing the languages already detected during project analysis (step 1), run the
+   **Code-Intel Pack Discovery** procedure in `recruiter/ops/update-mechanism.md`
+   (installed: `.claude/agents/recruiter-ops/update-mechanism.md`) alongside the
+   pipeline-skills offer above: registry from local checkout else raw URL else skip
+   silently; verified tier first, max 3 options + "none" default; community entries
+   labeled; on approval present the entry's `install` text verbatim — never execute it.
 
 ### Mode 2: Team Audit & Upgrade (existing harness found)
 
@@ -433,6 +443,7 @@ See `.claude/agents/recruiter-ops/update-mechanism.md` (installed) or
 - `/recruit update` source resolution, version comparison, merge procedure
 - Self-Update Report Contract (runtime projections, Codex visibility, skill inventory)
 - New Agent/Skill Discovery procedures with the full skill install list
+- Code-Intel Pack Discovery (registry-driven tool-pack suggestions, never auto-installed)
 - Team Re-Adaptation checklist for major version upgrades (1.x → 2.x)
 
 Runtime path reference: `.claude/agents/recruiter-ops/runtime-paths.md` (installed) or

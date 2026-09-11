@@ -31,6 +31,9 @@
  *     - .harness/hooks exists non-empty (CORE_HOOKS is copied for every profile) and
  *       its *.md count matches CORE_HOOKS(+DEVELOPER_HOOKS for developer+)
  *     - .harness/harness.json `.profile` field == the requested profile
+ *     - for the full profile, adding a skill hook and re-syncing installs the
+ *       self-contained hook runner, which accepts the canonical intake status
+ *       and rejects the legacy status spelling without target node_modules
  *     - the REAL home's ~/.codex gained no entries (env-sandbox leak tripwire)
  *
  * Flags: --report  → print findings but always exit 0 (debug mode).
@@ -131,6 +134,52 @@ function codexEntries(home: string): string[] {
   return fs.existsSync(dir) ? fs.readdirSync(dir).sort() : [];
 }
 
+function checkPortableSkillHook(tmp: string, sandboxHome: string): void {
+  const sourceHook = path.join(REPO_ROOT, ".harness/hooks/skills/roster-spec/pre.md");
+  const targetHook = path.join(tmp, ".harness/hooks/skills/roster-spec/pre.md");
+  fs.mkdirSync(path.dirname(targetHook), { recursive: true });
+  fs.copyFileSync(sourceHook, targetHook);
+
+  const sync = spawnSync("bash", [path.join(REPO_ROOT, "scripts/sync-harness.sh"), tmp], {
+    encoding: "utf-8",
+    env: { ...process.env, HOME: sandboxHome, CODEX_HOME: path.join(sandboxHome, ".codex") },
+  });
+  if (sync.status !== 0) {
+    errors.push(
+      `profile full: sync with a skill hook exited ${sync.status} — stderr: ${(sync.stderr || "").trim().split("\n").slice(-3).join(" | ")}`
+    );
+    return;
+  }
+
+  const runner = path.join(tmp, ".harness/bin/run-hook.js");
+  if (!fs.existsSync(runner)) {
+    errors.push("profile full: skill hook sync did not install .harness/bin/run-hook.js");
+    return;
+  }
+
+  const brief = path.join(tmp, "briefs/portable-intake.md");
+  fs.mkdirSync(path.dirname(brief), { recursive: true });
+  const runHook = () => spawnSync(process.execPath, [runner, "pre", "roster-spec"], {
+    cwd: tmp,
+    encoding: "utf-8",
+    env: { ...process.env, HOME: sandboxHome, TASK: "portable" },
+  });
+
+  fs.writeFileSync(brief, "# Intake\n\n**Status: VALIDATED**\n", "utf-8");
+  const canonical = runHook();
+  if (canonical.status !== 0) {
+    errors.push(
+      `profile full: installed hook runner rejected canonical intake status — stderr: ${(canonical.stderr || "").trim().split("\n").slice(-3).join(" | ")}`
+    );
+  }
+
+  fs.writeFileSync(brief, "# Intake\n\n**Status:** VALIDATED\n", "utf-8");
+  const legacy = runHook();
+  if (legacy.status === 0) {
+    errors.push("profile full: installed hook runner accepted legacy intake status spelling");
+  }
+}
+
 function checkProfile(arrays: Map<string, string[]>, profile: string): void {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `init-harness-${profile}-`));
   const sandboxHome = fs.mkdtempSync(path.join(os.tmpdir(), `init-harness-home-${profile}-`));
@@ -176,6 +225,7 @@ function checkProfile(arrays: Map<string, string[]>, profile: string): void {
         errors.push(`profile ${profile}: manifest .profile is "${manifest.profile}", expected "${profile}"`);
       }
     }
+    if (profile === "full") checkPortableSkillHook(tmp, sandboxHome);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
     fs.rmSync(sandboxHome, { recursive: true, force: true });

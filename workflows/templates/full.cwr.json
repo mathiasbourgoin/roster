@@ -6,25 +6,25 @@
     {
       "kind": "agent",
       "id": "roster-implement",
-      "prompt": "Invoke the Skill tool with skill=\"roster-implement\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node dist/scripts/run-hook.js pre roster-implement. Post-hook (run after Skill): TASK=${TASK} node dist/scripts/run-hook.js post roster-implement.",
+      "prompt": "Invoke the Skill tool with skill=\"roster-implement\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node .harness/bin/run-hook.js pre roster-implement. Post-hook (run after Skill): TASK=${TASK} node .harness/bin/run-hook.js post roster-implement.",
       "on_failure": "abort"
     },
     {
       "kind": "agent",
       "id": "roster-review",
-      "prompt": "Invoke the Skill tool with skill=\"roster-review\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node dist/scripts/run-hook.js pre roster-review. Post-hook (run after Skill): TASK=${TASK} node dist/scripts/run-hook.js post roster-review.",
+      "prompt": "Invoke the Skill tool with skill=\"roster-review\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node .harness/bin/run-hook.js pre roster-review. Post-hook (run after Skill): TASK=${TASK} node .harness/bin/run-hook.js post roster-review.",
       "on_failure": "abort"
     },
     {
       "kind": "agent",
       "id": "roster-qa",
-      "prompt": "Invoke the Skill tool with skill=\"roster-qa\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node dist/scripts/run-hook.js pre roster-qa. Post-hook (run after Skill): TASK=${TASK} node dist/scripts/run-hook.js post roster-qa.",
+      "prompt": "Invoke the Skill tool with skill=\"roster-qa\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node .harness/bin/run-hook.js pre roster-qa. Post-hook (run after Skill): TASK=${TASK} node .harness/bin/run-hook.js post roster-qa.",
       "on_failure": "abort"
     },
     {
       "kind": "agent",
       "id": "roster-ship",
-      "prompt": "Invoke the Skill tool with skill=\"roster-ship\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node dist/scripts/run-hook.js pre roster-ship. Post-hook (run after Skill): TASK=${TASK} node dist/scripts/run-hook.js post roster-ship.",
+      "prompt": "Invoke the Skill tool with skill=\"roster-ship\" and args=\"${TASK}\". Pre-hook (run before Skill): TASK=${TASK} node .harness/bin/run-hook.js pre roster-ship. Post-hook (run after Skill): TASK=${TASK} node .harness/bin/run-hook.js post roster-ship.",
       "on_failure": "abort"
     }
   ]

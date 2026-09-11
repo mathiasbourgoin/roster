@@ -1,7 +1,8 @@
 ---
 name: roster-triage-critical
-description: Critical-route triage — property elicitation, priority ordering, backend proposal, cost disclosure. Dispatched by roster-run when --critical is chosen. Checkpoints to briefs/<slug>-formal-triage.md.
-version: 1.0.0
+description: Elicits formal-verification properties and proposes a backend for the critical route.
+when_to_use: "Use when roster-run dispatches a --critical task. Trigger: 'triage critical', '--critical route'."
+version: 1.0.4
 domain: pipeline
 phase: null
 preamble: true
@@ -18,7 +19,13 @@ You run Stages 2–5 of the `--critical` pipeline route: property elicitation, p
 ## Input Contract
 
 - The target component (file path, module, or description) provided as your argument.
-- Task slug (derive from the component name: lowercase kebab-case, ≤4 significant words).
+- Task slug: **reuse the pipeline task slug** — the one already present on existing
+  `briefs/<task>-*` artifacts or passed by roster-run (the preamble's Pipeline State rule
+  requires it byte-identical across every phase; roster-run and roster-plan look up
+  `briefs/<slug>-formal-triage.md` / `briefs/<slug>-formal-verify.md` by that slug).
+  Only if no pipeline slug exists yet (direct invocation, no prior artifacts): derive one
+  from the component name (lowercase kebab-case, ≤4 significant words) — it becomes the
+  pipeline slug from then on.
 
 ## Steps
 
@@ -137,7 +144,7 @@ Write `briefs/<slug>-formal-triage.md` before exiting. Schema:
 
 ```markdown
 ---
-slug: <component-slug>
+slug: <task-slug — the pipeline slug from the Input Contract>
 date: <ISO date>
 component: <file or module path>
 backend_recommendation: <rocq|quint|both>
@@ -163,10 +170,52 @@ downgrade_reason: null
 
 The human's backend decision (or downgrade reason) is filled in by the intake gate, not here. Leave as `null`.
 
+## Flag-preselected backend (invoked from roster-run)
+
+When the user passes `--critical=rocq` or `--critical=quint` explicitly, `roster-run` skips this
+skill's interactive stages (the backend is pre-chosen) but must still **write a minimal triage
+brief** before entering the pipeline — downstream skills (`roster-spec-formal`,
+`roster-formal-verify`) hard-require `briefs/<slug>-formal-triage.md`:
+
+```markdown
+---
+slug: <slug>
+date: <ISO date>
+component: <target>
+backend_recommendation: <rocq|quint>
+human_decision: <rocq|quint>
+downgrade_reason: null
+---
+
+## Properties
+(to be elicited during the pipeline — triage abbreviated, backend pre-selected by flag)
+
+## Backend Argument
+Backend pre-selected by user via --critical=<backend> flag.
+
+## Q3 Answer
+(to be completed if full triage is later requested)
+```
+
+`roster-run` then routes directly to the full pipeline, skipping `roster-triage-critical`.
+
+### Post-choice pipeline route
+
+When `--critical` is chosen (via flag or roster-run's suggestion) and — on the interactive path —
+this skill has produced `briefs/<slug>-formal-triage.md` and the human has confirmed the backend,
+the pipeline routes:
+
+```
+roster-triage-critical
+  → question → research → intake → roster-spec → roster-spec-formal
+  → plan → implement → roster-formal-verify → review → ship
+```
+
+(E1 downgrade path, when formal verification is declined: `roster-formal-verify → review → qa → ship`)
+
 ## Rules
 
 - Read-only scan only — never modify source files
-- Q3 is closed-choice; do not paraphrase or reinterpret the answer
 - The five elicitation questions are fixed; do not regenerate them
 - This skill does not run the intake validation quiz — that is roster-spec-formal's job
 - If the human declines --critical entirely, log `"event": "critical_declined"` in friction.jsonl (separate from suggestion_type)
@@ -195,6 +244,7 @@ The human's backend decision (or downgrade reason) is filled in by the intake ga
   "skill": "roster-triage-critical",
   "task": "<task-slug>",
   "frictions": [],
+  "classes": [],
   "methods": [],
   "suggestion_type": null,
   "suggestion": null,

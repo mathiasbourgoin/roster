@@ -1,0 +1,11 @@
+{
+  "task": "fixture-task",
+  "date": "2026-07-14T00:00:00Z",
+  "status": "NO-GO",
+  "round": 1,
+  "cycle": 1,
+  "rounds_audit": [
+    { "round": 1, "date": "2026-07-14T00:00:00Z", "verdict": "NO-GO", "causes": ["gate-failure"], "qualifying": true }
+  ],
+  "cross_runtime": {}
+}

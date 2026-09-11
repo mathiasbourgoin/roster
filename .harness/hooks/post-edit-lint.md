@@ -3,7 +3,7 @@ name: post-edit-lint
 description: Auto-detect project linter and run it on edited files — informational, non-blocking.
 event: PostToolUse
 matcher: Edit|Write
-version: 1.0.0
+version: 1.1.0
 timeout: 15000
 async: false
 requires: ["jq"]

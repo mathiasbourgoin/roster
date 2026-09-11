@@ -1,13 +1,13 @@
 ---
 name: roster-audit
-description: Quality and compliance audit — combines code-quality and spec-compliance into one actionable report.
-when_to_use: "Use to assess existing code's quality + spec compliance with no specific change in flight. Trigger: 'audit this', 'is the code healthy'."
-version: 1.3.0
+description: Combines code-quality and spec-compliance checks into one actionable audit report.
+when_to_use: "Use to assess existing code with no specific change in flight. Trigger: 'audit this', 'is the code healthy'."
+version: 1.4.1
 domain: pipeline
 phase: null
 preamble: true
 friction_log: true
-allowed_tools: [Read, Bash, AskUserQuestion]
+allowed_tools: [Read, Write, Bash, AskUserQuestion]
 human_gate: after
 tunables:
   max_function_lines: 50
@@ -31,17 +31,11 @@ pipeline_role:
 
 # Roster Preamble
 
-This preamble is injected into every roster skill that declares `preamble: true`.
-It encodes the non-negotiable principles that govern all skill runs.
-
----
-
 ## Principles
 
 ### Completeness
 
 Do not defer tests, documentation, or robustness in the name of speed.
-A short-term shortcut is rarely faster than a complete solution.
 "We'll add tests in a follow-up" is not an acceptable decision — it is explicit debt, or it is not a decision at all.
 
 ### Search Before Build
@@ -50,9 +44,6 @@ Before creating anything, verify what already exists:
 1. Local (current repo, harness, KB)
 2. Roster (index.json, roster GitHub)
 3. Web (if webfetch available)
-
-A false positive (checking for something that didn't exist) costs seconds.
-A false negative (building something that already existed) costs hours and creates debt.
 
 ### Anti-Sycophancy
 
@@ -63,13 +54,8 @@ State your recommendation, explain why, mention what context you might be missin
 
 ### User Sovereignty
 
-When you and a sub-agent both agree to change the user's direction:
-→ present the recommendation
-→ explain why you both think it is better
-→ state what context you might be missing
-→ ask
-
-Never act unilaterally in this case. The decision belongs to the user.
+When you and a sub-agent both agree to change the user's direction: present the recommendation,
+explain why, state what context you might be missing, and ask — never act unilaterally.
 
 ### Escalation
 
@@ -93,78 +79,6 @@ Rules:
 - One question at a time — never bundle multiple questions into one message
 - Prefer multiple-choice options over open-ended when the answer space is predictable
 - If no interactive tool is available, output a clearly marked plain-text question and wait for the user's reply before proceeding
-
-### Friction Log
-
-At the end of each run, honestly record:
-- frictions encountered (workarounds, long searches, ambiguities)
-- methods used
-- any suggestion for a tool, skill, or adaptation
-
-This is not a performance review. It is cross-run memory.
-Format: see `skills-meta/friction.jsonl`.
-
-### Pipeline State
-
-If your skill's `phase:` frontmatter field is **non-null** (i.e. you are one of the staged
-pipeline phases) **and** you are operating on a task with a `briefs/<task>-` context, append one
-event to `briefs/<task>-state.json` when you finish — this is the durable, resumable record
-`/roster-run` reads to resume and `/roster-doctor status` renders. Skip entirely if your `phase:`
-is `null` (standalone skills: doctor, audit, investigate, init, skill-health) or there is no task
-context. Create the file if absent; preserve every prior `events` entry:
-
-```json
-{
-  "task": "<slug>",
-  "mode": "express|fast|full",
-  "current_phase": "implement",
-  "events": [
-    { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
-  ]
-}
-```
-
-Rules for writing your event:
-
-- **`task` is the canonical slug**, derived once from the task description and reused identically
-  by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
-  `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
-  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
-  every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
-  ledger will not be found. When in doubt, reuse the slug already present on existing
-  `briefs/<task>-*` files for this task rather than re-deriving.
-- **`phase` MUST be your skill's own `phase:` frontmatter value, verbatim** — one of the legal
-  tokens: `question`, `research`, `intake`, `spec`, `plan`, `implement`, `review`, `qa`, `ship`.
-  Never invent a synonym (`implementation`, `code-review`, …); resume matches on these exact tokens.
-- **`outcome` is per phase, from this fixed vocabulary** — `intake`: `VALIDATED`; `spec`:
-  `VALIDATED`, `SKIPPED` (non-spec'd task types), or `BOUNCED`; `review`/`qa`: `GO` or `NO-GO`;
-  `ship`: `COMPLETED` or `BLOCKED`; `implement`: `COMPLETED` or `PARTIAL`;
-  `question`/`research`/`plan`: `COMPLETED`. Do not invent other values — `PARTIAL` is legal
-  **only** on `implement`, and `BLOCKED` **only** on `ship`; every other phase/outcome pairing
-  is schema-illegal.
-- **Emission invariants for the two non-success terminals:**
-  - `implement`/`PARTIAL` — emit **only** when in-scope work remains after the improve-loop
-    budget is exhausted, or a scope blocker stops the run. Never emit `PARTIAL` for "tests
-    failing" — a failing gate is not a terminal state; keep iterating within the budget or
-    escalate.
-  - `ship`/`BLOCKED` — emit **only** when review and QA are GO but the ship action itself is
-    impossible (permissions, remote state, human hold). A NO-GO gate is not `BLOCKED`.
-  - Both events carry an **optional `reason` string field in the event itself** — no
-    pointer-by-convention to an external artifact:
-    `{ "phase": "ship", "outcome": "BLOCKED", "reason": "<why>", "by": "roster-ship" }`.
-  - **Artifact writes happen BEFORE the event append.** Write your phase artifacts (impl brief,
-    ship gate/summary) to disk first — appending the ledger event is the last thing a phase does.
-- **Resume semantics** (read by `/roster-run` Step 1.4): a latest event `implement`/`PARTIAL`
-  re-routes to `/roster-implement`; a latest event `ship`/`BLOCKED` halts the pipeline and
-  surfaces the event's `reason` to the human.
-- **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
-  A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
-  repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
-- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
-- Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
-  skill name (or `human-gate` for a gate decision).
-- Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
-  hooks manually.
 
 
 ### Friction Log
@@ -303,7 +217,7 @@ Classification:
 | Status | Meaning |
 |---|---|
 | **PASS** | Code compliant + test exists |
-| **PARTIAL** | Code compliant + no test |
+| **UNTESTED** | Code compliant + no test |
 | **DIVERGE** | Code behaves differently |
 | **MISSING** | No implementation found |
 
@@ -327,6 +241,38 @@ This is the standing-codebase counterpart of the `architect` agent's diff-time r
 architecture drift with no change in flight surfaces here. Report divergences in the same
 severity classes as other findings.
 
+### 6.6. Code-intel audit sections (conditional, deterministic)
+
+If code-intel audit-section packs are installed (resolved purely from SKILL.md
+frontmatter per the seam contract in `schema/skill-schema.md` — `capability: code-intel`
++ `provides: audit-section` + `entry`), run:
+
+```bash
+node scripts/code-intel-resolve.js audit
+```
+
+In the roster repo the resolver lives at `scripts/code-intel-resolve.js`; in consumer
+projects, locate it via the installed roster checkout. If unavailable, perform the
+documented equivalent inline, deterministically: grep the seam frontmatter from
+`.agents/skills/*/SKILL.md` then `.opencode/skills/*/SKILL.md` (dedupe by dir name,
+`.agents` wins), and run each `provides: audit-section` pack's `entry` command with no
+arguments, cwd = project root, `SKILL_DIR` set (lexicographic skill-name order).
+
+- For each `SECTION <pack>` fragment on stdout: append the fragment to
+  `briefs/audit-<date>.md` as a distinct section `## Code-intel: <pack> (deterministic)`.
+  The existing Summary table columns are **unchanged**.
+- For each `DEGRADED <pack>: <reason>` line: write a single-line degraded notice in
+  place of that pack's section. The audit always continues. An unacknowledged pack
+  (execution trust model, `schema/skill-schema.md`) surfaces here as
+  `DEGRADED <pack>: unacknowledged — not executed (...)` — write the degraded notice
+  like any other; its entry only runs after an extension-install hash match or a
+  one-time `node scripts/code-intel-resolve.js ack <pack>`.
+- **Read-only w.r.t. any pack index:** never run a pack's `init` or regenerate an index —
+  a stale index is disclosed by the fragment's mandatory freshness header, not fixed here.
+- **Severity stays model-judged:** you may cite fragment rows as evidence in Actionable
+  findings, but never delegate severity classification to the pack.
+- No pack installed → the resolver emits nothing and the report structure is unchanged.
+
 ### 7. Report
 
 Produce `briefs/audit-<YYYY-MM-DD>.md`:
@@ -344,7 +290,7 @@ Produce `briefs/audit-<YYYY-MM-DD>.md`:
 | Function size | N | N |
 | DRY | N | N |
 | Naming | N | N |
-| Spec compliance | PASS: N / PARTIAL: N / DIVERGE: N / MISSING: N | N |
+| Spec compliance | PASS: N / UNTESTED: N / DIVERGE: N / MISSING: N | N |
 | Invariants | N | N |
 
 ## Actionable findings
@@ -388,18 +334,7 @@ Present the report and ask:
 
 ## Friction Log
 
-```jsonl
-{
-  "date": "<ISO-8601>",
-  "skill": "roster-audit",
-  "task": "audit",
-  "frictions": [],
-  "methods": [],
-  "suggestion_type": null,
-  "suggestion": null,
-  "effort_estimate": null
-}
-```
+Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-audit"`.
 
 ## Rules
 

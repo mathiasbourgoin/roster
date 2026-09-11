@@ -1,8 +1,8 @@
 ---
 name: improvement-loop-planner
-description: Propose bounded self-improvement loops from KB, code, tests, issues, and CI signals.
-when_to_use: "Use to turn KB/code/test/CI signals into bounded improvement loops with success criteria. Trigger: 'plan an improvement loop', after >=2 skill-health proposals."
-version: 1.2.0
+description: Synthesizes KB, code, test, and CI signals into candidate bounded improvement loops.
+when_to_use: "Use when improvement targets are unclear or skill-health proposals have accumulated. Trigger: 'plan an improvement loop'."
+version: 1.2.2
 domain: workflow
 phase: null
 preamble: true
@@ -117,7 +117,7 @@ For each loop, use exactly this structure:
 
 After the proposals, add:
 
-```markdown
+````markdown
 ## Recommendation
 
 - Best starting loop: <Loop N>
@@ -139,7 +139,7 @@ Format:
 Examples:
 - [TOOL] Custom linter rule for missing auth guards — replaces: reviewer manually checking auth on each new endpoint
 - [TOOL] Schema diff checker — replaces: LLM comparing API responses to spec definitions
-```
+````
 
 ## Rules
 
