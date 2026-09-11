@@ -497,7 +497,7 @@ Write `specs/<task-slug>.md`:
 
 ```markdown
 ---
-name: <task-slug>
+name: roster-spec
 type: spec
 status: live
 feature: <feature name from brief goal>
