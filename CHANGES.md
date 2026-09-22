@@ -1,5 +1,132 @@
 # Changes
 
+## v2.7.0 — Code-Intel Packs, Review-Bundle Distribution, Convergence Hardening
+
+Closes a changelog gap, not a code gap: this work (PRs #46-#70) was already reconciled into
+`main` piecemeal by earlier ad hoc landing commits — verified by diffing `main` against `next`
+across every canonical source directory (`skills/`, `rules/`, `agents/`, `hooks/`, `AGENTS.md`,
+`kb/`, `scripts/`, `schema/`, `workflows/`, `specs/`, `docs/`): the only remaining difference is
+`main`'s own `delivery-integrity-audit` feature, which `next` never had, plus one pre-existing
+cosmetic whitespace diff in an unrelated historical report. What was missing was documentation:
+none of PRs #46-#70 had a `CHANGES.md`/`CHANGELOG.md` entry until now.
+
+### Code-Intel Packs (PR #46)
+
+- A tier-list registry (`registry/code-intel.schema.json`) and shared resolver
+  (`scripts/code-intel-resolve.js`) let `roster-init`/`recruit` discover optional research-tool
+  packs and `roster-qa` gate on their KB envelope.
+- `arch-index`, the first and so far only verified pack: a research-orientation provider
+  (`extensions/arch-index/skills/arch-index-orient/orient.sh` + `arch-index-pack.js`) with a
+  simple-path guard and bounded direct-path queries.
+- A missing pack binary degrades that pack to advisory (its gate exits 3, its audit section is
+  skipped) — it never blocks pipeline routing.
+
+### Surgical Implementation Discipline (PR #47)
+
+- `roster-implement` gained a deterministic out-of-scope-change gate
+  (`scripts/check-scope-diff.sh`) and a manifest lifecycle for the files a task is allowed to
+  touch.
+- A new `enforce-file-manifest` PreToolUse freeze hook blocks edits outside the declared
+  manifest at the tool layer, not just at review time.
+
+### Skill-Health Batch (PR #48)
+
+- P1-P6 corrective follow-up from a targeted skill-health review: validator fixes across the
+  friction/health tooling surfaced by that review.
+
+### Review Convergence and Hardening (PRs #49-#52)
+
+Four successive rounds on the same mechanism — the review loop no longer converges on vibes:
+
+- **Loop convergence** (#49): trust-boundary risk-based spec freeze, an invariant ratchet, and
+  `scripts/check-review-convergence.js` as the mechanical gate `roster-run`'s verdict routing
+  now calls before honoring any cached `review` verdict.
+- **Fan-out convergence** (#50): two-strike + circuit-breaker + delta-selection bound the
+  specialist fan-out inside a single review round.
+- **Schema and slimming** (#51): a canonical, zero-dependency-validated review-finding schema
+  (`schema/review-finding.schema.json`, `scripts/lib/review/finding-schema.js`), the H-05
+  normalizer, and a cross-runtime helper that owns probe/state/validation/journal in one place.
+  `roster-review` itself was slimmed to 2.0.0 under a word-budget ratchet in this round (it has
+  grown again since, under the ratchet's ceiling, through the corrections that followed).
+- **v2 corrections** (#52): a two-event round/cycle lifecycle, gate override-awareness, and
+  journal-enforced transport — closing the same "claimed but didn't run" gap that motivated the
+  security follow-up below. First real use of the minimal-freeze profile.
+
+### Review-Bundle Distribution and Hardening (PRs #53, #58, #60)
+
+- A manifest + generator + CI check (`scripts/review-bundle-manifest.js`) so a consumer project
+  can install, upgrade, remove, and verify the review tooling as a portable, sha256-checked
+  bundle, independent of the roster checkout (#53).
+- A blocking preflight gate in `roster-doctor`: a missing or tampered bundle is `NOT-READY`,
+  `stale-install`, with a recovery runbook — never a silent degrade (#53).
+- Consumer-adoption hardening and manifest path validation, rejecting absolute/`..` escapes in
+  the installer (#58, #60).
+
+### Security Hardening Follow-Up (PRs #54-#57, #59)
+
+A re-run adversarial pass against the review-bundle/leak-scan surface above found several
+confirmed HIGHs, closed here:
+
+- Shape- and entropy-aware secret classification in the leak scanner (#54, #57) — base64-payload
+  and non-alphanumeric-boundary false positives fixed without losing true positives.
+- Fail-closed handling of non-array findings with a statusless-HIGH default, and path-traversal
+  containment plus green-phase tree-mutation detection in the review gate (#55, #56).
+- Shell-injection neutralization in the trust-boundary and keyword heuristics (#59).
+
+### QA-Loop Bounding and Reviewer-Invocation Traces (PRs #62, #63)
+
+- `scripts/check-qa-convergence.js` bounds the review-GO → QA-NO-GO → implement loop with a
+  round counter, a cap, and a `qa-not-converging` escalation that stops for a human decision
+  instead of looping forever (`specs/qa-loop-bounding.md`, #62).
+- Gate-enforced reviewer invocation traces (R-5 graduation, #63): a specialist's claimed run
+  must carry `outcome: "ran"` — a `skipped` record can no longer launder an unperformed step.
+
+### `scripts/lib/` Reorganization (PR #61)
+
+Split into concern-based subdirectories (`review/`, `xruntime/`, `bundle/`, `catalog/`,
+`hooks/`) to keep any one gate script under its line budget.
+
+### Cost, Adoption, and Research Tooling (PRs #64-#67)
+
+- `schema/cost-snapshot.schema.json` + a fail-closed `check-cost-shape` validator; an advisory
+  ccusage cost section in `roster-doctor` and a ship-time cost snapshot; an advisory
+  cost/friction correlation section in `roster-skill-health` (#64).
+- `rtk` wired in as an optional, advisory adaptation (rules/doctor/skill-health) — never a
+  dependency roster installs or configures (#65).
+- `roster-research` gained an additive, graph-first-then-verify online research protocol
+  (v1.4.0), and `arch-index-orient` became its research-orientation provider (#66).
+- `roster-question`'s cost-attribution window closed, generator exploration forbidden (#67).
+
+### Subtraction Test and Evidence Guards (PR #70)
+
+A subtraction test (removing a claim should make its dependent check fail) plus the evidence
+guards that using it surfaced.
+
+### Pipeline Contract Fixes and Friction-Log Classes (PR #68 and earlier)
+
+- A frontmatter/preamble consistency sweep across ~18 friction-log skills: `description` as
+  identity, `when_to_use` as triggers, one inherited preamble fragment for the pipeline-state and
+  friction-log contracts instead of 18 copies, duplicated constants given single owners.
+- Thirteen audit-driven contract fixes (F1-F13): truthful CWR-template reachability in
+  Express/Fast, `roster-qa` actually consuming the plan's `qa-scope.md`, `roster-skill-health`'s
+  `[HOOK]` trigger keyed on real friction fields, specialist auditors aligned with
+  `roster-review`'s JSON contract, and others of the same shape.
+- **Friction-log `classes` field + closed vocabulary, phase-exit writing, and "a review is not a
+  review unless it executed"** (PR #68) — see `CHANGELOG.md`'s `[2.7.0]` section for the
+  detailed entries; folded into this release rather than repeated here.
+
+## v2.6.2 — Bugfix
+
+Shipped to the stable channel on 2026-06-05 (`recruiter/CHANGELOG.md` documents it under its own
+`[2.7.0]` entry) and has been part of `main`'s history since — `main` is 93 commits past this tag
+today. It never received a section in this file until now; documented retroactively so the
+release history here matches `VERSION`/tags.
+
+- **Installer no longer dies silently on a `curl | bash` install.** The recruiter-version read
+  used `cat .../VERSION | tr ...` under `set -euo pipefail`; a missing `VERSION` made `cat` fail,
+  `pipefail` propagated it, and `set -e` killed the installer before it printed anything. The
+  read is now guarded with `|| true` (`scripts/install.sh`'s `resolve_version()`).
+
 ## v2.6.1 — Bugfixes
 
 - **OpenCode skill projection aligned with the installer.** `sync-harness` emitted OpenCode skills

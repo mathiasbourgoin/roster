@@ -4,12 +4,71 @@ All notable changes to this project will be documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning: [Semantic Versioning](https://semver.org/).
 
+This file tracks the **npm package** (`package.json` `version`, currently on the 1.x line) —
+independent of `CHANGES.md`, which tracks the **product** release (`VERSION`, the 2.x line).
+The same commit can appear as still-`[Unreleased]` here while already shipped in a `CHANGES.md`
+section: that is two different version counters agreeing on the code, not a contradiction (see
+`docs/doc-audit-2026-07-09.md`'s "Release-convention answer" — a `[Unreleased]` entry here is
+promoted to a numbered npm release only in a dedicated `chore(release)` commit at tag time).
+
 ---
 
 ## [Unreleased]
 
+Per `docs/doc-audit-2026-07-09.md`, the next npm 1.x release must include, at minimum,
+`populate-catalog-rows.js` (AGENTS.md/docs/agents.md catalog-row generation, listed separately
+below) and the hardened hook checker (EC-3/EC-7 `break_if`/`continue_if` lint support, also
+below) — both already present in this section.
+
 ### Added
 
+- **Code-intel packs** (#46) — a tier-list registry (`registry/code-intel.schema.json`), a
+  shared resolver (`scripts/code-intel-resolve.js`), an offline checker, a KB envelope +
+  `roster-qa` gate, and `arch-index` as the first verified reference pack (research-orientation
+  provider at `extensions/arch-index/skills/arch-index-orient/`, simple-path guard, bounded
+  direct-path queries). Discovered by `roster-init`/`recruit`; a missing pack binary degrades
+  that pack to advisory and never blocks routing.
+- **Surgical implementation discipline** (#47) — a deterministic out-of-scope-change gate
+  (`scripts/check-scope-diff.sh`) and a manifest lifecycle in `roster-implement`; a new
+  `enforce-file-manifest` PreToolUse freeze hook blocks edits outside the declared manifest.
+- **Skill-health batch P1-P6** (#48) — validator fixes across the friction/health tooling
+  surfaced by a targeted skill-health review.
+- **Review convergence, four rounds** (#49-#52) — trust-boundary risk-based spec freeze + an
+  invariant ratchet + `scripts/check-review-convergence.js` as the mechanical gate `roster-run`
+  calls before honoring a cached review verdict; two-strike/circuit-breaker/delta-selection
+  bounding the specialist fan-out; a canonical zero-dependency-validated review-finding schema
+  (`schema/review-finding.schema.json`, `scripts/lib/review/finding-schema.js`) with the H-05
+  normalizer and a cross-runtime helper; `roster-review` slimmed to 2.0.0 under a word-budget
+  ratchet in that round; a two-event round/cycle lifecycle with gate override-awareness and
+  journal-enforced transport.
+- **Review-bundle distribution** (#53, #58, #60) — a manifest + generator + CI check
+  (`scripts/review-bundle-manifest.js`) so a consumer project can install/upgrade/remove/verify
+  the review tooling as a portable, sha256-checked bundle; a blocking preflight gate in
+  `roster-doctor` (`NOT-READY`/`stale-install` with a recovery runbook, never a silent degrade);
+  installer manifest-path validation rejecting absolute/`..` escapes.
+- **QA-loop bounding and reviewer-invocation traces** (#62, #63) — `scripts/check-qa-convergence.js`
+  (round counter + cap + `qa-not-converging` human-decision escalation,
+  `specs/qa-loop-bounding.md`) and gate-enforced reviewer invocation traces (R-5): a specialist's
+  claimed run must carry `outcome: "ran"`, so a `skipped` record can no longer launder an
+  unperformed step.
+- **Cost, adoption, and research tooling** (#64-#67) — `schema/cost-snapshot.schema.json` + a
+  fail-closed `check-cost-shape` validator; an advisory ccusage cost section in `roster-doctor`
+  and a ship-time cost snapshot; an advisory cost/friction correlation section in
+  `roster-skill-health`; `rtk` wired in as an optional advisory adaptation (never a dependency
+  roster installs or configures); an additive graph-first-then-verify online research protocol
+  in `roster-research` (v1.4.0) with `arch-index-orient` as its provider; `roster-question`'s
+  cost-attribution window closed.
+- **Subtraction test and evidence guards** (#70) — removing a claim now makes its dependent
+  check fail; guards added from using that test.
+- **`populate-catalog-rows.js`** — regenerates the AGENTS.md and `docs/agents.md` catalog rows
+  (skills and agents) from frontmatter, with a `--check` mode; catalog counts and per-row
+  metadata (version, purpose) can no longer drift silently from the source files.
+- **Hardened hook checker** — `check-hook-structure.js` gained `EC-3`/`EC-7` warnings and
+  `break_if:`/`continue_if:` lint support for the skill-hook DSL.
+- **`delivery-integrity-audit`** — an offline report evaluating delivery controls (never
+  individuals) for a repository whose forge facts an operator captured separately; its
+  `not-verifiable` result is evidence of an input gap, not a green verdict. Wired into
+  `roster-audit` as a supplement.
 - **Friction-log `classes` field + closed vocabulary** (P2) — `schema/skill-schema.md` documents
   15 classes distilled from 354 real friction strings across two independent corpora, each named
   by its *remedy*. `other` is legal but requires a `class_note`, so a stale vocabulary shows up
@@ -32,6 +91,12 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Frontmatter/preamble consistency sweep** across ~18 friction-log skills — `description` as
+  identity, `when_to_use` as triggers; one inherited preamble fragment for the pipeline-state and
+  friction-log contracts instead of 18 duplicated copies; duplicated constants given single
+  owners; Rules-section echoes pruned to one site per rule.
+- **`scripts/lib/` split into concern-based subdirectories** (#61: `review/`, `xruntime/`,
+  `bundle/`, `catalog/`, `hooks/`) — keeps individual gate scripts under their line budget.
 - **Friction entries are written at phase exit, not session end** (P1) — stated in
   `skills/shared/preamble-friction.md` (the single inherited contract) and echoed in the pointer
   line of all 18 friction-log skills. A log written once, late, from memory keeps the narrative
@@ -45,6 +110,16 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Thirteen audit-driven pipeline contract fixes (F1-F13)** — truthful CWR-template
+  reachability in Express/Fast, `roster-qa` actually consuming the plan's `qa-scope.md`,
+  `roster-skill-health`'s `[HOOK]` trigger keyed on real friction fields, specialist auditors
+  aligned with `roster-review`'s JSON contract, and others of the same shape.
+- **Shape- and entropy-aware secret classification in the leak scanner** (#54, #57) —
+  base64-payload and non-alphanumeric-boundary false positives fixed without losing true
+  positives.
+- **Fail-closed handling of non-array findings with a statusless-HIGH default, path-traversal
+  containment, and green-phase tree-mutation detection in the review gate** (#55, #56).
+- **Shell-injection neutralization in the trust-boundary and keyword heuristics** (#59).
 - **The convergence gate accepted a `skipped` trace line as attestation of a claimed specialist
   run.** `specialists_run` now requires `outcome: "ran"`; a skip record can no longer launder an
   unperformed step. Without this, P4's skip rule would have been an easier way to pass the gate
