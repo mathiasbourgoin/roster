@@ -2,13 +2,14 @@
 
 ## v2.7.0 — Code-Intel Packs, Review-Bundle Distribution, Convergence Hardening
 
-Closes a changelog gap, not a code gap: this work (PRs #46-#70) was already reconciled into
-`main` piecemeal by earlier ad hoc landing commits — verified by diffing `main` against `next`
-across every canonical source directory (`skills/`, `rules/`, `agents/`, `hooks/`, `AGENTS.md`,
-`kb/`, `scripts/`, `schema/`, `workflows/`, `specs/`, `docs/`): the only remaining difference is
+Closes a changelog gap, not a code gap: this work (PRs #46-#70, excluding #69 which is still
+open against `next` and out of scope here) was already reconciled into `main` piecemeal by
+earlier ad hoc landing commits — verified by diffing `main` against `next` across every
+canonical source directory (`skills/`, `rules/`, `agents/`, `hooks/`, `AGENTS.md`, `kb/`,
+`scripts/`, `schema/`, `workflows/`, `specs/`, `docs/`): the only remaining difference is
 `main`'s own `delivery-integrity-audit` feature, which `next` never had, plus one pre-existing
 cosmetic whitespace diff in an unrelated historical report. What was missing was documentation:
-none of PRs #46-#70 had a `CHANGES.md`/`CHANGELOG.md` entry until now.
+none of the merged PRs in that range had a `CHANGES.md`/`CHANGELOG.md` entry until now.
 
 ### Code-Intel Packs (PR #46)
 
@@ -16,8 +17,8 @@ none of PRs #46-#70 had a `CHANGES.md`/`CHANGELOG.md` entry until now.
   (`scripts/code-intel-resolve.js`) let `roster-init`/`recruit` discover optional research-tool
   packs and `roster-qa` gate on their KB envelope.
 - `arch-index`, the first and so far only verified pack: a research-orientation provider
-  (`extensions/arch-index/skills/arch-index-orient/orient.sh` + `arch-index-pack.js`) with a
-  simple-path guard and bounded direct-path queries.
+  (`extensions/arch-index/skills/arch-index-orient/orient.sh`) with a simple-path guard and
+  bounded direct-path queries.
 - A missing pack binary degrades that pack to advisory (its gate exits 3, its audit section is
   skipped) — it never blocks pipeline routing.
 
@@ -112,7 +113,7 @@ guards that using it surfaced.
   `[HOOK]` trigger keyed on real friction fields, specialist auditors aligned with
   `roster-review`'s JSON contract, and others of the same shape.
 - **Friction-log `classes` field + closed vocabulary, phase-exit writing, and "a review is not a
-  review unless it executed"** (PR #68) — see `CHANGELOG.md`'s `[2.7.0]` section for the
+  review unless it executed"** (PR #68) — see `CHANGELOG.md`'s `[Unreleased]` section for the
   detailed entries; folded into this release rather than repeated here.
 
 ## v2.6.2 — Bugfix

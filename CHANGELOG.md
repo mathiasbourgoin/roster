@@ -63,7 +63,7 @@ below) — both already present in this section.
 - **`populate-catalog-rows.js`** — regenerates the AGENTS.md and `docs/agents.md` catalog rows
   (skills and agents) from frontmatter, with a `--check` mode; catalog counts and per-row
   metadata (version, purpose) can no longer drift silently from the source files.
-- **Hardened hook checker** — `check-hook-structure.js` gained `EC-3`/`EC-7` warnings and
+- **Hardened hook checker** — `check-hook-structure.ts` gained `EC-3`/`EC-7` warnings and
   `break_if:`/`continue_if:` lint support for the skill-hook DSL.
 - **`delivery-integrity-audit`** — an offline report evaluating delivery controls (never
   individuals) for a repository whose forge facts an operator captured separately; its
