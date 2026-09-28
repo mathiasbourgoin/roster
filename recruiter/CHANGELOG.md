@@ -5,9 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [2.7.0] — 2026-06-05
+## [2.7.0] — 2026-09-28
 
-Edge (`next`) release line. Skips the stable-only `2.6.2` patch — the `curl | bash` silent-death
+First tagged release of the `2.7.0` line (stamped on `next` on 2026-06-05). The full
+release notes, including the July–September work, are in the root `CHANGES.md` under `v2.7.0`;
+this entry covers only the recruiter/installer surface. Originally an edge (`next`) release line. Skips the stable-only `2.6.2` patch — the `curl | bash` silent-death
 fix that shipped is included here via the installer's `resolve_version` refactor.
 
 ### Added
@@ -21,7 +23,11 @@ fix that shipped is included here via the installer's `resolve_version` refactor
 
 ### Changed
 
-- OpenCode is now a first-class runtime; the Pi runtime was removed.
+- OpenCode is now a first-class runtime.
+
+### Removed
+
+- **BREAKING:** the Pi runtime. Pi users should stay on `2.6.2`.
 
 ### Fixed
 

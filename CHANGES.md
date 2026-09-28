@@ -2,6 +2,38 @@
 
 ## v2.7.0 — Code-Intel Packs, Review-Bundle Distribution, Convergence Hardening
 
+Released 2026-09-28. The `2.7.0` number was first stamped on the `next` edge line on 2026-06-05
+(see `recruiter/CHANGELOG.md`); this is its first tagged release, and it carries both that edge
+work and everything below.
+
+### ⚠ Breaking: Pi Runtime Removed
+
+- The Pi runtime is no longer supported. OpenCode is now a first-class runtime alongside Claude
+  Code and Codex. Pi users should stay on `v2.6.2` or migrate to one of those runtimes.
+
+### Release Channels and Install (`next` edge line, June 2026)
+
+- `install.sh --channel stable|next` and `--branch <ref>`; the active channel is recorded in a
+  per-runtime `.roster-channel` marker and surfaced by `/roster-doctor`.
+- The version stamped into `.roster-version` is read from `${RAW}/VERSION` on the installed ref.
+- `check-recruiter-sync.js` enforces that `VERSION` mirrors the recruiter frontmatter `version:`.
+
+### Claude Plugin Version
+
+- `.claude/.claude-plugin/plugin.json` `version` now tracks the product release (`1.1.0` →
+  `2.7.0`), so `claude plugin update` sees a new release. It had never been bumped since the
+  plugin manifest was introduced. `check-recruiter-sync.js` now fails CI when it drifts from
+  `VERSION`.
+
+### Spec→KB Claims Reconciliation and Delivery Integrity Audit (`main`, September 2026)
+
+- `claims-reconcile` (`.harness/bin/claims-reconcile.js`) reconciles specifications into
+  verified KB projections, with a claims-freshness skill hook before `roster-implement`.
+- `scripts/delivery-integrity-audit.js`: an offline, byte-stable JSON audit of branch
+  protection, direct commits, and merged-PR required checks, where missing evidence is reported
+  as `not-verifiable`, never `pass` (`specs/delivery-integrity-audit.md`). `roster-audit`
+  documents it as a supplement that evaluates controls, not people.
+
 Closes a changelog gap, not a code gap: this work (PRs #46-#70, excluding #69 which is still
 open against `next` and out of scope here) was already reconciled into `main` piecemeal by
 earlier ad hoc landing commits — verified by diffing `main` against `next` across every
