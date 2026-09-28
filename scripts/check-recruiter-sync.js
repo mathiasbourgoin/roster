@@ -16,6 +16,10 @@
 // mirrors the recruiter frontmatter `version:`. The v2.6.2 release bumped VERSION but not the
 // recruiter version and shipped green precisely because nothing enforced this — now something does.
 //
+// And a third: the Claude plugin manifest (.claude/.claude-plugin/plugin.json) `version` mirrors
+// VERSION. `claude plugin update` compares that field, so a release that leaves it behind is
+// invisible to plugin users — it sat at 1.1.0 through the whole 2.6.x/2.7.0 line.
+//
 // Exits 0 if all invariants hold, exits 1 on any divergence with a remediation hint.
 //
 // Usage: node scripts/check-recruiter-sync.js
@@ -90,10 +94,36 @@ function checkVersionMirror(canonicalText) {
     console.error(`    .harness/agents/recruiter.md: version: ${JSON.stringify(frontVersion)}`);
     console.error("    These MUST match (specs/roster-auto-update.md Q-1). A release bumps VERSION,");
     console.error("    both recruiter copies' frontmatter, the Update Notes, recruiter/CHANGELOG.md,");
-    console.error("    and the install.sh fallback — then re-run scripts/sync-harness.sh.");
+    console.error("    the install.sh fallback, and .claude/.claude-plugin/plugin.json — then re-run");
+    console.error("    scripts/sync-harness.sh.");
     process.exit(1);
   }
   console.log(`✓ recruiter-sync: VERSION mirrors recruiter frontmatter (${fileVersion}).`);
+}
+
+// Enforce that the Claude plugin manifest version mirrors VERSION, so `claude plugin update`
+// sees every release. Hand-maintained: sync-harness.sh does not generate this file.
+function checkPluginVersion() {
+  const versionFile = path.resolve(root, "VERSION");
+  const pluginFile = path.resolve(root, ".claude/.claude-plugin/plugin.json");
+  if (!fs.existsSync(versionFile) || !fs.existsSync(pluginFile)) return;
+  const fileVersion = fs.readFileSync(versionFile, "utf8").trim();
+  let pluginVersion;
+  try {
+    pluginVersion = JSON.parse(fs.readFileSync(pluginFile, "utf8")).version;
+  } catch (e) {
+    console.error(`✗ recruiter-sync: .claude/.claude-plugin/plugin.json is not valid JSON: ${e.message}`);
+    process.exit(1);
+  }
+  if (pluginVersion !== fileVersion) {
+    console.error("✗ recruiter-sync: VERSION↔Claude plugin manifest mirror broken.");
+    console.error(`    VERSION file:                        ${JSON.stringify(fileVersion)}`);
+    console.error(`    .claude/.claude-plugin/plugin.json: version: ${JSON.stringify(pluginVersion)}`);
+    console.error("    Bump plugin.json `version` to match VERSION, or `claude plugin update` will");
+    console.error("    not offer this release to plugin users.");
+    process.exit(1);
+  }
+  console.log(`✓ recruiter-sync: Claude plugin manifest mirrors VERSION (${fileVersion}).`);
 }
 
 function readOrFail(file) {
@@ -111,6 +141,7 @@ if (legacy === canonical) {
   console.log("✓ recruiter-sync: recruiter/recruiter.md and .harness/agents/recruiter.md are identical.");
   checkProjections(canonical);
   checkVersionMirror(canonical);
+  checkPluginVersion();
   process.exit(0);
 }
 
