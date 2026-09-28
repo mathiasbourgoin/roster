@@ -1,7 +1,7 @@
 {
   "name": "roster",
   "description": "Coordinated agent-team pipeline: recruiter + roster-* skills (question→research→intake→spec→plan→implement→review→qa→ship) + governance rules. Commands install as /roster:<name>.",
-  "version": "1.1.0",
+  "version": "2.7.0",
   "author": {
     "name": "Mathias Bourgoin"
   }
