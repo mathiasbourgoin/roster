@@ -94,11 +94,15 @@ an automatic upgrade:
 First write the raw task description, verbatim, to `briefs/<task>-desc.txt` with the
 file-writing tool — never on the command line, where a task that merely quotes a dangerous
 command would be blocked (`rules/safety/escalation.md`, "Free text never goes on a command line").
-Both checks below read that file; the Tier A block ends by deleting it. The `--critical` branches
-above dispatch before this point, so they never create it.
+Run **both** keyword checks on it here, in one block that deletes it — on every path, Express
+included, before any routing decision. The Tier A keyword result (`KEYWORD_HIT`) is kept for the
+Tier A decision below. The `--critical` branches above dispatch before this point, so they never
+create the file.
 
 ```bash
 grep -qiE "auth|attest|evidence|authority|permission|token|custody|integrity" briefs/<task>-desc.txt && echo "TRUST_BOUNDARY_HIT"
+grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle|attestat|certif|vulnerability|exploit|attack|adversar|malicious|untrusted.input|invariant|correct.by.construction" briefs/<task>-desc.txt && echo "KEYWORD_HIT"
+rm -f briefs/<task>-desc.txt
 ```
 
 If it fires and the task would not already route to Full: recommend Full mode to the human before
@@ -116,8 +120,7 @@ Run the following deterministic Tier A checks against the task description and t
 **Tier A — deterministic (any one fires the suggestion):**
 
 ```bash
-# Keyword check on task description (briefs/<task>-desc.txt, written above with the file-writing tool)
-grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle|attestat|certif|vulnerability|exploit|attack|adversar|malicious|untrusted.input|invariant|correct.by.construction" briefs/<task>-desc.txt && echo "KEYWORD_HIT"
+# Keyword check on task description: already run above (KEYWORD_HIT), file already deleted
 
 # Adjacent formal spec file
 [ -f "$(dirname <target>)/<basename>.v" ]   && echo "ADJACENT_V"
@@ -125,9 +128,6 @@ grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle
 
 # Crypto import scan (if target is a source file)
 grep -qE "ring::|sha2::|bls12_381|ark_|secp256k1|ed25519|ff::" <target> 2>/dev/null && echo "CRYPTO_IMPORT"
-
-# The task description file is no longer needed: delete it on every path
-rm -f briefs/<task>-desc.txt
 ```
 
 **Tier B — advisory context (shown as rationale if Tier A fires; never changes routing):**

@@ -59,6 +59,9 @@ and heredocs are command text too, so moving the text into them changes nothing.
 - Put the file in the project's `briefs/` (a project-local temp location, never `/tmp`) and
   delete it right after use: host projects may track `briefs/`, and a later `git add -A` would
   commit it.
+- Two exceptions stay on the command line: a **fixed literal message** that only interpolates a
+  slug (e.g. `chore(harness): sync projections`), and a **PR title** (`gh pr create --title` has no
+  file form). A title must never quote a command; if it would, rephrase it.
 
 Do not weaken the deny-rules to avoid these false positives — they are the only hard layer on a
 checkout whose hook predates `block-dangerous-commands` 1.3.0 (its `exit 1` does not block).

@@ -47,9 +47,9 @@ Examples:
 When creating a PR:
 
 1. Ensure the branch is pushed with `git push -u origin <branch>`.
-2. Write the body with the file-writing tool to `briefs/<branch>-pr-body.md`, then:
+2. Write the body with the file-writing tool to `briefs/<branch-slug>-pr-body.md`, then:
    ```bash
-   gh pr create --title "<type>: <description>" --body-file briefs/<branch>-pr-body.md && rm -f briefs/<branch>-pr-body.md
+   gh pr create --title "<type>: <description>" --body-file briefs/<branch-slug>-pr-body.md && rm -f briefs/<branch-slug>-pr-body.md
    ```
    Template for the body:
 
@@ -74,10 +74,11 @@ When committing:
 2. If nothing staged, help the user stage relevant files (prefer explicit paths over `git add .`).
 3. Draft commit message following the format above.
 4. Write the message with the **file-writing tool** (not a shell command) to
-   `briefs/<branch>-commit-msg.txt` (scoped by branch, so two sessions in one checkout do not
-   overwrite each other), then commit from it and delete it:
+   `briefs/<branch-slug>-commit-msg.txt` — `<branch-slug>` is the branch name with `/` replaced
+   by `-`, so two sessions in one checkout never overwrite each other's file — then commit from it
+   and delete it:
    ```bash
-   git commit -F briefs/<branch>-commit-msg.txt && rm -f briefs/<branch>-commit-msg.txt
+   git commit -F briefs/<branch-slug>-commit-msg.txt && rm -f briefs/<branch-slug>-commit-msg.txt
    ```
    Never put the message on the command line — not in `-m "..."`, not in a heredoc, not in
    `printf`/`echo`: see the free-text rule below.
