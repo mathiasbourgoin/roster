@@ -2,7 +2,7 @@
 
 ## v2.7.0 — Code-Intel Packs, Review-Bundle Distribution, Convergence Hardening
 
-Released 2026-09-28. The `2.7.0` number was first stamped on the `next` edge line on 2026-06-05
+Released 2026-09-30. The `2.7.0` number was first stamped on the `next` edge line on 2026-06-05
 (see `recruiter/CHANGELOG.md`); this is its first tagged release, and it carries both that edge
 work and everything below.
 
@@ -33,6 +33,11 @@ work and everything below.
   protection, direct commits, and merged-PR required checks, where missing evidence is reported
   as `not-verifiable`, never `pass` (`specs/delivery-integrity-audit.md`). `roster-audit`
   documents it as a supplement that evaluates controls, not people.
+- Phase checkpoint hooks: `phase-checkpoint-reminder` (`UserPromptSubmit`) reminds while a
+  task's implement phase is open and flags it `STALE` past `ROSTER_PHASE_STALE_HOURS` (default
+  4); `block-adhoc-review` (`PreToolUse`, `Agent|Task`) denies review-like subagents before a
+  Full-mode implement phase has closed, with per-spawn and per-session overrides. Both fail
+  open (`scripts/phase-guard-hooks.test.js`). `roster-implement` 1.9.0 / `roster-run` 1.11.0.
 
 Closes a changelog gap, not a code gap: this work (PRs #46-#70, excluding #69 which is still
 open against `next` and out of scope here) was already reconciled into `main` piecemeal by
