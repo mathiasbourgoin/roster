@@ -2,7 +2,7 @@
 name: roster-audit
 description: Combines code-quality and spec-compliance checks into one actionable audit report.
 when_to_use: "Use to assess existing code with no specific change in flight. Trigger: 'audit this', 'is the code healthy'."
-version: 1.4.1
+version: 1.5.0
 domain: pipeline
 phase: null
 preamble: true
@@ -86,6 +86,9 @@ Look for duplicated code blocks (≥ 5 identical or near-identical lines).
 # Search for repeated patterns
 grep -rn "<suspect pattern>" <scope>
 ```
+
+A pattern that quotes a dangerous command goes through `grep -rn -f <patternfile> <scope>`
+instead, the file written with the file-writing tool (`rules/safety/escalation.md`).
 
 Report with both locations.
 

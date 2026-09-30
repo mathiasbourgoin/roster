@@ -2,7 +2,7 @@
 name: roster-investigate
 description: Analyzes a bug or unexpected behavior to find its root cause, read-only.
 when_to_use: "Use when a failure is unclear, flaky, or ambiguous and needs diagnosis before any fix. Trigger: 'why does X fail', 'investigate'."
-version: 1.4.0
+version: 1.5.0
 domain: pipeline
 phase: null
 preamble: true
@@ -210,6 +210,11 @@ git log --oneline -20 -- <file>
 git blame <file>
 grep -n "<pattern>" <file>
 ```
+
+If a search pattern contains text a deny-rule or the dangerous-command hook would match (a quoted
+pipe to a shell, a recursive delete), write it to a file with the file-writing tool and use
+`grep -n -f <patternfile> <file>` — see `rules/safety/escalation.md`, "Free text never goes on a
+command line".
 
 Distinguish **code-confirmed** (the code provably supports the hypothesis when read) from **observed** (the symptom reproduced live). If the symptom is reproducible, do not stop at code-confirmed — confirm by observation: code-reading can be right about the mechanism yet wrong about the runtime effect.
 

@@ -2,7 +2,7 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.11.0
+version: 1.12.0
 ---
 
 # Roster Run
@@ -91,12 +91,13 @@ before downgrading. Otherwise infer the mode from the signals below.
 description for **every** task, before mode is recorded — it feeds a full-mode recommendation, not
 an automatic upgrade:
 
+First write the raw task description, verbatim, to `briefs/<task>-desc.txt` with the
+file-writing tool — never on the command line, where a task that merely quotes a dangerous
+command would be blocked (`rules/safety/escalation.md`, "Free text never goes on a command line").
+Both checks below read that file; delete it once routing is recorded.
+
 ```bash
-desc=$(cat <<'EOF'
-<task>
-EOF
-)
-printf '%s' "$desc" | grep -qiE "auth|attest|evidence|authority|permission|token|custody|integrity" && echo "TRUST_BOUNDARY_HIT"
+grep -qiE "auth|attest|evidence|authority|permission|token|custody|integrity" briefs/<task>-desc.txt && echo "TRUST_BOUNDARY_HIT"
 ```
 
 If it fires and the task would not already route to Full: recommend Full mode to the human before
@@ -114,12 +115,8 @@ Run the following deterministic Tier A checks against the task description and t
 **Tier A — deterministic (any one fires the suggestion):**
 
 ```bash
-# Keyword check on task description
-desc=$(cat <<'EOF'
-<task>
-EOF
-)
-printf '%s' "$desc" | grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle|attestat|certif|vulnerability|exploit|attack|adversar|malicious|untrusted.input|invariant|correct.by.construction" && echo "KEYWORD_HIT"
+# Keyword check on task description (briefs/<task>-desc.txt, written above with the file-writing tool)
+grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle|attestat|certif|vulnerability|exploit|attack|adversar|malicious|untrusted.input|invariant|correct.by.construction" briefs/<task>-desc.txt && echo "KEYWORD_HIT"
 
 # Adjacent formal spec file
 [ -f "$(dirname <target>)/<basename>.v" ]   && echo "ADJACENT_V"

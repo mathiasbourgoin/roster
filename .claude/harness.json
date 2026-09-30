@@ -262,7 +262,7 @@
       {
         "name": "roster-audit",
         "source": "roster",
-        "version": "1.4.1",
+        "version": "1.5.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -318,7 +318,7 @@
       {
         "name": "roster-intake",
         "source": "roster",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "domain": "pipeline",
         "phase": "intake",
         "tunables": {}
@@ -326,7 +326,7 @@
       {
         "name": "roster-investigate",
         "source": "roster",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -391,7 +391,7 @@
       {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.11.0",
+        "version": "1.12.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
