@@ -155,12 +155,15 @@ Skills are slash-command workflows that run in the main context and produce cont
 | diagnostic-interview | governance | global |
 | rtk-compat | common | global |
 
-## Hooks (2)
+## Hooks (5)
 
 | Hook | Event | Matcher |
 |------|-------|---------|
 | block-dangerous-commands | PreToolUse | Bash |
+| enforce-file-manifest | PreToolUse | Edit\|Write |
+| block-adhoc-review | PreToolUse | Agent\|Task |
 | post-edit-lint | PostToolUse | Edit\|Write |
+| phase-checkpoint-reminder | UserPromptSubmit | — |
 
 ---
 
@@ -180,7 +183,8 @@ Skills and hooks follow the same additive scheme: `developer`+ adds tdd-workflow
 git-conventions and the post-edit-lint hook; `full` adds ambiguity-auditor,
 code-quality-auditor, spec-compliance-auditor, harness-validator. All profiles install the
 four core rules (sycophancy, escalation, code-quality, human-validation) and the
-block-dangerous-commands hook. See `schema/profiles.md` and `scripts/init-harness.sh`
+block-dangerous-commands, enforce-file-manifest, block-adhoc-review and phase-checkpoint-reminder
+hooks. See `schema/profiles.md` and `scripts/init-harness.sh`
 (the script is the behavior; the docs describe it).
 
 ---

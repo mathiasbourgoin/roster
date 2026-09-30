@@ -66,7 +66,7 @@ Populated by: **tech-lead**
 
 ```yaml
 - name: <string>             # Hook name (kebab-case)
-  event: <PreToolUse|PostToolUse|SessionStart|Stop|SessionEnd>
+  event: <PreToolUse|PostToolUse|UserPromptSubmit|SessionStart|Stop|SessionEnd>
   matcher: <string|null>     # Tool matcher for Pre/PostToolUse events
   source: <roster|custom>    # Origin
 ```

@@ -1,5 +1,5 @@
 ---
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Hook Definition Schema
@@ -32,6 +32,7 @@ version: <semver>            # Version for tracking updates (e.g., 1.0.0)
 |----------------------|-----------------------------------------------|
 | `PreToolUse`         | Before a tool call executes (can block it)     |
 | `PostToolUse`        | After a tool call completes                    |
+| `UserPromptSubmit`   | When the user submits a prompt, before the model sees it (can add context) |
 | `SessionStart`       | When an assistant session begins               |
 | `Stop`               | When the runtime finishes its turn             |
 | `SessionEnd`         | When a session is terminated                   |
@@ -75,6 +76,10 @@ https://code.claude.com/docs/en/hooks.md, 2026-07-10):
 - **Exit 1 does NOT block** — it is a non-blocking error and the tool call proceeds.
   Never use bare `exit 1` as a deny path (this schema documented the opposite until 2026-07-10;
   hooks written against that contract were silently non-blocking).
+
+For `UserPromptSubmit` hooks (non-blocking use), add context with exit 0 and
+`{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"…"}}` on stdout;
+exit 0 with no output adds nothing. `UserPromptSubmit` takes no `matcher`.
 
 ## Example
 
