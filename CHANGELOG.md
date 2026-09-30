@@ -22,6 +22,16 @@ below) — both already present in this section.
 
 ### Added
 
+- **Phase checkpoint hooks** — `phase-checkpoint-reminder` (`UserPromptSubmit`, informational)
+  injects a one-line reminder while `briefs/ACTIVE_TASK` shows an open implement phase, naming
+  the last ledger event, its age, and what closing requires; past `ROSTER_PHASE_STALE_HOURS`
+  (default 4) it escalates to a `STALE` reminder with a friction-entry nudge.
+  `block-adhoc-review` (`PreToolUse`, `Agent|Task`) denies spawning a review-like subagent while a
+  Full-mode task's implement phase is open, pointing to impl brief + ledger event +
+  `/roster-review`; overrides: `[outside-roster-review: <reason>]` per spawn,
+  `ROSTER_ALLOW_ADHOC_REVIEW=1` per session. Both fail open and are tested in
+  `scripts/phase-guard-hooks.test.js`. `roster-implement` 1.9.0 / `roster-run` 1.11.0 state that
+  implement closes before any review and that long phases log friction as corrections happen.
 - **Code-intel packs** (#46) — a tier-list registry (`registry/code-intel.schema.json`), a
   shared resolver (`scripts/code-intel-resolve.js`), an offline checker, a KB envelope +
   `roster-qa` gate, and `arch-index` as the first verified reference pack (research-orientation

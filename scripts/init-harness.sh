@@ -170,6 +170,8 @@ CORE_RULES=(
 CORE_HOOKS=(
     "hooks/safety/block-dangerous-commands.md"
     "hooks/safety/enforce-file-manifest.md"
+    "hooks/safety/block-adhoc-review.md"
+    "hooks/quality/phase-checkpoint-reminder.md"
 )
 
 DEVELOPER_HOOKS=(

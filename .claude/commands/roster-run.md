@@ -2,7 +2,7 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.10.4
+version: 1.11.0
 ---
 
 # Roster Run
@@ -452,3 +452,5 @@ After routing, the destination skill announces its own **What Next** upon comple
 - Never do the work of another skill — route only
 - Never route to multiple skills in parallel from here
 - If no route matches, ask the user before inventing one
+- Never route to review, or start review-like work, while implement is open (`briefs/ACTIVE_TASK`
+  set and no closing `implement` event in the ledger) — route to `/roster-implement` to close it first

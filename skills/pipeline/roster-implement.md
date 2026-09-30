@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.8.0
+version: 1.9.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -329,6 +329,14 @@ Per the preamble *Pipeline State*, append your event to `briefs/<task>-state.jso
   iterating within the budget or escalate). On resume, `/roster-run` routes a latest
   `implement`/`PARTIAL` back to this skill.
 
+**Close before any review.** The phase is closed only when both the impl brief and this event
+are on disk. Do not start review-like work — a reviewer/auditor sub-agent, an "adversarial
+review" round — while it is open: review runs through `/roster-review`, whose `review.json`,
+scope gate and ratchet an ad-hoc reviewer bypasses. If the work needs review mid-way, close the
+round (COMPLETED, or PARTIAL with the remaining work as `reason`) and route to `/roster-review`.
+The `block-adhoc-review` hook denies such spawns in Full mode; `phase-checkpoint-reminder`
+flags an implement phase left open.
+
 ## Output Contract
 
 `briefs/<task>-impl.md` + implemented code with all quality gates passing.
@@ -355,7 +363,9 @@ is `PARTIAL`, the next step is instead a re-run of `/roster-implement` (routed b
 
 ## Friction Log
 
-Append one entry at phase exit — when this skill finishes, not at session end. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-implement"`.
+Append one entry at phase exit — when this skill finishes, not at session end. In a long phase
+(several sessions, or past the reminder hook's staleness threshold), also append an entry as each
+human correction or self-caught error happens — one entry must not stand for a whole phase. Canonical template and key set: `skills/shared/preamble-friction.md` (schema: `schema/skill-schema.md`). Set `"skill": "roster-implement"`.
 
 ## Rules
 
@@ -366,3 +376,4 @@ Append one entry at phase exit — when this skill finishes, not at session end.
 - Never commit code that breaks existing gates
 - A ratchet check must be a new self-contained file — never satisfy the ratchet by editing an existing file
 - In Fast/Full mode, never hand off to review with a dirty tree — commit the round's work first
+- Never start review-like work while implement is open — close it (impl brief + ledger event), then `/roster-review`

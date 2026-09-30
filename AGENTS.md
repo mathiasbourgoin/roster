@@ -106,12 +106,12 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Pipeline (18)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.10.4 | Classifies an incoming task and routes it to the right pipeline skill |
+| roster-run | 1.11.0 | Classifies an incoming task and routes it to the right pipeline skill |
 | roster-init | 1.4.0 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
 | roster-intake | 1.4.0 | Turns a raw task description into a human-validated contractual brief |
 | roster-spec | 2.5.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.5.0 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
-| roster-implement | 1.8.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
+| roster-implement | 1.9.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
 | roster-review | 2.5.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
 | roster-qa | 1.10.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
 | roster-ship | 1.6.0 | Carries a reviewed, QA'd branch through to a merged PR |
@@ -176,14 +176,17 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 
 Two distinct hook systems — do not conflate:
 
-### Tool-level hooks (2)
+### Tool-level hooks (5)
 
-Fire on runtime tool events (`PreToolUse` / `PostToolUse`). Shell commands only. Installed into `settings.json`.
+Fire on runtime events (`PreToolUse` / `PostToolUse` / `UserPromptSubmit`). Shell commands only. Installed into `settings.json`.
 
 | Hook | Event | Matcher |
 |------|-------|---------|
 | block-dangerous-commands | PreToolUse | Bash |
+| enforce-file-manifest | PreToolUse | Edit\|Write |
+| block-adhoc-review | PreToolUse | Agent\|Task |
 | post-edit-lint | PostToolUse | Edit\|Write |
+| phase-checkpoint-reminder | UserPromptSubmit | — |
 
 ### Skill-level hooks (DSL)
 
