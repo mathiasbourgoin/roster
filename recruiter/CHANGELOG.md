@@ -5,7 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [2.7.0] — 2026-09-28
+## [2.7.0] — 2026-09-30
 
 First tagged release of the `2.7.0` line (stamped on `next` on 2026-06-05). The full
 release notes, including the July–September work, are in the root `CHANGES.md` under `v2.7.0`;
