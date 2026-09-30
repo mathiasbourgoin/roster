@@ -125,6 +125,11 @@ below) — both already present in this section.
 
 ### Fixed
 
+- **Commit messages and PR bodies no longer trip permission deny-rules** (`git-conventions`
+  1.1.0, `roster-ship` 1.7.0) — Claude Code's `permissions.deny` globs match the whole command
+  text, quoted arguments included, so a commit message that merely *quoted* a dangerous command
+  (e.g. describing an installer bug) was silently blocked. Free text now goes through a file:
+  `git commit -F`, `gh pr create --body-file`, `grep -f`. The deny-rules themselves are unchanged.
 - **Thirteen audit-driven pipeline contract fixes (F1-F13)** — truthful CWR-template
   reachability in Express/Fast, `roster-qa` actually consuming the plan's `qa-scope.md`,
   `roster-skill-health`'s `[HOOK]` trigger keyed on real friction fields, specialist auditors

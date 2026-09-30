@@ -2,7 +2,7 @@
 name: roster-ship
 description: Carries a reviewed, QA'd branch through to a merged PR.
 when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
-version: 1.6.0
+version: 1.7.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -84,8 +84,12 @@ Rules:
 
 ```bash
 git add <scope files>
-git commit -m "type(scope): description"
+printf '%s\n' "type(scope): description" "" "<body>" > briefs/<task>-commit-msg.txt
+git commit -F briefs/<task>-commit-msg.txt
 ```
+
+Free text goes through a file, never the command line (see `git-conventions`): deny-rules match
+quoted arguments too.
 
 ### 3. Rebase on main (`push_mode: pr` only)
 
@@ -124,11 +128,10 @@ Behavior depends on `tunables.push_mode` (default `pr` — preserves current beh
 
 ```bash
 git push origin <branch> --force-with-lease
+{ head -20 briefs/<task>-impl.md; printf '\nCloses #N\n'; } > briefs/<task>-pr-body.md
 gh pr create \
   --title "type(scope): description" \
-  --body "$(cat briefs/<task>-impl.md | head -20)
-
-Closes #N" \
+  --body-file briefs/<task>-pr-body.md \
   --base main
 ```
 

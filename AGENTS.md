@@ -115,7 +115,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-implement | 1.9.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
 | roster-review | 2.5.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
 | roster-qa | 1.10.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
-| roster-ship | 1.6.0 | Carries a reviewed, QA'd branch through to a merged PR |
+| roster-ship | 1.7.0 | Carries a reviewed, QA'd branch through to a merged PR |
 | roster-investigate | 1.4.0 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
 | roster-audit | 1.4.1 | Combines code-quality and spec-compliance checks into one actionable audit report |
 | roster-doctor | 1.6.0 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
@@ -149,7 +149,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 ### Workflow (6)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| git-conventions | 1.0.3 | Standardizes commit messages, branch names, and PR structure for the current action |
+| git-conventions | 1.1.0 | Standardizes commit messages, branch names, and PR structure for the current action |
 | improvement-loop | 1.1.2 | Executes a human-approved, bounded improvement loop with verification at each step |
 | improvement-loop-planner | 1.2.2 | Synthesizes KB, code, test, and CI signals into candidate bounded improvement loops |
 | roster-config | 1.1.0 | Interactive editor for tunables exposed by installed roster agents |
