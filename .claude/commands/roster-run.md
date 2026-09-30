@@ -94,7 +94,8 @@ an automatic upgrade:
 First write the raw task description, verbatim, to `briefs/<task>-desc.txt` with the
 file-writing tool — never on the command line, where a task that merely quotes a dangerous
 command would be blocked (`rules/safety/escalation.md`, "Free text never goes on a command line").
-Both checks below read that file; delete it once routing is recorded.
+Both checks below read that file; the Tier A block ends by deleting it. The `--critical` branches
+above dispatch before this point, so they never create it.
 
 ```bash
 grep -qiE "auth|attest|evidence|authority|permission|token|custody|integrity" briefs/<task>-desc.txt && echo "TRUST_BOUNDARY_HIT"
@@ -124,6 +125,9 @@ grep -qiE "crypto|hash|cipher|signature|proof|zk|ntt|msm|field.arithmetic|merkle
 
 # Crypto import scan (if target is a source file)
 grep -qE "ring::|sha2::|bls12_381|ark_|secp256k1|ed25519|ff::" <target> 2>/dev/null && echo "CRYPTO_IMPORT"
+
+# The task description file is no longer needed: delete it on every path
+rm -f briefs/<task>-desc.txt
 ```
 
 **Tier B — advisory context (shown as rationale if Tier A fires; never changes routing):**
