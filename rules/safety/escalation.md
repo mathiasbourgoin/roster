@@ -3,7 +3,7 @@ name: escalation
 description: Default escalation triggers — pause and ask the human before destructive or high-impact actions.
 scope: global
 category: safety
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Default Escalation Triggers
@@ -43,6 +43,25 @@ not auto-applied):
   shell commands don't inherit Anthropic/cloud secrets from the parent environment. Caveat: it also
   forces bubblewrap PID-namespace isolation on Linux even if the sandbox is off — it can break under
   Docker/older kernels (<5.1), so validate in your environment before enabling.
+
+### Free text never goes on a command line
+
+Both enforcement layers — `permissions.deny` globs and the `block-dangerous-commands` hook — match
+the **whole command text, quoted arguments included**; no rule syntax can tell quoted text from
+executed text. A command that merely *quotes* a dangerous one (a commit message describing an
+installer bug, a task description, a search pattern) is blocked, often silently. `printf`, `echo`
+and heredocs are command text too, so moving the text into them changes nothing.
+
+- Write free text — commit messages, PR/issue/comment bodies, task descriptions, search patterns,
+  multi-line scripts — with the runtime's **file-writing tool**, never a shell command.
+- Then pass only the path: `git commit -F <file>`, `gh pr create --body-file <file>`,
+  `gh issue create --body-file <file>`, `grep -f <file>`, `python3 <file>`.
+- Put the file in the project's `briefs/` (a project-local temp location, never `/tmp`) and
+  delete it right after use: host projects may track `briefs/`, and a later `git add -A` would
+  commit it.
+
+Do not weaken the deny-rules to avoid these false positives — they are the only hard layer on a
+checkout whose hook predates `block-dangerous-commands` 1.3.0 (its `exit 1` does not block).
 
 Prose states the intent; deny-rules + env config enforce it. A new escalation trigger above should
 be paired with a deny-rule wherever the operation is mechanically expressible.

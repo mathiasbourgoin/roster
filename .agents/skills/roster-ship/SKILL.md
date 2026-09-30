@@ -266,12 +266,13 @@ Rules:
 
 ```bash
 git add <scope files>
-printf '%s\n' "type(scope): description" "" "<body>" > briefs/<task>-commit-msg.txt
-git commit -F briefs/<task>-commit-msg.txt
+# briefs/<task>-commit-msg.txt was written with the file-writing tool, not a shell command
+git commit -F briefs/<task>-commit-msg.txt && rm -f briefs/<task>-commit-msg.txt
 ```
 
-Free text goes through a file, never the command line (see `git-conventions`): deny-rules match
-quoted arguments too.
+Free text goes through a file written with the file-writing tool, never the command line
+(`printf`, `echo`, heredocs included) — see `rules/safety/escalation.md`, "Free text never goes on
+a command line".
 
 ### 3. Rebase on main (`push_mode: pr` only)
 
@@ -314,7 +315,7 @@ git push origin <branch> --force-with-lease
 gh pr create \
   --title "type(scope): description" \
   --body-file briefs/<task>-pr-body.md \
-  --base main
+  --base main && rm -f briefs/<task>-pr-body.md
 ```
 
 **`direct` mode:** fast-forward push to the long-lived branch configured in `tunables.push_target` — no PR, no rebase-onto-main (Step 3's rebase and Step 6's PR merge do not apply):

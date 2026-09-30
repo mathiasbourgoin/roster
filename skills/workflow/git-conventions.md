@@ -47,7 +47,8 @@ Examples:
 When creating a PR:
 
 1. Ensure the branch is pushed with `git push -u origin <branch>`.
-2. Write the body to a file and use `gh pr create --body-file <file>` with this template:
+2. Write the body with the file-writing tool to `briefs/pr-body.md`, run
+   `gh pr create --body-file briefs/pr-body.md`, then delete the file. Template:
 
 ```markdown
 ## Summary
@@ -69,14 +70,13 @@ When committing:
 1. Run `git status` and `git diff --staged` to understand what's staged.
 2. If nothing staged, help the user stage relevant files (prefer explicit paths over `git add .`).
 3. Draft commit message following the format above.
-4. Write the message to a file, then commit from it:
+4. Write the message with the **file-writing tool** (not a shell command) to
+   `briefs/commit-msg.txt`, then commit from it and delete it:
    ```bash
-   msg="$(mktemp)"
-   printf '%s\n' "<type>: <description>" "" "<body>" > "$msg"
-   git commit -F "$msg"
+   git commit -F briefs/commit-msg.txt && rm -f briefs/commit-msg.txt
    ```
-   Never put the message on the command line (`-m "..."`, or a heredoc inside `-m`): see the
-   free-text rule below.
+   Never put the message on the command line — not in `-m "..."`, not in a heredoc, not in
+   `printf`/`echo`: see the free-text rule below.
 5. Run `git status` after to confirm success.
 
 ## Rules
@@ -85,10 +85,11 @@ When committing:
 - **Always** push with `-u` to set upstream tracking.
 - Stage specific files by default — `git add .` / `git add -A` are permitted **only** immediately after a full-tree generator run (e.g. `scripts/sync-harness.sh` projection regeneration, where CI's harness-sync check requires every regenerated file staged), and only when everything else in the tree was already staged or clean before the generator ran — never as a way to sweep in unrelated edits.
 - **Never** skip pre-commit hooks (`--no-verify`).
-- **Free text goes through a file**, never the command line: commit messages (`git commit -F`),
-  PR bodies (`gh pr create --body-file`), search patterns (`grep -f`). Permission deny-rules match
-  the whole command text, quoted arguments included, so a message that merely *quotes* a
-  dangerous command is blocked — silently.
+- **Free text goes through a file written with the file-writing tool**, never the command line
+  (`printf`, `echo` and heredocs included): commit messages, PR and comment bodies, search
+  patterns. Both the deny-rules and the dangerous-command hook match the whole command text, so a
+  message that merely *quotes* a dangerous command is blocked. Full rule: `rules/safety/escalation.md`,
+  "Free text never goes on a command line".
 - **Never** commit `.env`, credentials, or secrets — warn the user if these are staged.
 - PR descriptions must be comprehensive — reviewers should understand the change without reading code.
 - One logical change per commit. Split unrelated changes into separate commits.

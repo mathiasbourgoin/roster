@@ -125,11 +125,16 @@ below) — both already present in this section.
 
 ### Fixed
 
-- **Commit messages and PR bodies no longer trip permission deny-rules** (`git-conventions`
-  1.1.0, `roster-ship` 1.7.0) — Claude Code's `permissions.deny` globs match the whole command
-  text, quoted arguments included, so a commit message that merely *quoted* a dangerous command
-  (e.g. describing an installer bug) was silently blocked. Free text now goes through a file:
-  `git commit -F`, `gh pr create --body-file`, `grep -f`. The deny-rules themselves are unchanged.
+- **Free text no longer trips the command-blocking layers** (`escalation` rule 1.2.0,
+  `git-conventions` 1.1.0, `roster-ship` 1.7.0, `roster-run` 1.12.0, `roster-intake` 1.5.0,
+  `roster-investigate` 1.5.0, `roster-audit` 1.5.0) — both Claude Code's `permissions.deny` globs
+  and the `block-dangerous-commands` hook match the whole command text, quoted arguments included,
+  so a commit message, a task description or a search pattern that merely *quoted* a dangerous
+  command was blocked, often silently; `roster-run`/`roster-intake` put the raw task description
+  in a heredoc, so such a task was blocked at routing. New rule in `escalation.md` ("Free text
+  never goes on a command line"): write the text with the file-writing tool — `printf`, `echo` and
+  heredocs are command text too — then pass only the path (`git commit -F`, `--body-file`,
+  `grep -f`), from a project-local file deleted right after use. The deny-rules are unchanged.
 - **Thirteen audit-driven pipeline contract fixes (F1-F13)** — truthful CWR-template
   reachability in Express/Fast, `roster-qa` actually consuming the plan's `qa-scope.md`,
   `roster-skill-health`'s `[HOOK]` trigger keyed on real friction fields, specialist auditors
