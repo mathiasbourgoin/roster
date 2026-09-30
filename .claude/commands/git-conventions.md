@@ -2,7 +2,7 @@
 name: git-conventions
 description: Standardizes commit messages, branch names, and PR structure for the current action.
 when_to_use: "Use whenever git history or a PR is about to be created. Trigger: 'commit this', 'open a PR'."
-version: 1.0.3
+version: 1.1.0
 ---
 
 # Git Conventions
@@ -47,7 +47,7 @@ Examples:
 When creating a PR:
 
 1. Ensure the branch is pushed with `git push -u origin <branch>`.
-2. Use `gh pr create` with this template:
+2. Write the body to a file and use `gh pr create --body-file <file>` with this template:
 
 ```markdown
 ## Summary
@@ -69,13 +69,14 @@ When committing:
 1. Run `git status` and `git diff --staged` to understand what's staged.
 2. If nothing staged, help the user stage relevant files (prefer explicit paths over `git add .`).
 3. Draft commit message following the format above.
-4. Use a HEREDOC for the message:
+4. Write the message to a file, then commit from it:
    ```bash
-   git commit -m "$(cat <<'EOF'
-   <type>: <description>
-   EOF
-   )"
+   msg="$(mktemp)"
+   printf '%s\n' "<type>: <description>" "" "<body>" > "$msg"
+   git commit -F "$msg"
    ```
+   Never put the message on the command line (`-m "..."`, or a heredoc inside `-m`): see the
+   free-text rule below.
 5. Run `git status` after to confirm success.
 
 ## Rules
@@ -84,6 +85,10 @@ When committing:
 - **Always** push with `-u` to set upstream tracking.
 - Stage specific files by default — `git add .` / `git add -A` are permitted **only** immediately after a full-tree generator run (e.g. `scripts/sync-harness.sh` projection regeneration, where CI's harness-sync check requires every regenerated file staged), and only when everything else in the tree was already staged or clean before the generator ran — never as a way to sweep in unrelated edits.
 - **Never** skip pre-commit hooks (`--no-verify`).
+- **Free text goes through a file**, never the command line: commit messages (`git commit -F`),
+  PR bodies (`gh pr create --body-file`), search patterns (`grep -f`). Permission deny-rules match
+  the whole command text, quoted arguments included, so a message that merely *quotes* a
+  dangerous command is blocked — silently.
 - **Never** commit `.env`, credentials, or secrets — warn the user if these are staged.
 - PR descriptions must be comprehensive — reviewers should understand the change without reading code.
 - One logical change per commit. Split unrelated changes into separate commits.
