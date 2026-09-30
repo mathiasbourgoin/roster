@@ -112,7 +112,8 @@ If the linter is absent and `fallback_to_llm` is true, run an LLM-based scan cov
 4. **Doc link resolution** — every link into `{{docs_dir}}/` must resolve to an existing file.
 5. **Inline-bloat regression** — if a previous version is supplied, flag any section that grew past the threshold in this change.
 
-## Output format
+## Output Contract
+**Next:** → reviewer or tech-lead with the verdict (FAIL must be resolved or explicitly accepted before merge)
 
 ```
 ## AGENTS.md Guardian Report

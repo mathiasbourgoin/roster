@@ -22,6 +22,11 @@ below) — both already present in this section.
 
 ### Added
 
+- **`agents-md-guardian` agent** (#27): `agents/management/agents-md-guardian.md` reviews
+  `AGENTS.md` / `CLAUDE.md` changes against a parameterizable checklist (section size budget,
+  required H2 sections, forbidden inline patterns, `docs/` link resolution). Mechanical checks go
+  to an optional project-provided `agents-md-lint` binary. When the binary is absent, it falls
+  back to an LLM scan and says so in the report.
 - **Phase checkpoint hooks** — `phase-checkpoint-reminder` (`UserPromptSubmit`, informational)
   injects a one-line reminder while `briefs/ACTIVE_TASK` shows an open implement phase, naming
   the last ledger event, its age, and what closing requires; past `ROSTER_PHASE_STALE_HOURS`

@@ -6,9 +6,9 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 
 ---
 
-## Agents (26)
+## Agents (27)
 
-### Management (11)
+### Management (12)
 
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
@@ -23,6 +23,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | context-manager | 1.3.0 | haiku | Maintains concise shared context for multi-agent execution to reduce drift and duplication |
 | planner | 1.2.0 | opus | Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent |
 | pr-workflow | 1.2.0 | sonnet | Owns the project PR/git workflow — conventional commits, rebase merge, pre-push validation, and review rounds |
+| agents-md-guardian | 1.0.0 | sonnet | Reviews AGENTS.md / CLAUDE.md changes against a parameterizable checklist (size budget, required sections, forbidden inline patterns, doc links) |
 
 > **Note:** `recruiter` and `governor` source files live in `recruiter/` and `governor/` respectively (predates the `agents/<domain>/` convention). These directories are closed to new additions. To add a new management agent, always use `agents/management/` — the `recruiter/` and `governor/` directories are legacy locations that cannot be changed without breaking the `install.sh` path references (which hardcode `recruiter/recruiter.md`).
 
