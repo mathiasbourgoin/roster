@@ -2,7 +2,7 @@
 name: chamallaw-shadow
 description: Records a non-authoritative Chamallaw decision signal beside Roster intake without changing routing. Use when comparing a configured local decision contract to roster.intake.
 when_to_use: "Use when a Chamallaw decision MCP is already configured and a Roster intake should collect a no-effect shadow observation."
-version: 1.0.0
+version: 1.1.0
 domain: workflow
 phase: null
 preamble: true
@@ -129,6 +129,8 @@ scope/capability arguments. If it is unavailable, write a sidecar with status
 - Posterior: `Beta(<alpha>, <beta>)|n/a`
 - Policy: `<review|blocked|n/a>`
 - Verified outcome count: `<integer|n/a>`
+- Human review minutes: `<non-negative integer|n/a>`
+- Comparison label: `<positive|negative|unknown>`
 
 ## Provenance
 
@@ -142,6 +144,12 @@ scope/capability arguments. If it is unavailable, write a sidecar with status
 Observation only. Compare coverage, abstention reasons, calibration after a
 predeclared period, and human cost against the deterministic baseline. This
 record must not change this task's route or status.
+
+`Comparison label` is an independently verified binary label for precisely the
+target declared by this decision contract. Write `unknown` until such a label
+exists; never infer one from the MCP posterior, policy, route, or a submitted
+outcome. `Human review minutes` is the whole number of minutes spent reviewing
+this intake after its deterministic route, or `n/a` if it was not measured.
 ```
 
 ## Rules
@@ -175,6 +183,7 @@ contract or malformed response is `evidence`.
 
 Keep collecting sidecars for the predeclared comparison period. After that
 period, run `npm run report:chamallaw-shadow -- roster` to aggregate coverage,
-abstentions, verified-label volume, routing changes and mutation violations.
-A human reviews that report, calibration and cost before any change to
+abstentions, labels eligible for calibration, Brier score, measured human cost,
+routing changes and mutation violations. A human reviews that report,
+calibration and cost before any change to
 deterministic Roster routing is proposed.
