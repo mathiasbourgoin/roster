@@ -2,7 +2,7 @@
 name: chamallaw-shadow
 description: Records a non-authoritative Chamallaw decision signal beside Roster intake without changing routing. Use when comparing a configured local decision contract to roster.intake.
 when_to_use: "Use when a Chamallaw decision MCP is already configured and a Roster intake should collect a no-effect shadow observation."
-version: 1.1.0
+version: 1.2.0
 domain: workflow
 phase: null
 preamble: true
@@ -122,6 +122,7 @@ scope/capability arguments. If it is unavailable, write a sidecar with status
 
 ## Observation
 
+- Observed at: `<UTC RFC 3339 timestamp>`
 - MCP status: `available|unavailable|error`
 - Scope class: `<global|organization|project|unknown>`
 - Contract: `<id>`
@@ -186,4 +187,10 @@ period, run `npm run report:chamallaw-shadow -- roster` to aggregate coverage,
 abstentions, labels eligible for calibration, Brier score, measured human cost,
 routing changes and mutation violations. A human reviews that report,
 calibration and cost before any change to
-deterministic Roster routing is proposed.
+deterministic Roster routing is proposed. Before the period starts, save its
+dates and thresholds in `roster/chamallaw-shadow-evaluation.json`; then run
+`npm run gate:chamallaw-shadow -- roster roster/chamallaw-shadow-evaluation.json`.
+The gate can only say `eligible_for_human_review`; it never promotes a route.
+Use `examples/chamallaw-shadow-evaluation.json` as the exact JSON shape, but
+replace every date and threshold before the period begins. The example values
+are deliberately non-operative defaults, not a recommendation for promotion.

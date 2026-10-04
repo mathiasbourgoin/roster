@@ -28,6 +28,7 @@
     "check:ledger-schema": "npm run build:ts && node dist/scripts/check-ledger-schema.js",
     "check:code-intel-registry": "node scripts/check-code-intel-registry.js",
     "report:chamallaw-shadow": "node scripts/chamallaw-shadow-report.js",
+    "gate:chamallaw-shadow": "node scripts/chamallaw-shadow-gate.js",
     "claims:audit": "node scripts/claims-reconcile.js audit --root .",
     "claims:check": "node scripts/claims-reconcile.js check --root .",
     "claims:project": "node scripts/claims-reconcile.js project --root .",

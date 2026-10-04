@@ -39,6 +39,7 @@ function parse(file) {
   const text = fs.readFileSync(file, "utf8");
   return {
     file,
+    observedAt: field(text, "Observed at"),
     routeRetained: field(text, "Route retained"),
     routingChanged: field(text, "Routing changed"),
     mcpStatus: field(text, "MCP status"),
@@ -51,8 +52,7 @@ function parse(file) {
   };
 }
 
-function report(root) {
-  const observations = shadowFiles(root).map(parse);
+function summarize(observations) {
   const counts = {
     observations: observations.length, available: 0, unavailable: 0, errors: 0,
     assessed: 0, abstained: 0, routing_changed: 0,
@@ -93,11 +93,16 @@ function report(root) {
   if (counts.calibration_observations > 0) {
     counts.brier_score = brierSum / counts.calibration_observations;
   }
-  return { root: path.resolve(root), counts, observations };
+  return counts;
+}
+
+function report(root) {
+  const observations = shadowFiles(root).map(parse);
+  return { root: path.resolve(root), counts: summarize(observations), observations };
 }
 
 if (require.main === module) {
   process.stdout.write(`${JSON.stringify(report(process.argv[2] ?? "roster"), null, 2)}\n`);
 }
 
-module.exports = { parse, posteriorMean, report, shadowFiles };
+module.exports = { parse, posteriorMean, report, shadowFiles, summarize };
