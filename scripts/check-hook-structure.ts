@@ -36,7 +36,6 @@ import { collectStepsWithContext, skillInstalled } from "./lib/hooks/hook-lint-h
 
 const DEFAULT_DIR = path.resolve(process.cwd(), ".harness/hooks/skills");
 const SCAN_DIR = process.argv[2] ? path.resolve(process.argv[2]) : DEFAULT_DIR;
-const HARNESS_DIR = path.resolve(process.cwd(), ".harness");
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 const KEBAB_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -124,7 +123,8 @@ async function pathExists(p: string): Promise<boolean> {
 
 async function checkHook(
   content: string,
-  file: string
+  file: string,
+  harnessDir: string
 ): Promise<{ errors: string[]; warnings: string[] }> {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -224,10 +224,10 @@ async function checkHook(
   }
 
   // Track harness presence once
-  const harnessExists = await pathExists(HARNESS_DIR);
+  const harnessExists = await pathExists(harnessDir);
 
   // EC-7: hook present for a skill that is not installed in the harness → warning
-  if (harnessExists && skill && !(await skillInstalled(HARNESS_DIR, skill))) {
+  if (harnessExists && skill && !(await skillInstalled(harnessDir, skill))) {
     warnings.push(
       `hook targets skill "${skill}" which is not installed in the harness (.harness/skills/ or harness.json layers) — hook has no runtime effect (EC-7)`
     );
@@ -283,7 +283,7 @@ async function checkHook(
     // 10. include paths must be resolvable (only if .harness exists)
     if (op === "include" && typeof s["include"] === "string" && harnessExists) {
       const includePath = s["include"] as string;
-      const resolvedPath = path.join(HARNESS_DIR, "hooks", "shared", includePath.replace(/^shared\//, ""));
+      const resolvedPath = path.join(harnessDir, "hooks", "shared", includePath.replace(/^shared\//, ""));
       if (!(await pathExists(resolvedPath))) {
         errors.push(
           `step ${i + 1}: include path "${includePath}" not found at ${resolvedPath}`
@@ -332,8 +332,8 @@ async function checkHook(
     if (harnessExists) {
       const agentVal = s["agent"] as string | undefined;
       if (agentVal) {
-        const skillPath = path.join(HARNESS_DIR, "skills", `${agentVal}.md`);
-        const agentPath = path.join(HARNESS_DIR, "agents", `${agentVal}.md`);
+        const skillPath = path.join(harnessDir, "skills", `${agentVal}.md`);
+        const agentPath = path.join(harnessDir, "agents", `${agentVal}.md`);
         const skillExists = await pathExists(skillPath);
         const agentExists = await pathExists(agentPath);
         if (!skillExists && !agentExists) {
@@ -349,8 +349,8 @@ async function checkHook(
         if (Array.isArray(parallelObj["agents"])) {
           for (const a of parallelObj["agents"] as unknown[]) {
             if (typeof a === "string") {
-              const skillPath = path.join(HARNESS_DIR, "skills", `${a}.md`);
-              const agentPath = path.join(HARNESS_DIR, "agents", `${a}.md`);
+              const skillPath = path.join(harnessDir, "skills", `${a}.md`);
+              const agentPath = path.join(harnessDir, "agents", `${a}.md`);
               const skillExists = await pathExists(skillPath);
               const agentExists = await pathExists(agentPath);
               if (!skillExists && !agentExists) {
@@ -413,21 +413,26 @@ async function collectHookFiles(dir: string): Promise<string[]> {
   return files;
 }
 
-async function main(): Promise<void> {
-  const files = await collectHookFiles(SCAN_DIR);
+export interface LintDirectoryResult {
+  files: number;
+  violations: Violation[];
+  warnings: Warning[];
+}
 
-  if (files.length === 0) {
-    console.log("0 hook files found — nothing to lint");
-    process.exit(0);
-  }
-
+/** Pure-enough entry point for tests and callers; the CLI below only renders it. */
+export async function lintDirectory(
+  scanDir: string,
+  cwd: string = process.cwd()
+): Promise<LintDirectoryResult> {
+  const files = await collectHookFiles(scanDir);
   const violations: Violation[] = [];
   const allWarnings: Warning[] = [];
+  const harnessDir = path.resolve(cwd, ".harness");
 
   for (const file of files.sort()) {
     const content = await fs.readFile(file, "utf-8");
-    const rel = path.relative(process.cwd(), file);
-    const { errors, warnings } = await checkHook(content, file);
+    const rel = path.relative(cwd, file);
+    const { errors, warnings } = await checkHook(content, file, harnessDir);
 
     for (const msg of errors) {
       violations.push({ file: rel, message: msg });
@@ -436,29 +441,41 @@ async function main(): Promise<void> {
       allWarnings.push({ file: rel, message: msg });
     }
   }
+  return { files: files.length, violations, warnings: allWarnings };
+}
+
+async function main(): Promise<void> {
+  const result = await lintDirectory(SCAN_DIR);
+
+  if (result.files === 0) {
+    console.log("0 hook files found — nothing to lint");
+    return;
+  }
 
   // Print warnings (exit 0)
-  if (allWarnings.length > 0) {
-    console.warn(`\nHook structure warnings (${allWarnings.length}):\n`);
-    for (const w of allWarnings) {
+  if (result.warnings.length > 0) {
+    console.warn(`\nHook structure warnings (${result.warnings.length}):\n`);
+    for (const w of result.warnings) {
       console.warn(`  ⚠ ${w.file}: ${w.message}`);
     }
   }
 
-  if (violations.length === 0) {
-    console.log(`✓ all ${files.length} hook file(s) pass structure checks`);
-    process.exit(0);
+  if (result.violations.length === 0) {
+    console.log(`✓ all ${result.files} hook file(s) pass structure checks`);
+    return;
   }
 
-  console.error(`\nHook structure violations (${violations.length}):\n`);
-  for (const v of violations) {
+  console.error(`\nHook structure violations (${result.violations.length}):\n`);
+  for (const v of result.violations) {
     console.error(`  ✗ ${v.file}: ${v.message}`);
   }
-  console.error(`\n${violations.length} violation(s) found.`);
-  process.exit(1);
+  console.error(`\n${result.violations.length} violation(s) found.`);
+  process.exitCode = 1;
 }
 
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err: unknown) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
+}
