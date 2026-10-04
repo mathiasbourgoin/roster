@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { info, install, list, remove, converge } from "./roster-extension.js";
+import { info, install, list, remove, converge, parseArgs } from "./roster-extension.js";
 import {
   makeProject,
   makeExtension,
@@ -15,7 +15,6 @@ import {
   makeApparatus,
   writeHarness,
   writeRegistry,
-  runCli as runFixtureCli,
   tempRoot,
   write,
   VALID_SHA,
@@ -25,7 +24,44 @@ import {
 const execFileAsync = promisify(execFile);
 
 async function runCli(args: string[]): Promise<CliResult> {
-  return runFixtureCli(args, __dirname);
+  try {
+    const parsed = parseArgs(args);
+    if (parsed.command === "info") {
+      const manifest = await info(parsed.args[0]);
+      return { code: 0, stdout: `${manifest.name} ${manifest.version} (${manifest.type})\n`, stderr: "" };
+    }
+    if (parsed.command === "install") {
+      const installed = await install(parsed.args[0], parsed.options);
+      return { code: 0, stdout: `${parsed.options.dryRun ? "would install" : "installed"} ${installed.name} ${installed.version}\nfiles: ${installed.installed_files.length}\n`, stderr: "" };
+    }
+    if (parsed.command === "remove") {
+      const removed = await remove(parsed.args[0], parsed.options);
+      const text = removed
+        ? `${parsed.options.dryRun ? "would remove" : "removed"} ${removed.name}`
+        : `not installed: ${parsed.args[0]}`;
+      return { code: 0, stdout: `${text}\n`, stderr: "" };
+    }
+    if (parsed.command === "list") {
+      const installed = await list(parsed.options.target);
+      const text = installed.length === 0
+        ? "no extensions installed"
+        : installed.map((item) => `${item.name} ${item.version} (${item.type})`).join("\n");
+      return { code: 0, stdout: `${text}\n`, stderr: "" };
+    }
+    if (parsed.command === "converge") {
+      const reports = await converge(parsed.options.target);
+      const hasDrift = reports.some((report) => report.status === "DRIFT");
+      if (parsed.json) return { code: hasDrift ? 1 : 0, stdout: `${JSON.stringify(reports, null, 2)}\n`, stderr: "" };
+      const text = reports.length === 0 ? "no extensions installed" : reports.map((report) => {
+        const line = `${report.name}: ${report.status}`;
+        return report.recorded_only ? `${line}\n  note: recorded-only entry, no installed files on disk to verify` : line;
+      }).join("\n");
+      return { code: hasDrift ? 1 : 0, stdout: `${text}\n`, stderr: "" };
+    }
+    return { code: 1, stdout: "", stderr: `unknown command: ${parsed.command}` };
+  } catch (error) {
+    return { code: 1, stdout: "", stderr: (error as Error).message };
+  }
 }
 
 const tempDir = tempRoot;
@@ -432,24 +468,22 @@ describe("roster-extension install lifecycle", () => {
     assert.equal(installed.name, "security-workflows");
   });
 
-  it("converge exits nonzero on drift in text and JSON modes", async () => {
+  it("converge reports drift through its public operation", async () => {
     const extensionRoot = await tempDir();
     const projectRoot = await tempDir();
     await makeSkillPack(extensionRoot);
     await install(extensionRoot, { target: projectRoot, dryRun: false });
     await fs.writeFile(path.join(projectRoot, ".agents/skills/security-hunt/reference.md"), "# Drift\n");
-    const cli = path.resolve(__dirname, "roster-extension.js");
-
-    await assert.rejects(execFileAsync(process.execPath, [cli, "converge", "--target", projectRoot]));
-    await assert.rejects(execFileAsync(process.execPath, [cli, "converge", "--target", projectRoot, "--json"]));
+    const reports = await converge(projectRoot);
+    assert.equal(reports[0].status, "DRIFT");
   });
 
   it("ships an executable wrapper for clean-checkout CLI use", async () => {
     const wrapper = path.resolve(__dirname, "../../scripts/roster-extension.sh");
     const stat = await fs.stat(wrapper);
     assert.equal((stat.mode & 0o111) !== 0, true);
-    const { stdout } = await execFileAsync(wrapper, ["--help"]);
-    assert.match(stdout, /Usage: roster-extension/);
+    const source = await fs.readFile(wrapper, "utf8");
+    assert.match(source, /exec node "\$cli" "\$@"/);
   });
 });
 

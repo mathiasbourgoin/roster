@@ -32,8 +32,14 @@ export type CliOptions = {
 
 const DEFAULT_TARGET = ".";
 
-function usage(exitCode = 1): never {
-  const text = [
+export class CliUsageError extends Error {
+  constructor(message: string, readonly exitCode: number) {
+    super(message);
+  }
+}
+
+function usageText(): string {
+  return [
     "Usage: roster-extension <command> [args]",
     "",
     "Commands:",
@@ -43,14 +49,14 @@ function usage(exitCode = 1): never {
     "  list [--target <project-root>]",
     "  converge [--target <project-root>] [--json]",
   ].join("\n");
-  const out = exitCode === 0 ? console.log : console.error;
-  out(text);
-  process.exit(exitCode);
+}
+
+function usage(exitCode = 1): never {
+  throw new CliUsageError(usageText(), exitCode);
 }
 
 function cliParseError(message: string): never {
-  console.error(`✗ roster-extension: ${message}`);
-  usage(1);
+  throw new CliUsageError(`✗ roster-extension: ${message}\n\n${usageText()}`, 1);
 }
 
 // Per-command arity/flag table (R8 + R10-json): every known flag is either
@@ -79,7 +85,7 @@ function assertOperandArity(command: string, args: string[]): void {
   }
 }
 
-function parseArgs(argv: string[]): { command: string; args: string[]; options: CliOptions; json: boolean } {
+export function parseArgs(argv: string[]): { command: string; args: string[]; options: CliOptions; json: boolean } {
   const [command, ...rest] = argv;
   if (!command || command === "-h" || command === "--help") usage(command ? 0 : 1);
 
