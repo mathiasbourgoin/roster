@@ -121,5 +121,7 @@ contract or malformed response is `evidence`.
 ## What Next
 
 Keep collecting sidecars for the predeclared comparison period. After that
-period, a human reviews coverage, calibration, abstentions and cost before any
-change to deterministic Roster routing is proposed.
+period, run `npm run report:chamallaw-shadow -- roster` to aggregate coverage,
+abstentions, verified-label volume, routing changes and mutation violations.
+A human reviews that report, calibration and cost before any change to
+deterministic Roster routing is proposed.
