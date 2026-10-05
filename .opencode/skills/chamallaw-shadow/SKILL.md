@@ -2,7 +2,7 @@
 name: chamallaw-shadow
 description: Records a non-authoritative Chamallaw decision signal beside Roster intake without changing routing. Use when comparing a configured local decision contract to roster.intake.
 when_to_use: "Use when a Chamallaw decision MCP is already configured and a Roster intake should collect a no-effect shadow observation."
-version: 1.2.0
+version: 1.3.0
 domain: workflow
 phase: null
 preamble: true
@@ -92,6 +92,22 @@ The local `chamallaw-decision` MCP server must already be configured by the
 project owner. Do not install it, modify its configuration, start it, or pass
 scope/capability arguments. If it is unavailable, write a sidecar with status
 `unavailable`; do not retry by changing the deterministic route.
+
+## Operator Invocation
+
+An operator can give an agent this instruction after `roster.intake` has
+already selected its route:
+
+```text
+Use chamallaw-shadow after deterministic Roster routing.
+task: <roster task slug>
+contract_id: <owner-configured active contract id>
+deterministic_route: <already-selected route>
+Do not use Chamallaw mutation tools or alter routing.
+```
+
+The owner, not this skill, maintains the stable mapping from Roster question to
+active `contract_id` and configures the read-only `chamallaw-decision` MCP.
 
 ## Steps
 
