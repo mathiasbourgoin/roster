@@ -101,7 +101,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
 | gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
-## Skills (37)
+## Skills (39)
 
 ### Pipeline (18)
 | Skill | Version | Purpose |
@@ -145,7 +145,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | kb-reindex | 1.1.0 | Builds or incrementally updates the LanceDB semantic search index over KB files |
 | kb-search | 1.0.2 | Runs hybrid semantic and keyword search over the KB's LanceDB index |
 
-### Workflow (6)
+### Workflow (8)
 | Skill | Version | Purpose |
 |-------|---------|---------|
 | git-conventions | 1.0.3 | Standardizes commit messages, branch names, and PR structure for the current action |
@@ -154,6 +154,8 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-config | 1.1.0 | Interactive editor for tunables exposed by installed roster agents |
 | team | 1.0.3 | Build, review, or run the installed agent team via one dispatch skill |
 | tdd-workflow | 1.0.2 | Drives a strict red-green-refactor TDD cycle with coverage verification |
+| chamallaw-shadow | 1.3.0 | Records a non-authoritative Chamallaw decision signal beside Roster intake without changing routing. Use when comparing a configured local decision contract to roster.intake |
+| chamallaw-feedback | 1.0.0 | Submits independently observed Roster decision evidence to Chamallaw without verifying or training it. Use only after a task outcome is known and evidenced |
 
 ### Media (1, experimental)
 | Skill | Version | Purpose |
