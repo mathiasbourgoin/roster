@@ -1,46 +1,26 @@
 ---
 name: arch-index-gate
-description: roster-qa invariant gate backed by the arch-index SQLite call-graph index — evaluates declared reachability invariants deterministically.
-version: 1.0.0
+description: Fail-closed code-intel gate for arch-index reachability declarations.
+version: 2.0.0
 capability: code-intel
 provides: gate
 entry: bash gate.sh
-requires_tools: [arch-index]
+requires_tools: [python3]
 ---
 
 # arch-index-gate
 
-Deterministic invariant gate for roster-qa (GateExitContract, exits 0/1/2/3).
-The consumer (`scripts/code-intel-resolve.js gate`) extracts the fenced
-`code-intel` block from `kb/properties.md` and passes its path as `$1`; this
-skill's `gate.sh` evaluates each declared invariant against the SQLite index at
-`.arch-index/index.db` (built by `arch-index-init` — never rebuilt here).
+Run `bash gate.sh <invariants.jsonl>` from the project root. The script accepts
+the existing reachability declaration envelope but returns exit 3 for every
+nonempty block. SQL row counts do not prove negative reachability: an empty
+result may mean an incomplete producer, an unresolved `MAY_TOP` edge, or an
+unindexed source. Exit 0 is reserved for an empty block; malformed JSON or an
+unsupported declaration type exits 2. No reachability verdict is emitted.
 
-## Check contract (pack-owned `check` semantics)
-
-Only `"type": "reachability"` invariants are supported — any other type is a
-malformed declaration for this pack (exit 2, naming the unsupported type).
-Each check object is:
-
-```json
-{"query": "<SQL against the index>", "expect": "none"}
-{"query": "<SQL against the index>", "max": 5}
-```
-
-Row-count semantics: `expect: "none"` → any returned row is a violation;
-`max: N` → more than N rows is a violation. Queries run via
-`arch-index query --json` when the binary is available, else directly via
-`sqlite3 .arch-index/index.db`.
-
-## Steps
-
-1. roster-qa invokes `bash gate.sh <invariants.jsonl>` from the project root.
-2. Degradation checks first (exit 3, verdict-neutral): index DB absent; both
-   `arch-index` and `sqlite3` missing; OCaml project (`dune-project` present)
-   with no `*.cmt` artifacts under `_build/` ("cmt-artifacts-missing (run dune build)").
-3. Declarations parse (exit 2 on malformed JSON or unsupported check type —
-   defense in depth; the resolver pre-validates the envelope).
-4. Each invariant's query runs; violations print the invariant id plus the
-   offending rows, and the gate exits 1 after evaluating all invariants.
-5. All checks pass → one `PASS <id>` line per invariant, exit 0
-   (zero declared invariants also exits 0).
+The index preflight requires arch-index's versioned main-schema OCaml CMT
+producer, `callgraph_contract=v1`, `sound_with_top` provenance on every function
+and edge, and valid edge kinds. A heuristic LSP database exits 3. A future gate
+needs a typed reachability contract and a producer-completeness witness before
+it may emit PASS for a negative claim. See
+`https://gitlab.com/nomadic-labs/ai-harness/arch-index/-/work_items/1` and
+`https://gitlab.com/nomadic-labs/ai-harness/arch-index/-/work_items/2`.

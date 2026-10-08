@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "name": "arch-index",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "type": "skill-pack",
-  "description": "Code-intel pack wrapping arch-index (github.com/epure-team/arch-index) — a SQLite call-graph + symbol index. Provides init (index bootstrap), gate (roster-qa invariant gate), audit-section (deterministic audit fragment), and research-orientation (advisory callers/callees/fan-in/definition/path queries for roster-research) skills.",
+  "description": "Code-intel pack for the versioned arch-index OCaml CMT main schema. Provides validated index initialization, fail-closed reachability gate, and advisory audit and research orientation. LSP indexes and negative reachability claims degrade.",
   "runtime_targets": ["codex", "opencode"]
 }
