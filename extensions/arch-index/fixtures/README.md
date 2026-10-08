@@ -5,10 +5,8 @@ database for the public
 [`epure-team/arch-index`](https://github.com/epure-team/arch-index) source.
 Its `producer_runs` row says `arch_index_cmt/sound_with_top`; the producer
 invocation was not replayed for this test. The source checkout's HEAD at
-fixture extraction was `c9c80a4986c04855b5859bfbd34d775aea01c5cf`;
-the original indexing worktree's cleanliness was not independently verified.
-The original database's SHA-256 was
-`f6739f5f2a2ba558a9552b46efea37c2c7163c03b4e6af56570b7225cf54ff67`.
+fixture extraction was `c9c80a4986c0`; the original indexing worktree's
+cleanliness was not independently verified.
 
 The fixture retains the producer's actual `comment_db_meta`, `producer_runs`,
 `modules`, `functions`, `calls`, and `analysis_coverage` tables, with 4,060
