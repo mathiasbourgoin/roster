@@ -485,6 +485,22 @@
         "tunables": {}
       },
       {
+        "name": "chamallaw-feedback",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "workflow",
+        "phase": null,
+        "tunables": {}
+      },
+      {
+        "name": "chamallaw-shadow",
+        "source": "roster",
+        "version": "1.3.0",
+        "domain": "workflow",
+        "phase": null,
+        "tunables": {}
+      },
+      {
         "name": "git-conventions",
         "source": "roster",
         "version": "1.0.3",

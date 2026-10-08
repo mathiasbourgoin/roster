@@ -187,6 +187,7 @@ this intake after its deterministic route, or `n/a` if it was not measured.
 Append one entry at phase exit to `skills-meta/friction.jsonl`. Set
 `"skill": "chamallaw-shadow"`. An unavailable MCP is `external-dep`; a missing
 contract or malformed response is `evidence`.
+Use the canonical entry template in `skills/shared/preamble-friction.md`.
 
 ## When to Go Back
 

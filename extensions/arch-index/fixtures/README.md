@@ -18,5 +18,8 @@ columns or call rows were fabricated. A string scan of the resulting database
 found no `/home/`, `/tmp/`, or PEM private-key markers.
 
 The Node pack test runs `test_adapter.py` against this fixture on every test
-run. This verifies versioned schema adaptation and failure on damaged producer
-provenance. It does not prove complete source coverage or negative reachability.
+run. It verifies versioned schema adaptation, failure on damaged producer
+provenance, and the `init.sh` install/validation seam using a stub that supplies
+this real producer output. The OCaml producer invocation is not replayed by CI.
+The empty `analysis_coverage` table does not assert source completeness. These
+tests do not prove complete source coverage or negative reachability.

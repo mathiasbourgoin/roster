@@ -77,7 +77,7 @@ These agents are domain-specific overlays for particular hardware/projects. Inst
 
 ---
 
-## Skills (37)
+## Skills (39)
 
 Skills are slash-command workflows that run in the main context and produce contractual artifacts that chain across pipeline phases.
 
@@ -122,6 +122,8 @@ Skills are slash-command workflows that run in the main context and produce cont
 | `improvement-loop` | workflow | Execute a bounded verification-first improvement loop |
 | `roster-config` | workflow | Discover and set tunables across installed agents |
 | `team` | workflow | Manage the installed agent team — `build` (apply proposal), `review` (audit gaps), `run <task>` (execute pipeline) |
+| `chamallaw-shadow` | workflow | Record a non-authoritative Chamallaw decision signal beside Roster intake |
+| `chamallaw-feedback` | workflow | Submit independently observed Roster decision evidence after an outcome is known |
 
 ### Media skills (experimental)
 
