@@ -1,42 +1,24 @@
 ---
 name: arch-index-init
-description: Build or refresh the arch-index SQLite call-graph + symbol index for this project (run before the code-intel gate or audit can operate).
-version: 1.0.0
+description: Build and validate an OCaml CMT main-schema index for advisory code-intel.
+version: 2.0.0
 capability: code-intel
 provides: init
 entry: bash init.sh
-requires_tools: [arch-index]
+requires_tools: [arch-callgraph-ocaml, python3]
 ---
 
 # arch-index-init
 
-Builds (or refreshes) the project's arch-index database at `.arch-index/index.db` —
-a SQLite call-graph + symbol index produced by the `arch-index` tool
-(github.com/epure-team/arch-index). The gate (`arch-index-gate`) and audit
-(`arch-index-audit`) skills only *read* this index; this skill is the sole writer.
+From an OCaml Dune project root, run `dune build`, set
+`ARCH_INDEX_SCHEMA_PATH` to arch-index's `architecture-schema.sql`, and run
+`bash init.sh`. The script invokes `arch-callgraph-ocaml` on `_build/default`,
+validates its temporary output through the shared adapter, then installs
+`.arch-index/index.db`. It exits 3 for missing inputs, a failed producer, or an
+unsupported schema. The old `arch-index init` invocation was not a command
+supported by the installed CLI.
 
-Backend detection is automatic per detected language:
-
-- **LSP path** — go, rust, typescript/javascript, python: the index is extracted
-  through the language server (best-effort per upstream arch-index).
-- **CMT path** — OCaml: the index is derived from `.cmt` typed-AST artifacts under
-  `_build/` (sound; requires `dune build` to have run first).
-
-## Steps
-
-1. Run `bash init.sh` from the project root (consumers invoke it via the seam `entry`).
-2. The script detects project languages from manifest files (`go.mod`, `Cargo.toml`,
-   `package.json`/`tsconfig.json`, `pyproject.toml`/`setup.py`/`requirements.txt`,
-   `dune-project`) and reports which backend applies.
-3. If `.arch-index/index.db` already exists it runs `arch-index refresh`, otherwise
-   `arch-index init`. Exit 3 with a clear message when the `arch-index` binary is
-   missing from PATH.
-4. Add `.arch-index/` to `.gitignore` — the index is a derived local artifact and
-   must not be committed (the script reminds you in its output).
-
-## When to run
-
-- Once after installing the pack, before the first roster-qa gate or audit run.
-- After significant code changes, so gate/audit read a fresh index (the audit
-  fragment discloses index staleness via its freshness header; it never
-  regenerates the index itself).
+The CMT database is an advisory index. Successful indexing does not itself
+prove that every intended source was compiled into the selected build tree.
+Heuristic LSP backends are unsupported by this adapter, including negative
+reachability gates.

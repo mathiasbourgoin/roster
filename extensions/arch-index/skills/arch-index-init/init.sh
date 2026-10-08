@@ -1,55 +1,22 @@
 #!/usr/bin/env bash
-# init.sh — arch-index index bootstrap (code-intel pack seam, provides: init).
-# Builds or refreshes the SQLite call-graph + symbol index at .arch-index/index.db.
-# Exit: 0 = index built/refreshed, 3 = degraded (arch-index binary missing).
+# Build a CMT main-schema index only when all producer inputs are explicit.
 set -u
 
-DB_DIR=".arch-index"
-DB="$DB_DIR/index.db"
-
-# --- language detection by manifest files -----------------------------------
-langs=""
-backends=""
-[ -f go.mod ] && langs="$langs go" && backends="$backends go:LSP"
-[ -f Cargo.toml ] && langs="$langs rust" && backends="$backends rust:LSP"
-if [ -f tsconfig.json ] || [ -f package.json ]; then
-  langs="$langs typescript/javascript"
-  backends="$backends typescript:LSP"
-fi
-if [ -f pyproject.toml ] || [ -f setup.py ] || [ -f requirements.txt ]; then
-  langs="$langs python"
-  backends="$backends python:LSP"
-fi
-[ -f dune-project ] && langs="$langs ocaml" && backends="$backends ocaml:CMT"
-
-if [ -z "$langs" ]; then
-  echo "arch-index-init: no supported language manifests detected (go.mod, Cargo.toml,"
-  echo "package.json/tsconfig.json, pyproject.toml/setup.py/requirements.txt, dune-project)."
-  echo "Nothing to index."
-  exit 0
-fi
-
-echo "arch-index-init: detected languages:$langs"
-echo "arch-index-init: backends:$backends (LSP = language-server extraction, CMT = OCaml typed-AST)"
-
-# --- tool presence -----------------------------------------------------------
-if ! command -v arch-index >/dev/null 2>&1; then
-  echo "arch-index-init: DEGRADED — the 'arch-index' binary is not on PATH." >&2
-  echo "Install it from github.com/epure-team/arch-index, then re-run this skill." >&2
-  exit 3
-fi
-
-# --- build or refresh --------------------------------------------------------
-mkdir -p "$DB_DIR"
-if [ -f "$DB" ]; then
-  echo "arch-index-init: existing index found — running: arch-index refresh"
-  arch-index refresh || exit 3
-else
-  echo "arch-index-init: no index yet — running: arch-index init"
-  arch-index init || exit 3
-fi
-
-echo "arch-index-init: index written to $DB"
-echo "arch-index-init: note — add '.arch-index/' to .gitignore (derived local artifact, do not commit)."
-echo "arch-index-init: roster-qa (gate) and roster-audit (audit-section) read this index; they never rebuild it."
-exit 0
+degraded() { echo "DEGRADED: $*" >&2; exit 3; }
+[ -f dune-project ] || degraded "unsupported-backend: only OCaml CMT is adapted; LSP indexes have heuristic coverage"
+command -v arch-callgraph-ocaml >/dev/null 2>&1 || degraded "tool-missing: arch-callgraph-ocaml"
+[ -n "${ARCH_INDEX_SCHEMA_PATH:-}" ] && [ -f "$ARCH_INDEX_SCHEMA_PATH" ] || degraded "schema-path-missing: set ARCH_INDEX_SCHEMA_PATH to arch-index/architecture-schema.sql"
+[ -d _build/default ] || degraded "cmt-artifacts-missing: run dune build"
+shopt -s globstar nullglob
+cmts=(_build/default/**/*.cmt)
+shopt -u globstar nullglob
+[ ${#cmts[@]} -gt 0 ] || degraded "cmt-artifacts-missing: run dune build"
+mkdir -p .arch-index
+tmp=$(mktemp .arch-index/index.XXXXXX.db) || degraded "temporary-index-create-failed"
+trap 'rm -f "$tmp"' EXIT
+arch-callgraph-ocaml --build-dir=_build/default --db-path="$tmp" --schema-path="$ARCH_INDEX_SCHEMA_PATH" || degraded "cmt-producer-failed"
+# Check the exact output before installing it as the index consumers read.
+ARCH_INDEX_DB_PATH="$tmp" python3 "$(dirname "$0")/../arch-index-gate/adapter.py" inspect >/dev/null || degraded "cmt-index-validation-failed"
+mv -f "$tmp" .arch-index/index.db || degraded "index-install-failed"
+trap - EXIT
+echo "arch-index-init: CMT index written to .arch-index/index.db"
