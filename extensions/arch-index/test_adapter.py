@@ -11,6 +11,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ADAPTER = HERE / "skills" / "arch-index-gate" / "adapter.py"
+INIT = HERE / "skills" / "arch-index-init" / "init.sh"
 FIXTURE = HERE / "fixtures" / "arch-index-cmt-1.15.db.xz"
 
 
@@ -80,6 +81,30 @@ class AdapterTest(unittest.TestCase):
         self.assertEqual(result.returncode, 3)
         self.assertIn("unsupported-schema-version", result.stderr)
         self.assertEqual(result.stdout, "")
+
+    def test_init_installs_validated_cmt_output(self):
+        # Replay the init seam with an actual producer-created DB. The stub
+        # supplies that output; this test does not execute the OCaml producer.
+        source = self.install_real_db()
+        source = source.rename(self.root / "producer-output.db")
+        (self.root / "dune-project").write_text("(lang dune 3.0)\n")
+        build = self.root / "_build" / "default"
+        build.mkdir(parents=True)
+        (build / "sample.cmt").write_bytes(b"fixture marker")
+        schema = self.root / "architecture-schema.sql"
+        schema.write_text("-- producer stub uses the already generated database\n")
+        bin_dir = self.root / "bin"
+        bin_dir.mkdir()
+        producer = bin_dir / "arch-callgraph-ocaml"
+        producer.write_text("#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in --db-path=*) out=${arg#--db-path=};; esac; done\ncp \"$ARCH_INDEX_TEST_SOURCE\" \"$out\"\n")
+        producer.chmod(0o755)
+        env = dict(os.environ, PATH=f"{bin_dir}:{os.environ['PATH']}",
+                   ARCH_INDEX_SCHEMA_PATH=str(schema), ARCH_INDEX_TEST_SOURCE=str(source))
+        result = subprocess.run(["bash", str(INIT)], cwd=self.root, env=env,
+                                text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.root / ".arch-index" / "index.db").is_file())
+        self.assertEqual(self.run_adapter("inspect").returncode, 0)
 
 
 if __name__ == "__main__":
