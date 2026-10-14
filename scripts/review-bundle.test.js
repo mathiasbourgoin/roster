@@ -24,9 +24,9 @@ const ROOT = path.resolve(__dirname, "..");
 
 // ── Generator: closure shape (FR-124) ───────────────────────────────────────
 
-test("generator: closure has 18 code files (r5-trace-enforcement added the trace schema + 3 lib modules), portable verifier, consumer doc, and schema fixtures", () => {
+test("generator: closure includes review and QA gates, portable verifier, module scope and contract docs", () => {
   const manifest = buildManifest(null);
-  assert.equal(manifest.files.length, 22);
+  assert.equal(manifest.files.length, 28);
   const wrapper = manifest.files.find((f) => f.path === "scripts/xruntime-exec.sh");
   assert.ok(wrapper, "wrapper must be in the closure");
   assert.equal(wrapper.shared, true);

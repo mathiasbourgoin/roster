@@ -1,9 +1,13 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.6.0",
+  "bundle_version": "1.8.0",
   "channel": "stable",
   "source_ref": "main",
   "files": [
+    {
+      "path": "schema/qa-state.schema.json",
+      "sha256": "008611886a91eb076edf1cc3217fafc239278463cbfd044ff57e1a215a3fe2e3"
+    },
     {
       "path": "schema/review-finding.schema.json",
       "sha256": "792b5440ce43b5b295f26c1cae624adbdc8c73199c96def9d666ef965f4f3ffb"
@@ -13,12 +17,20 @@
       "sha256": "e1c4b004fdb0ea3ab12428c9bbd091870bfeae905e144260ff5e8991c930879a"
     },
     {
+      "path": "scripts/check-qa-convergence.js",
+      "sha256": "6a9f21a60658d9c491f16b9e770e0d8a6a7c1cb9ece69faec7c281322be5157c"
+    },
+    {
       "path": "scripts/check-review-convergence.js",
       "sha256": "fafbf46ba7e0e0baacc88537060fef94d3a4373bde27c17cea8f5ddc4d25ee9a"
     },
     {
       "path": "scripts/check-scope-diff.sh",
       "sha256": "2de18402aec68d60d95c21ac50ec2796a245d04c4ac43856c8d5f078e034fe91"
+    },
+    {
+      "path": "scripts/lib/qa/qa-convergence-rules.js",
+      "sha256": "14bca7b22e9b345aa0d5d7ca23e9d74f41a27f2d1988f429c707989f6aae2238"
     },
     {
       "path": "scripts/lib/review/finding-schema.js",
@@ -79,13 +91,28 @@
     },
     {
       "path": "scripts/REVIEW-BUNDLE.md",
-      "sha256": "2b1be2c09d68450062801b09f54b7dd828843deec3da05d7538342ccc2ef0347",
+      "sha256": "1bef36d707039d3f55eb5521bbbdf20703b553a8725a38598e15ad694e895696",
       "kind": "doc"
     },
     {
       "path": "scripts/review-bundle-verify.js",
       "sha256": "906bb8934d98765b5ce311744e93c1cd781804d2d3fc33aca87cfcf9bf99273b",
       "kind": "verifier"
+    },
+    {
+      "path": "scripts/package.json",
+      "sha256": "8005a3491db7d92f36ac66369861589f9c47123d3a7c71e643fc2c06168cd45a",
+      "kind": "config"
+    },
+    {
+      "path": "schema/review-json-schema.md",
+      "sha256": "d2b5b6b27578e130f4154b22bdd6c14a988ab765d5661dca17ad7ca19177d981",
+      "kind": "doc"
+    },
+    {
+      "path": "schema/qa-state-schema.md",
+      "sha256": "ca35685c87c30a843174871cdbd155096cdbc60c35abb58146ce06b1f5082bae",
+      "kind": "doc"
     },
     {
       "path": "tools/data-schema/fixtures/review-finding/valid/basic.jsonl",

@@ -23,6 +23,7 @@ const JS_TOOL_ENTRIES = [
   "scripts/xruntime-review.js",
   "scripts/review-normalize.js",
   "scripts/check-review-convergence.js",
+  "scripts/check-qa-convergence.js",
 ];
 
 /** FR-126: every manifest file must exist on disk with a matching sha256. */

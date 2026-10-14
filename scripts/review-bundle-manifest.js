@@ -38,6 +38,10 @@ const DOC_REL = "scripts/REVIEW-BUNDLE.md";
 // Consumer-local integrity check. Lifecycle ownership remains external in
 // review-bundle-install.sh; only this zero-dependency verifier ships in the bundle.
 const VERIFIER_REL = "scripts/review-bundle-verify.js";
+// Installed .js tools retain CommonJS semantics under a consumer's ESM root.
+// Distributed normally so collision protection and removal own this scope too.
+const MODULE_SCOPE_REL = "scripts/package.json";
+const CONTRACT_DOCS = ["schema/review-json-schema.md", "schema/qa-state-schema.md"];
 // The finding schema is installed into consumer repos and may be auto-discovered by
 // their repo-wide schema gate. Ship one positive and one negative fixture alongside
 // it so installing the review bundle cannot turn such a gate tautological or red.
@@ -52,6 +56,7 @@ const JS_TOOL_ENTRIES = [
   "scripts/xruntime-review.js",
   "scripts/review-normalize.js",
   "scripts/check-review-convergence.js",
+  "scripts/check-qa-convergence.js",
 ];
 const BASH_ONLY_TOOL = "scripts/check-scope-diff.sh";
 
@@ -86,6 +91,10 @@ function buildManifest(existing, root) {
   }
   if (fs.existsSync(path.resolve(root, VERIFIER_REL))) {
     files.push({ path: VERIFIER_REL, sha256: sha256(path.resolve(root, VERIFIER_REL)), kind: "verifier" });
+  }
+  files.push({ path: MODULE_SCOPE_REL, sha256: sha256(path.resolve(root, MODULE_SCOPE_REL)), kind: "config" });
+  for (const rel of CONTRACT_DOCS) {
+    files.push({ path: rel, sha256: sha256(path.resolve(root, rel)), kind: "doc" });
   }
   for (const rel of DATA_CONTRACT_FIXTURES) {
     if (fs.existsSync(path.resolve(root, rel))) {

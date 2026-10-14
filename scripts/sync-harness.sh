@@ -160,6 +160,14 @@ if [ "$CHECK" -eq 1 ]; then
         exit 1
     fi
 
+    if [ -f "$HARNESS_DIR/bin/claims-reconcile.js" ] || [ -f "$HARNESS_DIR/bin/run-hook.js" ]; then
+        if [ ! -f "$HARNESS_DIR/bin/package.json" ] ||
+           ! jq -e '.type == "commonjs"' "$HARNESS_DIR/bin/package.json" >/dev/null; then
+            echo "✗ harness-sync: .harness/bin/package.json is missing or incompatible; run sync-harness.sh" >&2
+            exit 1
+        fi
+    fi
+
     # Skill hooks are executable only when their portable runner is present.
     # Runtime projections can be perfectly synchronized while this project-local
     # dependency is absent, so check it explicitly outside the projection diff.
@@ -677,6 +685,37 @@ install_skill_hook_runtime() {
     fi
 }
 
+install_harness_module_scope() {
+    local target="$HARNESS_DIR/bin/package.json"
+    if [ -f "$target" ]; then
+        if ! jq -e '.type == "commonjs"' "$target" >/dev/null; then
+            echo "sync-harness: refusing incompatible module scope: .harness/bin/package.json must use type commonjs" >&2
+            return 1
+        fi
+        return 0
+    fi
+    # This namespace may already contain consumer scripts. Only adopt the exact
+    # distributed runtime files; never reinterpret an unrelated .js file.
+    if [ -d "$HARNESS_DIR/bin" ]; then
+        local existing relative source
+        while IFS= read -r -d '' existing; do
+            relative="${existing#"$HARNESS_DIR/bin/"}"
+            case "$relative" in
+                run-hook.js) source="$SCRIPT_DIR/../.harness/bin/run-hook.js" ;;
+                claims-reconcile.js|lib/claims-reconcile.js|lib/claims-reconcile/*.js)
+                    source="$SCRIPT_DIR/$relative" ;;
+                *) source="" ;;
+            esac
+            if [ -z "$source" ] || [ ! -f "$source" ] || ! cmp -s "$source" "$existing"; then
+                echo "sync-harness: refusing CommonJS scope over unrelated consumer script: .harness/bin/$relative" >&2
+                return 1
+            fi
+        done < <(find "$HARNESS_DIR/bin" -type f -name '*.js' -print0)
+    fi
+    mkdir -p "$HARNESS_DIR/bin"
+    printf '{\n  "type": "commonjs"\n}\n' > "$target"
+}
+
 install_claims_reconciler() {
     local cli_source="$SCRIPT_DIR/claims-reconcile.js"
     local lib_source="$SCRIPT_DIR/lib/claims-reconcile.js"
@@ -735,6 +774,7 @@ check_canonical_hooks
 
 # Inline shared skill-hook fragments before any runtime projection
 sync_skill_hooks
+install_harness_module_scope
 install_skill_hook_runtime
 install_claims_reconciler
 
