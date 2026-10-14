@@ -38,3 +38,16 @@ bash "$INSTALLER" remove
 
 Full details, including collision handling and `--force`: see the header comment of
 `scripts/review-bundle-install.sh`, and specs/review-tool-distribution.md in the roster repo.
+# CommonJS execution in ESM consumers
+
+The installed bundle owns `scripts/package.json` with `type: commonjs`, so its
+`.js` tools execute even when the consumer root uses `type: module`. Existing
+module-scope files retain ordinary installer collision protection. When adding
+this scope to an ESM consumer, installation refuses unrelated existing `.js`
+scripts rather than silently changing their meaning; configure or isolate that
+consumer script scope before retrying. The app root package is never changed.
+
+The same bundle includes the QA convergence gate, its local schema and dependency
+closure, plus the review/QA state contract documents used by installed skills.
+Run `node scripts/check-qa-convergence.js <qa-state.json>` in the consumer; no
+source checkout is required for that gate.

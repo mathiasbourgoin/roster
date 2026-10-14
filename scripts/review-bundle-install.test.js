@@ -24,6 +24,57 @@ const REPO_ROOT = path.resolve(__dirname, "..");
 const INSTALLER = path.resolve(__dirname, "review-bundle-install.sh");
 const MANIFEST_REL = "scripts/review-bundle.manifest.json";
 
+test("installed review tools execute inside an ESM consumer without changing its root package", () => {
+  const target = mkScratch("esm-consumer");
+  const rootPackage = '{"type":"module"}\n';
+  fs.writeFileSync(path.join(target, "package.json"), rootPackage);
+  const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+  assert.equal(installed.code, 0, installed.stderr);
+  const verified = spawnSync(process.execPath, ["scripts/review-bundle-verify.js"], {cwd: target, encoding: "utf8"});
+  assert.equal(verified.status, 0, verified.stderr);
+  const loaded = spawnSync(process.execPath, ["--input-type=commonjs", "-e", "for (const file of ['xruntime-review','review-normalize','check-review-convergence']) require('./scripts/'+file+'.js')"], {cwd: target, encoding: "utf8"});
+  assert.equal(loaded.status, 0, loaded.stderr);
+  assert.equal(fs.readFileSync(path.join(target, "package.json"), "utf8"), rootPackage);
+});
+
+test("ESM consumer scripts retain their module semantics when bundle installation is refused", () => {
+  const target = mkScratch("esm-existing-script");
+  fs.writeFileSync(path.join(target, "package.json"), '{"type":"module"}\n');
+  fs.mkdirSync(path.join(target, "scripts"));
+  const script = 'export const value = 42;\n';
+  fs.writeFileSync(path.join(target, "scripts/user.js"), script);
+  const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+  assert.notEqual(installed.code, 0);
+  assert.match(installed.stderr, /unrelated ESM consumer script/);
+  assert.equal(fs.existsSync(path.join(target, "scripts/package.json")), false);
+  assert.equal(fs.readFileSync(path.join(target, "scripts/user.js"), "utf8"), script);
+});
+
+test("installed ESM consumer runs the QA convergence gate with its schema and dependency closure", () => {
+  const target = mkScratch("qa-closure");
+  fs.writeFileSync(path.join(target, "package.json"), '{"type":"module"}\n');
+  const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+  assert.equal(installed.code, 0, installed.stderr);
+  const state = {task:"consumer-qa",status:"GO",round:0,cycle:0,qa_no_go_round:0,rounds_audit:[{round:0,date:"2026-10-14",verdict:"GO",causes:[],qualifying:false}]};
+  const statePath = path.join(target, "qa-state.json");
+  const execute = () => spawnSync(process.execPath, ["scripts/check-qa-convergence.js", "qa-state.json"], {cwd:target,encoding:"utf8"});
+  fs.writeFileSync(statePath, JSON.stringify(state));
+  const passed = execute();
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.equal(JSON.parse(passed.stdout).violations.length, 0);
+  state.qa_no_go_round = 6;
+  fs.writeFileSync(statePath, JSON.stringify(state));
+  const capped = execute();
+  assert.equal(capped.status, 1, capped.stderr);
+  assert.equal(JSON.parse(capped.stdout).cause, "qa-round-cap");
+  fs.writeFileSync(statePath, '{}');
+  const malformed = execute();
+  assert.equal(malformed.status, 2, malformed.stderr);
+  assert.match(malformed.stderr, /schema validation/);
+  assert.ok(fs.existsSync(path.join(target, "schema/review-json-schema.md")));
+  assert.ok(fs.existsSync(path.join(target, "schema/qa-state-schema.md")));
+});
+
 function mkScratch(prefix) {
   return fs.mkdtempSync(path.join(os.tmpdir(), `review-bundle-${prefix}-`));
 }
@@ -90,12 +141,12 @@ test("closure smoke: each JS tool entry require()s without throwing", () => {
 
 // ── AC-01: staged install happy path (--from-checkout) ─────────────────────
 
-test("install --from-checkout: all 22 files land, shas match, manifest committed-shaped", () => {
+test("install --from-checkout: all 28 files land, shas match, manifest committed-shaped", () => {
   const target = mkScratch("install");
   const r = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
   const manifest = readManifest(target);
-  assert.equal(manifest.files.length, 22);
+  assert.equal(manifest.files.length, 28);
   for (const f of manifest.files) {
     assert.ok(fs.existsSync(path.join(target, f.path)), `${f.path} missing after install`);
   }
@@ -167,7 +218,7 @@ test("install --from-raw (file:// mock RAW): mirrors --from-checkout", () => {
   const target = mkScratch("rawdst");
   const r = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(readManifest(target).files.length, 22);
+  assert.equal(readManifest(target).files.length, 28);
 });
 
 test("partial fetch: a source missing one bundle file aborts, target untouched, staging-only residue (FR-131/153)", () => {

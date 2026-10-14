@@ -76,6 +76,45 @@ function registryOwning(target) {
 }
 
 describe("sync-harness extension-ownership guard", () => {
+  it("installs an executable claims reconciler inside an ESM consumer", async () => {
+    const root = await makeFixture();
+    const rootPackage = '{"type":"module"}\n';
+    await write(path.join(root, "package.json"), rootPackage);
+    const synced = await runSync(root);
+    assert.equal(synced.code, 0, synced.stderr);
+    const result = await execFileAsync(process.execPath, [".harness/bin/claims-reconcile.js", "audit", "--root", root], {cwd: root});
+    assert.doesNotThrow(() => JSON.parse(result.stdout));
+    assert.equal(await fs.readFile(path.join(root, "package.json"), "utf8"), rootPackage);
+    const checked = await runCheck(root);
+    assert.equal(checked.code, 0, checked.stderr);
+    await fs.unlink(path.join(root, ".harness/bin/package.json"));
+    const missingScope = await runCheck(root);
+    assert.notEqual(missingScope.code, 0);
+    assert.match(missingScope.stderr, /package.json is missing or incompatible/);
+  });
+  it("preserves and rejects a conflicting consumer-owned harness module scope", async () => {
+    const root = await makeFixture();
+    const scope = '{"type":"module","name":"consumer-tools"}\n';
+    await write(path.join(root, ".harness/bin/package.json"), scope);
+    const result = await runSync(root);
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /refusing incompatible module scope/);
+    assert.equal(await fs.readFile(path.join(root, ".harness/bin/package.json"), "utf8"), scope);
+    await assert.rejects(fs.stat(path.join(root, ".harness/bin/claims-reconcile.js")));
+  });
+  it("does not reinterpret an unrelated ESM script when adding the harness module scope", async () => {
+    const root = await makeFixture();
+    await write(path.join(root, "package.json"), '{"type":"module"}\n');
+    const script = 'export const value = 42;\n';
+    await write(path.join(root, ".harness/bin/user.js"), script);
+    await execFileAsync(process.execPath, [".harness/bin/user.js"], {cwd: root});
+    const result = await runSync(root);
+    assert.notEqual(result.code, 0);
+    assert.match(result.stderr, /unrelated consumer script/);
+    await assert.rejects(fs.stat(path.join(root, ".harness/bin/package.json")));
+    assert.equal(await fs.readFile(path.join(root, ".harness/bin/user.js"), "utf8"), script);
+    await execFileAsync(process.execPath, [".harness/bin/user.js"], {cwd: root});
+  });
   // Inverted 2026-07-02 (extension-installer-refactor R6): the registry-branch jq
   // expression is fixed (`any(.extensions[]?.installed_files[]?; ...)`), so a valid
   // registry entry recording the target now refuses the sync as originally intended.
