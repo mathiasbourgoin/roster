@@ -45,9 +45,51 @@ test("ESM consumer scripts retain their module semantics when bundle installatio
   fs.writeFileSync(path.join(target, "scripts/user.js"), script);
   const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   assert.notEqual(installed.code, 0);
-  assert.match(installed.stderr, /unrelated ESM consumer script/);
+  assert.match(installed.stderr, /unrelated consumer script/);
   assert.equal(fs.existsSync(path.join(target, "scripts/package.json")), false);
   assert.equal(fs.readFileSync(path.join(target, "scripts/user.js"), "utf8"), script);
+});
+
+for (const mode of ["inherited", "detected"]) {
+  test(`${mode} ESM consumer scripts retain semantics when installation is refused`, (t) => {
+    const outer = mkScratch(`${mode}-esm`);
+    t.after(() => fs.rmSync(outer, {recursive: true, force: true}));
+    if (mode === "inherited") fs.writeFileSync(path.join(outer, "package.json"), '{"type":"module"}\n');
+    const target = path.join(outer, "consumer");
+    fs.mkdirSync(path.join(target, "scripts"), {recursive: true});
+    const scriptPath = path.join(target, "scripts/user.js");
+    const script = 'export const value = 42; console.log(value);\n';
+    fs.writeFileSync(scriptPath, script);
+    const execute = () => spawnSync(process.execPath, [scriptPath], {encoding: "utf8"});
+    assert.equal(execute().status, 0);
+    for (const extra of [[], ["--force"]]) {
+      const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target, ...extra]);
+      assert.notEqual(installed.code, 0);
+      assert.match(installed.stderr, /unrelated consumer script/);
+    }
+    assert.equal(fs.existsSync(path.join(target, "scripts/package.json")), false);
+    assert.equal(fs.readFileSync(scriptPath, "utf8"), script);
+    const after = execute();
+    assert.equal(after.status, 0, after.stderr);
+    assert.equal(after.stdout.trim(), "42");
+  });
+}
+
+test("explicit CommonJS scripts scope preserves unrelated consumer scripts", (t) => {
+  const target = mkScratch("explicit-commonjs-scope");
+  t.after(() => fs.rmSync(target, {recursive: true, force: true}));
+  fs.writeFileSync(path.join(target, "package.json"), '{"type":"module"}\n');
+  fs.mkdirSync(path.join(target, "scripts"));
+  fs.copyFileSync(path.join(REPO_ROOT, "scripts/package.json"), path.join(target, "scripts/package.json"));
+  const scriptPath = path.join(target, "scripts/user.js");
+  const script = 'module.exports = 42; console.log(module.exports);\n';
+  fs.writeFileSync(scriptPath, script);
+  const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+  assert.equal(installed.code, 0, installed.stderr);
+  assert.equal(fs.readFileSync(scriptPath, "utf8"), script);
+  const after = spawnSync(process.execPath, [scriptPath], {encoding: "utf8"});
+  assert.equal(after.status, 0, after.stderr);
+  assert.equal(after.stdout.trim(), "42");
 });
 
 test("installed ESM consumer runs the QA convergence gate with its schema and dependency closure", () => {

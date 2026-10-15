@@ -196,16 +196,16 @@ stage_all_files() {
 check_collisions() {
   local new_manifest="$1" old_manifest="$2" count i rel new_sha old_sha=""
   local -a collisions=()
-  # Adding a scripts/ module scope must not reinterpret unrelated consumer ESM.
+  # Adding a scripts/ module scope must not reinterpret unrelated consumer scripts,
+  # including inherited ESM and Node's syntax-detected ESM.
   # Existing scoped scripts/package.json follows the normal collision check below.
-  if [ -d "$TARGET/scripts" ] && [ ! -f "$TARGET/scripts/package.json" ] && [ -f "$TARGET/package.json" ] &&
-     jq -e '.type == "module"' "$TARGET/package.json" >/dev/null &&
+  if [ -d "$TARGET/scripts" ] && [ ! -f "$TARGET/scripts/package.json" ] &&
      echo "$new_manifest" | jq -e '.files | any(.path == "scripts/package.json")' >/dev/null; then
     local existing_script existing_rel
     while IFS= read -r -d '' existing_script; do
       existing_rel="${existing_script#"$TARGET/"}"
       if ! echo "$new_manifest" | jq -e --arg p "$existing_rel" '.files | any(.path == $p)' >/dev/null; then
-        abort "refusing CommonJS scope over unrelated ESM consumer script: $existing_rel; isolate or explicitly configure the consumer scripts module scope first."
+        abort "refusing CommonJS scope over unrelated consumer script: $existing_rel; isolate or explicitly configure the consumer scripts module scope first."
       fi
     done < <(find "$TARGET/scripts" -type f -name '*.js' -print0)
   fi
