@@ -31,8 +31,8 @@ curl -fsSL "$RAW_PREFIX/scripts/review-bundle-install.sh" -o "$INSTALLER"
 bash "$INSTALLER" install --from-raw "$RAW_PREFIX"
 bash "$INSTALLER" upgrade --from-raw "$RAW_PREFIX"
 
-# Remove the bundle (the shared wrapper, scripts/xruntime-exec.sh, is kept — other
-# tools may still depend on it).
+# Remove the bundle (shared scripts/xruntime-exec.sh and scripts/package.json
+# are kept because consumer tools may still depend on them).
 bash "$INSTALLER" remove
 ```
 
@@ -48,6 +48,11 @@ inherited from an ancestor package or detected from syntax. This guard also appl
 with `--force`. Configure a compatible `scripts/package.json` or isolate those
 scripts before retrying. Existing explicit scopes retain ordinary collision
 checks. The app root package is never changed.
+
+Removal keeps `scripts/package.json` even when the bundle originally created it.
+This preserves CommonJS semantics for both preexisting consumer scripts and
+scripts added after installation. The retained scope is shared configuration;
+its collision protection and SHA verification still apply while installed.
 
 The same bundle includes the QA convergence gate, its local schema and dependency
 closure, plus the review/QA state contract documents used by installed skills.

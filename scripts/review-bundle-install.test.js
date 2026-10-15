@@ -92,6 +92,42 @@ test("explicit CommonJS scripts scope preserves unrelated consumer scripts", (t)
   assert.equal(after.stdout.trim(), "42");
 });
 
+for (const existingScope of [true, false]) {
+  test(`remove preserves ${existingScope ? "consumer" : "bundle-created"} CommonJS scope across reinstall and upgrade`, (t) => {
+    const target = mkScratch("shared-commonjs-scope");
+    t.after(() => fs.rmSync(target, {recursive: true, force: true}));
+    fs.writeFileSync(path.join(target, "package.json"), '{"type":"module"}\n');
+    fs.mkdirSync(path.join(target, "scripts"));
+    const scopePath = path.join(target, "scripts/package.json");
+    const scope = fs.readFileSync(path.join(REPO_ROOT, "scripts/package.json"), "utf8");
+    const scriptPath = path.join(target, "scripts/user.js");
+    const script = 'module.exports = 42; console.log(module.exports);\n';
+    const execute = () => spawnSync(process.execPath, [scriptPath], {cwd: target, encoding: "utf8"});
+    if (existingScope) {
+      fs.writeFileSync(scopePath, scope);
+      fs.writeFileSync(scriptPath, script);
+      assert.equal(execute().status, 0);
+    }
+    const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+    assert.equal(installed.code, 0, installed.stderr);
+    if (!existingScope) fs.writeFileSync(scriptPath, script);
+    for (const mode of ["install", "upgrade"]) {
+      const refreshed = run([mode, "--from-checkout", REPO_ROOT, "--target", target]);
+      assert.equal(refreshed.code, 0, refreshed.stderr);
+      assert.equal(execute().status, 0);
+    }
+    const removed = run(["remove", "--target", target]);
+    assert.equal(removed.code, 0, removed.stderr);
+    const after = execute();
+    assert.equal(after.status, 0, after.stderr);
+    assert.equal(after.stdout.trim(), "42");
+    assert.equal(fs.readFileSync(scopePath, "utf8"), scope);
+    assert.equal(fs.readFileSync(scriptPath, "utf8"), script);
+    assert.equal(fs.existsSync(path.join(target, MANIFEST_REL)), false);
+    assert.equal(fs.existsSync(path.join(target, "scripts/review-normalize.js")), false);
+  });
+}
+
 test("installed ESM consumer runs the QA convergence gate with its schema and dependency closure", () => {
   const target = mkScratch("qa-closure");
   fs.writeFileSync(path.join(target, "package.json"), '{"type":"module"}\n');

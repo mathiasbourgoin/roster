@@ -159,6 +159,8 @@ run_verify() {
 }
 
 # ── remove mode (FR-136/FR-151/FR-152: skip shared, skip modified, continue past missing) ──
+# Shared package scopes stay even if initially bundle-created: consumer scripts
+# may now depend on that boundary, just as other tools may use the shared wrapper.
 run_remove() {
   [ -f "$TARGET_MANIFEST" ] || abort "nothing to remove — $MANIFEST_REL absent"
   local manifest count i path sha shared
