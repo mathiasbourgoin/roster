@@ -84,7 +84,7 @@ fi
 
 if [ "$DRY_RUN" -eq 0 ]; then
   TMP="$(mktemp)"
-  jq --arg shadow_version "1.3.0" --arg feedback_version "1.0.0" '
+  jq --arg shadow_version "1.3.1" --arg feedback_version "1.0.0" '
     .layers.skills = ((.layers.skills // []) | map(select(.name != "chamallaw-shadow" and .name != "chamallaw-feedback"))) + [
       {name: "chamallaw-shadow", source: "chamallaw", version: $shadow_version, domain: "workflow", file: "chamallaw-shadow"},
       {name: "chamallaw-feedback", source: "chamallaw", version: $feedback_version, domain: "workflow", file: "chamallaw-feedback"}

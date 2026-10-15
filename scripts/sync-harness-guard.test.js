@@ -76,6 +76,45 @@ function registryOwning(target) {
 }
 
 describe("sync-harness extension-ownership guard", () => {
+  it("preserves local preamble fragments and gates friction and pipeline injection", async () => {
+    const root = await makeFixture();
+    const core = "---\nname: preamble\n---\n# Consumer core preamble\n";
+    const friction = "---\nname: preamble-friction\n---\n### Friction Log\nConsumer friction definition\n";
+    await write(path.join(root, "skills/shared/preamble.md"), core);
+    await write(path.join(root, "skills/shared/preamble-friction.md"), friction);
+    const skill = (enabled) => `---\nname: ${SKILL_NAME}\npreamble: true\nphase: null\nfriction_log: ${enabled}\n---\n# Guard\n`;
+    await write(path.join(root, `.harness/skills/${SKILL_NAME}.md`), skill(true));
+    assert.equal((await runSync(root)).code, 0);
+    const projected = path.join(root, `.agents/skills/${SKILL_NAME}/SKILL.md`);
+    const first = await fs.readFile(projected, "utf8");
+    assert.match(first, /Consumer core preamble/);
+    assert.match(first, /Consumer friction definition/);
+    assert.doesNotMatch(first, /Pipeline State/);
+    assert.equal(await fs.readFile(path.join(root, "skills/shared/preamble.md"), "utf8"), core);
+    assert.equal(await fs.readFile(path.join(root, "skills/shared/preamble-friction.md"), "utf8"), friction);
+    await fs.unlink(path.join(root, "skills/shared/preamble.md"));
+    assert.equal((await runSync(root)).code, 0);
+    const fragmentOnly = await fs.readFile(projected, "utf8");
+    assert.match(fragmentOnly, /# Roster Preamble/);
+    assert.match(fragmentOnly, /Consumer friction definition/);
+    await write(path.join(root, `.harness/skills/${SKILL_NAME}.md`), skill(false));
+    assert.equal((await runSync(root)).code, 0);
+    assert.doesNotMatch(await fs.readFile(projected, "utf8"), /Consumer friction definition|Pipeline State/);
+  });
+  it("fails clearly when required friction definitions are unavailable", async () => {
+    for (const corePresent of [false, true]) {
+      const root = await makeFixture();
+      const isolatedScript = path.join(root, "roster/scripts/sync-harness.sh");
+      await write(isolatedScript, await fs.readFile(SYNC_SCRIPT, "utf8"));
+      if (corePresent) await write(path.join(root, "roster/skills/shared/preamble.md"), "# Core\n");
+      await write(path.join(root, `.harness/skills/${SKILL_NAME}.md`),
+        `---\nname: ${SKILL_NAME}\npreamble: true\nfriction_log: true\n---\n# Guard\n`);
+      await assert.rejects(execFileAsync("bash", [isolatedScript, root]), (error) => {
+        assert.match(error.stderr, /required friction (preamble|template) unavailable/);
+        return true;
+      });
+    }
+  });
   it("installs an executable claims reconciler inside an ESM consumer", async () => {
     const root = await makeFixture();
     const rootPackage = '{"type":"module"}\n';
