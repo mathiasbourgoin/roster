@@ -125,6 +125,9 @@ below) — both already present in this section.
 
 ### Fixed
 
+- Chamallaw shadow 1.3.1 includes its complete friction-log definition in installed
+  instructions, with canonical preamble fallback that preserves consumer overrides.
+
 - Review bundle 1.9.0 retains the shared `scripts/package.json` on removal so
   consumer CommonJS scripts keep working, including scripts added after install.
 

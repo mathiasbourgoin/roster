@@ -45,6 +45,10 @@ configuration files to the Roster project.
 After a deterministic intake, the post-intake hook asks the runtime agent to
 run `chamallaw-shadow`. It calls only read tools and writes
 `roster/<task>/chamallaw-shadow.md`; `Routing changed: no` is mandatory.
+Its projected instruction includes the complete friction-log template and closed
+vocabulary, so no Roster source-tree path is required in the installed project.
+Projection preserves local shared preambles when present and otherwise uses
+the canonical fragments from the Roster checkout performing the installation.
 
 After a ship, the post-ship hook may request `chamallaw-feedback` only if the
 task has an independently observed binary result, durable evidence reference,

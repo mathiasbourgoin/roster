@@ -2,10 +2,11 @@
 name: chamallaw-shadow
 description: Records a non-authoritative Chamallaw decision signal beside Roster intake without changing routing. Use when comparing a configured local decision contract to roster.intake.
 when_to_use: "Use when a Chamallaw decision MCP is already configured and a Roster intake should collect a no-effect shadow observation."
-version: 1.3.0
+version: 1.3.1
 domain: workflow
 phase: null
 preamble: true
+friction_log: true
 allowed_tools: [Read, Write]
 disallowed_tools: [AskUserQuestion]
 human_gate: none
@@ -131,8 +132,10 @@ this intake after its deterministic route, or `n/a` if it was not measured.
 
 ## Friction Log
 
-Append one entry at phase exit to `skills-meta/friction.jsonl` using the canonical
-`skills/shared/preamble-friction.md` template. Set
+Append one entry at phase exit to `skills-meta/friction.jsonl` using the complete
+template and closed vocabulary injected above under `### Friction Log`. The
+Roster source is `skills/shared/preamble-friction.md`; that source-only path is
+not required in the installed project. Set
 `"skill": "chamallaw-shadow"`. An unavailable MCP is `external-dep`; a missing
 contract or malformed response is `evidence`.
 

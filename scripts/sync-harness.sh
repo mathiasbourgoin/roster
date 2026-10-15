@@ -23,6 +23,12 @@ CLAUDE_DIR="$PROJECT_ROOT/.claude"
 CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
 CODEX_GLOBAL_SKILLS_DIR="$CODEX_HOME_DIR/skills"
 ROSTER_SKILLS_DIR="$PROJECT_ROOT/skills"
+# Initialized consumers keep canonical skills flat under .harness/skills.
+# Render their requested preambles from Roster when no consumer override exists.
+PREAMBLE_SOURCE="$ROSTER_SKILLS_DIR/shared/preamble.md"
+if [ ! -f "$PREAMBLE_SOURCE" ] && [ -f "$SCRIPT_DIR/../skills/shared/preamble.md" ]; then
+    PREAMBLE_SOURCE="$SCRIPT_DIR/../skills/shared/preamble.md"
+fi
 MANIFEST="$HARNESS_DIR/harness.json"
 
 need_cmd() {
@@ -341,6 +347,13 @@ render_skill_source() {
 
     mkdir -p "$(dirname "$dest")"
 
+    local friction_val
+    friction_val="$(extract_frontmatter_field "$adjusted" "friction_log" | sed 's/[[:space:]]*#.*$//; s/^["'"'"']//; s/["'"'"']$//; s/\r$//; s/[[:space:]]*$//')"
+    if grep -q '^preamble: true' "$adjusted" && [ "$friction_val" = "true" ] && [ ! -f "$preamble" ]; then
+        echo "sync-harness: required friction preamble unavailable for $name" >&2
+        rm -f "$adjusted"
+        return 1
+    fi
     if grep -q '^preamble: true' "$adjusted" && [ -n "$preamble" ] && [ -f "$preamble" ]; then
         # Emit the frontmatter (through the closing delimiter), then the preamble, then the
         # body. Both halves consume ONLY the two frontmatter delimiters so body markdown
@@ -361,16 +374,24 @@ render_skill_source() {
         # parsed frontmatter (extract_frontmatter_field) normalized against trailing
         # YAML comments, quotes, and CR — never the body. Fragments are injected
         # body-only (strip_frontmatter), same as the core preamble.
-        local frag_dir phase_val friction_val
+        local frag_dir phase_val friction_source
         frag_dir="$(dirname "$preamble")"
         phase_val="$(extract_frontmatter_field "$adjusted" "phase" | sed 's/[[:space:]]*#.*$//; s/^["'"'"']//; s/["'"'"']$//; s/\r$//; s/[[:space:]]*$//')"
-        friction_val="$(extract_frontmatter_field "$adjusted" "friction_log" | sed 's/[[:space:]]*#.*$//; s/^["'"'"']//; s/["'"'"']$//; s/\r$//; s/[[:space:]]*$//')"
         if [ -n "$phase_val" ] && [ "$phase_val" != "null" ] && [ -f "$frag_dir/preamble-pipeline.md" ]; then
             strip_frontmatter "$frag_dir/preamble-pipeline.md" >> "$dest"
             printf '\n' >> "$dest"
         fi
-        if [ "$friction_val" = "true" ] && [ -f "$frag_dir/preamble-friction.md" ]; then
-            strip_frontmatter "$frag_dir/preamble-friction.md" >> "$dest"
+        if [ "$friction_val" = "true" ]; then
+            friction_source="$ROSTER_SKILLS_DIR/shared/preamble-friction.md"
+            if [ ! -f "$friction_source" ]; then
+                friction_source="$SCRIPT_DIR/../skills/shared/preamble-friction.md"
+            fi
+            if [ ! -f "$friction_source" ]; then
+                echo "sync-harness: required friction template unavailable for $name" >&2
+                rm -f "$adjusted"
+                return 1
+            fi
+            strip_frontmatter "$friction_source" >> "$dest"
             printf '\n' >> "$dest"
         fi
         strip_frontmatter "$adjusted" >> "$dest"
@@ -783,7 +804,7 @@ if runtime_enabled "claude-code"; then
     sync_markdown_dir "$HARNESS_DIR/agents" "$CLAUDE_DIR/agents"
     find "$CLAUDE_DIR/commands" -maxdepth 1 -type f -name '*.md' -delete
     mapfile -d '' SKILL_SOURCES < <(collect_skill_sources)
-    sync_skill_sources_to_claude "$CLAUDE_DIR/commands" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
+    sync_skill_sources_to_claude "$CLAUDE_DIR/commands" "$PREAMBLE_SOURCE" "${SKILL_SOURCES[@]}"
 
     sync_markdown_dir "$HARNESS_DIR/rules" "$CLAUDE_DIR/rules"
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
@@ -889,7 +910,7 @@ if runtime_enabled "codex"; then
     CODEX_AGENTS_DIR="$PROJECT_ROOT/.codex/agents"
     mkdir -p "$CODEX_SKILLS_DIR"
     mapfile -d '' SKILL_SOURCES < <(collect_skill_sources)
-    sync_skill_sources_to_skill_dir "$CODEX_SKILLS_DIR" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
+    sync_skill_sources_to_skill_dir "$CODEX_SKILLS_DIR" "$PREAMBLE_SOURCE" "${SKILL_SOURCES[@]}"
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
         render_recruit_skill "$HARNESS_DIR/agents/recruiter.md" "$CODEX_SKILLS_DIR/recruit/SKILL.md"
         touch "$CODEX_SKILLS_DIR/recruit/.roster-managed"
@@ -905,7 +926,7 @@ if runtime_enabled "codex-global"; then
     CODEX_GLOBAL_SKILLS_DIR="$(resolve_entrypoint "$(runtime_entrypoint "codex-global" "$CODEX_GLOBAL_SKILLS_DIR")")"
     mkdir -p "$CODEX_GLOBAL_SKILLS_DIR"
     mapfile -d '' SKILL_SOURCES < <(collect_skill_sources)
-    sync_skill_sources_to_codex_global "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
+    sync_skill_sources_to_codex_global "$PREAMBLE_SOURCE" "${SKILL_SOURCES[@]}"
     if [ -f "$HARNESS_DIR/agents/recruiter.md" ]; then
         render_recruit_skill "$HARNESS_DIR/agents/recruiter.md" "$CODEX_GLOBAL_SKILLS_DIR/recruit/SKILL.md"
         touch "$CODEX_GLOBAL_SKILLS_DIR/recruit/.roster-managed"
@@ -946,7 +967,7 @@ if runtime_enabled "opencode"; then
     # OpenCode natively discovers Agent Skills at .opencode/skills/<name>/SKILL.md (verified) —
     # the SAME shape Codex uses and that install.sh writes. Emit skills there, NOT to
     # .opencode/commands/ (OpenCode does not read that path as skills).
-    sync_skill_sources_to_skill_dir "$OPENCODE_DIR/skills" "$ROSTER_SKILLS_DIR/shared/preamble.md" "${SKILL_SOURCES[@]}"
+    sync_skill_sources_to_skill_dir "$OPENCODE_DIR/skills" "$PREAMBLE_SOURCE" "${SKILL_SOURCES[@]}"
     # Migrate away from the obsolete .opencode/commands/ projection a PRIOR roster sync may have
     # written. Remove ONLY the command files roster itself generated (one per CURRENT skill name,
     # plus recruit) — never `rm -rf` the dir, which could hold the user's own files or, with a

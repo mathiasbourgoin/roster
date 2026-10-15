@@ -155,7 +155,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-config | 1.1.0 | Interactive editor for tunables exposed by installed roster agents |
 | team | 1.0.3 | Build, review, or run the installed agent team via one dispatch skill |
 | tdd-workflow | 1.0.2 | Drives a strict red-green-refactor TDD cycle with coverage verification |
-| chamallaw-shadow | 1.3.0 | Records a non-authoritative Chamallaw decision signal beside Roster intake without changing routing. Use when comparing a configured local decision contract to roster.intake |
+| chamallaw-shadow | 1.3.1 | Records a non-authoritative Chamallaw decision signal beside Roster intake without changing routing. Use when comparing a configured local decision contract to roster.intake |
 | chamallaw-feedback | 1.0.0 | Submits independently observed Roster decision evidence to Chamallaw without verifying or training it. Use only after a task outcome is known and evidenced |
 
 ### Media (1, experimental)
