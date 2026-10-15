@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.8.0",
+  "bundle_version": "1.9.0",
   "channel": "stable",
   "source_ref": "main",
   "files": [
@@ -91,7 +91,7 @@
     },
     {
       "path": "scripts/REVIEW-BUNDLE.md",
-      "sha256": "c7b19c66c5fc3c7c099ee51f52834ebda42113b3f2fc1532dd4bd49c79877035",
+      "sha256": "751ccd4bad8579a719b3dcd1e7e3f832f8a540b74ad675f8989aa5a02d0a4d74",
       "kind": "doc"
     },
     {
@@ -102,7 +102,8 @@
     {
       "path": "scripts/package.json",
       "sha256": "8005a3491db7d92f36ac66369861589f9c47123d3a7c71e643fc2c06168cd45a",
-      "kind": "config"
+      "kind": "config",
+      "shared": true
     },
     {
       "path": "schema/review-json-schema.md",

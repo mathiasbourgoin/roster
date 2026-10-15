@@ -125,6 +125,9 @@ below) — both already present in this section.
 
 ### Fixed
 
+- Review bundle 1.9.0 retains the shared `scripts/package.json` on removal so
+  consumer CommonJS scripts keep working, including scripts added after install.
+
 - **Free text no longer trips the command-blocking layers** (`escalation` rule 1.2.0,
   `git-conventions` 1.1.0, `roster-ship` 1.7.0, `roster-run` 1.12.0, `roster-intake` 1.5.0,
   `roster-investigate` 1.5.0, `roster-audit` 1.5.0) — both Claude Code's `permissions.deny` globs
