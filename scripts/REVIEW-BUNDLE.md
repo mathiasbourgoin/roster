@@ -43,9 +43,11 @@ Full details, including collision handling and `--force`: see the header comment
 The installed bundle owns `scripts/package.json` with `type: commonjs`, so its
 `.js` tools execute even when the consumer root uses `type: module`. Existing
 module-scope files retain ordinary installer collision protection. When adding
-this scope to an ESM consumer, installation refuses unrelated existing `.js`
-scripts rather than silently changing their meaning; configure or isolate that
-consumer script scope before retrying. The app root package is never changed.
+this scope, installation refuses unrelated existing `.js` scripts, including ESM
+inherited from an ancestor package or detected from syntax. This guard also applies
+with `--force`. Configure a compatible `scripts/package.json` or isolate those
+scripts before retrying. Existing explicit scopes retain ordinary collision
+checks. The app root package is never changed.
 
 The same bundle includes the QA convergence gate, its local schema and dependency
 closure, plus the review/QA state contract documents used by installed skills.
