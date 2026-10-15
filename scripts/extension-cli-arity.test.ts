@@ -1,11 +1,33 @@
 // Seam tests for R8 + R10-json: table-driven per-command arity/flag
 // enforcement through the cliParseError path. Extra operands and
 // command-incompatible flags are rejected instead of silently ignored.
-// Public parsing surface; no child process is needed to prove argument handling.
+// Parsing seams plus executable output-stream regressions.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
 
 import { parseArgs } from "./roster-extension.js";
+
+describe("roster-extension executable output streams", () => {
+  const entry = join(__dirname, "roster-extension.js");
+  it("prints successful help to stdout", () => {
+    for (const flag of ["--help", "-h"]) {
+      const result = spawnSync(process.execPath, [entry, flag], {encoding: "utf8"});
+      assert.equal(result.status, 0, result.stderr);
+      assert.match(result.stdout, /Usage: roster-extension/);
+      assert.equal(result.stderr, "");
+    }
+  });
+  it("keeps usage failures on stderr", () => {
+    for (const args of [[], ["list", "--dryrun"]]) {
+      const result = spawnSync(process.execPath, [entry, ...args], {encoding: "utf8"});
+      assert.equal(result.status, 1);
+      assert.equal(result.stdout, "");
+      assert.match(result.stderr, /Usage: roster-extension/);
+    }
+  });
+});
 
 type CliResult = { code: number; stdout: string; stderr: string };
 
