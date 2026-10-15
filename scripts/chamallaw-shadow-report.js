@@ -28,7 +28,9 @@ function posteriorMean(value) {
   if (!Number.isFinite(alpha) || !Number.isFinite(beta) || alpha <= 0 || beta <= 0) {
     return null;
   }
-  return alpha / (alpha + beta);
+  const scale = Math.max(alpha, beta);
+  const scaledAlpha = alpha / scale;
+  return scaledAlpha / (scaledAlpha + beta / scale);
 }
 
 function nonNegativeInteger(value) {

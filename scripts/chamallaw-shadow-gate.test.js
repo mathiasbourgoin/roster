@@ -62,3 +62,20 @@ test("fails closed on an unended or malformed evaluation", () => {
   assert.equal(malformed.eligible_for_human_review, false);
   assert.ok(malformed.errors.length > 0);
 });
+
+test("does not qualify an overflowed posterior as a perfect negative prediction", () => {
+  const isolated = fs.mkdtempSync(path.join(os.tmpdir(), "roster-chamallaw-large-beta-"));
+  try {
+    fs.writeFileSync(path.join(isolated, "chamallaw-shadow.md"),
+      observation("2026-10-03T12:00:00Z", "Beta(1e308, 1e308)", "negative", 1));
+    const result = evaluate(isolated, {
+      ...config, minimum_observations: 1, minimum_calibration_observations: 1,
+    }, new Date("2026-10-05T00:00:00Z"));
+    assert.equal(result.counts.brier_score, 0.25);
+    assert.equal(result.eligible_for_human_review, false);
+    assert.ok(result.reasons.includes("Brier score is absent or above threshold"));
+    assert.equal(result.promotion, "not-automated");
+  } finally {
+    fs.rmSync(isolated, {recursive: true, force: true});
+  }
+});
