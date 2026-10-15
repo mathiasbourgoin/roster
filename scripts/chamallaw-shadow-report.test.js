@@ -5,10 +5,24 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { after, test } = require("node:test");
-const { report } = require("./chamallaw-shadow-report.js");
+const { posteriorMean, report, summarize } = require("./chamallaw-shadow-report.js");
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "roster-chamallaw-shadow-"));
 after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+test("keeps finite posterior means and calibration valid when parameters overflow their sum", () => {
+  assert.equal(posteriorMean("Beta(1e308, 1e308)"), 0.5);
+  assert.ok(Math.abs(posteriorMean("Beta(1.6e308, 8e307)") - 2 / 3) < 1e-15);
+  assert.ok(Math.abs(posteriorMean("Beta(8e307, 1.6e308)") - 1 / 3) < 1e-15);
+  for (const comparisonLabel of ["positive", "negative"]) {
+    const counts = summarize([{posterior: "Beta(1e308, 1e308)", comparisonLabel}]);
+    assert.equal(counts.calibration_observations, 1);
+    assert.equal(counts.brier_score, 0.25);
+  }
+  for (const value of ["Beta(Infinity, 1)", "Beta(1, NaN)", "Beta(0, 1)", "Beta(-1, 1)"]) {
+    assert.equal(posteriorMean(value), null);
+  }
+});
 
 function write(task, text) {
   const dir = path.join(root, task);
