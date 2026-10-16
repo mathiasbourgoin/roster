@@ -484,6 +484,11 @@ test("[projection-freshness] projection set is atomic, marked, and stale inputs 
   codeIntelSource(root, sourceBlock);
   project(root, { outputDir: out });
   assert.equal(checkFreshness(root, { outputDir: out }).fresh, true);
+  for (const name of ["index.md", "properties.md", "spec.md"]) {
+    const projected = fs.readFileSync(path.join(out, name), "utf8");
+    assert.equal(projected.endsWith("\n"), true, `${name} must end with a newline`);
+    assert.equal(projected.endsWith("\n\n"), false, `${name} must not add a blank line at EOF`);
+  }
   assert.deepEqual(extractTaggedFences(fs.readFileSync(path.join(out, "properties.md"), "utf8"), "code-intel"), ["```code-intel\n{\"provider\":\"fixture\"}\n```"]);
   fs.writeFileSync(path.join(out, "properties.md"), fs.readFileSync(path.join(out, "properties.md"), "utf8").replace("fixture", "tampered"));
   assert.equal(checkFreshness(root, { outputDir: out }).fresh, false);
