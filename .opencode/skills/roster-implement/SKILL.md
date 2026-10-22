@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express Lite/Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.10.0
+version: 1.11.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -430,7 +430,10 @@ protection will block it).
 For each unit of work in the plan:
 
 1. Implement the minimum to satisfy the brief
-2. Run quality gates
+2. In **Fast mode**, run the narrowest declared check that covers this unit and record its command,
+   exit code, and duration in the impl brief. Do not repeat the full build/test/lint suite per unit;
+   the baseline and final verification remain mandatory. If no narrower declared check covers the
+   unit, run the relevant full gate; do not invent or omit a check. In other modes, run the quality gates.
 3. If gates fail:
    - Max `tunables.max_improve_iterations` correction attempts
    - If still broken after N attempts → invoke `/improvement-loop` with bounded scope
@@ -446,6 +449,13 @@ entries are never run mechanically.
 ### 5. Final verification
 
 **Express Lite:** run its declared relevant check only; do not claim the full suite ran. A missing, failed, or ambiguous check routes to Fast.
+
+**Fast mode:** run the complete declared build, test, and format/lint gates once after the final edit.
+The impl brief MUST distinguish these final gates from focused per-unit checks, with each command,
+exit code, and duration. This is the Fast measurement: `full_gate_runs`, `focused_check_runs`, and
+`avoided_repeated_full_gate_runs` (one avoided full-suite run for each focused check).
+Missing evidence, a changed command, or an edit after the recorded final gate requires rerunning the
+complete gates; review and QA still execute their independent checks.
 
 ```bash
 <build command>     # must pass
