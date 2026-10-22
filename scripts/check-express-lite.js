@@ -29,6 +29,8 @@ function checkContract() {
     ["skills/pipeline/roster-doctor.md", "express-lite: implement→review→ship", "doctor sequence"],
     ["skills/pipeline/roster-implement.md", "implement directly without spawning an agent or asking a preliminary question", "direct implementation"],
     ["skills/pipeline/roster-implement.md", "declared relevant check replaces the baseline build/test gate", "relevant-check-only gate"],
+    ["skills/pipeline/roster-implement.md", "relevant_check_duration_ms", "Lite measurement"],
+    ["skills/pipeline/roster-implement.md", "delegated_agents_avoided: 2", "delegation saving measurement"],
     ["skills/pipeline/roster-review.md", "skip §3, specialists, and cross-runtime review", "local review"],
     ["skills/pipeline/roster-review.md", "All modes except Express Lite", "no delegated reviewer"],
     ["skills/pipeline/roster-review.md", "git diff --cached", "staged final diff"],
