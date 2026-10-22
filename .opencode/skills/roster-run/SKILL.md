@@ -2,19 +2,20 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.12.0
+version: 1.13.0
 ---
 
 # Roster Run
 
 You are the entry point of the roster pipeline. Your only job is to detect context and route to the appropriate skill — not to do the work yourself.
 
-## Three modes — pick before anything else
+## Four modes — pick before anything else
 
 **Read the task first. Classify it. Then route.**
 
 | Mode | When | Pipeline |
 |---|---|---|
+| **Express Lite** | Demonstrably non-behavioral descriptive docs, formatting, or private local rename; no agent/rule/hook/config/dependency-version/API/security surface | local implement+review → ship |
 | **Express** | No spec/KB impact — typo, rename, formatting, config tweak, doc fix, pure refactor with no behaviour change | implement → review → ship |
 | **Fast** | Quick task with potential spec/KB impact — bug fix, small behaviour change, adding a missing case, performance fix | implement → review → qa → (update KB/specs/friction log) → ship |
 | **Full** | New capability, API change, design decisions, multi-file refactor with trade-offs, anything the user asks to spec first | question → research → intake → spec → plan → implement → review → qa → ship |
@@ -22,6 +23,15 @@ You are the entry point of the roster pipeline. Your only job is to detect conte
 **When in doubt between Express and Fast, pick Fast.** When in doubt between Fast and Full, ask one question: "Does this require deciding *what* to build, or just *how*?" — if only *how*, stay Fast.
 
 > Express and Fast are not shortcuts on quality — review is always mandatory. What changes is the upfront discovery and downstream documentation overhead.
+
+### Express Lite signals (all must apply)
+
+- Every changed hunk is demonstrably non-behavioral and self-evident; mixed or uncertain diffs route to Fast or Full.
+- No changed path is under `skills/`, `agents/`, `rules/`, `hooks/`, `.harness/`, `.claude/`, `.opencode/`, `.agents/`, `package.json`, or a dependency lockfile.
+- No dependency version, executable configuration, public symbol, security, trust-boundary, or ambiguous check-selection change is involved.
+- The relevant check is known and passes. Otherwise route to Fast.
+
+Express Lite performs a local implementation-and-review pass: no preliminary question and no delegated reviewer. Its result MUST state `assurance: local`; it never claims independent review. Reclassify the final diff before ship; any Lite-ineligible change routes to Fast or Full under the existing policy.
 
 ### Express signals (all must apply)
 
@@ -71,12 +81,13 @@ DSL, linting, exit codes: `docs/hooks.md`.
 
 ## Routing
 
-**Step 1 — classify the task (Express / Fast / Full).** Do this before checking briefs/.
+**Step 1 — classify the task (Express Lite / Express / Fast / Full).** Do this before checking briefs/.
 
-**Explicit mode override.** If the task text contains a mode flag — `--express`, `--fast`, or
+**Explicit mode override.** If the task text contains a mode flag — `--express-lite`, `--express`, `--fast`, or
 `--full` — or an explicit instruction to force a mode ("do this full", "spec it first"),
 honor it verbatim and skip inference. Strip the flag from the task before routing. An explicit
-`--full` always wins even on a task that looks trivial; an explicit `--express`/`--fast` is
+`--express-lite` is valid only when every Express Lite signal above is evidenced; otherwise apply
+the Full signals first, then route to Fast if none apply. An explicit `--full` always wins even on a task that looks trivial; an explicit `--express`/`--fast` is
 honored **unless** classification detects a Full signal that would skip a mandatory phase (a
 new public API, an unspecced design decision) — in that case, surface the conflict and ask
 before downgrading. Otherwise infer the mode from the signals below.
@@ -174,7 +185,7 @@ corrupt or malformed ledger never silently degrades to a stale resume:
 # Canonical ledger-schema gate — IDENTICAL in roster-doctor `status` mode. Keep them in sync.
 # Byte-identity mechanically enforced by `scripts/check-pipeline-install.js`.
 LEDGER_SCHEMA='
-  {express:["implement","review","ship"],
+  {"express-lite":["implement","review","ship"], express:["implement","review","ship"],
    fast:["implement","review","qa","ship"],
    full:["question","research","intake","spec","plan","implement","review","qa","ship"]} as $seq
   | {intake:["VALIDATED"],spec:["VALIDATED","SKIPPED","BOUNCED"],
@@ -206,7 +217,7 @@ fi
 
 The `jq` gate validates the **complete** ledger schema in one predicate: valid JSON; `.task`
 equals this task's slug (a copied/misnamed ledger must not authoritatively resume another task);
-`.mode ∈ {express,fast,full}`; `.current_phase` is a string **and a member of that mode's
+`.mode ∈ {express-lite,express,fast,full}`; `.current_phase` is a string **and a member of that mode's
 sequence** (an express ledger claiming `spec` is corrupt, not resumable); `.events` is a non-empty
 array; the last event's `phase` equals `current_phase`; the last event's `outcome` is legal
 for its phase per the preamble vocabulary — **per-phase strict**: `implement` ∈
@@ -223,6 +234,7 @@ authoritative.
   classification and route per the per-mode rules below (Full uses the Detection brief-file table).
 - **A `phase=… mode=…` line** → **resume.** The recorded `mode` is authoritative — it overrides
   Step 1 classification (the task already committed to a mode):
+  - **express-lite:** `implement → review → ship`
   - **express:** `implement → review → ship`
   - **fast:** `implement → review → qa → ship`
   - **full:** `question → research → intake → spec → plan → implement → review → qa → ship`
@@ -274,6 +286,8 @@ pure-doc Express tasks that touch no code, build, or tests).
   environment is ready or the user explicitly accepts proceeding. Discovering a missing test
   runner or linter here is far cheaper than failing at the quality gate mid-implementation.
 
+If **Express Lite** mode: announce and route through **local implement+review → ship**. Run only the declared relevant check; an absent, failed, or ambiguous check routes to Fast.
+
 If **Express** mode: announce and route directly through **implement → review → ship**.
 
 If **Fast** mode: announce and route through **implement → review → qa → ship** in sequence. After QA, update KB/specs and friction log if impacted.
@@ -322,12 +336,13 @@ node scripts/check-review-convergence.js briefs/<task>-review.json --static
 | `intake` VALIDATED | all | Next phase in sequence (intake has no other terminal status) |
 | `spec` VALIDATED **or** SKIPPED | full | Next phase in sequence (`plan`) |
 | `spec` BOUNCED | full | `/roster-intake` — enrich the brief to resolve the bounce reason, then re-run `/roster-spec` |
-| `review` GO | express | `/roster-ship` |
+| `review` GO | express-lite, express | `/roster-ship` |
 | `review` GO | fast, full | `/roster-qa` — unless the critical E0 exception below applies, in which case `/roster-ship` |
 | `review` NO-GO with `no_go_reason.type == "spec-ac-failure"` | full only (express/fast have no spec phase — their NO-GO always routes to implement) | `/roster-spec` — spec ACs were not met; revise the spec |
 | `review` NO-GO with `no_go_reason.cause == "novel-finding-streak"` **and** a `streak_override` valid for the CURRENT `round` (`{round, by: "human"}`, matching — E-1) | full | `/roster-implement` — one bounded extra round; the gate itself suppresses the streak violation on re-check (§ convergence gate invocation below still passes), so this row is reachable; stale (non-matching-round) overrides fall through to the row below |
 | `review` NO-GO with `no_go_reason.type == "design-not-converging"` **or** the convergence gate blocked the route-back | full (express/fast: stop + restart-under-full per above) | `/roster-spec` — the escalation context forces the minimal-freeze profile regardless of Trust boundary/Type (A-10); the un-encodable finding or round cap IS the invariant gap to spec |
 | `review` NO-GO with `no_go_reason.type == "review-integrity-failure"` (`specs/r5-trace-enforcement.md` FR-175/C-1) | all | Re-run the round's claimed tooling for real (the tool named in `no_go_reason`'s surfaced violation detail), then re-review — **never** `/roster-spec`, **never** streak-override-eligible (INV-8); a claimed invocation (scope-gate, specialist, normalizer, or cross-runtime pass) left no corresponding trace/journal line, which is a review-process integrity gap, not a design-convergence one |
+| `review` NO-GO with `no_go_reason.type == "express-lite-ineligible"` | express-lite | STOP; preserve this immutable Lite ledger and restart the unchanged diff as a new Fast/Full task (for example `<task>-fast`) with the Lite artifacts as context. |
 | `review` NO-GO (any other reason) | all | `/roster-implement` — pass review.json as context |
 | `qa` GO | fast, full | `/roster-ship` |
 | `qa` NO-GO with escalation `qa-not-converging` (gate exit 1 or gate blocked route-back) | fast, full | STOP — human decision point: present the `rounds_audit` trail, recorded causes, and exits (`/roster-spec` [Fast⇒restart-under-full, FR-277], `/roster-review`, split/abandon). MUST NOT auto-route. |

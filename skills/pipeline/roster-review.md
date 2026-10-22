@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 2.5.0
+version: 2.6.0
 domain: pipeline
 phase: review
 preamble: true
@@ -45,10 +45,11 @@ orchestration, judgment, and the human gate.
 
 ## Mode Awareness
 
-**Read the mode from `briefs/<task>-impl.md`** (field `mode: express|fast|full`). If absent, infer from context.
+**Read the mode from `briefs/<task>-impl.md`** (field `mode: express-lite|express|fast|full`). If absent, infer from context.
 
 | Mode | Review scope | Specialist invocation | Escalation check |
 |---|---|---|---|
+| **Express Lite** | Reclassify diff. | None; emit `assurance: local`. | Excluded/ambiguous work routes to Fast/Full. |
 | **Express** | Correctness + security only. Skip spec/KB compliance — no spec impact expected. | `reviewer` agent only. Skip `spec-compliance`, `code-quality-auditor`, `architect` unless diff > 5 files. | Mandatory — see below |
 | **Fast** | Full review. Spec/KB compliance only if KB exists. | `reviewer` + conditionals per normal rules. | Mandatory — see below |
 | **Full** | Full review. All specialists per normal rules. | All conditionals apply. | N/A |
@@ -96,22 +97,25 @@ If `briefs/<task>-impl.md` is absent: ⛔ stop — review cannot start without t
 
 ```bash
 git diff main...HEAD
+git diff --cached
+git diff
+git ls-files --others --exclude-standard
 git log main...HEAD --oneline
 ```
 
-Read each modified file in its entirety — not just the diff lines.
+Read every changed file in full, including each untracked file listed above.
 
 ### 2. Fix-first: auto corrections
 
-Apply the following mechanical corrections without asking:
+Auto-fix:
 
 | Category | Examples | Auto-fix threshold |
 |---|---|---|
 | Dead code | Unused variables, unused imports | Always |
-| Magic numbers | Inline constants → named constants | Always |
+| Magic numbers | Inline constants → names | Always |
 | Stale comments | Comments that contradict the code | Always |
 | Style / format | Local style inconsistencies, trailing whitespace | Always |
-| Obvious DRY | Identical copy-paste block 3+ lines | If < `tunables.auto_fix_threshold_lines` |
+| Obvious DRY | Identical copied block 3+ lines | If < `tunables.auto_fix_threshold_lines` |
 
 **Do not auto-fix:**
 - Security (auth, injection, XSS) → always in findings
@@ -119,13 +123,11 @@ Apply the following mechanical corrections without asking:
 - Visible behavior changes → always ask
 - Refactors > `tunables.auto_fix_threshold_lines` lines → always ask
 
-After each auto-fix, verify that quality gates still pass.
+Verify each auto-fix.
 
 ### 2.5 Deterministic scope gate
 
-Runs **after** auto-fixes, so the gated state is the state that ships. **Branch on mode first**
-(from `briefs/<task>-impl.md`): in **Express/Fast**, skip this gate unconditionally and silently —
-even if a stale `briefs/<task>-manifest.txt` exists. Only in **Full mode** continue:
+After auto-fixes, Lite/Express/Fast skip this gate; only Full continues:
 
 ```bash
 [ -f "briefs/<task>-manifest.txt" ] && echo "manifest: present" || echo "manifest: absent"
@@ -149,16 +151,17 @@ excluded by design; a mid-phase third-party file is attributed to the task and m
 human-ACCEPTED (documented blind spots, see the script).
 
 **Invocation trace (R-5, FR-165):** Full mode only, append one `scope-gate` line — `ran` if the
-manifest was present, else `skipped`/`no-manifest` (Express/Fast append nothing, EC-6):
+manifest was present, else `skipped`/`no-manifest` (Express Lite/Express/Fast append nothing, EC-6):
 
 ```bash
 [ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event scope-gate --actor check-scope-diff.sh --outcome <ran|skipped> [--detail no-manifest] || echo "review-trace.js missing — stale install"
 ```
 
-When spawning the `reviewer` agent (step 3), state whether this gate ran — when it did, the agent
-defers scope assessment to it and emits no scope findings of its own.
+When spawning `reviewer`, state whether this gate ran; when it did, the agent emits no scope findings.
 
 ### 3. Conditional specialists
+
+**Express Lite:** skip §3, specialists, and cross-runtime review; write `assurance: "local"`. An excluded/ambiguous final diff is `NO-GO` with `no_go_reason.type: "express-lite-ineligible"`; stop and restart it as Fast/Full per roster-run's verdict table.
 
 Spawn specialists based on scope. Each receives: the complete diff, `briefs/<task>-reviewer.md`,
 their own instructions (path below), and whether the scope gate (§2.5) ran.
@@ -192,7 +195,7 @@ enforces that, which is what makes the skip safe to write honestly.
 | `code-quality-auditor` | Always if KB exists (`kb/properties.md` present) | Skill — read `skills/kb/code-quality-auditor.md`; provide diff + `kb/properties.md` + `kb/glossary.md` + reviewer.md |
 | `architect` | Medium or large blast radius (>3 files modified or public module) | `.claude/agents/architect.md` |
 | TUI pass (via `reviewer`) | TUI scope detected in diff or brief | Spawn the `reviewer` agent with a TUI checklist appended: rendering at 80x24/120x40/220x50, keyboard navigation paths, terminal-capability fallbacks, escape-sequence hygiene. (Deterministic tmux verification happens later in `/roster-qa`.) |
-| `reviewer` (agent) | Always | `.claude/agents/reviewer.md` |
+| `reviewer` (agent) | All modes except Express Lite | `.claude/agents/reviewer.md` |
 | `cross-runtime-reviewer` | **Mandatory** in Fast/Full when a runtime CLI other than the host is on `PATH` (`codex` or `opencode`); skip only by explicit human decision | See **Cross-Runtime Review** below |
 
 #### Delta-Scoped Loop-Back Reviewer Selection

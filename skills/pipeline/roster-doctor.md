@@ -345,7 +345,7 @@ clean render. The expected slug is the file's own basename (`briefs/<slug>-state
 # LEDGER_SCHEMA is the SAME predicate as roster-run Step 3 — keep the two copies identical.
 # Byte-identity mechanically enforced by `scripts/check-pipeline-install.js`.
 LEDGER_SCHEMA='
-  {express:["implement","review","ship"],
+  {"express-lite":["implement","review","ship"], express:["implement","review","ship"],
    fast:["implement","review","qa","ship"],
    full:["question","research","intake","spec","plan","implement","review","qa","ship"]} as $seq
   | {intake:["VALIDATED"],spec:["VALIDATED","SKIPPED","BOUNCED"],
@@ -382,7 +382,7 @@ done
 Compute the next phase (below) only for ledgers that passed the schema gate.
 
 Then state the **next phase** roster-run would resume into, computed from `current_phase` **in
-the recorded `mode`'s sequence** (express: implement→review→ship; fast: implement→review→qa→ship;
+the recorded `mode`'s sequence** (express-lite: implement→review→ship; express: implement→review→ship; fast: implement→review→qa→ship;
 full: question→research→intake→spec→plan→implement→review→qa→ship):
 
 - If `current_phase` is the last in its mode's sequence (`ship`), print `next: complete` when

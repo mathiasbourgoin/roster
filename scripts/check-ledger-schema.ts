@@ -66,6 +66,8 @@ const FIXTURES: Fixture[] = [
     ]) },
   { name: "PARTIAL-then-COMPLETED resume", legal: true,
     ledger: ledger("fast", "implement", [ev("implement", "PARTIAL", "ran out of budget"), ev("implement", "COMPLETED")]) },
+  { name: "express-lite complete history", legal: true,
+    ledger: ledger("express-lite", "ship", [ev("implement", "COMPLETED"), ev("review", "GO"), ev("ship", "COMPLETED")]) },
   // ── illegal ──
   { name: "reason:false (non-string reason)", legal: false,
     ledger: ledger("fast", "implement", [ev("implement", "PARTIAL", false)]) },

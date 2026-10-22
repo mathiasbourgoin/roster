@@ -292,7 +292,7 @@
       {
         "name": "roster-implement",
         "source": "roster",
-        "version": "1.9.0",
+        "version": "1.10.0",
         "domain": "pipeline",
         "phase": "implement",
         "tunables": {
@@ -377,7 +377,7 @@
       {
         "name": "roster-review",
         "source": "roster",
-        "version": "2.5.0",
+        "version": "2.6.0",
         "domain": "pipeline",
         "phase": "review",
         "tunables": {
@@ -391,7 +391,7 @@
       {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.12.0",
+        "version": "1.13.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -399,7 +399,7 @@
       {
         "name": "roster-ship",
         "source": "roster",
-        "version": "1.7.0",
+        "version": "1.8.0",
         "domain": "pipeline",
         "phase": "ship",
         "tunables": {
