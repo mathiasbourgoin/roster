@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express Lite/Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.11.0
+version: 1.12.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -239,7 +239,7 @@ If either is absent **in Full mode**:
 > ⛔ Sub-brief missing: `briefs/<task>-implementer.md` and/or `briefs/<task>-reviewer.md` not found.
 > Re-run `/roster-plan` to produce both sub-briefs before starting implementation.
 
-**Express Lite mode** — implement directly without spawning an agent or asking a preliminary question. Run only the declared relevant check. If eligibility, check selection, or the final diff is ambiguous, stop the Lite path and route to Fast; record `Mode: express-lite` and `Assurance: local` in the impl brief.
+**Express Lite mode** — implement directly without spawning an agent or asking a preliminary question. Run only the declared relevant check. If eligibility, check selection, or the final diff is ambiguous, stop the Lite path and route to Fast; record `Mode: express-lite` and `Assurance: local` in the impl brief. Record `relevant_check_duration_ms`, `avoided_phases: [question,research,intake,spec,plan,qa]`, and `delegated_agents_avoided: 2`; these are the Lite user-gain measurements.
 
 **Express / Fast mode** — there is **no `/roster-plan` phase**, so the sub-briefs do not exist by
 design. Do **not** block on them. Implement directly from the task description (and, on a NO-GO
