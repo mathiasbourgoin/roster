@@ -2,7 +2,7 @@
 name: roster-ship
 description: Carries a reviewed, QA'd branch through to a merged PR.
 when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
-version: 1.7.0
+version: 1.8.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -96,7 +96,7 @@ context. Create the file if absent; preserve every prior `events` entry:
 ```json
 {
   "task": "<slug>",
-  "mode": "express|fast|full",
+  "mode": "express-lite|express|fast|full",
   "current_phase": "implement",
   "events": [
     { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
@@ -109,7 +109,7 @@ Rules for writing your event:
 - **`task` is the canonical slug**, derived once from the task description and reused identically
   by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
   `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
-  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  — `roster-implement` in Express Lite/Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
   every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
   ledger will not be found. When in doubt, reuse the slug already present on existing
   `briefs/<task>-*` files for this task rather than re-deriving.
@@ -140,7 +140,7 @@ Rules for writing your event:
 - **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
   A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
   repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
-- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- `mode` is the task's mode (`express-lite`/`express`/`fast`/`full`); set it on first write, leave it thereafter.
 - Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
   skill name (or `human-gate` for a gate decision).
 - Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
@@ -225,7 +225,7 @@ Before any action, read:
 - `briefs/<task>-review.json` — **BLOCK** if status is `NO-GO`; read its `mode` field
 - `briefs/<task>-impl.md` — for commit messages
 - `briefs/<task>-qa.md` — **required for `fast`/`full` mode** (BLOCK if NO-GO or absent).
-  **Express mode skips QA** (its pipeline is implement → review → ship), so a missing
+  **Express Lite mode skips QA** only when `review.json.mode == "express-lite"` and it contains `assurance: "local"`; a missing or other assurance blocks ship and routes to Fast. **Express mode skips QA** (its pipeline is implement → review → ship), so a missing
   `qa.md` is expected and **not** a block when `review.json.mode == "express"`.
 
 If `review.json.mode` is absent and the impl brief has no `Mode:` line, **require human

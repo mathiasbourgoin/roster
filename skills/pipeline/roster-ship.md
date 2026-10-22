@@ -2,7 +2,7 @@
 name: roster-ship
 description: Carries a reviewed, QA'd branch through to a merged PR.
 when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
-version: 1.7.0
+version: 1.8.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -43,7 +43,7 @@ Before any action, read:
 - `briefs/<task>-review.json` — **BLOCK** if status is `NO-GO`; read its `mode` field
 - `briefs/<task>-impl.md` — for commit messages
 - `briefs/<task>-qa.md` — **required for `fast`/`full` mode** (BLOCK if NO-GO or absent).
-  **Express mode skips QA** (its pipeline is implement → review → ship), so a missing
+  **Express Lite mode skips QA** only when `review.json.mode == "express-lite"` and it contains `assurance: "local"`; a missing or other assurance blocks ship and routes to Fast. **Express mode skips QA** (its pipeline is implement → review → ship), so a missing
   `qa.md` is expected and **not** a block when `review.json.mode == "express"`.
 
 If `review.json.mode` is absent and the impl brief has no `Mode:` line, **require human

@@ -1,8 +1,8 @@
 ---
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
-when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.9.0
+when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express Lite/Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
+version: 1.10.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -20,8 +20,8 @@ artifacts:
   writes:
     - briefs/<task>-impl.md
 pipeline_role:
-  triggered_by: /roster-plan with validated sub-briefs, or directly from /roster-run in Express/Fast mode
-  receives: briefs/<task>-implementer.md (Full mode) or task description directly (Express/Fast)
+  triggered_by: /roster-plan with validated sub-briefs, or directly from /roster-run in Express Lite/Express/Fast mode
+  receives: briefs/<task>-implementer.md (Full mode) or task description directly (Express Lite/Express/Fast)
   produces: briefs/<task>-impl.md + implemented code with passing quality gates
 ---
 
@@ -57,6 +57,8 @@ If either is absent **in Full mode**:
 > ⛔ Sub-brief missing: `briefs/<task>-implementer.md` and/or `briefs/<task>-reviewer.md` not found.
 > Re-run `/roster-plan` to produce both sub-briefs before starting implementation.
 
+**Express Lite mode** — implement directly without spawning an agent or asking a preliminary question. Run only the declared relevant check. If eligibility, check selection, or the final diff is ambiguous, stop the Lite path and route to Fast; record `Mode: express-lite` and `Assurance: local` in the impl brief.
+
 **Express / Fast mode** — there is **no `/roster-plan` phase**, so the sub-briefs do not exist by
 design. Do **not** block on them. Implement directly from the task description (and, on a NO-GO
 loop-back, from `briefs/<task>-review.json`). Establish the quality gates yourself from the project
@@ -64,6 +66,8 @@ loop-back, from `briefs/<task>-review.json`). Establish the quality gates yourse
 
 In all modes, verify the quality gates are known before changing code — escalate if you cannot
 determine them.
+
+For **Express Lite**, the declared relevant check replaces the baseline build/test gate below; do not run a full baseline unless that check requires it.
 
 **Claims projection (conditional):** run the available reconciler's `check --root .` before edits;
 stop on stale managed claims. Legacy passes. Also require a task context manifest's current digest.
@@ -94,7 +98,7 @@ Violating a KB invariant is a **blocker**: stop and escalate rather than breakin
 
 ### 1.5 File manifest lifecycle (Full mode only)
 
-Skip this section in Express/Fast mode (`briefs/<task>-implementer.md` absent by design — no
+Skip this section in Express Lite/Express/Fast mode (`briefs/<task>-implementer.md` absent by design — no
 manifest exists, the freeze hook stays fail-open and the review scope gate skips silently).
 
 **Derive the manifest before touching any code — and capture the header (base + dirty) before
@@ -161,6 +165,8 @@ is fail-open there (documented gap). Pass the manifest entries in the sub-brief 
 constraint; the review scope gate remains the backstop.
 
 ### 2. Context detection
+
+**Express Lite:** do not enter this section. Do not spawn an implementer. Make the small change locally, run its declared relevant check, reclassify the final diff, and write an impl brief with `Mode: express-lite` and `Assurance: local`. Any uncertainty routes to Fast before shipping.
 
 **If OCaml scope and complex module (> `tunables.ocaml_specialist_threshold` lines of logic):**
 → Spawn the `ocaml-dune-specialist` sub-agent with the sub-brief as context.
@@ -257,6 +263,8 @@ entries are never run mechanically.
 
 ### 5. Final verification
 
+**Express Lite:** run its declared relevant check only; do not claim the full suite ran. A missing, failed, or ambiguous check routes to Fast.
+
 ```bash
 <build command>     # must pass
 <test command>      # must pass — all tests, not just new ones
@@ -348,7 +356,7 @@ is `PARTIAL`, the next step is instead a re-run of `/roster-implement` (routed b
 
 | Condition | Action |
 |---|---|
-| `briefs/<task>-implementer.md` or `briefs/<task>-reviewer.md` absent **in Full mode** | Stop — re-run `/roster-plan` to produce both sub-briefs (in Express/Fast they are absent by design — proceed from the task) |
+| `briefs/<task>-implementer.md` or `briefs/<task>-reviewer.md` absent **in Full mode** | Stop — re-run `/roster-plan` to produce both sub-briefs (in Express Lite/Express/Fast they are absent by design — proceed from the task) |
 | A plan step cannot be implemented as described | Stop — re-run `/roster-plan` with the blocker as input |
 | Quality gates are broken at baseline before any change | Stop — report to human, do not proceed |
 | Implementation reveals the brief was fundamentally wrong | Stop — re-run `/roster-intake` with the new information |
