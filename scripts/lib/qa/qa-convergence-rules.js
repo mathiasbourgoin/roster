@@ -28,8 +28,11 @@ const QUALIFYING_CAUSES = new Set([
 ]);
 
 // FR-268/EC-4: a rounds_audit entry qualifies iff at least one of its
-// recorded causes is in the qualifying set. cross-runtime-discrepancy and
-// code-intel-malformed are deliberately excluded (FR-269/FR-270).
+// recorded causes is in the qualifying set. cross-runtime-discrepancy,
+// code-intel-malformed, and environment-failure are deliberately excluded:
+// an attempt that could not exercise the product is inconclusive, not a
+// product-quality strike. A mixed entry still qualifies through its product
+// failure cause.
 function isQualifying(entry) {
   if (!entry || !Array.isArray(entry.causes)) return false;
   return entry.causes.some((cause) => QUALIFYING_CAUSES.has(cause));

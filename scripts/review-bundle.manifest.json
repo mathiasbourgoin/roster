@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.10.0",
+  "bundle_version": "1.10.1",
   "channel": "stable",
   "source_ref": "main",
   "files": [
     {
       "path": "schema/qa-state.schema.json",
-      "sha256": "008611886a91eb076edf1cc3217fafc239278463cbfd044ff57e1a215a3fe2e3"
+      "sha256": "d763c1f46a2f8ff466718714c3a937ae4314df7d0663ed1921861f6fb832a2da"
     },
     {
       "path": "schema/review-finding.schema.json",
@@ -30,7 +30,7 @@
     },
     {
       "path": "scripts/lib/qa/qa-convergence-rules.js",
-      "sha256": "14bca7b22e9b345aa0d5d7ca23e9d74f41a27f2d1988f429c707989f6aae2238"
+      "sha256": "22605992cd4638294b700bdeebee9a4564004a9386bb22c9ee441b98e519a584"
     },
     {
       "path": "scripts/lib/review/finding-schema.js",
@@ -112,7 +112,7 @@
     },
     {
       "path": "schema/qa-state-schema.md",
-      "sha256": "ca35685c87c30a843174871cdbd155096cdbc60c35abb58146ce06b1f5082bae",
+      "sha256": "140d06c7b7893e2e6fb2d90382368d28fc5bb95537f279858082b54d5f95304e",
       "kind": "doc"
     },
     {

@@ -264,7 +264,8 @@ where neither plan nor intake artifacts exist).
 
 ### 2. Deterministic quality gates
 
-Run the gates in sequence (order and pass/fail semantics: see Rules).
+Run every gate whose prerequisites are satisfied. Preserve the declared order for readable
+reporting, but do not use an independent gate's failure as a reason to skip later gates.
 
 ```bash
 # Gate 1: Build
@@ -282,13 +283,22 @@ Run the gates in sequence (order and pass/fail semantics: see Rules).
 <specific command>
 ```
 
-For each gate: record the exact result (exit code, duration, number of tests).
+For each gate, record the exact command, exit code, duration, number of tests, and full raw output.
 
-If a gate fails:
-- Record the full error log
-- Immediate status: NO-GO
-- Do not continue to subsequent gates
-- Include in the report without softening
+Classify failures before deciding what else can run:
+
+- **Product failure:** the command ran in a valid environment and found a build, test, lint, or
+  project-specific defect. Record `gate-failure`, keep running independent gates, and emit NO-GO.
+- **Environment failure:** the command could not exercise the product because a required tool,
+  credential, service, dependency, platform capability, or setup step was unavailable or broken.
+  Record `environment-failure`. Skip only gates that actually depend on that prerequisite, naming
+  the failed prerequisite in every skip; continue all other independent gates.
+
+Never reinterpret an assertion/test failure as an environment failure merely because it may be
+flaky. The environment classification requires positive evidence that the product was not tested.
+If a round contains both kinds, it remains a qualifying NO-GO because of `gate-failure`. A round
+containing only environment failures is an inconclusive NO-GO and does not consume the qualifying
+convergence budget. Aggregation changes diagnostic completeness, never gate strictness.
 
 ### 3. Spec runnable checks (conditional)
 
@@ -420,16 +430,16 @@ verdict emission, GO included. Full field shapes: `schema/qa-state-schema.md`.
 
 | Step outcome | Cause |
 |---|---|
-| Step 2 gate failure | `gate-failure` |
+| Step 2 product gate failure | `gate-failure` |
+| Step 2 setup/environment failure | `environment-failure` |
 | Step 3 spec runnable-check FAIL | `spec-check-failure` |
 | Step 3.5 exit 1 (invariant violated) | `code-intel-violation` |
 | Step 3.5 exit 2 (malformed block) | `code-intel-malformed` |
 | Step 4 TUI failure | `tui-failure` |
 | Step 4.5 cross-runtime discrepancy | `cross-runtime-discrepancy` |
 
-A GO verdict records `causes: []`. Step 2's short-circuit (stop at first gate failure, do not
-continue) means most NO-GOs carry a single cause; only a round that ran past Step 2 can accumulate
-more than one (EC-4) — record every cause that applies, never just the first.
+A GO verdict records `causes: []`. Aggregated gates can produce multiple failures in one round;
+record every cause that applies, never just the first.
 
 **2. Derive round/cycle** by shelling out (never re-derive in prose, FR-261):
 
@@ -450,7 +460,7 @@ forward the same way (C-2, inert — QA never reads or interprets it).
   cause is qualifying (`gate-failure`, `spec-check-failure`, `code-intel-violation`,
   `tui-failure` — see the `[NEEDS-HUMAN]` note in `scripts/lib/qa/qa-convergence-rules.js` for the
   C-4 interpretation this rests on), else unchanged (`cross-runtime-discrepancy` /
-  `code-intel-malformed` alone never increment it, FR-269/FR-270).
+  `code-intel-malformed` / `environment-failure` alone never increment it, FR-269/FR-270).
 
 **4. Append the `rounds_audit` entry** (append-only within the cycle, FR-265):
 `{round, date, verdict, causes, qualifying}` where `qualifying` is whether step 3's `+1` fired.
@@ -509,6 +519,9 @@ Produce `briefs/<task>-qa.md`:
 | Build | `<cmd>` | ✅ PASS / ❌ FAIL | <Xs> |
 | Tests | `<cmd>` | ✅ <N> passed / ❌ <N> failed | <Xs> |
 | Format | `<cmd>` | ✅ PASS / ❌ FAIL | <Xs> |
+
+For a skipped dependent gate use `⏭ SKIP — prerequisite <name> failed`; for an environment
+failure use `⚠ INCONCLUSIVE — environment failure`, followed by its full raw diagnostic.
 
 ## Tests: detail
 

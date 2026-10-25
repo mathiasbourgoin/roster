@@ -210,6 +210,11 @@ tests stay green untouched).
 - **FR-270** [US-2]: A NO-GO caused solely by a malformed code-intel block (step 3.5 exit 2) MUST
   NOT increment `qa_no_go_round`; same audit treatment, cause `code-intel-malformed`. A round with
   mixed causes qualifies if ANY cause qualifies (EC-4).
+- **FR-270a** [US-2]: A QA attempt caused solely by an unavailable or broken execution
+  prerequisite MUST be recorded as an inconclusive NO-GO with cause `environment-failure` and MUST
+  NOT increment `qa_no_go_round`. Independent gates whose prerequisites remain satisfied MUST
+  still run; only actual dependents may be skipped, with the failed prerequisite recorded. A round
+  containing both `environment-failure` and any qualifying cause qualifies once (EC-4).
 - **FR-271** [US-2]: The cap MUST be a roster-qa tunable `max_qa_rounds`, default `5`, compared
   against `qa_no_go_round` (never against the physical `round`).
 - **FR-272** [US-2]: Counter and cap MUST ship together in one change — no instrumentation-only
@@ -330,6 +335,8 @@ tests stay green untouched).
   the audit trail lets the human distinguish the pattern at the decision point.
 - EC-9 [US-3]: Cap hit in Fast mode → human decision point identical; the `/roster-spec` option is
   presented as restart-under-full (FR-277); zero ledger mutation, no automatic mode upgrade.
+- EC-10 [US-2]: Missing test runner plus an independent lint failure → lint still runs; the round
+  records both `environment-failure` and `gate-failure` and qualifies exactly once (FR-270a/EC-4).
 
 ## Runnable Checks
 
