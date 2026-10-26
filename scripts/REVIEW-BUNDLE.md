@@ -31,8 +31,8 @@ curl -fsSL "$RAW_PREFIX/scripts/review-bundle-install.sh" -o "$INSTALLER"
 bash "$INSTALLER" install --from-raw "$RAW_PREFIX"
 bash "$INSTALLER" upgrade --from-raw "$RAW_PREFIX"
 
-# Remove the bundle (shared scripts/xruntime-exec.sh and scripts/package.json
-# are kept because consumer tools may still depend on them).
+# Remove the bundle (the shared wrapper, its content-snapshot helper, and
+# scripts/package.json are retained for consumer tools).
 bash "$INSTALLER" remove
 ```
 
@@ -58,3 +58,19 @@ The same bundle includes the QA convergence gate, its local schema and dependenc
 closure, plus the review/QA state contract documents used by installed skills.
 Run `node scripts/check-qa-convergence.js <qa-state.json>` in the consumer; no
 source checkout is required for that gate.
+
+## Repository content guard
+
+Cross-runtime and green-check runs compare the Git index and Git-visible working
+files before and after execution, including contents of paths already dirty.
+Ignored untracked files, nested submodule contents beyond superproject-visible
+state, and writes restored before the after snapshot are outside this check.
+This detects persistent repository changes; it does not provide OS confinement.
+Snapshot failures in a Git repository reject the result.
+
+The cross-runtime shell wrapper now requires Node and its adjacent
+`scripts/lib/git-tree-snapshot.js` helper. Copying only `xruntime-exec.sh` is no
+longer sufficient for Git-repository runs. The bundle installs that helper and
+the CommonJS `scripts/package.json` scope. Removal retains all three together so
+the shared wrapper remains usable. Snapshotting streams file bytes and its cost
+scales with the total size of tracked and nonignored untracked files.
