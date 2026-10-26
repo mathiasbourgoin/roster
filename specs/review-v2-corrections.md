@@ -137,7 +137,9 @@ and a `cycle` field are added. roster-run stays row-level BECAUSE the gate absor
   the Resolution note below); it then resolves any still-`pending-check` entries AFTER this round's
   gate run, from THIS round's freshly persisted report. Reopen mutations discovered at that point
   trigger exactly one bounded re-gate (exit-3 repair pattern, not open-ended). Fail-closed when the
-  check is absent from the report.
+  check is absent from the report. A matching report entry with `greenFailed: true` or `weakened: true` reopens the
+  finding even when `red_verified: true`: historical red proof does not override a failed green
+  run. Absent failure fields retain legacy behavior.
 - **E-3 (O-3, fingerprint uniqueness):** findings gain `fid` = `fingerprint + "#" + sha8(normalized
   summary)` — the addressable identity for reobservation matching, probable-duplicate records,
   and gate `checks[]` keying (`(check, fid)` with fingerprint fallback for legacy). v1

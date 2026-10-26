@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.10.1",
+  "bundle_version": "1.10.2",
   "channel": "stable",
   "source_ref": "main",
   "files": [
@@ -38,7 +38,7 @@
     },
     {
       "path": "scripts/lib/review/normalize-rules.js",
-      "sha256": "921c36f14e0c84c763ea146752b05e2f9109d66d6d3ecab56d4e0630d8e469cc"
+      "sha256": "7fd8fd9e3a947b770cb9ba7eced2e2b06b7cef5f2e36f1188f840499373c547d"
     },
     {
       "path": "scripts/lib/review/redgreen-scratch.js",
