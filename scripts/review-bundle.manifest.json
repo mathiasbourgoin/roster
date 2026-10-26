@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.10.2",
+  "bundle_version": "1.10.3",
   "channel": "stable",
   "source_ref": "main",
   "files": [
@@ -30,7 +30,7 @@
     },
     {
       "path": "scripts/lib/git-tree-snapshot.js",
-      "sha256": "76c17a068838ebf776796f7452c18cab28ff1088be6857d3723eeae91f353c61",
+      "sha256": "7c0556905862a395291b7e3700ee7579ac57128f5a5bf33773d378a7211f3f6d",
       "shared": true
     },
     {
