@@ -655,3 +655,8 @@ test("wrapper distinguishes an ordinary nonrepository from a failed Git probe", 
   assert.strictEqual(unavailable.status, 2, unavailable.stderr);
   assert.match(unavailable.stderr, /repository probe failed/);
 });
+
+test("standalone content checker classifies setup failures as infrastructure", () => {
+  const result = spawnSync(process.execPath, [path.join(__dirname, "content-snapshot-checker-setup.check.js")], { encoding: "utf8" });
+  assert.strictEqual(result.status, 0, result.stdout + result.stderr);
+});
