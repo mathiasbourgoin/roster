@@ -219,12 +219,12 @@ test("closure smoke: each JS tool entry require()s without throwing", () => {
 
 // ── AC-01: staged install happy path (--from-checkout) ─────────────────────
 
-test("install --from-checkout: all 28 files land, shas match, manifest committed-shaped", () => {
+test("install --from-checkout: all 29 files land, shas match, manifest committed-shaped", () => {
   const target = mkScratch("install");
   const r = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
   const manifest = readManifest(target);
-  assert.equal(manifest.files.length, 28);
+  assert.equal(manifest.files.length, 29);
   for (const f of manifest.files) {
     assert.ok(fs.existsSync(path.join(target, f.path)), `${f.path} missing after install`);
   }
@@ -296,7 +296,7 @@ test("install --from-raw (file:// mock RAW): mirrors --from-checkout", () => {
   const target = mkScratch("rawdst");
   const r = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(readManifest(target).files.length, 28);
+  assert.equal(readManifest(target).files.length, 29);
 });
 
 test("partial fetch: a source missing one bundle file aborts, target untouched, staging-only residue (FR-131/153)", () => {
@@ -680,5 +680,37 @@ test("extension converge ignores bundle paths (no clash between the two manifest
   if (fs.existsSync(extensionsJson)) {
     const text = fs.readFileSync(extensionsJson, "utf8");
     for (const p of bundlePaths) assert.ok(!text.includes(p), `${p} must not appear in .harness/extensions.json`);
+  }
+});
+
+test("installed and retained wrappers execute their shared content guard in an ESM consumer", (t) => {
+  const target = mkScratch("retained-content-guard");
+  t.after(() => fs.rmSync(target, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(target, "package.json"), '{"type":"module"}\n');
+  const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+  assert.equal(installed.code, 0, installed.stderr);
+  const git = (...args) => execFileSync("git", args, { cwd: target, stdio: "pipe" });
+  git("init", "-q"); git("config", "user.email", "test@example.invalid");
+  git("config", "user.name", "test"); git("config", "commit.gpgsign", "false");
+  fs.writeFileSync(path.join(target, "payload"), "base");
+  git("add", "payload"); git("commit", "-qm", "base");
+  const stub = path.join(target, "runtime");
+  for (const lifecycle of ["installed", "removed"]) {
+    if (lifecycle === "removed") {
+      const removed = run(["remove", "--target", target]);
+      assert.equal(removed.code, 0, removed.stderr);
+    }
+    assert.ok(fs.existsSync(path.join(target, "scripts/lib/git-tree-snapshot.js")));
+    fs.writeFileSync(stub, "#!/bin/sh\nprintf inspected\\n\n", { mode: 0o755 });
+    const execute = () => spawnSync("bash", ["scripts/xruntime-exec.sh", "codex", "inspect"], {
+      cwd: target, encoding: "utf8", env: { ...process.env, XRUNTIME_BIN: stub },
+    });
+    const noWrite = execute();
+    assert.equal(noWrite.status, 0, lifecycle + noWrite.stderr);
+    fs.writeFileSync(path.join(target, "payload"), "already dirty");
+    fs.writeFileSync(stub, "#!/bin/sh\nprintf changed > payload\n", { mode: 0o755 });
+    const mutated = execute();
+    assert.equal(mutated.status, 3, lifecycle + mutated.stderr);
+    assert.match(mutated.stderr, /TREE-MUTATED/);
   }
 });

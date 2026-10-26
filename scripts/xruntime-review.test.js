@@ -551,3 +551,107 @@ test("INV-4/E-5: a PRIOR cycle's degraded journal entry is stale — a new cycle
   const parsed = JSON.parse(second.stdout);
   assert.strictEqual(parsed.status, "healthy", "a fresh cycle must re-probe even if the prior cycle degraded");
 });
+
+// Dirty paths retain their status labels when only their contents change.
+for (const state of ["tracked", "staged", "mixed", "untracked", "odd-name", "symlink", "index", "index-only"]) {
+  test(`wrapper detects content mutation with unchanged status: ${state}`, (t) => {
+    const repo = makeRepo();
+    t.after(() => fs.rmSync(repo.dir, { recursive: true, force: true }));
+    const name = state === "odd-name" ? "-tab\tline\n.txt" : "payload.txt";
+    const target = path.join(repo.dir, name);
+    fs.writeFileSync(target, "base");
+    if (!["untracked", "odd-name"].includes(state)) repo.run("git add -A && git commit -qm payload");
+    if (state === "symlink") { fs.unlinkSync(target); fs.symlinkSync("first-target", target); }
+    else fs.writeFileSync(target, "dirty");
+    if (["staged", "mixed", "index", "index-only"].includes(state)) repo.run("git add -A");
+    if (["mixed", "index-only"].includes(state)) fs.writeFileSync(target, "dirty unstaged");
+    const alternateBlob = execFileSync('git', ['hash-object', '-w', '--stdin'], { cwd: repo.dir, input: 'alternate index bytes' }).toString().trim();
+    const mutation = state === "index-only"
+      ? `require('child_process').execFileSync('git', ['update-index', '--cacheinfo', '100644', '${alternateBlob}', ${JSON.stringify(name)}]);`
+      : state === "symlink"
+      ? `require('fs').unlinkSync(${JSON.stringify(name)}); require('fs').symlinkSync('second-target', ${JSON.stringify(name)});`
+      : `require('fs').writeFileSync(${JSON.stringify(name)}, 'changed');`;
+    fs.writeFileSync(repo.stubPath, `#!/usr/bin/env node\n${mutation}\n` +
+      (["index", "staged"].includes(state) ? `require('child_process').execFileSync('git', ['add', '--', ${JSON.stringify(name)}]);\n` : ""), { mode: 0o755 });
+    const before = repo.run("git status --porcelain -uall");
+    const originalContents = state === 'symlink' ? fs.readlinkSync(target) : fs.readFileSync(target);
+    const result = spawnSync("bash", [WRAPPER, "codex", "inspect"], {
+      cwd: repo.dir, encoding: "utf8", env: { ...process.env, XRUNTIME_BIN: repo.stubPath },
+    });
+    assert.strictEqual(repo.run("git status --porcelain -uall"), before, "repro must preserve status");
+    if (state === 'index-only') assert.deepStrictEqual(fs.readFileSync(target), originalContents, 'index-only mutation must leave working bytes unchanged');
+    assert.strictEqual(result.status, 3, result.stdout + result.stderr);
+    assert.match(result.stderr, /TREE-MUTATED/);
+  });
+}
+
+test("wrapper accepts a no-write run in an already dirty tree", (t) => {
+  const repo = makeRepo();
+  t.after(() => fs.rmSync(repo.dir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(repo.dir, "README.md"), "dirty");
+  fs.writeFileSync(repo.stubPath, "#!/bin/sh\nprintf 'inspected\\n'\n", { mode: 0o755 });
+  const before = repo.run("git status --porcelain -uall");
+  const result = spawnSync("bash", [WRAPPER, "codex", "inspect"], {
+    cwd: repo.dir, encoding: "utf8", env: { ...process.env, XRUNTIME_BIN: repo.stubPath },
+  });
+  assert.strictEqual(result.status, 0, result.stderr);
+  assert.strictEqual(repo.run("git status --porcelain -uall"), before);
+});
+
+test("wrapper fingerprints repository content when invoked from a subdirectory", (t) => {
+  const repo = makeRepo();
+  t.after(() => fs.rmSync(repo.dir, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(repo.dir, "nested"));
+  fs.writeFileSync(path.join(repo.dir, "README.md"), "dirty");
+  fs.writeFileSync(repo.stubPath, "#!/bin/sh\nprintf changed > ../README.md\n", { mode: 0o755 });
+  const result = spawnSync("bash", [WRAPPER, "codex", "inspect"], {
+    cwd: path.join(repo.dir, "nested"), encoding: "utf8", env: { ...process.env, XRUNTIME_BIN: repo.stubPath },
+  });
+  assert.strictEqual(result.status, 3, result.stdout + result.stderr);
+});
+
+test("wrapper refuses to run when its snapshot primitive fails", (t) => {
+  const repo = makeRepo();
+  t.after(() => fs.rmSync(repo.dir, { recursive: true, force: true }));
+  const bin = path.join(repo.dir, "bin");
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, "node"), "#!/bin/sh\nexit 9\n", { mode: 0o755 });
+  const result = spawnSync("bash", [WRAPPER, "codex", "inspect"], {
+    cwd: repo.dir, encoding: "utf8", env: { ...process.env, XRUNTIME_BIN: repo.stubPath, PATH: bin + path.delimiter + process.env.PATH },
+  });
+  assert.strictEqual(result.status, 2, result.stdout + result.stderr);
+  assert.match(result.stderr, /snapshot unavailable before runtime/);
+  assert.ok(!fs.existsSync(path.join(repo.dir, "invoked.marker")));
+});
+
+test("wrapper fails closed when repository disappears during the runtime", (t) => {
+  const repo = makeRepo();
+  t.after(() => fs.rmSync(repo.dir, { recursive: true, force: true }));
+  fs.writeFileSync(repo.stubPath, "#!/usr/bin/env node\nrequire('fs').rmSync('.git', { recursive: true });\n", { mode: 0o755 });
+  const result = spawnSync("bash", [WRAPPER, "codex", "inspect"], {
+    cwd: repo.dir, encoding: "utf8", env: { ...process.env, XRUNTIME_BIN: repo.stubPath },
+  });
+  assert.strictEqual(result.status, 3, result.stdout + result.stderr);
+  assert.match(result.stderr, /TREE-MUTATED/);
+});
+
+test("wrapper distinguishes an ordinary nonrepository from a failed Git probe", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "xruntime-outside-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const stub = path.join(dir, "runtime");
+  fs.writeFileSync(stub, "#!/bin/sh\nprintf inspected\\n\n", { mode: 0o755 });
+  const execute = (extra) => spawnSync("bash", [WRAPPER, "codex", "inspect"], {
+    cwd: dir, encoding: "utf8", env: { ...process.env, XRUNTIME_BIN: stub, ...extra },
+  });
+  const outside = execute({});
+  assert.strictEqual(outside.status, 0, outside.stderr);
+  const invalidRepo = execute({ GIT_DIR: path.join(dir, "missing.git") });
+  assert.strictEqual(invalidRepo.status, 2, invalidRepo.stderr);
+  assert.match(invalidRepo.stderr, /repository probe failed/);
+  const bin = path.join(dir, "bin");
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, "git"), "#!/bin/sh\nexit 127\n", { mode: 0o755 });
+  const unavailable = execute({ PATH: bin + path.delimiter + process.env.PATH });
+  assert.strictEqual(unavailable.status, 2, unavailable.stderr);
+  assert.match(unavailable.stderr, /repository probe failed/);
+});

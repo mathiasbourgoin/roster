@@ -26,10 +26,13 @@ const ROOT = path.resolve(__dirname, "..");
 
 test("generator: closure includes review and QA gates, portable verifier, module scope and contract docs", () => {
   const manifest = buildManifest(null);
-  assert.equal(manifest.files.length, 28);
+  assert.equal(manifest.files.length, 29);
   const wrapper = manifest.files.find((f) => f.path === "scripts/xruntime-exec.sh");
   assert.ok(wrapper, "wrapper must be in the closure");
   assert.equal(wrapper.shared, true);
+  const snapshot = manifest.files.find((f) => f.path === "scripts/lib/git-tree-snapshot.js");
+  assert.ok(snapshot);
+  assert.equal(snapshot.shared, true);
   const moduleScope = manifest.files.find((f) => f.path === "scripts/package.json");
   assert.ok(moduleScope, "the CommonJS package boundary must be in the bundle");
   assert.equal(moduleScope.shared, true);

@@ -29,6 +29,7 @@ const DEFAULT_BUNDLE_VERSION = "1.0.0";
 const DEFAULT_CHANNEL = "stable";
 const DEFAULT_SOURCE_REF = "main";
 const WRAPPER_REL = "scripts/xruntime-exec.sh";
+const SNAPSHOT_REL = "scripts/lib/git-tree-snapshot.js";
 // FIX-4: a consumer-facing doc, distributed/installed/removed like any bundle file (sha-
 // verified, no special-casing in the installer), but NOT part of the require-graph closure —
 // nothing require()s a .md file, so it is appended explicitly, tagged `kind: "doc"`. The
@@ -65,7 +66,7 @@ function sha256(absPath) {
   return crypto.createHash("sha256").update(fs.readFileSync(absPath)).digest("hex");
 }
 
-/** Compute the 14-file CODE closure as paths relative to `root` (sorted, deterministic).
+/** Compute the CODE closure as paths relative to `root` (sorted, deterministic).
  *  Excludes the consumer-facing doc (DOC_REL) — see FIX-4 note above. */
 function computeBundlePaths(root) {
   root = root || ROOT;
@@ -84,7 +85,7 @@ function buildManifest(existing, root) {
   const files = computeBundlePaths(root).map((rel) => {
     const abs = path.resolve(root, rel);
     const entry = { path: rel, sha256: sha256(abs) };
-    if (rel === WRAPPER_REL) entry.shared = true;
+    if (rel === WRAPPER_REL || rel === SNAPSHOT_REL) entry.shared = true;
     return entry;
   });
   if (fs.existsSync(path.resolve(root, DOC_REL))) {

@@ -15,11 +15,11 @@
 #     (then --sandbox workspace-write); opencode: `opencode run`
 #   - runtime output captured to --out file (default: mktemp), then echoed to stdout
 #     (file-capture survives output-mangling shell wrappers)
-#   - git tree-integrity snapshot (`git status --porcelain | sha256sum`) before/after;
+#   - Git-visible content/index fingerprint before/after (ignored untracked excluded);
 #     divergence prints TREE-MUTATED on stderr and exits 3
 #   - XRUNTIME_BIN overrides the runtime binary (testing hook)
 #
-# Exit codes: runtime's own exit code; 2 = usage error; 3 = tree mutated; 124 = timeout.
+# Exit codes: runtime's own exit code; 2 = usage/setup error; 3 = tree mutated; 124 = timeout.
 #
 # Tested (2026-07-10): nominal via XRUNTIME_BIN=/bin/echo stub (exit 0, output captured &
 # echoed); usage error on missing prompt (exit 2, stderr message); unknown runtime (exit 2);
@@ -87,19 +87,42 @@ case "$RUNTIME" in
   *) echo "xruntime-exec: unknown runtime '$RUNTIME' (codex|opencode)" >&2; exit 2 ;;
 esac
 
-in_repo() { git rev-parse --is-inside-work-tree >/dev/null 2>&1; }
-snapshot() { git status --porcelain -uall 2>/dev/null | sha256sum | cut -d' ' -f1; }
+in_repo() {
+  local probe code
+  probe="$(LC_ALL=C git rev-parse --is-inside-work-tree 2>&1)"
+  code=$?
+  if [ "$code" -eq 0 ]; then
+    [ "$probe" = "true" ] && return 0
+    return 1
+  fi
+  # Only the ordinary outside-repository diagnostic permits an unguarded run.
+  if [ "$code" -eq 128 ]; then
+    case "$probe" in
+      "fatal: not a git repository (or any of the parent directories): .git"|"fatal: not a git repository (or any parent up to mount point "*) return 1 ;;
+    esac
+  fi
+  echo "xruntime-exec: repository probe failed: $probe" >&2
+  return 2
+}
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+snapshot() { node "$SCRIPT_DIR/lib/git-tree-snapshot.js"; }
 
 BEFORE=""
-in_repo && BEFORE="$(snapshot)"
+in_repo
+REPO_STATUS=$?
+case "$REPO_STATUS" in
+  0) BEFORE="$(snapshot)" || { echo "xruntime-exec: tree snapshot unavailable before runtime" >&2; exit 2; } ;;
+  1) ;; # Genuine nonrepository invocation retains the legacy behavior.
+  *) exit 2 ;;
+esac
 
 timeout "$TIMEOUT" "${CMD[@]}" < "$INPUT" > "$OUT" 2>&1
 RC=$?
 
 cat "$OUT"
 
-if in_repo && [ -n "$BEFORE" ]; then
-  AFTER="$(snapshot)"
+if [ -n "$BEFORE" ]; then
+  AFTER="$(snapshot)" || { echo "xruntime-exec: TREE-MUTATED — tree snapshot unavailable after runtime" >&2; exit 3; }
   if [ "$BEFORE" != "$AFTER" ]; then
     echo "xruntime-exec: TREE-MUTATED — the $RUNTIME run changed the working tree (before=$BEFORE after=$AFTER). Inspect 'git status' before trusting results." >&2
     exit 3

@@ -29,6 +29,11 @@
       "sha256": "2de18402aec68d60d95c21ac50ec2796a245d04c4ac43856c8d5f078e034fe91"
     },
     {
+      "path": "scripts/lib/git-tree-snapshot.js",
+      "sha256": "76c17a068838ebf776796f7452c18cab28ff1088be6857d3723eeae91f353c61",
+      "shared": true
+    },
+    {
       "path": "scripts/lib/qa/qa-convergence-rules.js",
       "sha256": "22605992cd4638294b700bdeebee9a4564004a9386bb22c9ee441b98e519a584"
     },
@@ -42,7 +47,7 @@
     },
     {
       "path": "scripts/lib/review/redgreen-scratch.js",
-      "sha256": "c9ca5573c123a9b2cc6ff86aea94ca284040cbe139023fdf6acae1774932c890"
+      "sha256": "3959898ce5d45458776eb32d5449b981e2baa6c15b4dba3fd7313c597af73d9c"
     },
     {
       "path": "scripts/lib/review/review-convergence-rules.js",
@@ -82,7 +87,7 @@
     },
     {
       "path": "scripts/xruntime-exec.sh",
-      "sha256": "52339c12eb2585e47a2bc0f0612e5e90be58e37024b2c520d0ab03125d252d3d",
+      "sha256": "56056e6f6249c302d79aa458bc825880f1bce3d78f25bbc6759d6b5f0e446a33",
       "shared": true
     },
     {
@@ -91,7 +96,7 @@
     },
     {
       "path": "scripts/REVIEW-BUNDLE.md",
-      "sha256": "751ccd4bad8579a719b3dcd1e7e3f832f8a540b74ad675f8989aa5a02d0a4d74",
+      "sha256": "c105d190465135c8f12753a435d9488bfa236d43111bd4f20a5fe48a737522ad",
       "kind": "doc"
     },
     {
