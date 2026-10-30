@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.9.0",
+  "bundle_version": "1.9.1",
   "channel": "stable",
   "source_ref": "main",
   "files": [
@@ -66,7 +66,7 @@
     },
     {
       "path": "scripts/lib/xruntime/xruntime-classify.js",
-      "sha256": "7ec41ea72e73ebc450043f5369c6de6a136857f428669e528cd432554e6a7e27"
+      "sha256": "e8673bfaa262d649031fe5636c9ed7ae1baeebfaf6d273701ab42bf63f294e26"
     },
     {
       "path": "scripts/lib/xruntime/xruntime-digest.js",
@@ -87,7 +87,7 @@
     },
     {
       "path": "scripts/xruntime-review.js",
-      "sha256": "fab61681d4d1c6c296c20822043324b6f3459836ebe1611700877c9a4742e0cd"
+      "sha256": "75a46f589187ec1e0f41843e238daa78261f72274a8f475246c2e2bd9f0fc677"
     },
     {
       "path": "scripts/REVIEW-BUNDLE.md",

@@ -125,6 +125,10 @@ below) — both already present in this section.
 
 ### Fixed
 
+- Review bundle 1.9.1: `xruntime-review` captures up to 64 MiB of runtime output (was the 1 MiB
+  `spawnSync` default, which turned large Codex reviews into `spawn-error`); output beyond that is
+  reported as the distinct degraded reason `output-overflow`, never `spawn-error`.
+
 - Chamallaw shadow 1.3.1 includes its complete friction-log definition in installed
   instructions, with canonical preamble fallback that preserves consumer overrides.
 

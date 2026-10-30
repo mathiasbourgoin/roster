@@ -17,7 +17,21 @@ const { loadFindingSchema } = require("../review/finding-schema");
 // wrapper-level timeout backstop, classified via classifyExitCode's own
 // corroborated-timeout path instead.
 function isSpawnError(result) {
-  return !!(result && result.error && result.error.code && result.error.code !== "ETIMEDOUT");
+  return !!(
+    result &&
+    result.error &&
+    result.error.code &&
+    result.error.code !== "ETIMEDOUT" &&
+    result.error.code !== "ENOBUFS"
+  );
+}
+
+// ENOBUFS: the runtime DID launch but its stdout/stderr exceeded spawnSync's
+// maxBuffer, so the output was truncated and the child killed. That is an
+// output-size failure, not a failure to launch the runtime — it must be
+// reported distinctly from `spawn-error`.
+function isOutputOverflow(result) {
+  return !!(result && result.error && result.error.code === "ENOBUFS");
 }
 
 // D-3: exit 3 classifies `tree-mutation` ONLY when stderr carries the
@@ -73,4 +87,4 @@ function classify({ exitCode, stderr, durationS, timeoutS, stdout }) {
   return classifyOutput(stdout);
 }
 
-module.exports = { classifyExitCode, extractJson, validateFindingsArray, classifyOutput, classify, isSpawnError };
+module.exports = { classifyExitCode, extractJson, validateFindingsArray, classifyOutput, classify, isSpawnError, isOutputOverflow };

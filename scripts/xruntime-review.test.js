@@ -12,7 +12,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { computeDigest } = require("./lib/xruntime/xruntime-digest");
-const { isSpawnError } = require("./lib/xruntime/xruntime-classify");
+const { isSpawnError, isOutputOverflow } = require("./lib/xruntime/xruntime-classify");
 
 const SCRIPT = path.resolve(__dirname, "xruntime-review.js");
 const WRAPPER = path.resolve(__dirname, "xruntime-exec.sh");
@@ -51,6 +51,14 @@ case "$mode" in
     echo "done" ;;
   hang-run)
     sleep 30 ;;
+  big-output)
+    echo '\`\`\`json'
+    echo '[]'
+    echo '\`\`\`'
+    head -c 2097152 /dev/zero | tr '\\0' 'x'
+    echo ;;
+  huge-output)
+    head -c 80000000 /dev/zero | tr '\\0' 'x' ;;
 esac
 exit 0
 `;
@@ -484,6 +492,31 @@ test("INV-6: isSpawnError classifies a spawn-layer failure (E2BIG/ENOENT), exclu
   assert.strictEqual(isSpawnError({ error: { code: "ETIMEDOUT" } }), false, "ETIMEDOUT is the wrapper timeout path, not spawn-error");
   assert.strictEqual(isSpawnError({}), false);
   assert.strictEqual(isSpawnError({ status: 0 }), false);
+});
+
+test("ENOBUFS is output-overflow, not spawn-error", () => {
+  assert.strictEqual(isSpawnError({ error: { code: "ENOBUFS" } }), false);
+  assert.strictEqual(isOutputOverflow({ error: { code: "ENOBUFS" } }), true);
+  assert.strictEqual(isOutputOverflow({ error: { code: "E2BIG" } }), false);
+  assert.strictEqual(isOutputOverflow({}), false);
+});
+
+test("runtime writing >1 MiB to stdout is read in full (no ENOBUFS)", () => {
+  const repo = makeRepo();
+  const { code, stdout } = runHelper(repo, ["codex", "hello", "--task", "demo-task"], { STUB_MODE: "big-output" });
+  assert.strictEqual(code, 0);
+  const parsed = JSON.parse(stdout);
+  assert.strictEqual(parsed.status, "healthy");
+});
+
+test("output beyond the capture limit classifies degraded output-overflow", () => {
+  const repo = makeRepo();
+  const { stdout } = runHelper(repo, ["codex", "hello", "--task", "demo-task"], { STUB_MODE: "huge-output" });
+  const parsed = JSON.parse(stdout);
+  assert.strictEqual(parsed.status, "degraded");
+  assert.strictEqual(parsed.reason, "output-overflow");
+  const journal = readJournal(repo, "demo-task");
+  assert.strictEqual(journal[0].spawn_error_code, "ENOBUFS");
 });
 
 // ── E-8: malformed persisted verdict fails closed ─────────────────────────
