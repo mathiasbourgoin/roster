@@ -46,7 +46,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { spawnSync } = require("child_process");
 const { computeDigest, computeDigests } = require("./lib/xruntime/xruntime-digest");
-const { classify, isSpawnError } = require("./lib/xruntime/xruntime-classify");
+const { classify, isSpawnError, isOutputOverflow } = require("./lib/xruntime/xruntime-classify");
 const {
   validSlug,
   warnIfBriefsNotIgnored,
@@ -57,6 +57,11 @@ const {
 } = require("./lib/xruntime/xruntime-journal");
 
 const WRAPPER = path.resolve(__dirname, "xruntime-exec.sh");
+
+// Explicit spawnSync output cap (Node's default is 1 MiB). Real Codex review
+// output can exceed 100 KB and grow well past 1 MiB; 64 MiB is generous while
+// still bounding memory. Exceeding it surfaces as `output-overflow`.
+const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 
 function fail(code, message) {
   process.stderr.write(`xruntime-review: ${message}\n`);
@@ -129,6 +134,20 @@ function classifySpawnFailure(result, durationS) {
   };
 }
 
+// ENOBUFS: the runtime launched but its output exceeded MAX_OUTPUT_BYTES. A
+// distinct, readable reason — never `spawn-error`, never `empty-output`.
+function classifyOutputOverflow(result, durationS) {
+  return {
+    status: "degraded",
+    reason: "output-overflow",
+    findings: [],
+    runtimeExit: null,
+    durationS,
+    spawnErrorCode: result.error.code,
+    excerpt: `runtime output exceeded the ${MAX_OUTPUT_BYTES}-byte capture limit (ENOBUFS); tree integrity was not verified, inspect git status`,
+  };
+}
+
 // Translates a completed (non-spawn-failed) spawnSync result into the
 // helper's outcome shape via the mechanical classifier.
 function classifyWrapperResult(result, durationS, timeoutS) {
@@ -178,12 +197,14 @@ function runWrapper(args) {
       encoding: "utf8",
       timeout: (args.timeout + 15) * 1000,
       env: process.env,
+      maxBuffer: MAX_OUTPUT_BYTES,
     });
   } finally {
     fs.rmSync(promptDir, { recursive: true, force: true });
   }
   const durationS = (Date.now() - start) / 1000;
 
+  if (isOutputOverflow(result)) return classifyOutputOverflow(result, durationS);
   if (isSpawnError(result)) return classifySpawnFailure(result, durationS);
   return classifyWrapperResult(result, durationS, args.timeout);
 }
@@ -204,7 +225,7 @@ function finish(root, args, digest, outcome) {
     duration_s: outcome.durationS === undefined ? null : outcome.durationS,
     runtime_exit: outcome.runtimeExit === undefined ? null : outcome.runtimeExit,
   };
-  // FR-091: excerpt is present only for non-conforming-output — never a key
+  // FR-091: excerpt is present only for non-conforming-output and output-overflow — never a key
   // with a null/undefined value cluttering every other journal line.
   if (outcome.excerpt !== undefined) entry.excerpt = outcome.excerpt;
   if (outcome.spawnErrorCode !== undefined) entry.spawn_error_code = outcome.spawnErrorCode;
