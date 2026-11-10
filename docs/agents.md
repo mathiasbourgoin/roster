@@ -123,6 +123,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 | `improvement-loop-planner` | management | Propose bounded improvement loops from KB, tests, issues, CI, and code signals |
 | `improvement-loop` | workflow | Execute a bounded verification-first improvement loop |
 | `roster-config` | workflow | Discover and set tunables across installed agents |
+| `roster-telemetry` | workflow | Configure local commit metrics, participants, pipeline/formal context and hook updates |
 | `team` | workflow | Manage the installed agent team — `build` (apply proposal), `review` (audit gaps), `run <task>` (execute pipeline) |
 | `chamallaw-shadow` | workflow | Evaluate a configured local decision contract against roster.intake without changing routing |
 | `chamallaw-feedback` | workflow | Submit independently observed Roster decision evidence after the outcome is known |
@@ -147,7 +148,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 
 ---
 
-## Rules (7)
+## Rules (8)
 
 | Rule | Category | Scope |
 |------|----------|-------|
@@ -155,9 +156,16 @@ Skills are slash-command workflows that run in the main context and produce cont
 | escalation | safety | global |
 | code-quality | style | global |
 | context-budget | workflow | global |
+| commit-telemetry | workflow | global |
 | human-validation | governance | global |
 | diagnostic-interview | governance | global |
 | rtk-compat | common | global |
+
+## Git commit telemetry
+
+Init and full doctor silently activate local, worktree-specific telemetry hooks unless disabled.
+Custom hooks are never overwritten. `/roster-telemetry` controls fields and policy; see
+[local telemetry](telemetry.md). These Git hooks are distinct from the tool hooks below.
 
 ## Hooks (5)
 

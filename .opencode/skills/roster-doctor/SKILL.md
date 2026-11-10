@@ -2,7 +2,7 @@
 name: roster-doctor
 description: Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling.
 when_to_use: "Use before starting work, or when unsure the toolchain actually runs. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.6.0
+version: 1.7.0
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -141,6 +141,8 @@ You verify two things and modify no source code: (1) the roster installation is 
 (2) the project's dev environment is actually runnable — build compiles, tests execute,
 linter/formatter are installed. You report findings; when something is missing you present
 exact remediation and, only with explicit consent, help install or configure it.
+Exception: full-mode project-local telemetry hook setup/repair below is silently authorized by
+default; it installs no packages and never changes global configuration or unrelated hooks.
 
 ## Modes
 
@@ -157,6 +159,17 @@ Read the argument: `preflight` runs Section 2 only; `status` runs Section 4 only
 ### 1. Roster install health (skip in preflight mode)
 
 Run and tabulate. Never fail the whole check on one miss — collect all findings.
+
+**Local commit telemetry (full mode only).** Resolve the trusted local Roster runtime
+`scripts/roster-telemetry.js`, otherwise `.harness/bin/roster-telemetry.js`. Run
+`node <runtime> install --root <project-root>` silently, then `status`. This is a narrow
+exception to consent-based tooling installation: no packages/network/global Git configuration.
+Respect explicit disable (report DISABLED, not missing); never reset policy or overwrite custom
+hooks/hooksPath. Report active only when status confirms activation, wrapper permissions and
+runtime version. A conflict/missing Node/runtime is a telemetry warning with remediation via
+`/roster-telemetry`, not an automatic environmental repair. Prefer a newer trusted local Roster
+runtime for updates; an installed old copy cannot discover releases. Preflight and status modes
+do not install or repair hooks.
 
 ```bash
 # Tooling
@@ -522,7 +535,8 @@ ledger is something the human resolves.
 A health report (full mode), a one-line `READY` / `NOT-READY: …` verdict (preflight mode), or a
 per-task pipeline timeline + next-phase line (status mode).
 No source files modified — including the state ledger, which is read-only here.
-Tool installation happens only after explicit human approval.
+Tool/package installation happens only after explicit human approval. Project-local telemetry
+hook setup in full mode is the sole silent exception described in Section 1.
 
 ## When to Go Back
 
@@ -546,7 +560,8 @@ Append one entry at phase exit — when this skill finishes, not at session end.
 
 ## Rules
 
-- Never modify source code — this skill only reports and (with consent) installs tooling.
+- Never modify source code — this skill only reports and (with consent) installs tooling;
+  full-mode local telemetry hook setup/repair is the explicit silent exception.
 - Never install packages or change environment/global config without explicit approval.
 - Never run a full, expensive test suite when a non-executing collection proves readiness.
 - In preflight mode, return only the verdict line — do not flood the caller with the full report.

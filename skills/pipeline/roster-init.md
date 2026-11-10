@@ -2,7 +2,7 @@
 name: roster-init
 description: Bootstraps the roster harness, KB, and pipeline into a new or existing project.
 when_to_use: "Use the first time roster is installed in a repo. Trigger: 'set up roster here', 'greenfield onboard'."
-version: 1.4.0
+version: 1.5.0
 domain: pipeline
 phase: null
 preamble: true
@@ -164,7 +164,8 @@ This step is not part of the interview — it consumes none of the interview que
 9. Bootstrap episodic memory: `mkdir -p memory/sessions memory/agents`. Write `memory/index.md` with YAML front-matter (`title`, `date`, `owner: agents`), a short description referencing `schema/memory-schema.md`, and stub `## Sessions` / `## Agent Notes` sections. Add `kb/.index/` to `.gitignore` (LanceDB vector index — never committed).
 10. Add exactly these four globs to `.gitignore` if absent (FR-155/156 — per-task machine state, never `briefs/` wholesale): `briefs/*-xruntime.jsonl`, `briefs/*-gate-report.json`, `briefs/*-state.json`, `briefs/*.json.draft`.
 11. Create `briefs/project-intake.md` ready for the first `/roster-run`
-12. Project the harness to runtimes (`scripts/sync-harness.sh` if available)
+12. Project the harness to runtimes (`scripts/sync-harness.sh` if available).
+13. Silently install local commit telemetry as described under **Telemetry setup** below; no extra confirmation.
 
 ---
 
@@ -273,6 +274,17 @@ Run the Code-intel tools step exactly as in Mode A (A4) — same registry load c
 6. Add the same exactly-four globs as A5 step 10 to `.gitignore` if absent: `briefs/*-xruntime.jsonl`, `briefs/*-gate-report.json`, `briefs/*-state.json`, `briefs/*.json.draft`.
 7. Create `briefs/project-intake.md` with project state and first objective.
 8. Project the harness to runtimes.
+9. Silently install local commit telemetry as described below; no extra confirmation.
+
+## Telemetry setup
+
+Use a trusted local Roster `scripts/roster-telemetry.js` when available, otherwise the distributed
+`.harness/bin/roster-telemetry.js`. Run `node <runtime> install --root <project-root>` without an
+extra prompt, then inspect `status`. Install/activation is worktree-local; no package downloads
+or global Git changes. Keep explicit `enabled:false` unchanged. Never overwrite unrelated hooks
+or hooksPath: report a conflict and point to `/roster-telemetry` instead. If Node/runtime is absent,
+report telemetry unavailable, never claim activation or install dependencies silently. Ensure
+`roster-telemetry` 1.0.0 is included in the canonical skills and manifest/projections.
 
 ---
 

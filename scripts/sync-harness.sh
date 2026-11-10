@@ -223,6 +223,10 @@ if [ "$CHECK" -eq 1 ]; then
             fi
         done
     fi
+    if [ -f "$SCRIPT_DIR/roster-telemetry.js" ] && ! cmp -s "$SCRIPT_DIR/roster-telemetry.js" "$HARNESS_DIR/bin/roster-telemetry.js"; then
+        echo "✗ harness-sync: telemetry runtime is missing or stale; run bash scripts/sync-harness.sh" >&2
+        exit 1
+    fi
 
     echo "✓ harness-sync: all runtime projections match the .harness source."
     exit 0
@@ -757,6 +761,7 @@ install_harness_module_scope() {
             relative="${existing#"$HARNESS_DIR/bin/"}"
             case "$relative" in
                 run-hook.js) source="$SCRIPT_DIR/../.harness/bin/run-hook.js" ;;
+                roster-telemetry.js) source="$SCRIPT_DIR/roster-telemetry.js" ;;
                 claims-reconcile.js|lib/claims-reconcile.js|lib/claims-reconcile/*.js)
                     source="$SCRIPT_DIR/$relative" ;;
                 *) source="" ;;
@@ -847,6 +852,16 @@ if [ -f "$ROADMAP_SOURCE" ]; then
     done
 fi
 
+# Distribute telemetry without activating Git hooks (sync/--check must not change Git config).
+# Actual activation belongs to init/doctor or an explicit telemetry command.
+_telemetry_source="$SCRIPT_DIR/roster-telemetry.js"
+_telemetry_target="$HARNESS_DIR/bin/roster-telemetry.js"
+if [ -f "$_telemetry_source" ]; then
+    mkdir -p "$HARNESS_DIR/bin"
+    if [ "$_telemetry_source" != "$_telemetry_target" ]; then
+        cp "$_telemetry_source" "$_telemetry_target"
+    fi
+fi
 install_claims_reconciler
 
 if runtime_enabled "claude-code"; then

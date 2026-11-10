@@ -109,17 +109,17 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 |-------|---------|---------|
 | roster-run | 1.14.0 | Classifies an incoming task and routes it to the right pipeline skill |
 | roster-roadmap | 1.0.0 | Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs |
-| roster-init | 1.4.0 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
+| roster-init | 1.5.0 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
 | roster-intake | 1.5.0 | Turns a raw task description into a human-validated contractual brief |
 | roster-spec | 2.5.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.5.0 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
 | roster-implement | 1.12.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
 | roster-review | 2.6.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
 | roster-qa | 1.10.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
-| roster-ship | 1.8.0 | Carries a reviewed, QA'd branch through to a merged PR |
+| roster-ship | 1.9.0 | Carries a reviewed, QA'd branch through to a merged PR |
 | roster-investigate | 1.5.0 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
 | roster-audit | 1.5.0 | Combines code-quality and spec-compliance checks into one actionable audit report |
-| roster-doctor | 1.6.0 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
+| roster-doctor | 1.7.0 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
 | roster-question | 1.4.0 | Decomposes a task into neutral research questions with the intent hidden |
 | roster-research | 1.5.0 | Performs blind, file:line-grounded research from a questions file, never the task itself |
 | roster-workflow-build | 1.0.3 | Fills a CWR workflow template from a validated plan JSON via mechanical template-fill |
@@ -147,13 +147,14 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | kb-reindex | 1.1.0 | Builds or incrementally updates the LanceDB semantic search index over KB files |
 | kb-search | 1.0.2 | Runs hybrid semantic and keyword search over the KB's LanceDB index |
 
-### Workflow (8)
+### Workflow (9)
 | Skill | Version | Purpose |
 |-------|---------|---------|
 | git-conventions | 1.1.0 | Standardizes commit messages, branch names, and PR structure for the current action |
 | improvement-loop | 1.1.2 | Executes a human-approved, bounded improvement loop with verification at each step |
 | improvement-loop-planner | 1.2.2 | Synthesizes KB, code, test, and CI signals into candidate bounded improvement loops |
 | roster-config | 1.1.0 | Interactive editor for tunables exposed by installed roster agents |
+| roster-telemetry | 1.0.0 | Configure local commit telemetry, inspect hook activation and versions, disable collection or update the installed runtime |
 | team | 1.0.3 | Build, review, or run the installed agent team via one dispatch skill |
 | tdd-workflow | 1.0.2 | Drives a strict red-green-refactor TDD cycle with coverage verification |
 | chamallaw-shadow | 1.3.1 | Records a non-authoritative Chamallaw decision signal beside Roster intake without changing routing. Use when comparing a configured local decision contract to roster.intake |
@@ -164,7 +165,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 |-------|---------|---------|
 | image-generation | 1.0.5 | Generates or edits images through the Codex CLI, with prompt refinement and vision validation |
 
-## Rules (7)
+## Rules (8)
 
 | Rule | Category | Scope |
 |------|----------|-------|
@@ -172,13 +173,22 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | escalation | safety | global |
 | code-quality | style | global |
 | context-budget | workflow | global |
+| commit-telemetry | workflow | global |
 | human-validation | governance | global |
 | diagnostic-interview | governance | global |
 | rtk-compat | common | global |
 
 ## Hooks
 
-Two distinct hook systems — do not conflate:
+Three distinct hook systems — do not conflate:
+
+### Git commit telemetry
+
+Project-local `prepare-commit-msg` and `commit-msg` wrappers are installed silently by init
+and full doctor, unless explicitly disabled. They record available agent-reported metrics,
+actual participants and pipeline/formal context. No network transmission, custom-hook overwrite,
+or global Git configuration. Manage through `/roster-telemetry`; see `docs/telemetry.md`.
+Runtime hooks and skill hooks below are independent of these Git hooks.
 
 ### Tool-level hooks (5)
 

@@ -259,6 +259,7 @@ Skills to install:
 - `skills/workflow/improvement-loop.md`
 - `skills/workflow/improvement-loop-planner.md`
 - `skills/workflow/roster-config.md`
+- `skills/workflow/roster-telemetry.md`
 - `skills/workflow/team.md`
 - `skills/testing/tdd-workflow.md`
 - `skills/media/image-generation.md`
@@ -274,6 +275,16 @@ Include `schema/roadmap-schema.md` as `.harness/roadmap/schema.md`, and the two
 No npm dependencies, CWR, agent launcher or service activation is involved. If the
 runtime is absent, report the roadmap skill unavailable rather than inventing a
 fallback command. Keep boards unchanged on upgrade.
+
+**Step 2.4 — Telemetry distribution:** include `scripts/roster-telemetry.js` as
+`.harness/bin/roster-telemetry.js` and `rules/workflow/commit-telemetry.md` as
+`.harness/rules/commit-telemetry.md` from the SAME approved Roster source/revision used for
+this install, alongside the `roster-telemetry` skill. This is part of approved harness
+distribution, not a new provider or background updater. Use fail-on-HTTP-error downloads,
+write to temporary files first, and replace only after successful retrieval. Preserve
+`.harness/telemetry.json` and `.harness/.local/` on upgrade. Init/full doctor activate the
+bundled runtime locally without another prompt; they never download updates themselves.
+If distribution fails, report telemetry unavailable rather than claiming an active hook.
 
 **Step 2.5 — Review-tool bundle (F-1):** if any installed skill declares `requires_review_bundle`,
 fetch and run the one distributed installer script — it owns the entire install/upgrade/remove/

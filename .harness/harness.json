@@ -101,6 +101,12 @@
     ],
     "rules": [
       {
+        "name": "commit-telemetry",
+        "source": "roster",
+        "scope": "global",
+        "category": "workflow"
+      },
+      {
         "name": "code-quality",
         "source": "roster",
         "scope": "global",
@@ -276,7 +282,7 @@
       {
         "name": "roster-doctor",
         "source": "roster",
-        "version": "1.6.0",
+        "version": "1.7.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -304,7 +310,7 @@
       {
         "name": "roster-init",
         "source": "roster",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -407,7 +413,7 @@
       {
         "name": "roster-ship",
         "source": "roster",
-        "version": "1.8.0",
+        "version": "1.9.0",
         "domain": "pipeline",
         "phase": "ship",
         "tunables": {
@@ -539,6 +545,22 @@
         "domain": "workflow",
         "phase": null,
         "tunables": {}
+      },
+      {
+        "name": "roster-telemetry",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "workflow",
+        "phase": null,
+        "tunables": {
+          "enabled": true,
+          "policy": "advisory",
+          "elapsed_seconds": true,
+          "tokens": true,
+          "agents": true,
+          "mode": true,
+          "formal": true
+        }
       },
       {
         "name": "team",

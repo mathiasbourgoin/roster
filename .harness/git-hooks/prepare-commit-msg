@@ -1,0 +1,5 @@
+#!/bin/sh
+# roster-telemetry managed v1
+set -eu
+root=$(git rev-parse --show-toplevel)
+exec node "$root/.harness/bin/roster-telemetry.js" prepare "$@" --root "$root"
