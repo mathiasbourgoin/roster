@@ -210,8 +210,11 @@ Never scrape unrelated session data or include prompts, credentials, user names 
 A local report is not uploaded by this feature; enabled available fields become public to anyone
 who can read the commit. Disabling a field does not rewrite historical commits. Git hooks are
 bypassable (`--no-verify` skips commit-msg, not prepare-commit-msg; hooksPath overrides can skip
-all three). `reference-transaction` checks final strict metadata and amendment identity before
-a matching prepared commit updates HEAD. Only terminal trailers are owned; commit-body examples
+all three). `reference-transaction` checks prepared final metadata and amendment identity before
+a matching prepared commit updates HEAD. Its local receipt is bound to the preparing Git process;
+abandoned receipts cannot block unrelated resets, and disabled mode ignores even malformed ones.
+Missing advisory measurements remain nonblocking, but neither policy publishes final metadata
+known to contradict a valid preparation. Only terminal trailers are owned; commit-body examples
 remain untouched. Bare-parent/core.worktree layouts requiring shared-config migration are refused
 without changing configuration. No local telemetry hook is a security or CI evidence gate.
 
