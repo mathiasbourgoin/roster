@@ -12,7 +12,7 @@
  *
  *   i.e. `NAME=(` on its own line, one double-quoted path per line, closed by `)` at
  *   column 0. Array names checked: CORE_AGENTS, DEVELOPER_AGENTS, SECURITY_AGENTS,
- *   FULL_EXTRA_AGENTS, CORE_RULES, CORE_HOOKS, DEVELOPER_HOOKS, DEVELOPER_SKILLS,
+ *   FULL_EXTRA_AGENTS, CORE_RULES, CORE_HOOKS, DEVELOPER_HOOKS, CORE_SKILLS, DEVELOPER_SKILLS,
  *   FULL_EXTRA_SKILLS (all must be present — a rename fails loudly here).
  *
  * Checks enforced:
@@ -25,7 +25,7 @@
  *     - exit code 0
  *     - .harness/{agents,skills,rules}/*.md counts == counts derived from the SAME
  *       arrays per profile (agents: core; core+developer; core+developer+security;
- *       full = union incl. FULL_EXTRA. skills: none for core, DEVELOPER_SKILLS for
+ *       full = union incl. FULL_EXTRA. skills: CORE_SKILLS for core, CORE_SKILLS + DEVELOPER_SKILLS for
  *       developer/security, +FULL_EXTRA_SKILLS for full. rules: CORE_RULES always —
  *       union by basename, because copy_files overwrites duplicates like recruiter.md)
  *     - .harness/hooks exists non-empty (CORE_HOOKS is copied for every profile) and
@@ -49,7 +49,7 @@ const REPO_ROOT = path.resolve(__dirname, "../..");
 const INIT_SCRIPT = path.join(REPO_ROOT, "scripts/init-harness.sh");
 
 const AGENT_ARRAYS = ["CORE_AGENTS", "DEVELOPER_AGENTS", "SECURITY_AGENTS", "FULL_EXTRA_AGENTS"];
-const SKILL_ARRAYS = ["DEVELOPER_SKILLS", "FULL_EXTRA_SKILLS"];
+const SKILL_ARRAYS = ["CORE_SKILLS", "DEVELOPER_SKILLS", "FULL_EXTRA_SKILLS"];
 const RULE_ARRAYS = ["CORE_RULES"];
 const HOOK_ARRAYS = ["CORE_HOOKS", "DEVELOPER_HOOKS"];
 
@@ -62,9 +62,9 @@ const LAYER_TIERS: Record<string, Record<string, string[]>> = {
     full: AGENT_ARRAYS,
   },
   skills: {
-    core: [],
-    developer: ["DEVELOPER_SKILLS"],
-    security: ["DEVELOPER_SKILLS"],
+    core: ["CORE_SKILLS"],
+    developer: ["CORE_SKILLS", "DEVELOPER_SKILLS"],
+    security: ["CORE_SKILLS", "DEVELOPER_SKILLS"],
     full: SKILL_ARRAYS,
   },
   rules: {

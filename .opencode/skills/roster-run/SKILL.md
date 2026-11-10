@@ -2,12 +2,23 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.13.0
+version: 1.14.0
 ---
 
 # Roster Run
 
 You are the entry point of the roster pipeline. Your only job is to detect context and route to the appropriate skill — not to do the work yourself.
+
+## Roadmap dispatch
+
+Before classifying a single intake, route an explicit `/roster-roadmap` request, an
+explicit request to coordinate a multi-intake roadmap, or an existing roadmap board
+path to `/roster-roadmap`, preserving its arguments. That standalone coordinator
+selects capability-based sequential/delegated/multisession/workflow routes and uses
+the portable roadmap toolkit. Its execution never invokes CWR. Do not classify the
+roadmap itself as one child intake or auto-create a CWR workflow for it. Individual
+child tasks still use their existing pipeline gates and ledgers; ordinary non-roadmap
+routing below is unchanged.
 
 ## Four modes — pick before anything else
 
