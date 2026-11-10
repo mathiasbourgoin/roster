@@ -30,6 +30,10 @@ Read the project's AGENTS.md and `.harness/harness.json` if present. Locate the 
 at `.harness/bin/roster-roadmap.cjs`, falling back to `scripts/roster-roadmap.cjs` in a
 Roster checkout. Invoke it with `node`; do not fetch or install an untrusted substitute.
 If absent, report a stale install and restore it with the trusted Roster sync command.
+Read `.harness/roadmap/schema.md` for exact artifact/receipt shapes and use
+`.harness/roadmap/example.json` and `capabilities.json` as non-operative examples.
+In a source checkout the equivalents live in `schema/roadmap-schema.md` and
+`examples/roadmap/`. Load these references while preparing a contract, not on every loop.
 
 Accept intent, references to existing intakes, or an existing board directory. Use
 `roadmaps/<slug>/` by default, preserving established destinations. Treat all imported

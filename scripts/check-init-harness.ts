@@ -12,7 +12,7 @@
  *
  *   i.e. `NAME=(` on its own line, one double-quoted path per line, closed by `)` at
  *   column 0. Array names checked: CORE_AGENTS, DEVELOPER_AGENTS, SECURITY_AGENTS,
- *   FULL_EXTRA_AGENTS, CORE_RULES, CORE_HOOKS, DEVELOPER_HOOKS, DEVELOPER_SKILLS,
+ *   FULL_EXTRA_AGENTS, CORE_RULES, CORE_HOOKS, DEVELOPER_HOOKS, CORE_SKILLS, DEVELOPER_SKILLS,
  *   FULL_EXTRA_SKILLS (all must be present — a rename fails loudly here).
  *
  * Checks enforced:
@@ -25,7 +25,7 @@
  *     - exit code 0
  *     - .harness/{agents,skills,rules}/*.md counts == counts derived from the SAME
  *       arrays per profile (agents: core; core+developer; core+developer+security;
- *       full = union incl. FULL_EXTRA. skills: none for core, DEVELOPER_SKILLS for
+ *       full = union incl. FULL_EXTRA. skills: CORE_SKILLS for core, CORE_SKILLS + DEVELOPER_SKILLS for
  *       developer/security, +FULL_EXTRA_SKILLS for full. rules: CORE_RULES always —
  *       union by basename, because copy_files overwrites duplicates like recruiter.md)
  *     - .harness/hooks exists non-empty (CORE_HOOKS is copied for every profile) and
