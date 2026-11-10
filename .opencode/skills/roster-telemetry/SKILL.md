@@ -153,7 +153,7 @@ and report/config schema versions are distinct.
 ### 1. Runtime resolution
 
 Read `.harness/harness.json` first. Prefer `scripts/roster-telemetry.js` when this is a
-trusted Roster checkout; otherwise use `.harness/bin/roster-telemetry.js`. Invoke through
+trusted Roster checkout; otherwise use `.harness/bin/roster-telemetry.cjs`. Invoke through
 `node`, with `--root <project-root>` if not running at the project root. If neither exists,
 locate a trusted local Roster checkout and run its runtime's `install --root <project-root>`.
 If unavailable, report the missing distribution and stop; do not download or invent a runtime.
@@ -179,8 +179,8 @@ Apply the user's selection using `configure` with `--enabled true|false`,
 `--agents true|false`, `--mode true|false`, `--formal true|false`. Example:
 
 ```bash
-node .harness/bin/roster-telemetry.js configure --tokens false --agents true
-node .harness/bin/roster-telemetry.js status
+node .harness/bin/roster-telemetry.cjs configure --tokens false --agents true
+node .harness/bin/roster-telemetry.cjs status
 ```
 
 `configure --enabled false` leaves owned wrappers in place as no-ops, preserves all unrelated
@@ -210,7 +210,10 @@ Never scrape unrelated session data or include prompts, credentials, user names 
 A local report is not uploaded by this feature; enabled available fields become public to anyone
 who can read the commit. Disabling a field does not rewrite historical commits. Git hooks are
 bypassable (`--no-verify` skips commit-msg, not prepare-commit-msg; hooksPath overrides can skip
-both). No local telemetry hook is a security or CI evidence gate.
+all three). `reference-transaction` checks final strict metadata and amendment identity before
+a matching prepared commit updates HEAD. Only terminal trailers are owned; commit-body examples
+remain untouched. Bare-parent/core.worktree layouts requiring shared-config migration are refused
+without changing configuration. No local telemetry hook is a security or CI evidence gate.
 
 ## When to Go Back
 

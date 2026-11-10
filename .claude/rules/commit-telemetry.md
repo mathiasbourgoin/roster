@@ -10,7 +10,7 @@ version: 1.0.0
 
 Before any commit in a project with enabled `.harness/telemetry.json`, stage the intended
 changes and prepare `.harness/.local/commit-report.json` using the installed
-`.harness/bin/roster-telemetry.js` (`report <task>` creates a template, never overwrites one).
+`.harness/bin/roster-telemetry.cjs` (`report <task>` creates a template, never overwrites one).
 Refresh staged_tree using `git write-tree` after staging changes. Read the manifest version.
 
 Use cumulative task elapsed_seconds/input_tokens/output_tokens measured by the runtime when

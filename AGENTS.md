@@ -184,7 +184,7 @@ Three distinct hook systems — do not conflate:
 
 ### Git commit telemetry
 
-Project-local `prepare-commit-msg` and `commit-msg` wrappers are installed silently by init
+Project-local `prepare-commit-msg`, `commit-msg` and `reference-transaction` wrappers are installed silently by init
 and full doctor, unless explicitly disabled. They record available agent-reported metrics,
 actual participants and pipeline/formal context. No network transmission, custom-hook overwrite,
 or global Git configuration. Manage through `/roster-telemetry`; see `docs/telemetry.md`.
