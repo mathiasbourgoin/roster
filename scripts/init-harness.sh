@@ -178,6 +178,10 @@ DEVELOPER_HOOKS=(
     "hooks/quality/post-edit-lint.md"
 )
 
+CORE_SKILLS=(
+    "skills/pipeline/roster-roadmap.md"
+)
+
 DEVELOPER_SKILLS=(
     "skills/testing/tdd-workflow.md"
     "skills/kb/kb-update.md"
@@ -197,6 +201,7 @@ find "$RULES_DIR" -maxdepth 1 -type f -name '*.md' -delete
 find "$HOOKS_DIR" -maxdepth 1 -type f -name '*.md' -delete
 
 copy_files "$AGENTS_DIR" "${CORE_AGENTS[@]}"
+copy_files "$SKILLS_DIR" "${CORE_SKILLS[@]}"
 copy_files "$RULES_DIR" "${CORE_RULES[@]}"
 copy_files "$HOOKS_DIR" "${CORE_HOOKS[@]}"
 

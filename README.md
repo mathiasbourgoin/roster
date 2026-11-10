@@ -92,6 +92,7 @@ The classifier infers the mode from the task, but you can **force one** with a f
 | Skill | Phase | What it does |
 |-------|-------|--------------|
 | `/roster-run` | Entry point | Detects context, routes to right phase |
+| `/roster-roadmap` | Multi-intake roadmap | Assisted specification, capability-based agent topology and persistent execution without CWR; see [roadmap guide](docs/roadmap-coordination.md) |
 | `/roster-init` | Bootstrap | Adversarial project interview — 6 questions, 3 adversarial |
 | `/roster-question` | Question | Decomposes task into neutral research questions |
 | `/roster-research` | Research | Blind documentarian research — file:line grounded, optional online scan |

@@ -389,9 +389,17 @@
         }
       },
       {
+        "name": "roster-roadmap",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "pipeline",
+        "phase": null,
+        "tunables": {}
+      },
+      {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.12.0",
+        "version": "1.13.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}

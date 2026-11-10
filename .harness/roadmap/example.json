@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "example-roadmap",
+  "goal": "Deliver and independently review an example capability in a consumer project",
+  "success": ["The integrated consumer scenario demonstrates the requested capability"],
+  "global_checks": [
+    { "id": "integrated", "description": "Demonstrate the requested behavior in the integrated consumer", "command": "node --test" }
+  ],
+  "execution": { "max_active": 1 },
+  "tasks": [
+    {
+      "id": "implement",
+      "intake": "briefs/example-implement-intake.md",
+      "objective": "Implement the accepted consumer behavior",
+      "depends_on": [],
+      "inputs": ["specs/example.md"],
+      "outputs": ["src/example.js", "tests/example.test.js"],
+      "allowed_files": ["src/example.js", "tests/example.test.js"],
+      "dod": ["Implementation matches the accepted child spec", "Meaningful tests pass"],
+      "success": ["The requested behavior is observable through the consumer interface"],
+      "checks": [{ "id": "tests", "description": "Run the consumer tests", "command": "node --test" }],
+      "topology": { "runtime": "codex", "role": "implementer", "persona": "Engineer who verifies edge cases and reports actual command outcomes", "model": "project-selected-model", "route": "sequential", "fallbacks": [] },
+      "policy": { "max_attempts": 3, "on_failure": "retry", "stop_if": ["The accepted public contract must change"], "recovery": ["Diagnose a failing check and correct the in-scope cause before retrying"], "failure": "Attempts exhausted or a decision outside the accepted scope is required" },
+      "workflow": { "recommendation": "none", "reason": "One bounded implementation mission", "steps": [] }
+    },
+    {
+      "id": "review",
+      "intake": "briefs/example-review-intake.md",
+      "objective": "Review the implementation against its child contract and verification evidence",
+      "depends_on": ["implement"],
+      "inputs": ["src/example.js", "tests/example.test.js", "specs/example.md"],
+      "outputs": [],
+      "allowed_files": [],
+      "dod": ["Read the changed implementation and accepted spec", "Verify findings and command evidence"],
+      "success": ["No unresolved blocking discrepancy remains"],
+      "checks": [{ "id": "review", "description": "Inspect implementation and independently verify the declared checks" }],
+      "topology": { "runtime": "claude", "role": "reviewer", "persona": "Independent reviewer who cites concrete behavior and source locations", "model": "project-selected-review-model", "route": "subagent", "fallbacks": [] },
+      "policy": { "max_attempts": 2, "on_failure": "retry", "stop_if": ["Required independent verification is unavailable"], "recovery": ["Resolve a documented discrepancy within the accepted scope before retrying"], "failure": "Review cannot establish the acceptance criteria within its authorized budget" },
+      "workflow": { "recommendation": "none", "reason": "Read-only review mission", "steps": [] }
+    }
+  ]
+}

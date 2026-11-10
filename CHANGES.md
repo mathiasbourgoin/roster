@@ -1,5 +1,16 @@
 # Changes
 
+## Unreleased — roadmap coordination
+
+- `/roster-roadmap` 1.0.0 assists specification and coherence across multiple intakes,
+  selects capability-based agent topology, and coordinates persistent execution without CWR.
+- The portable `roster-roadmap` toolkit maintains contracts, assignments, checked local
+  receipts, bounded prompts and separate global acceptance. Init/sync distribute it
+  into `.harness/bin/`; existing child-intake gates remain authoritative.
+- Runtime-neutral missions cover Codex, Claude, OpenCode and Pi, with native delegation
+  and authorized multisession when available. This does not restore the removed Pi
+  installer or promise unattended execution after process exit.
+
 ## v2.7.0 — Code-Intel Packs, Review-Bundle Distribution, Convergence Hardening
 
 Released 2026-09-30. The `2.7.0` number was first stamped on the `next` edge line on 2026-06-05

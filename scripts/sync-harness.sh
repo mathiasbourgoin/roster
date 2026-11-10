@@ -40,6 +40,31 @@ need_cmd() {
 
 need_cmd jq
 
+# Refuse managed roadmap aliases before --check copies links into its sandbox.
+# Source is optional for legacy standalone sync copies that do not ship the toolkit.
+ROADMAP_SOURCE="$SCRIPT_DIR/roster-roadmap.cjs"
+ROADMAP_SOURCES=("$ROADMAP_SOURCE" "$SCRIPT_DIR/../schema/roadmap-schema.md" "$SCRIPT_DIR/../examples/roadmap/roadmap.json" "$SCRIPT_DIR/../examples/roadmap/capabilities.json")
+ROADMAP_TARGETS=("$HARNESS_DIR/bin/roster-roadmap.cjs" "$HARNESS_DIR/roadmap/schema.md" "$HARNESS_DIR/roadmap/example.json" "$HARNESS_DIR/roadmap/capabilities.json")
+if [ -f "$ROADMAP_SOURCE" ]; then
+    for _roadmap_path in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/roadmap" "${ROADMAP_TARGETS[@]}"; do
+        if [ -L "$_roadmap_path" ]; then
+            echo "roadmap: refusing managed symlink: $_roadmap_path" >&2
+            exit 1
+        fi
+    done
+    for _roadmap_i in "${!ROADMAP_SOURCES[@]}"; do
+        if [ ! -f "${ROADMAP_SOURCES[$_roadmap_i]}" ]; then
+            echo "roadmap: trusted resource missing: ${ROADMAP_SOURCES[$_roadmap_i]}" >&2
+            exit 1
+        fi
+        if [ -e "${ROADMAP_TARGETS[$_roadmap_i]}" ] && [ ! -f "${ROADMAP_TARGETS[$_roadmap_i]}" ]; then
+            echo "roadmap: managed resource destination must be a regular file" >&2
+            exit 1
+        fi
+    done
+fi
+
+
 if [ ! -f "$MANIFEST" ]; then
     echo "Shared harness manifest not found at $MANIFEST" >&2
     exit 1
@@ -188,6 +213,15 @@ if [ "$CHECK" -eq 1 ]; then
             echo "✗ harness-sync: .harness/bin/run-hook.js is missing or stale; run bash scripts/sync-harness.sh" >&2
             exit 1
         fi
+    fi
+
+    if [ -f "$ROADMAP_SOURCE" ]; then
+        for _roadmap_i in "${!ROADMAP_SOURCES[@]}"; do
+            if ! cmp -s "${ROADMAP_SOURCES[$_roadmap_i]}" "${ROADMAP_TARGETS[$_roadmap_i]}"; then
+                echo "✗ harness-sync: roadmap runtime is missing or stale (resource: ${ROADMAP_TARGETS[$_roadmap_i]}); run bash scripts/sync-harness.sh" >&2
+                exit 1
+            fi
+        done
     fi
 
     echo "✓ harness-sync: all runtime projections match the .harness source."
@@ -797,6 +831,22 @@ check_canonical_hooks
 sync_skill_hooks
 install_harness_module_scope
 install_skill_hook_runtime
+
+# Self-contained .cjs preserves consumer module semantics, including ESM projects.
+# Replace the directory entry atomically; never truncate a hard-link alias.
+if [ -f "$ROADMAP_SOURCE" ]; then
+    mkdir -p "$HARNESS_DIR/bin" "$HARNESS_DIR/roadmap"
+    for _roadmap_i in "${!ROADMAP_SOURCES[@]}"; do
+        _roadmap_target="${ROADMAP_TARGETS[$_roadmap_i]}"
+        _roadmap_tmp="$(mktemp "$(dirname "$_roadmap_target")/.roster-roadmap.XXXXXX")"
+        if ! cp "${ROADMAP_SOURCES[$_roadmap_i]}" "$_roadmap_tmp" || ! mv -f "$_roadmap_tmp" "$_roadmap_target"; then
+            rm -f "$_roadmap_tmp"
+            echo "roadmap: runtime/resource distribution failed" >&2
+            exit 1
+        fi
+    done
+fi
+
 install_claims_reconciler
 
 if runtime_enabled "claude-code"; then
