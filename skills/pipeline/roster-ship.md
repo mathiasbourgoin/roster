@@ -71,7 +71,7 @@ If `tunables.pre_pr_checks` is defined, execute it and block on failure.
 ### 2. Conventional commits
 
 **Commit telemetry (before EVERY commit, including later KB/harness housekeeping).** When
-`.harness/bin/roster-telemetry.js` is installed and enabled, stage first, then prepare/update
+`.harness/bin/roster-telemetry.cjs` is installed and enabled, stage first, then prepare/update
 `.harness/.local/commit-report.json` (schema 1). `report <task>` creates a template only when
 absent. Set current manifest `harness_version`, actual `git write-tree` staged_tree, cumulative
 elapsed_seconds/input_tokens/output_tokens (null when unavailable), actual participating agent

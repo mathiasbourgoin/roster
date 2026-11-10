@@ -277,7 +277,8 @@ runtime is absent, report the roadmap skill unavailable rather than inventing a
 fallback command. Keep boards unchanged on upgrade.
 
 **Step 2.4 — Telemetry distribution:** include `scripts/roster-telemetry.js` as
-`.harness/bin/roster-telemetry.js` and `rules/workflow/commit-telemetry.md` as
+`.harness/bin/roster-telemetry.cjs` (explicit CommonJS, including in ESM consumers) and
+`rules/workflow/commit-telemetry.md` as
 `.harness/rules/commit-telemetry.md` from the SAME approved Roster source/revision used for
 this install, alongside the `roster-telemetry` skill. This is part of approved harness
 distribution, not a new provider or background updater. Use fail-on-HTTP-error downloads,

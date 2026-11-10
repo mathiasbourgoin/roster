@@ -13,9 +13,9 @@ an actionable conflict, never replacement. No implicit package installation or d
 
 ```sh
 node scripts/roster-telemetry.js install --root /path/to/project
-node .harness/bin/roster-telemetry.js status
-node .harness/bin/roster-telemetry.js configure --enabled false
-node .harness/bin/roster-telemetry.js configure --enabled true --policy advisory --tokens false
+node .harness/bin/roster-telemetry.cjs status
+node .harness/bin/roster-telemetry.cjs configure --enabled false
+node .harness/bin/roster-telemetry.cjs configure --enabled true --policy advisory --tokens false
 # Update using the trusted NEWER local source, not an old installed copy:
 node /path/to/roster/scripts/roster-telemetry.js update --root /path/to/project
 ```
@@ -63,7 +63,18 @@ and current harness version must match. Retain measurement provenance separately
 
 ## Commit metadata
 
-prepare-commit-msg idempotently replaces owned trailers; commit-msg checks exact consistency:
+prepare-commit-msg idempotently replaces only terminal owned trailers, preserving commit-body
+examples and positioning metadata before comments/scissors cleanup. commit-msg checks consistency.
+reference-transaction verifies the final strict metadata and actual amendment parent relation
+before a matching prepared commit updates its ref (including --amend -m/-F, without mistaking
+ordinary -C message reuse for an amendment). Its ignored local commit-intent.json binds the
+prepared HEAD, staged tree and expected fields; it does not inspect unrelated ref transactions.
+
+The installed runtime uses .cjs so it can start in ESM consumers without changing the module
+semantics of any neighboring consumer script. Layouts with shared core.bare:true/core.worktree
+that require config migration are refused before modification; migrate them explicitly first.
+
+Example trailers:
 
 ```text
 Harness-Telemetry-Version: 1.0.0
@@ -83,7 +94,7 @@ Same-task totals cannot decrease relative to HEAD. Amend preserves the prior rec
 Counters are cumulative snapshots: do not sum trailers across a task's commits to get its total.
 
 Local hooks can be bypassed: --no-verify skips commit-msg but not prepare-commit-msg; overriding
-core.hooksPath can skip both. No CI/provider attestation is implied. Existing advisory
+core.hooksPath can skip all three. No CI/provider attestation is implied. Existing advisory
 `skills-meta/cost.jsonl` snapshots remain separate and must not be blindly added to these counters.
 
 ## Tests

@@ -279,7 +279,7 @@ Run the Code-intel tools step exactly as in Mode A (A4) — same registry load c
 ## Telemetry setup
 
 Use a trusted local Roster `scripts/roster-telemetry.js` when available, otherwise the distributed
-`.harness/bin/roster-telemetry.js`. Run `node <runtime> install --root <project-root>` without an
+`.harness/bin/roster-telemetry.cjs`. Run `node <runtime> install --root <project-root>` without an
 extra prompt, then inspect `status`. Install/activation is worktree-local; no package downloads
 or global Git changes. Keep explicit `enabled:false` unchanged. Never overwrite unrelated hooks
 or hooksPath: report a conflict and point to `/roster-telemetry` instead. If Node/runtime is absent,

@@ -42,7 +42,7 @@ Read the argument: `preflight` runs Section 2 only; `status` runs Section 4 only
 Run and tabulate. Never fail the whole check on one miss — collect all findings.
 
 **Local commit telemetry (full mode only).** Resolve the trusted local Roster runtime
-`scripts/roster-telemetry.js`, otherwise `.harness/bin/roster-telemetry.js`. Run
+`scripts/roster-telemetry.js`, otherwise `.harness/bin/roster-telemetry.cjs`. Run
 `node <runtime> install --root <project-root>` silently, then `status`. This is a narrow
 exception to consent-based tooling installation: no packages/network/global Git configuration.
 Respect explicit disable (report DISABLED, not missing); never reset policy or overwrite custom
