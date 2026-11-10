@@ -78,7 +78,7 @@ These agents are domain-specific overlays for particular hardware/projects. Inst
 
 ---
 
-## Skills (40)
+## Skills (41)
 
 Skills are slash-command workflows that run in the main context and produce contractual artifacts that chain across pipeline phases.
 
