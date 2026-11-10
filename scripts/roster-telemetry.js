@@ -7,7 +7,7 @@ const { execFileSync, spawnSync } = require('node:child_process');
 const VERSION = '1.0.0';
 const RUNTIME = '.harness/bin/roster-telemetry.cjs';
 const DEFAULTS = { schema_version: 1, enabled: true, policy: 'advisory', fields: { elapsed_seconds: true, tokens: true, agents: true, mode: true, formal: true } };
-const OWNED_FIELD = /^Harness-(?:Telemetry-Version|Version|Task|Elapsed-Seconds|Input-Tokens|Output-Tokens|Agents|Mode|Formal|Metrics-Source)$/;
+const OWNED_FIELD = /^Harness-(?:Telemetry-Version|Version|Task|Elapsed-Seconds|Input-Tokens|Output-Tokens|Agents|Mode|Formal|Metrics-Source)$/i;
 const NAMES = ['prepare-commit-msg', 'commit-msg', 'reference-transaction'];
 const safe = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(value);
 function fail(message) { throw new Error(message); }
@@ -15,14 +15,16 @@ function git(root, ...args) { return execFileSync('git', ['-C', root, ...args], 
 function optional(root, ...args) { try { return git(root, ...args); } catch (e) { if (e.status === 1 || e.status === 128) return null; throw e; } }
 function read(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
 function save(file, value) {
+  guardPath(file);
+  guardPath(file + `.tmp-${process.pid}`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = file + `.tmp-${process.pid}`;
-  fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
   fs.renameSync(tmp, file);
 }
 function config(root) {
   const file = path.join(root, '.harness/telemetry.json');
-  const c = fs.existsSync(file) ? read(file) : structuredClone(DEFAULTS);
+  const c = fs.lstatSync(file, { throwIfNoEntry: false }) ? read(file) : structuredClone(DEFAULTS);
   if (!c || c.schema_version !== 1 || typeof c.enabled !== 'boolean' || !['advisory', 'strict'].includes(c.policy) || !c.fields || Object.keys(c).sort().join() !== 'enabled,fields,policy,schema_version' || Object.keys(c.fields).sort().join() !== Object.keys(DEFAULTS.fields).sort().join() || Object.values(c.fields).some(v => typeof v !== 'boolean')) fail('Invalid telemetry configuration; repair explicitly, not by resetting preferences');
   return c;
 }
@@ -44,16 +46,50 @@ function status(root) {
   const hooksOk = NAMES.every(name => {
     try { const f = path.join(target, name); return fs.readFileSync(f, 'utf8') === hookBytes(name) && Boolean(fs.statSync(f).mode & 0o111); } catch { return false; }
   });
-  const probe = spawnSync(process.execPath, [path.join(root, RUNTIME), 'version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  let probe = {};
+  try { preflight(root); probe = spawnSync(process.execPath, [path.join(root, RUNTIME), 'version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); } catch { /* Unsafe installations remain inactive. */ }
   const installedVersion = probe.status === 0 ? probe.stdout.trim() : null;
-  return { version: VERSION, installed_version: installedVersion, config: c, hooks_path: configured, active: c.enabled && configured !== null && path.resolve(root, configured) === target && hooksOk && installedVersion === VERSION };
+  const conflict = encodingConflict(root, '', commentMarker(root), c);
+  return { encoding_available: !conflict, encoding_conflict: conflict, version: VERSION, installed_version: installedVersion, config: c, hooks_path: configured, active: c.enabled && configured !== null && path.resolve(root, configured) === target && hooksOk && installedVersion === VERSION };
 }
-function rejectLinks(root) {
-  for (const relative of ['.harness', '.harness/bin', RUNTIME, '.harness/git-hooks', ...NAMES.map(n => '.harness/git-hooks/' + n)]) {
-    const file = path.join(root, relative);
-    if (fs.existsSync(file) && fs.lstatSync(file).isSymbolicLink()) fail(`Refusing managed symlink: ${relative}`);
+// The selected root is intentionally resolved; managed descendants never are.
+function resolveRoot(file) {
+  const absolute = path.resolve(file);
+  if (fs.lstatSync(absolute, { throwIfNoEntry: false })) return fs.realpathSync(absolute);
+  return path.join(resolveRoot(path.dirname(absolute)), path.basename(absolute));
+}
+function guardPath(file, boundary = path.parse(path.resolve(file)).root) {
+  const absolute = path.resolve(file);
+  const relative = path.relative(boundary, absolute);
+  if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) fail('Managed path outside boundary');
+  let current = boundary;
+  for (const part of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, part);
+    const stat = fs.lstatSync(current, { throwIfNoEntry: false });
+    if (stat?.isSymbolicLink()) fail(`Refusing managed symlink: ${current}`);
+    if (stat?.isFile() && stat.nlink > 1) fail(`Refusing managed hard link: ${current}`);
+    if (stat && current !== absolute && !stat.isDirectory()) fail(`Managed ancestor is not a directory: ${current}`);
   }
 }
+function preflight(root) {
+  for (const relative of ['.harness/bin/package.json', RUNTIME, '.harness/bin/roster-telemetry.js',
+    '.harness/telemetry.json', '.harness/.local/commit-report.json', '.harness/.local/commit-intent.json',
+    ...NAMES.map(n => '.harness/git-hooks/' + n)]) {
+    guardPath(path.join(root, relative), root);
+    guardPath(path.join(root, relative + `.tmp-${process.pid}`), root);
+  }
+}
+function adminPreflight(root) {
+  for (const name of ['info/exclude', 'config', 'config.worktree']) {
+    const destination = path.resolve(root, git(root, 'rev-parse', '--git-path', name));
+    // Git may resolve an administrative directory, never the direct write target.
+    const common = fs.realpathSync(path.resolve(root, git(root, 'rev-parse', '--git-common-dir')));
+    const worktree = fs.realpathSync(path.resolve(root, git(root, 'rev-parse', '--git-dir')));
+    const boundary = destination.startsWith(worktree + path.sep) ? worktree : common;
+    guardPath(destination, boundary);
+  }
+}
+function discardIntent(root) { const file = intentPath(root); guardPath(file); fs.rmSync(file, { force: true }); }
 function checkHookDirectory(directory, allowManaged) {
   for (const name of fs.existsSync(directory) ? fs.readdirSync(directory) : []) {
     if (name.endsWith('.sample')) continue;
@@ -66,13 +102,15 @@ function checkHookDirectory(directory, allowManaged) {
 function checkInstallation(root) {
   if (!fs.existsSync(path.join(root, '.harness/harness.json'))) fail('Missing .harness/harness.json');
   if (fs.realpathSync(git(root, 'rev-parse', '--show-toplevel')) !== root) fail('--root must be the Git worktree root');
-  rejectLinks(root);
+  preflight(root);
+  adminPreflight(root);
   const scoped = optional(root, 'config', '--local', '--bool', '--get', 'extensions.worktreeConfig') === 'true';
   if (!scoped && (optional(root, 'config', '--local', '--bool', '--get', 'core.bare') === 'true' || optional(root, 'config', '--local', '--get', 'core.worktree') !== null)) fail('Migrate core.bare/core.worktree before enabling worktreeConfig; no configuration changed');
   const target = path.join(root, '.harness/git-hooks');
   const configured = optional(root, 'config', '--get', 'core.hooksPath');
   const common = path.resolve(root, git(root, 'rev-parse', '--git-common-dir'));
   const native = configured === null || path.resolve(root, configured) === path.join(common, 'hooks');
+  if (configured === null || path.resolve(root, configured) !== target) checkHookDirectory(target, true);
   if (native) checkHookDirectory(path.join(common, 'hooks'), false);
   if (configured !== null && path.resolve(root, configured) !== target && !native) {
     const siblings = git(root, 'worktree', 'list', '--porcelain').split('\n').filter(l => l.startsWith('worktree ')).map(l => l.slice(9));
@@ -90,6 +128,8 @@ function checkInstallation(root) {
   return target;
 }
 function install(root) {
+  preflight(root);
+  adminPreflight(root);
   const c = config(root);
   if (!c.enabled) return status(root);
   const target = checkInstallation(root);
@@ -113,51 +153,92 @@ function install(root) {
   if (!result.active) fail('Hooks written but activation verification failed');
   return result;
 }
-// Only the final trailer paragraph is metadata. Preserve body examples and the
-// suffix Git may strip (comments/scissors); insert metadata BEFORE that suffix.
-function messageParts(message, comment = '#') {
-  const lines = message.replace(/\r\n/g, '\n').split('\n');
+// Keep original line bytes; parsing views alone remove line terminators.
+function messageParts(message, comment = '#', root) {
+  const raw = message.match(/[^\n]*\n|[^\n]+$/g) || [];
+  const lines = raw.map(l => l.replace(/\r?\n$/, ''));
   let end = lines.findIndex(l => l === `${comment} ------------------------ >8 ------------------------`);
   if (end < 0) end = lines.length;
   while (end > 0 && (!lines[end - 1].trim() || lines[end - 1].startsWith(comment))) end--;
-  // A subject beginning with the comment character is still a subject for -m.
   if (end === 0 && lines.some(line => line.trim())) end = lines.length;
   let start = end;
   while (start > 0 && lines[start - 1].trim()) start--;
-  const paragraph = lines.slice(start, end);
   let continuation = false;
-  const trailers = start > 0 && paragraph.length > 0 && paragraph.every(line => {
+  const grammar = lines.slice(start, end).every(line => {
     if (/^[A-Za-z0-9][A-Za-z0-9-]*:[ \t]*.*$/.test(line)) { continuation = true; return true; }
     return continuation && /^[ \t]+\S/.test(line);
   });
-  return { lines, start: trailers ? start : end, end };
+  const trailers = start > 0 && end > start && (root ? Boolean(trailerParse(root, message).trim()) : grammar);
+  const separators = root ? optional(root, 'config', '--get', 'trailer.separators') || ':' : ':';
+  return { raw, lines, separators, start: trailers ? start : end, end };
 }
-function fields(message, comment) {
-  const parts = messageParts(message, comment);
+function trailerMatch(line, separators) {
+  const index = [...line].findIndex(c => separators.includes(c));
+  if (index < 1) return null;
+  const key = line.slice(0, index).trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9-]*$/.test(key)) return null;
+  return [line, key, line.slice(index + 1).trim()];
+}
+function ownedKey(key) {
+  const names = ['Telemetry-Version', 'Version', 'Task', 'Elapsed-Seconds', 'Input-Tokens', 'Output-Tokens', 'Agents', 'Mode', 'Formal', 'Metrics-Source'];
+  return names.map(n => 'Harness-' + n).find(n => n.toLowerCase() === key.toLowerCase());
+}
+function fields(message, comment, root) {
+  const parts = messageParts(message, comment, root);
   const out = {};
   let previousOwned = false;
   for (const line of parts.lines.slice(parts.start, parts.end)) {
     if (/^[ \t]/.test(line) && previousOwned) fail('Owned trailers cannot have folded continuation lines');
-    const match = line.match(/^([^:]+):[ \t]*(.*)$/);
+    const match = trailerMatch(line, parts.separators);
     previousOwned = Boolean(match && OWNED_FIELD.test(match[1]));
     if (!previousOwned) continue;
-    if (match[1] in out) fail(`Duplicate ${match[1]}`);
-    out[match[1]] = match[2].trim();
+    const key = ownedKey(match[1]);
+    if (key in out) fail(`Duplicate ${key}`);
+    out[key] = match[2].trim();
+  }
+  if (root && Object.keys(out).length) {
+    const native = trailerParse(root, message);
+    const parsed = {};
+    for (const line of native.split('\n')) {
+      const match = line.match(/^([^:]+):[ \t]*(.*)$/), key = match && ownedKey(match[1]);
+      if (!key) continue;
+      if (key in parsed) fail(`Duplicate ${key}`);
+      parsed[key] = match[2].trim();
+    }
+    return parsed;
   }
   return out;
 }
-function replaceTrailers(message, expected, comment) {
-  const parts = messageParts(message, comment);
+function replaceTrailers(message, expected, comment, root) {
+  const parts = messageParts(message, comment, root);
   let owned = false;
-  const retained = parts.lines.slice(parts.start, parts.end).filter(line => {
-    const match = line.match(/^([^:]+):/);
-    if (match) owned = OWNED_FIELD.test(match[1]);
+  const retained = parts.raw.slice(parts.start, parts.end).filter(line => {
+    const match = trailerMatch(line, parts.separators);
+    if (/^[ \t]+\S/.test(line) && owned) fail('Owned trailers cannot have folded continuation lines');
+    owned = Boolean(match && OWNED_FIELD.test(match[1]));
     return !owned;
-  });
-  const body = parts.lines.slice(0, parts.start).join('\n').trimEnd();
-  const footer = [...retained, ...Object.entries(expected).map(([key, value]) => `${key}: ${value}`)].join('\n');
-  const suffix = parts.lines.slice(parts.end).join('\n');
-  return body + (footer ? '\n\n' + footer : '') + (suffix.trim() ? '\n\n' + suffix : '\n');
+  }).join('');
+  let prefix = parts.raw.slice(0, parts.start).join('');
+  const suffix = parts.raw.slice(parts.end).join('');
+  const footer = Object.entries(expected).map(([key, value]) => `${key}: ${value}\n`).join('');
+  if (footer && parts.start === parts.end) prefix += (prefix.endsWith('\n') ? '\n' : '\n\n');
+  return prefix + retained + (footer && retained && !retained.endsWith('\n') ? '\n' : '') + footer + suffix;
+}
+function trailerParse(root, message) {
+  return execFileSync('git', ['-C', root, 'interpret-trailers', '--parse'], { input: message, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+}
+function encodingConflict(root, message, comment, c = DEFAULTS) {
+  if ('Harness-'.startsWith(comment)) return 'comment marker collides with Harness- trailers; select a compatible core.commentChar/commentString';
+  const marker = `${comment} ------------------------ >8 ------------------------`;
+  const lines = message.split(/\r?\n/), cut = lines.indexOf(marker);
+  if (cut >= 0 && lines.slice(cut + 1).some(l => l.trim() && !l.startsWith(comment))) return 'ambiguous scissors tail; remove non-comment text after the scissors marker';
+  // These are parser fixtures, never emitted measurements or participants.
+  const expected = block({ harness_version: '1.0.0', task: 'encoding-probe', elapsed_seconds: 0,
+    input_tokens: 0, output_tokens: 0, agents: ['probe'], mode: 'full', formal: { status: 'not-used', backend: null } }, c);
+  const sample = 'subject\n\n' + Object.entries(expected).map(([k, v]) => `${k}: ${v}\n`).join('');
+  try { if (canonical(fields(sample, comment, root)) === canonical(expected)) return null; }
+  catch { /* A per-field alias or duplicate can also prevent canonical encoding. */ }
+  return 'trailer configuration cannot round-trip canonical metadata; select compatible trailer settings';
 }
 function validateReport(root, value, c) {
   const required = ['schema_version', 'task', 'harness_version', 'staged_tree', 'elapsed_seconds', 'input_tokens', 'output_tokens', 'agents', 'mode', 'formal'];
@@ -176,7 +257,7 @@ function validateReport(root, value, c) {
   }
   const head = optional(root, 'log', '-1', '--format=%B');
   if (head) {
-    const old = fields(head);
+    const old = fields(head, commentMarker(root, head), root);
     if (old['Harness-Task'] === value.task) for (const [key, field] of [['Harness-Elapsed-Seconds', 'elapsed_seconds'], ['Harness-Input-Tokens', 'input_tokens'], ['Harness-Output-Tokens', 'output_tokens']]) {
       if (old[key] !== undefined && value[field] !== null && value[field] < Number(old[key])) fail(`${field} must be cumulative and cannot decrease`);
     }
@@ -203,7 +284,7 @@ function commentMarker(root, message = '') {
   if (scissors) return scissors[1];
   const last = message.trimEnd().split('\n').at(-1) || '';
   const candidates = '#;@!$%^&|:';
-  if (candidates.includes(last[0]) && last.length > 1) return last[0];
+  if (last && candidates.includes(last[0])) return last[0];
   return [...candidates].find(c => !message.split('\n').some(line => line.startsWith(c))) || '#';
 }
 function invocation() {
@@ -215,30 +296,54 @@ function invocation() {
   return { pid: process.ppid, start };
 }
 function intentPath(root) { return path.join(root, '.harness/.local/commit-intent.json'); }
+function currentIntent(root) {
+  try {
+    const value = read(intentPath(root)), parent = invocation();
+    if (value?.parent?.pid === parent.pid && value.parent.start === parent.start &&
+      /^[0-9a-f]+$/.test(value.head) && /^[0-9a-f]+$/.test(value.tree) &&
+      value.expected && typeof value.expected === 'object' && !Array.isArray(value.expected) &&
+      Object.entries(value.expected).every(([k, v]) => OWNED_FIELD.test(k) && typeof v === 'string')) return value;
+  } catch { /* Malformed or abandoned state is not a receipt for this operation. */ }
+  return null;
+}
+function fallback(root, c, message, file, comment, error, intent, cleanup = false) {
+  discardIntent(root);
+  if (c.policy === 'strict') throw error;
+  console.error(`roster-telemetry: advisory — ${error.message}; metrics unavailable`);
+  // Raw user text in a no-generation fallback is not generated telemetry.
+  if (intent && message.split(/\r?\n/).includes(`Harness-Telemetry-Version: ${intent.expected['Harness-Telemetry-Version']}`)) fs.writeFileSync(file, replaceTrailers(message, {}, intent.comment || comment));
+  else if (cleanup) fs.writeFileSync(file, replaceTrailers(message, {}, comment, root));
+}
 function hook(root, action, file, source) {
   const c = config(root);
   if (!c.enabled) return;
   if (!file) fail('Commit message path required');
+  guardPath(intentPath(root));
   const message = fs.readFileSync(file, 'utf8');
   const comment = commentMarker(root, message);
-  const hasContent = message.split('\n').some(line => line.trim() && !line.startsWith(comment));
-  if (!message.trim() || (!hasContent && source !== 'message')) {
-    fs.rmSync(intentPath(root), { force: true });
-    return; // Never turn an empty/abandoned commit into a metadata-only commit.
+  const intent = action === 'validate' ? currentIntent(root) : null;
+  const conflict = encodingConflict(root, message, comment, c);
+  if (conflict) return fallback(root, c, message, file, comment, new Error(`Encoding conflict: ${conflict}`), intent);
+  const hasContent = message.split(/\r?\n/).some(line => line.trim() && !line.startsWith(comment));
+  const explicit = source === 'message' && process.env.GIT_EDITOR === ':';
+  if (!message.trim() || (!hasContent && !explicit && !intent?.commentSubject)) {
+    discardIntent(root);
+    if (action === 'validate' && c.policy === 'strict') fail('No reliably publishable subject; write a real subject before telemetry preparation');
+    return; // Empty prepare buffers must remain available to the editor.
   }
-  try {
-    const value = validateReport(root, read(path.join(root, '.harness/.local/commit-report.json')), c);
-    const expected = block(value, c);
-    if (action === 'prepare' || (!fs.existsSync(intentPath(root)) && Object.keys(fields(message, comment)).length === 0)) {
-      fs.writeFileSync(file, replaceTrailers(message, expected, comment));
-    } else if (canonical(fields(message, comment)) !== canonical(expected)) fail('Commit trailers do not match current report/config');
-    save(intentPath(root), { parent: invocation(), head: optional(root, 'rev-parse', '--verify', 'HEAD') || '0'.repeat(value.staged_tree.length), tree: value.staged_tree, expected });
-  } catch (error) {
-    fs.rmSync(intentPath(root), { force: true });
-    if (c.policy === 'strict') throw error;
-    console.error(`roster-telemetry: advisory — ${error.message}; metrics unavailable`);
-    fs.writeFileSync(file, replaceTrailers(message, {}, comment));
+  let value;
+  try { value = validateReport(root, read(path.join(root, '.harness/.local/commit-report.json')), c); }
+  catch (error) {
+    if (intent) fail(`Prepared metadata contradiction: ${error.message}`);
+    return fallback(root, c, message, file, comment, error, null, true);
   }
+  const expected = block(value, c);
+  const actual = action === 'validate' ? fields(message, comment, root) : {};
+  if (!intent && Object.keys(actual).length && canonical(actual) !== canonical(expected)) return fallback(root, c, message, file, comment, new Error('Commit trailers do not match current report/config'), null, true);
+  if (intent && Object.keys(actual).length) {
+    if (canonical(actual) !== canonical(expected) || canonical(intent.expected) !== canonical(expected)) fail('Prepared commit trailers do not match current report/config');
+  } else fs.writeFileSync(file, replaceTrailers(message, expected, comment, root));
+  save(intentPath(root), { parent: invocation(), head: optional(root, 'rev-parse', '--verify', 'HEAD') || '0'.repeat(value.staged_tree.length), tree: value.staged_tree, expected, comment, commentSubject: explicit || Boolean(intent?.commentSubject) });
 }
 // Git exposes message reuse, not amend intent, to prepare-commit-msg. Inspect
 // the final commit's parent relation before its ref is published instead.
@@ -248,24 +353,23 @@ function transaction(root, event) {
   if (!fs.existsSync(file)) return;
   const c = config(root);
   if (!c.enabled) return;
-  let intent;
-  try { intent = read(file); } catch { return; }
-  const parent = invocation();
-  if (!intent || intent.parent?.pid !== parent.pid || intent.parent?.start !== parent.start) return;
+  const intent = currentIntent(root);
+  if (!intent) return;
   const refs = fs.readFileSync(0, 'utf8').trim().split('\n').map(line => line.split(' '));
   const current = optional(root, 'symbolic-ref', '-q', 'HEAD') || 'HEAD';
   const update = refs.find(([old, next, ref]) => old === intent.head && (ref === current || ref === 'HEAD') && /^[0-9a-f]+$/.test(next) && !/^0+$/.test(next));
   if (!update) return;
-  if (event !== 'prepared') { fs.rmSync(file, { force: true }); return; }
+  if (event !== 'prepared') { discardIntent(root); return; }
   // Missing measurements remain advisory. Once metadata was prepared, neither
   // policy may publish a known contradiction discovered after Git cleanup.
   const [old, next] = update;
   if (git(root, 'show', '-s', '--format=%T', next) !== intent.tree) return;
   const message = git(root, 'show', '-s', '--format=%B', next);
-  if (canonical(fields(message, commentMarker(root, message))) !== canonical(intent.expected)) fail('Final commit trailers changed during Git cleanup');
+  if (canonical(fields(message, commentMarker(root, message), root)) !== canonical(intent.expected)) fail('Final commit trailers changed during Git cleanup');
   const parents = git(root, 'show', '-s', '--format=%P', next).split(' ');
   if (!/^0+$/.test(old) && parents[0] !== old) {
-    const previous = fields(git(root, 'show', '-s', '--format=%B', old));
+    const previousMessage = git(root, 'show', '-s', '--format=%B', old);
+    const previous = fields(previousMessage, commentMarker(root, previousMessage), root);
     if (previous['Harness-Task'] && previous['Harness-Task'] !== intent.expected['Harness-Task']) fail('Amend must preserve Harness-Task');
   }
 }
@@ -288,6 +392,7 @@ function configure(root, args) {
   return c.enabled ? install(root) : status(root);
 }
 function report(root, task) {
+  guardPath(path.join(root, '.harness/.local/commit-report.json'));
   if (!safe(task)) fail('report requires a safe task identifier');
   const file = path.join(root, '.harness/.local/commit-report.json');
   if (fs.existsSync(file)) fail('Report exists; update it explicitly with cumulative task evidence');
@@ -302,7 +407,8 @@ function main(argv) {
   if (i >= 0) args.splice(i, 2);
   const action = args.shift() || 'status';
   if (action === 'version') { console.log(VERSION); return; }
-  root = fs.realpathSync(root || git(process.cwd(), 'rev-parse', '--show-toplevel'));
+  root = resolveRoot(root || git(process.cwd(), 'rev-parse', '--show-toplevel'));
+  if (action === 'preflight') { preflight(root); return; }
   if (action === 'prepare' || action === 'validate') { hook(root, action, args[0], args[1]); return; }
   if (action === 'transaction') { transaction(root, args[0]); return; }
   let result;

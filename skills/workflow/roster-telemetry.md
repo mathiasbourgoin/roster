@@ -68,7 +68,10 @@ node .harness/bin/roster-telemetry.cjs status
 hooks and is respected by init/doctor. Re-enabling installs/repairs owned wrappers. Custom
 hooks/config conflicts require manual integration, never replacement. `update` must be run
 using the newer trusted runtime (running an old installed runtime cannot discover a release).
-Check effective `active`, not just file presence, after enable/update.
+Check effective `active`, not just file presence, after enable/update. Separately display
+`encoding_available` / `encoding_conflict`: active wrappers do not guarantee a usable footer.
+Managed filesystem aliases (including dangling links and hard links) are refused before writes;
+`--force` does not permit following them into unrelated files.
 
 ### 3. Commit report
 
@@ -95,8 +98,14 @@ all three). `reference-transaction` checks prepared final metadata and amendment
 a matching prepared commit updates HEAD. Its local receipt is bound to the preparing Git process;
 abandoned receipts cannot block unrelated resets, and disabled mode ignores even malformed ones.
 Missing advisory measurements remain nonblocking, but neither policy publishes final metadata
-known to contradict a valid preparation. Only terminal trailers are owned; commit-body examples
-remain untouched. Bare-parent/core.worktree layouts requiring shared-config migration are refused
+known to contradict a valid preparation. Actual footer ownership is case-insensitive; canonical
+owned fields appear once, while commit-body examples and unrelated trailers remain untouched.
+
+For incompatible comment/trailer encodings or a scissors marker followed by non-comment supplied
+text, strict refuses explicitly; advisory warns and commits without generated telemetry. Do not
+change Git settings automatically. Hooks cannot portably infer every cleanup override. Ordinary
+scissors with comment-only suffixes and real subjects written into automatic templates remain
+supported. Disabling collection is not a promise to redact raw independently authored text. Bare-parent/core.worktree layouts requiring shared-config migration are refused
 without changing configuration. No local telemetry hook is a security or CI evidence gate.
 
 ## When to Go Back
