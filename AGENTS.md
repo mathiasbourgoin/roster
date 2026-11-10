@@ -102,12 +102,13 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
 | gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
-## Skills (39)
+## Skills (40)
 
-### Pipeline (18)
+### Pipeline (19)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.13.0 | Classifies an incoming task and routes it to the right pipeline skill |
+| roster-run | 1.14.0 | Classifies an incoming task and routes it to the right pipeline skill |
+| roster-roadmap | 1.0.0 | Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs |
 | roster-init | 1.4.0 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
 | roster-intake | 1.5.0 | Turns a raw task description into a human-validated contractual brief |
 | roster-spec | 2.5.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
