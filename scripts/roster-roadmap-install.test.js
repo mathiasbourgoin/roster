@@ -27,6 +27,10 @@ test("fresh ESM consumer gets runnable toolkit and all existing skill projection
   ok(command("bash", [path.join(ROOT, "scripts/init-harness.sh"), dir, "core"], dir));
   const cli = path.join(dir, ".harness/bin/roster-roadmap.cjs");
   assert.equal(fs.readFileSync(cli, "utf8"), fs.readFileSync(path.join(ROOT, "scripts/roster-roadmap.cjs"), "utf8"));
+  assert.match(fs.readFileSync(path.join(dir, ".harness/roadmap/schema.md"), "utf8"), /## Receipts/);
+  const installed = require(cli);
+  installed.validateContract(JSON.parse(fs.readFileSync(path.join(dir, ".harness/roadmap/example.json"))));
+  installed.validateCapabilities(JSON.parse(fs.readFileSync(path.join(dir, ".harness/roadmap/capabilities.json"))));
   for (const projected of [".agents/skills/roster-roadmap/SKILL.md", ".claude/commands/roster-roadmap.md", ".opencode/skills/roster-roadmap/SKILL.md"]) {
     assert.match(fs.readFileSync(path.join(dir, projected), "utf8"), /# Roster Roadmap/);
   }
@@ -56,4 +60,28 @@ test("sync and read-only check refuse linked roadmap runtime without touching it
     assert.equal(fs.readFileSync(sentinel, "utf8"), "untouched\n");
     assert.equal(fs.lstatSync(cli).isSymbolicLink(), true);
   }
+  fs.unlinkSync(cli);
+  fs.copyFileSync(path.join(ROOT, "scripts/roster-roadmap.cjs"), cli);
+  const schema = path.join(dir, ".harness/roadmap/schema.md");
+  fs.unlinkSync(schema);
+  fs.symlinkSync(sentinel, schema);
+  for (const args of [[], ["--check"]]) {
+    const result = command("bash", [path.join(ROOT, "scripts/sync-harness.sh"), dir, ...args], dir);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /roadmap: refusing managed symlink/);
+    assert.equal(fs.readFileSync(sentinel, "utf8"), "untouched\n");
+  }
+});
+
+test("sync replaces managed hard-link entries without truncating unrelated resources", (t) => {
+  const dir = sandbox(t);
+  ok(command("bash", [path.join(ROOT, "scripts/init-harness.sh"), dir, "core"], dir));
+  const sentinel = path.join(dir, "unrelated.md");
+  fs.writeFileSync(sentinel, "untouched\n");
+  const schema = path.join(dir, ".harness/roadmap/schema.md");
+  fs.unlinkSync(schema);
+  fs.linkSync(sentinel, schema);
+  ok(command("bash", [path.join(ROOT, "scripts/sync-harness.sh"), dir], dir));
+  assert.equal(fs.readFileSync(sentinel, "utf8"), "untouched\n");
+  assert.match(fs.readFileSync(schema, "utf8"), /## Receipts/);
 });

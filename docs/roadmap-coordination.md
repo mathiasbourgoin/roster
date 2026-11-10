@@ -66,6 +66,8 @@ support in a board never removes those boundaries.
 In an installed project use `node .harness/bin/roster-roadmap.cjs`. In this repository
 use `node scripts/roster-roadmap.cjs`, or the `roster-roadmap` package binary. The CLI
 is self-contained and works in CommonJS and ESM consumers without local dependencies.
+Init/sync also install the artifact reference and non-operative example contract/profile
+under `.harness/roadmap/`, so preparation does not require the Roster source checkout.
 
 ```bash
 node .harness/bin/roster-roadmap.cjs init roadmaps/release --id release

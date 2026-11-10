@@ -12,6 +12,7 @@ const ROUTES = ["sequential", "subagent", "parallel", "multisession", "workflow"
 const CAPABILITIES = ROUTES.filter(x => x !== "sequential");
 const ID = /^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
+const MAX_JSON_BYTES = 16 * 1024 * 1024;
 const COMMANDS = {
   init: ["id"], lint: [], status: [], next: [],
   prompt: ["task", "max-chars"],
@@ -139,17 +140,19 @@ function readJSON(file) {
   try {
     const stat = fs.lstatSync(file);
     if (!stat.isFile()) fail(`expected regular file ${file}`);
-    if (stat.size > 16 * 1024 * 1024) fail(`oversized JSON file ${file}`);
+    if (stat.size > MAX_JSON_BYTES) fail(`oversized JSON file ${file}`);
     return JSON.parse(fs.readFileSync(file, "utf8"));
   } catch (err) { fail(`cannot read ${file}: ${err.message}`); }
 }
 function atomicWrite(file, value) {
   safeAncestors(file);
+  const serialized = typeof value === "string" ? value : JSON.stringify(value, null, 2) + "\n";
+  if (Buffer.byteLength(serialized, "utf8") > MAX_JSON_BYTES) fail(`serialized artifact size exceeds ${MAX_JSON_BYTES} byte limit; keep long evidence in referenced files`);
   const tmp = `${file}.tmp-${process.pid}-${crypto.randomUUID()}`;
   let fd;
   try {
     fd = fs.openSync(tmp, "wx", 0o600);
-    fs.writeFileSync(fd, typeof value === "string" ? value : JSON.stringify(value, null, 2) + "\n");
+    fs.writeFileSync(fd, serialized);
     fs.fsyncSync(fd); fs.closeSync(fd); fd = undefined;
     fs.renameSync(tmp, file);
   } finally {
@@ -211,6 +214,7 @@ function requireAccepted(ctx) {
   if (ctx.state.acceptance.contract_digest !== hash(ctx.contract)) fail("accepted contract changed; create a revised board and obtain an explicit decision");
   const expected = ctx.contract.tasks.map(t => t.id).sort().join("\n"), actual = Object.keys(ctx.state.tasks).sort().join("\n");
   if (actual !== expected) fail("state task set differs from accepted contract");
+  verifyHistory(ctx);
   for (const task of ctx.contract.tasks) {
     const current = ctx.state.tasks[task.id];
     if (current.attempts > task.policy.max_attempts) fail(`attempt budget corrupted for ${task.id}`);
@@ -237,6 +241,47 @@ function requireAccepted(ctx) {
     text(receipt.summary, "stored global summary"); strings(receipt.evidence, "stored global evidence", true);
     checkResults(receipt.checks, ctx.contract.global_checks, true);
   }
+}
+function replayTaskEvent(ctx, event, replay, receiptIndex) {
+  const task = taskById(ctx, event.task_id), current = replay[task.id];
+  if (event.action === "claim") {
+    if (current.status !== "queued" || current.attempts >= task.policy.max_attempts) fail(`illegal claim history for ${task.id}`);
+    if (task.depends_on.some(id => replay[id].status !== "done")) fail(`claim history has unmet dependencies for ${task.id}`);
+    current.attempts++; current.status = "active"; current.reason = null;
+  } else if (event.action === "record") {
+    const receipt = ctx.state.receipts[receiptIndex.value++];
+    if (current.status !== "active" || !receipt || receipt.task_id !== task.id || !["done", "blocked"].includes(receipt.result)) fail(`receipt/event history mismatch for ${task.id}`);
+    current.status = receipt.result; current.reason = receipt.result === "blocked" ? receipt.summary : null;
+  } else if (event.action === "release") {
+    if (!["active", "blocked"].includes(current.status) || task.policy.on_failure !== "retry" || current.attempts >= task.policy.max_attempts) fail(`illegal release history for ${task.id}`);
+    text(event.reason, "release history reason"); identifier(event.reconciled_by, "release history actor");
+    current.status = "queued"; current.reason = event.reason;
+  } else fail(`invalid task history action ${event.action}`);
+}
+function verifyHistory(ctx) {
+  const { state, contract } = ctx;
+  if (!state.events.length || state.events[0].action !== "accept") fail("accepted roadmap is missing its acceptance history");
+  const replay = Object.fromEntries(contract.tasks.map(task => [task.id, { status: "queued", attempts: 0, reason: null }]));
+  const receiptIndex = { value: 0 };
+  state.events.forEach((event, index) => {
+    if (event.coordinator !== state.coordinator) fail("foreign coordinator in state history");
+    if (event.action === "accept") {
+      if (index !== 0 || event.task_id !== null) fail("acceptance history must occur exactly once at the beginning");
+    } else if (event.action === "complete") {
+      if (index !== state.events.length - 1 || event.task_id !== null || !state.global_receipt || Object.values(replay).some(task => task.status !== "done")) fail("completion history is inconsistent");
+    } else replayTaskEvent(ctx, event, replay, receiptIndex);
+  });
+  if (receiptIndex.value !== state.receipts.length) fail("stored receipt count differs from record history");
+  const activeIds = new Set(state.receipts.map(receipt => receipt.attempt_id));
+  for (const task of contract.tasks) {
+    const actual = state.tasks[task.id], expected = replay[task.id];
+    if (actual.status !== expected.status || actual.attempts !== expected.attempts || actual.reason !== expected.reason) fail(`task ${task.id} state/attempt count disagrees with execution history`);
+    if (actual.assignment) {
+      if (activeIds.has(actual.assignment.id)) fail(`active attempt for ${task.id} duplicates a recorded or active assignment`);
+      activeIds.add(actual.assignment.id);
+    }
+  }
+  if (Boolean(state.global_receipt) !== (state.events.at(-1).action === "complete")) fail("global receipt/completion history mismatch");
 }
 function capability(ctx, runtimeName, name) {
   const runtime = ctx.capabilities.runtimes[runtimeName];
@@ -275,14 +320,25 @@ function next(ctx) {
   if (task) return { status: "ready", task, route: routeFor(ctx, task), active, next_action: `Claim ${task.id}, execute using authorized native tools, verify and record its receipt, then continue.` };
   if (active.length) return { status: "active", active, next_action: "Continue or collect the active missions. Reconcile interrupted work explicitly before reassignment." };
   if (ctx.contract.tasks.every(t => ctx.state.tasks[t.id].status === "done")) return { status: "global-verification-needed", next_action: "Verify the original global success criteria on the integrated result, record a fresh global receipt, then complete." };
-  return { status: "blocked", blocked: ctx.contract.tasks.filter(t => ctx.state.tasks[t.id].status !== "done").map(t => ({ id: t.id, reason: ctx.state.tasks[t.id].reason || canClaim(ctx, t) })), next_action: "Apply only specified recovery/retry policies; escalate a precise blocking decision if no authorized progress remains." };
+  return { status: "blocked", blocked: ctx.contract.tasks.filter(t => ctx.state.tasks[t.id].status !== "done").map(t => taskProgress(ctx, t)), next_action: "Inspect attempt budgets and preserved failure evidence. Apply only specified recovery/retry policies; exhausted budgets require an explicit roadmap revision/decision. Escalate a precise blocking decision if no authorized progress remains." };
+}
+function taskProgress(ctx, task) {
+  const current = ctx.state.tasks[task.id], exhausted = !["active", "done"].includes(current.status) && current.attempts >= task.policy.max_attempts;
+  let nextAction;
+  if (exhausted) nextAction = "Attempt budget exhausted: preserve failure evidence and request an explicit revised-roadmap decision before further attempts.";
+  else if (current.status === "blocked") nextAction = task.policy.on_failure === "retry" ? "Inspect the failure and apply declared recovery, then explicitly reconcile before requeueing." : "Retry is not authorized by policy; request the blocking decision.";
+  else if (current.status === "active") nextAction = "Continue the owned attempt or explicitly reconcile inspected interrupted work.";
+  else if (current.status === "done") nextAction = "Keep the accepted receipt and continue toward the global outcome.";
+  else nextAction = canClaim(ctx, task) || "Claim the mission using the current revision.";
+  return { id: task.id, status: current.status, attempts: current.attempts, max_attempts: task.policy.max_attempts, exhausted, reason: current.reason || (current.status === "queued" ? canClaim(ctx, task) : null), recovery: task.policy.recovery, failure: task.policy.failure, next_action: nextAction };
 }
 function status(ctx) {
   const counts = { queued: 0, active: 0, blocked: 0, done: 0 };
   for (const task of Object.values(ctx.state.tasks)) counts[task.status]++;
   const current = ctx.state.acceptance?.contract_digest === hash(ctx.contract);
   if (ctx.state.acceptance) requireAccepted(ctx);
-  return { board_id: ctx.state.board_id, revision: ctx.state.revision, coordinator: ctx.state.coordinator, accepted: Boolean(ctx.state.acceptance), acceptance_current: current, contract_digest: hash(ctx.contract), counts, complete: current && ctx.state.global_receipt !== null, assurance: "Local recorded assertions; no authentication, command execution or sandbox enforcement." };
+  const tasks = ctx.state.acceptance ? ctx.contract.tasks.map(task => taskProgress(ctx, task)) : [];
+  return { board_id: ctx.state.board_id, revision: ctx.state.revision, coordinator: ctx.state.coordinator, accepted: Boolean(ctx.state.acceptance), acceptance_current: current, contract_digest: hash(ctx.contract), counts, tasks, complete: current && ctx.state.global_receipt !== null, assurance: "Local recorded assertions; no authentication, command execution or sandbox enforcement." };
 }
 function validateDecision(decision) {
   keys(decision, ["by", "basis", "contract_digest"], "decision"); text(decision.by, "decision.by"); text(decision.basis, "decision.basis"); digestString(decision.contract_digest, "decision.contract_digest");
@@ -303,6 +359,69 @@ function taskById(ctx, id) {
   identifier(id, "task"); const task = ctx.contract.tasks.find(t => t.id === id);
   if (!task) fail(`unknown task ${id}`); return task;
 }
+function transitionAccept(ctx, options) {
+  const { state, contract } = ctx;
+  if (state.acceptance) fail("roadmap is already accepted; changed contracts require a revised board");
+  const decision = readJSON(required(options, "decision")); validateDecision(decision);
+  if (decision.contract_digest !== hash(contract)) fail("decision contract_digest does not match the current roadmap");
+  state.coordinator = options.coordinator; state.acceptance = { contract_digest: hash(contract), decision };
+  state.tasks = Object.fromEntries(contract.tasks.map(t => [t.id, { status: "queued", attempts: 0, assignment: null, reason: null }]));
+  return { accepted: true, contract_digest: hash(contract) };
+}
+function transitionClaim(ctx, options) {
+  const task = taskById(ctx, required(options, "task")); identifier(options.assignee, "--assignee");
+  const reason = canClaim(ctx, task); if (reason) fail(`cannot claim ${task.id}: ${reason}`);
+  const current = ctx.state.tasks[task.id]; current.status = "active"; current.attempts++; current.reason = null;
+  current.assignment = { id: crypto.randomUUID(), assignee: options.assignee, contract_digest: hash(ctx.contract), capabilities_digest: hash(ctx.capabilities), route: routeFor(ctx, task), runtime: task.topology.runtime };
+  return { task_id: task.id, assignment: current.assignment };
+}
+function transitionRecord(ctx, options) {
+  const receipt = readJSON(required(options, "receipt"));
+  keys(receipt, ["task_id", "attempt_id", "assignee", "contract_digest", "result", "summary", "evidence", "changed_files", "checks"], "receipt");
+  const task = taskById(ctx, receipt.task_id), current = ctx.state.tasks[task.id], assignment = current.assignment;
+  if (current.status !== "active" || !assignment) fail("receipt task has no active assignment");
+  if (receipt.attempt_id !== assignment.id || receipt.assignee !== assignment.assignee || receipt.contract_digest !== assignment.contract_digest) fail("receipt assignment, assignee or contract mismatch");
+  if (assignment.capabilities_digest !== hash(ctx.capabilities)) fail("capabilities changed during assignment; reconcile before accepting results");
+  oneOf(receipt.result, ["done", "blocked"], "receipt.result"); text(receipt.summary, "receipt.summary"); strings(receipt.evidence, "receipt.evidence", true);
+  paths(receipt.changed_files, "receipt.changed_files");
+  for (const file of receipt.changed_files) {
+    relative(file, "changed file", false);
+    if (!task.allowed_files.some(scope => scope === file || scope.endsWith("/") && file.startsWith(scope))) fail(`reported write outside allowed_files: ${file}`);
+  }
+  checkResults(receipt.checks, task.checks, receipt.result === "done");
+  if (ctx.state.receipts.some(r => r.attempt_id === receipt.attempt_id)) fail("attempt receipt already recorded");
+  ctx.state.receipts.push(receipt); current.status = receipt.result; current.assignment = null;
+  current.reason = receipt.result === "blocked" ? receipt.summary : null;
+  return { task_id: task.id, result: receipt.result, continue: true };
+}
+function transitionRelease(ctx, options) {
+  const task = taskById(ctx, required(options, "task")), current = ctx.state.tasks[task.id];
+  text(options.reason, "--reason"); identifier(options["reconciled-by"], "--reconciled-by");
+  if (!["active", "blocked"].includes(current.status)) fail("only active or blocked work can be reconciled");
+  if (task.policy.on_failure !== "retry") fail("task policy does not authorize retry");
+  if (current.attempts >= task.policy.max_attempts) fail("attempt budget exhausted; revise the roadmap explicitly");
+  current.status = "queued"; current.assignment = null; current.reason = options.reason;
+  return { task_id: task.id, reconciled: true, by: options["reconciled-by"], reason: options.reason };
+}
+function transitionComplete(ctx, options) {
+  const { state, contract } = ctx;
+  if (!contract.tasks.every(t => state.tasks[t.id].status === "done")) fail("global completion requires every task done");
+  const receipt = readJSON(required(options, "receipt"));
+  keys(receipt, ["contract_digest", "state_revision", "summary", "evidence", "checks"], "global receipt");
+  if (receipt.contract_digest !== hash(contract)) fail("global receipt contract mismatch");
+  if (receipt.state_revision !== state.revision) fail("global receipt is stale: state_revision must match current execution revision");
+  text(receipt.summary, "global receipt.summary"); strings(receipt.evidence, "global receipt.evidence", true);
+  checkResults(receipt.checks, contract.global_checks, true); state.global_receipt = receipt;
+  return { complete: true, summary: receipt.summary };
+}
+const TRANSITIONS = { accept: transitionAccept, claim: transitionClaim, record: transitionRecord, release: transitionRelease, complete: transitionComplete };
+function persistTransition(ctx, command, options, result) {
+  const { state, board } = ctx;
+  state.revision++;
+  state.events.push({ revision: state.revision, action: command, coordinator: options.coordinator, task_id: options.task || result?.task_id || null, reason: options.reason || null, reconciled_by: options["reconciled-by"] || null });
+  validateState(state); requireAccepted(ctx); atomicWrite(path.join(board, "state.json"), state);
+  return { ...result, revision: state.revision };
+}
 function mutate(board, command, options) {
   identifier(options.coordinator, "--coordinator");
   if (!/^\d+$/.test(options.revision || "")) fail("--revision must be a nonnegative integer");
@@ -311,65 +430,13 @@ function mutate(board, command, options) {
   const lock = path.join(board, ".lock"); safeAncestors(lock);
   try { fs.mkdirSync(lock, { mode: 0o700 }); } catch (err) { fail(`board lock unavailable (${err.code}); inspect the owning process before explicit lock recovery`); }
   try {
-    const ctx = load(board), { state, contract } = ctx;
+    const ctx = load(board), { state } = ctx;
     if (state.revision !== expectedRevision) fail(`stale revision: expected ${expectedRevision}, current ${state.revision}`);
     if (state.coordinator && state.coordinator !== options.coordinator) fail("foreign coordinator; explicit coordination transfer is not supported, use the designated coordinator");
     if (command !== "accept") requireAccepted(ctx);
     if (state.global_receipt) fail("roadmap is already complete");
-    let result;
-    if (command === "accept") {
-      if (state.acceptance) fail("roadmap is already accepted; changed contracts require a revised board");
-      const decision = readJSON(required(options, "decision")); validateDecision(decision);
-      if (decision.contract_digest !== hash(contract)) fail("decision contract_digest does not match the current roadmap");
-      state.coordinator = options.coordinator; state.acceptance = { contract_digest: hash(contract), decision };
-      state.tasks = Object.fromEntries(contract.tasks.map(t => [t.id, { status: "queued", attempts: 0, assignment: null, reason: null }]));
-      result = { accepted: true, contract_digest: hash(contract) };
-    } else if (command === "claim") {
-      const task = taskById(ctx, required(options, "task")); identifier(options.assignee, "--assignee");
-      const reason = canClaim(ctx, task); if (reason) fail(`cannot claim ${task.id}: ${reason}`);
-      const current = state.tasks[task.id]; current.status = "active"; current.attempts++; current.reason = null;
-      current.assignment = { id: crypto.randomUUID(), assignee: options.assignee, contract_digest: hash(contract), capabilities_digest: hash(ctx.capabilities), route: routeFor(ctx, task), runtime: task.topology.runtime };
-      result = { task_id: task.id, assignment: current.assignment };
-    } else if (command === "record") {
-      const receipt = readJSON(required(options, "receipt"));
-      keys(receipt, ["task_id", "attempt_id", "assignee", "contract_digest", "result", "summary", "evidence", "changed_files", "checks"], "receipt");
-      const task = taskById(ctx, receipt.task_id), current = state.tasks[task.id], assignment = current.assignment;
-      if (current.status !== "active" || !assignment) fail("receipt task has no active assignment");
-      if (receipt.attempt_id !== assignment.id || receipt.assignee !== assignment.assignee || receipt.contract_digest !== assignment.contract_digest) fail("receipt assignment, assignee or contract mismatch");
-      if (assignment.capabilities_digest !== hash(ctx.capabilities)) fail("capabilities changed during assignment; reconcile before accepting results");
-      oneOf(receipt.result, ["done", "blocked"], "receipt.result"); text(receipt.summary, "receipt.summary"); strings(receipt.evidence, "receipt.evidence", true);
-      paths(receipt.changed_files, "receipt.changed_files");
-      for (const file of receipt.changed_files) {
-        relative(file, "changed file", false);
-        if (!task.allowed_files.some(scope => scope === file || scope.endsWith("/") && file.startsWith(scope))) fail(`reported write outside allowed_files: ${file}`);
-      }
-      checkResults(receipt.checks, task.checks, receipt.result === "done");
-      if (state.receipts.some(r => r.attempt_id === receipt.attempt_id)) fail("attempt receipt already recorded");
-      state.receipts.push(receipt); current.status = receipt.result; current.assignment = null;
-      current.reason = receipt.result === "blocked" ? receipt.summary : null;
-      result = { task_id: task.id, result: receipt.result, continue: true };
-    } else if (command === "release") {
-      const task = taskById(ctx, required(options, "task")), current = state.tasks[task.id];
-      text(options.reason, "--reason"); identifier(options["reconciled-by"], "--reconciled-by");
-      if (!["active", "blocked"].includes(current.status)) fail("only active or blocked work can be reconciled");
-      if (task.policy.on_failure !== "retry") fail("task policy does not authorize retry");
-      if (current.attempts >= task.policy.max_attempts) fail("attempt budget exhausted; revise the roadmap explicitly");
-      current.status = "queued"; current.assignment = null; current.reason = options.reason;
-      result = { task_id: task.id, reconciled: true, by: options["reconciled-by"], reason: options.reason };
-    } else if (command === "complete") {
-      if (!contract.tasks.every(t => state.tasks[t.id].status === "done")) fail("global completion requires every task done");
-      const receipt = readJSON(required(options, "receipt"));
-      keys(receipt, ["contract_digest", "state_revision", "summary", "evidence", "checks"], "global receipt");
-      if (receipt.contract_digest !== hash(contract)) fail("global receipt contract mismatch");
-      if (receipt.state_revision !== state.revision) fail("global receipt is stale: state_revision must match current execution revision");
-      text(receipt.summary, "global receipt.summary"); strings(receipt.evidence, "global receipt.evidence", true);
-      checkResults(receipt.checks, contract.global_checks, true); state.global_receipt = receipt;
-      result = { complete: true, summary: receipt.summary };
-    }
-    state.revision++;
-    state.events.push({ revision: state.revision, action: command, coordinator: options.coordinator, task_id: options.task || result?.task_id || null, reason: options.reason || null, reconciled_by: options["reconciled-by"] || null });
-    validateState(state); atomicWrite(path.join(board, "state.json"), state);
-    return { ...result, revision: state.revision };
+    const result = TRANSITIONS[command](ctx, options);
+    return persistTransition(ctx, command, options, result);
   } finally { fs.rmdirSync(lock); }
 }
 function required(options, key) { text(options[key], `--${key}`); return options[key]; }
@@ -392,17 +459,17 @@ function prompt(ctx, options) {
   const active = ctx.contract.tasks.filter(t => ctx.state.tasks[t.id].status === "active").map(t => ({ id: t.id, assignee: ctx.state.tasks[t.id].assignment.assignee, route: ctx.state.tasks[t.id].assignment.route }));
   const view = {
     goal: ctx.contract.goal, global_success: ctx.contract.success,
-    current_state: { revision: ctx.state.revision, status: nextAction.status, counts: status(ctx).counts, active },
+    current_state: { revision: ctx.state.revision, status: options.task ? ctx.state.tasks[task.id].status : nextAction.status, counts: status(ctx).counts, active },
     mission: task ? {
       id: task.id, objective: task.objective, intake: task.intake, inputs: task.inputs, outputs: task.outputs,
       dependencies: task.depends_on.map(id => ({ id, status: ctx.state.tasks[id].status })), allowed_files: task.allowed_files,
       dod: task.dod, success: task.success, checks: task.checks, topology: task.topology,
       selected_route: ctx.state.tasks[task.id].assignment?.route || routeFor(ctx, task), assignment: ctx.state.tasks[task.id].assignment,
-      policy: task.policy, workflow: task.workflow,
+      policy: task.policy, workflow: task.workflow, progress: taskProgress(ctx, task),
     } : null,
-    next_action: nextAction.next_action,
+    next_action: options.task ? missionAction(ctx, task) : nextAction.next_action,
     references: { contract: "roadmap.json", capabilities: "capabilities.json", state: "state.json", notes: "notes/", candidates: "receipts/" },
-    continuation: "Local task completion is not global completion. Use authorized native runtime tools; respect child Roster gates. Verify, record the structured receipt, refresh next/prompt and continue while authorized progress exists. If blocked, work another admissible branch or apply a declared recovery; stop only for global verification, explicit pause or an unresolved blocking decision. An ended process needs explicit runtime-supported resume; this tool does not keep it alive.",
+    continuation: options.task ? "Perform only this bounded mission using its assigned identity and authorized native tools. Respect child Roster gates. Return a structured candidate receipt with actual checks and evidence to the coordinator, then stop at that bounded handoff. The coordinator alone records state and selects further work. Local completion leaves the global goal open. A stopped process requires explicit runtime-supported resume." : "Local task completion is not global completion. Use authorized native runtime tools; respect child Roster gates. Verify, record the structured receipt, refresh next/prompt and continue while authorized progress exists, including through the final global verification and acceptance. If blocked, work another admissible branch or apply a declared recovery. Stop only after the global outcome is accepted, an explicit owner pause, or a declared stop/no admissible authorized progress remains. An ended process needs explicit runtime-supported resume; this tool does not keep it alive.",
     assurance: "Identity labels, evidence references and reported writes are local assertions; no authentication, shell execution or filesystem sandbox is provided.",
   };
   const output = JSON.stringify(view, null, 2);
@@ -411,8 +478,15 @@ function prompt(ctx, options) {
   if (output.length > limit) fail(`mandatory context overflow: ${output.length} characters exceeds ${limit}; narrow the mission or explicitly increase the limit, never silently drop constraints`);
   return { prompt: output, characters: output.length, max_chars: limit };
 }
+function missionAction(ctx, task) {
+  const current = ctx.state.tasks[task.id];
+  if (current.status === "active") return `Execute only assigned task ${task.id}, verify its exit criteria and return its candidate receipt to the coordinator.`;
+  if (current.status === "done") return `Task ${task.id} already has an accepted receipt; return that outcome to the coordinator without executing it again.`;
+  if (current.status === "blocked") return `Return task ${task.id}'s blocking reason and receipt evidence to the coordinator for authorized reconciliation.`;
+  return `Task ${task.id} has no active assignment; request its claim/assignment from the coordinator before executing and returning a receipt.`;
+}
 function main(argv) {
-  if (argv.length === 1 && ["--help", "help"].includes(argv[0])) return { usage: "roster-roadmap.cjs <command> <board-dir> [options]", commands: COMMANDS, assurance: "Artifact coordination only; no agent/check execution. See schema/roadmap-schema.md." };
+  if (argv.length === 1 && ["--help", "help"].includes(argv[0])) return { usage: "roster-roadmap.cjs <command> <board-dir> [options]", commands: COMMANDS, assurance: "Artifact coordination only; no agent/check execution. Source reference: schema/roadmap-schema.md; installed reference: .harness/roadmap/schema.md." };
   const [command, boardArg, ...args] = argv;
   if (!Object.hasOwn(COMMANDS, command) || !boardArg || boardArg.startsWith("--")) fail("usage: roster-roadmap.cjs <init|lint|accept|status|next|prompt|claim|record|release|complete> <board-dir> [options]");
   const options = {};

@@ -210,10 +210,13 @@ test("premature, failing and empty global receipts cannot complete", t => {
   const global = { contract_digest: ok(board, "lint").contract_digest, summary: "Demo", evidence: ["demo.txt"], checks: [{ id: "demo", status: "pass", evidence: ["demo.txt"] }] };
   write(file, global); assert.notEqual(mutate(board, "complete", ["--receipt", file]).code, 0);
   claim(board); assert.equal(record(board, receiptFor(board)).code, 0);
+  global.state_revision = read(path.join(board, "state.json")).revision;
   global.checks[0].status = "fail"; write(file, global);
-  assert.notEqual(mutate(board, "complete", ["--receipt", file]).code, 0);
+  const failing = mutate(board, "complete", ["--receipt", file]);
+  assert.notEqual(failing.code, 0); assert.match(failing.data.error, /failing checks/);
   global.checks = []; write(file, global);
-  assert.notEqual(mutate(board, "complete", ["--receipt", file]).code, 0);
+  const missing = mutate(board, "complete", ["--receipt", file]);
+  assert.notEqual(missing.code, 0); assert.match(missing.data.error, /cover every declared check/);
 });
 
 test("prompt gives bounded goal, state, mission and continuation without notes/history", t => {
@@ -319,4 +322,66 @@ test("concurrent CLI claim processes preserve one winner and all prior receipts"
   assert.deepEqual(after.tasks.b.assignment, winners[0].data.assignment);
   assert.deepEqual(after.receipts, before.receipts);
   assert.equal(Object.values(after.tasks).filter(taskState => taskState.status === "active").length, 1);
+});
+
+test("task handoff never routes its worker to another ready mission", t => {
+  const f = accepted(t, [task("a"), task("b")], { max_active: 2 }); enable(f, ["parallel"]);
+  claim(f.board, "a");
+  assert.equal(ok(f.board, "next").task.id, "b");
+  const view = JSON.parse(ok(f.board, "prompt", ["--task", "a"]).prompt);
+  assert.equal(view.mission.id, "a");
+  assert.doesNotMatch(view.next_action, /\bb\b/);
+  assert.match(view.next_action, /a.*receipt|receipt.*a/i);
+  assert.doesNotMatch(view.continuation, /work another|refresh next|next\/prompt/i);
+  assert.match(view.continuation, /return.*receipt|receipt.*return/i);
+  const coordinator = JSON.parse(ok(f.board, "prompt").prompt);
+  assert.match(coordinator.next_action, /Claim b/);
+});
+
+test("aggregate receipt growth refuses before persisting an unreadable state", t => {
+  const { board } = accepted(t, [task("a"), task("b")]);
+  claim(board, "a");
+  const first = receiptFor(board, "a"); first.evidence = ["é".repeat(4.5 * 1024 * 1024)];
+  assert.equal(record(board, first).code, 0);
+  claim(board, "b");
+  const second = receiptFor(board, "b"); second.evidence = ["é".repeat(4.5 * 1024 * 1024)];
+  const file = path.join(board, "state.json"), before = fs.readFileSync(file);
+  const result = record(board, second);
+  assert.notEqual(result.code, 0);
+  assert.match(result.data.error, /size|oversized|limit/i);
+  assert.deepEqual(fs.readFileSync(file), before);
+  assert.equal(ok(board, "status").counts.active, 1);
+  assert.equal(read(file).receipts.length, 1);
+});
+
+test("stored attempts must reconcile with claim and receipt history", t => {
+  const { board } = accepted(t);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    claim(board); assert.equal(record(board, receiptFor(board, "a", "blocked")).code, 0);
+    if (attempt === 0) assert.equal(mutate(board, "release", ["--task", "a", "--reason", "Cause addressed", "--reconciled-by", "lead"]).code, 0);
+  }
+  const file = path.join(board, "state.json"), state = read(file);
+  assert.equal(state.events.filter(event => event.action === "claim").length, 2);
+  state.tasks.a.attempts = 1; write(file, state);
+  const before = fs.readFileSync(file);
+  const result = mutate(board, "release", ["--task", "a", "--reason", "Attempt rollback", "--reconciled-by", "lead"]);
+  assert.notEqual(result.code, 0);
+  assert.match(result.data.error, /attempt|history/i);
+  assert.deepEqual(fs.readFileSync(file), before);
+  assert.notEqual(run(board, "status").code, 0);
+});
+
+test("exhausted blocked missions expose budget and recovery without hiding failure", t => {
+  const a = task("a"); a.policy.max_attempts = 1;
+  const { board } = accepted(t, [a]); claim(board);
+  const receipt = receiptFor(board, "a", "blocked"); receipt.summary = "Verification failed on the edge case";
+  assert.equal(record(board, receipt).code, 0);
+  const result = ok(board, "next"), blocked = result.blocked[0];
+  assert.equal(blocked.attempts, 1); assert.equal(blocked.max_attempts, 1); assert.equal(blocked.exhausted, true);
+  assert.equal(blocked.reason, receipt.summary);
+  assert.deepEqual(blocked.recovery, a.policy.recovery);
+  assert.match(blocked.next_action, /exhaust|revis|decision/i);
+  const progress = ok(board, "status").tasks.find(item => item.id === "a");
+  assert.equal(progress.exhausted, true); assert.equal(progress.reason, receipt.summary);
+  assert.deepEqual(read(path.join(board, "state.json")).receipts[0].checks, receipt.checks);
 });

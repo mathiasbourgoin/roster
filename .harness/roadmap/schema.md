@@ -165,16 +165,33 @@ authorized route and returns an assignment containing `contract_digest`, `capabi
 `release` requires an explicit reconciliation actor/reason; it can requeue only active or
 blocked work with a permitted retry and remaining attempts. It never resets attempt budgets.
 Inspection of the old process/worktree and handling partial changes remain agent duties.
+Every accepted-state read replays the contiguous claim/record/release history, requiring
+task statuses, attempt counts, recorded receipt order and reconciliation reasons to agree.
+Lowering a persisted attempt counter cannot authorize a new attempt. These consistency
+checks detect malformed local state; they do not authenticate the history against a local owner.
+
+JSON reads and writes share a 16 MiB UTF-8 byte limit. A transition that would make the
+aggregate state unreadable refuses before replacing `state.json`, preserving the previous
+revision and receipts. Keep large evidence in referenced files rather than embedding logs.
 
 `next` returns `ready`, `active`, `blocked`, `global-verification-needed`, or `complete`.
 A ready response includes the task and selected route. Blocked branches do not hide unrelated
 ready work. All-tasks-done yields global verification needed, never automatic completion.
+`status.tasks` and `next.blocked` expose attempts, maximum attempts, exhaustion, the original
+failure reason, declared recovery/failure policy and a next action. Exhaustion does not erase
+the failing check evidence retained in the receipt, and further attempts require an explicit
+revised-roadmap decision.
 
 `prompt` renders a coordinator/mission view in its JSON `prompt` string. It includes the goal,
 global criteria, state counts, active assignments, relevant task/dependency contracts, policy,
 artifact references and continuation instructions. It never loads notes or receipt history.
 Default maximum is 12,000 characters; overflow refuses explicitly. Select a narrower mission
 or increase the limit deliberately instead of dropping constraints.
+Without `--task`, the coordinator view selects the next global action and continues through
+global verification and acceptance. With `--task`, the bounded worker view directs only that
+mission and returning its candidate receipt to the coordinator; it never instructs that worker
+to claim an unrelated ready task or mutate the global state. Unclaimed/blocked/done missions
+receive status-specific handoff instructions rather than a new global execution assignment.
 
 ## Receipts
 
