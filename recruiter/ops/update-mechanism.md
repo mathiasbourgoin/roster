@@ -225,6 +225,7 @@ durable-state resume and the metabolism loop on the target project.
 
 Skills to install:
 - `skills/pipeline/roster-run.md`
+- `skills/pipeline/roster-roadmap.md`
 - `skills/pipeline/roster-init.md`
 - `skills/pipeline/roster-question.md`
 - `skills/pipeline/roster-research.md`
@@ -261,6 +262,18 @@ Skills to install:
 - `skills/workflow/team.md`
 - `skills/testing/tdd-workflow.md`
 - `skills/media/image-generation.md`
+
+**Roadmap toolkit distribution:** when installing `roster-roadmap`, include the
+self-contained `scripts/roster-roadmap.cjs` as `.harness/bin/roster-roadmap.cjs`
+from the SAME approved source/revision. Prefer trusted checkout sync. For raw
+distribution use fail-on-HTTP-error retrieval to a temporary file, refuse managed
+symlinks and replace only after successful retrieval; never truncate linked targets.
+Include `schema/roadmap-schema.md` as `.harness/roadmap/schema.md`, and the two
+`examples/roadmap/{roadmap,capabilities}.json` files as
+`.harness/roadmap/{example,capabilities}.json` from that same revision.
+No npm dependencies, CWR, agent launcher or service activation is involved. If the
+runtime is absent, report the roadmap skill unavailable rather than inventing a
+fallback command. Keep boards unchanged on upgrade.
 
 **Step 2.5 — Review-tool bundle (F-1):** if any installed skill declares `requires_review_bundle`,
 fetch and run the one distributed installer script — it owns the entire install/upgrade/remove/

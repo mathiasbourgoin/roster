@@ -73,9 +73,13 @@ function projectionLine(claim) {
   return `- **${claim.qualified_id}** [${claim.lifecycle}; ${claim.verification}]: ${claim.normative_text || claim.id}`;
 }
 
+function withSingleTrailingNewline(content) {
+  return `${content.replace(/\n+$/u, "")}\n`;
+}
+
 function renderSpecProjection(state, frontmatter) {
   const residuals = state.model.claims.filter((claim) => claim.lifecycle === "pending-confirmation");
-  return [
+  return withSingleTrailingNewline([
     frontmatter,
     "\n## Requirements\n", ...activeClaims(state, "requirement").map(projectionLine),
     "\n## Acceptance Criteria\n", ...activeClaims(state, "acceptance-criterion").map(projectionLine),
@@ -84,19 +88,17 @@ function renderSpecProjection(state, frontmatter) {
     "\n## Risks\n", ...activeClaims(state, "risk").map(projectionLine),
     "\n## Residual debt\n",
     ...residuals.map((claim) => `- **${claim.qualified_id}**: pending-confirmation; verification ${claim.verification}`),
-    "",
-  ].join("\n");
+  ].join("\n"));
 }
 
 function renderPropertiesProjection(state, frontmatter) {
   const codeIntel = state.model.code_intel.map((block) => block.content);
-  return [
+  return withSingleTrailingNewline([
     frontmatter,
     "\n## Invariants\n", ...activeClaims(state, "invariant").map(projectionLine),
     "\n## Runnable Checks\n", ...activeClaims(state, "check").map(projectionLine),
     ...(codeIntel.length ? ["\n## Code Intel\n", ...codeIntel] : []),
-    "",
-  ].join("\n");
+  ].join("\n"));
 }
 
 function renderProjections(state) {
@@ -104,7 +106,7 @@ function renderProjections(state) {
   const frontmatter = `---\ntitle: Claims projection\nstatus: derived\nschema-version: 2\n---\n\n${marker}\n`;
   const spec = renderSpecProjection(state, frontmatter);
   const properties = renderPropertiesProjection(state, frontmatter);
-  const index = [frontmatter, "\n## Generated views\n", "- [Specification](spec.md)", "- [Properties](properties.md)", ""].join("\n");
+  const index = withSingleTrailingNewline([frontmatter, "\n## Generated views\n", "- [Specification](spec.md)", "- [Properties](properties.md)"].join("\n"));
   return { "spec.md": spec, "properties.md": properties, "index.md": index };
 }
 

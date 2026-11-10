@@ -49,7 +49,7 @@ const REPO_ROOT = path.resolve(__dirname, "../..");
 const INIT_SCRIPT = path.join(REPO_ROOT, "scripts/init-harness.sh");
 
 const AGENT_ARRAYS = ["CORE_AGENTS", "DEVELOPER_AGENTS", "SECURITY_AGENTS", "FULL_EXTRA_AGENTS"];
-const SKILL_ARRAYS = ["DEVELOPER_SKILLS", "FULL_EXTRA_SKILLS"];
+const SKILL_ARRAYS = ["CORE_SKILLS", "DEVELOPER_SKILLS", "FULL_EXTRA_SKILLS"];
 const RULE_ARRAYS = ["CORE_RULES"];
 const HOOK_ARRAYS = ["CORE_HOOKS", "DEVELOPER_HOOKS"];
 
@@ -62,9 +62,9 @@ const LAYER_TIERS: Record<string, Record<string, string[]>> = {
     full: AGENT_ARRAYS,
   },
   skills: {
-    core: [],
-    developer: ["DEVELOPER_SKILLS"],
-    security: ["DEVELOPER_SKILLS"],
+    core: ["CORE_SKILLS"],
+    developer: ["CORE_SKILLS", "DEVELOPER_SKILLS"],
+    security: ["CORE_SKILLS", "DEVELOPER_SKILLS"],
     full: SKILL_ARRAYS,
   },
   rules: {

@@ -78,7 +78,7 @@ These agents are domain-specific overlays for particular hardware/projects. Inst
 
 ---
 
-## Skills (39)
+## Skills (40)
 
 Skills are slash-command workflows that run in the main context and produce contractual artifacts that chain across pipeline phases.
 
@@ -87,6 +87,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 | Skill | Phase | What it does |
 |-------|-------|--------------|
 | `/roster-run` | Entry point | Detects context and routes to the right pipeline skill |
+| `/roster-roadmap` | Multi-intake coordination | Assisted specification and coherence, adaptive agent topology, persistent execution tools without CWR |
 | `/roster-init` | Bootstrap | Adversarial project interview — 6 questions, 3 adversarial |
 | `/roster-question` | Question | Decomposes task into neutral research questions |
 | `/roster-research` | Research | Blind documentarian research — file:line grounded, optional online scan |
