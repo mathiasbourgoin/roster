@@ -84,14 +84,26 @@ tree and expected fields. Abandoned/malformed receipts do not inspect unrelated 
 disabled telemetry does not parse receipts. The process binding is consistency bookkeeping, not
 an authenticated identity. Folded continuation lines are invalid for owned single-line trailers.
 
+During a real editing lifecycle, temporary comment envelopes identify the generated block without
+claiming arbitrary matching body examples. Successful commit-msg validation removes the envelopes;
+they are never published metadata. A whole-buffer replacement can supply new authored examples.
+Changed/partial envelopes or generated values are contradictions, not permission to recycle data.
+If an editor removes provenance but retains the full prepared block during an encoding conflict,
+publication is refused rather than guessing which body bytes may be erased. Final ref validation
+also prevents temporary envelope leakage when commit-msg was skipped.
+
 The installed runtime uses .cjs so it can start in ESM consumers without changing the module
 semantics of any neighboring consumer script. Layouts with shared core.bare:true/core.worktree
 that require config migration are refused before modification; migrate them explicitly first.
+Inherited owned hooks become harmless on a branch with no tracked telemetry runtime or policy.
+A missing runtime still required by the index/HEAD or enabled local policy remains an actionable
+error; explicit disable remains a no-op. Exact older owned wrappers can be repaired automatically,
+while modified/custom wrappers are never silently adopted.
 
 Example trailers:
 
 ```text
-Harness-Telemetry-Version: 1.0.0
+Harness-Telemetry-Version: 1.0.1
 Harness-Version: 1.0.0
 Harness-Task: commit-telemetry
 Harness-Metrics-Source: agent-reported-cumulative
@@ -138,5 +150,8 @@ The frozen success/fallback/refusal matrix is in `specs/commit-telemetry.md`.
 `node --test scripts/roster-telemetry.test.js` exercises the original 27 integration scenarios.
 `node scripts/roster-telemetry-contract-check.js` runs the self-contained refreeze contract cases;
 append filesystem, readonly, trailers, messages, encoding, receipts, reports or distribution to
-run a specific case. Exit 0 is pass, 1 is an assertion, >=2 is a setup/tool/load error. Both commands
-are included in `npm test`. These checks do not claim a runtime exposes native UI controls.
+run a specific case. `node scripts/roster-telemetry-lifecycle-check.js` adds real-entrypoint
+asset/ancestor containment, post-editor fallback, automatic-comment bodies, branch transitions
+and authored-example/provenance cases (optional groups: assets, editor, auto, branch, content).
+Exit 0 is pass, 1 is an assertion, >=2 is a setup/tool/load error. All three commands are included
+in `npm test`. These checks do not claim a runtime exposes native UI controls.

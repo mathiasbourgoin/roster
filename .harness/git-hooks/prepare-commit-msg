@@ -2,4 +2,14 @@
 # roster-telemetry managed v1
 set -eu
 root=$(git rev-parse --show-toplevel)
+if [ ! -f "$root/.harness/bin/roster-telemetry.cjs" ]; then
+  if [ -f "$root/.harness/telemetry.json" ]; then
+    node -e 'const c=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));process.exit(c.enabled===false?0:1)' "$root/.harness/telemetry.json" && exit 0
+  elif [ -z "$(git ls-files -- .harness/bin/roster-telemetry.cjs .harness/telemetry.json)" ] && ! git cat-file -e HEAD:.harness/bin/roster-telemetry.cjs 2>/dev/null && ! git cat-file -e HEAD:.harness/telemetry.json 2>/dev/null; then
+    exit 0
+  fi
+  echo 'roster-telemetry: required runtime missing; restore .harness/bin/roster-telemetry.cjs or explicitly disable telemetry' >&2
+  exit 1
+fi
+export ROSTER_TELEMETRY_HOOK=1
 exec node "$root/.harness/bin/roster-telemetry.cjs" prepare "$@" --root "$root"

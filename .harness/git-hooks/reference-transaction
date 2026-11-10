@@ -3,4 +3,5 @@
 set -eu
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 [ -f "$root/.harness/bin/roster-telemetry.cjs" ] || exit 0
+export ROSTER_TELEMETRY_HOOK=1
 exec node "$root/.harness/bin/roster-telemetry.cjs" transaction "$@" --root "$root"

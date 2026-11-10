@@ -3,8 +3,9 @@
 // Project-local consistency checks, not provider authentication or a security boundary.
 const fs = require('node:fs');
 const path = require('node:path');
+const { randomBytes } = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const RUNTIME = '.harness/bin/roster-telemetry.cjs';
 const DEFAULTS = { schema_version: 1, enabled: true, policy: 'advisory', fields: { elapsed_seconds: true, tokens: true, agents: true, mode: true, formal: true } };
 const OWNED_FIELD = /^Harness-(?:Telemetry-Version|Version|Task|Elapsed-Seconds|Input-Tokens|Output-Tokens|Agents|Mode|Formal|Metrics-Source)$/i;
@@ -30,14 +31,24 @@ function config(root) {
 }
 function hookBytes(name) {
   const action = { 'prepare-commit-msg': 'prepare', 'commit-msg': 'validate', 'reference-transaction': 'transaction' }[name];
-  const preflight = name === 'reference-transaction' ? `root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0\n[ -f "$root/${RUNTIME}" ] || exit 0` : 'root=$(git rev-parse --show-toplevel)';
-  return `#!/bin/sh\n# roster-telemetry managed v1\nset -eu\n${preflight}\nexec node "$root/${RUNTIME}" ${action} "$@" --root "$root"\n`;
+  const preflight = name === 'reference-transaction' ? `root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0\n[ -f "$root/${RUNTIME}" ] || exit 0` : `root=$(git rev-parse --show-toplevel)
+if [ ! -f "$root/${RUNTIME}" ]; then
+  if [ -f "$root/.harness/telemetry.json" ]; then
+    node -e 'const c=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));process.exit(c.enabled===false?0:1)' "$root/.harness/telemetry.json" && exit 0
+  elif [ -z "$(git ls-files -- ${RUNTIME} .harness/telemetry.json)" ] && ! git cat-file -e HEAD:${RUNTIME} 2>/dev/null && ! git cat-file -e HEAD:.harness/telemetry.json 2>/dev/null; then
+    exit 0
+  fi
+  echo 'roster-telemetry: required runtime missing; restore ${RUNTIME} or explicitly disable telemetry' >&2
+  exit 1
+fi`;
+  return `#!/bin/sh\n# roster-telemetry managed v1\nset -eu\n${preflight}\nexport ROSTER_TELEMETRY_HOOK=1\nexec node "$root/${RUNTIME}" ${action} "$@" --root "$root"\n`;
 }
 function managedHook(name, text) {
   if (text === hookBytes(name)) return true;
-  if (name === 'reference-transaction') return false;
-  const legacy = hookBytes(name).replace(RUNTIME, '.harness/bin/roster-telemetry.js');
-  return text === legacy;
+  const action = { 'prepare-commit-msg': 'prepare', 'commit-msg': 'validate', 'reference-transaction': 'transaction' }[name];
+  const preflight = name === 'reference-transaction' ? `root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0\n[ -f "$root/${RUNTIME}" ] || exit 0` : 'root=$(git rev-parse --show-toplevel)';
+  const old = `#!/bin/sh\n# roster-telemetry managed v1\nset -eu\n${preflight}\nexec node "$root/${RUNTIME}" ${action} "$@" --root "$root"\n`;
+  return text === old || (name !== 'reference-transaction' && text === old.replace(RUNTIME, '.harness/bin/roster-telemetry.js'));
 }
 function status(root) {
   const c = config(root);
@@ -60,8 +71,11 @@ function resolveRoot(file) {
 }
 function guardPath(file, boundary = path.parse(path.resolve(file)).root) {
   const absolute = path.resolve(file);
-  const relative = path.relative(boundary, absolute);
-  if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) fail('Managed path outside boundary');
+  const normalized = path.relative(boundary, absolute);
+  if (normalized === '..' || normalized.startsWith('..' + path.sep) || path.isAbsolute(normalized)) fail('Managed path outside boundary');
+  // Inspect components before resolving '..': a traversed symlink must not disappear.
+  const raw = path.isAbsolute(file) ? file : process.cwd() + path.sep + file;
+  const relative = raw.slice(boundary === path.parse(raw).root ? boundary.length : boundary.length + 1);
   let current = boundary;
   for (const part of relative.split(path.sep).filter(Boolean)) {
     current = path.join(current, part);
@@ -71,13 +85,33 @@ function guardPath(file, boundary = path.parse(path.resolve(file)).root) {
     if (stat && current !== absolute && !stat.isDirectory()) fail(`Managed ancestor is not a directory: ${current}`);
   }
 }
+function projectionPaths(root) {
+  const file = root + '/.harness/harness.json';
+  const runtimes = fs.existsSync(file) ? read(file).runtimes || [] : [];
+  const codexHome = process.env.CODEX_HOME || process.env.HOME + '/.codex';
+  const resolve = value => value === '~/.codex' || value.startsWith('~/.codex/') ? codexHome + value.slice(8) :
+    value.startsWith('~/') ? process.env.HOME + '/' + value.slice(2) : path.isAbsolute(value) ? value : root + '/' + value;
+  const skills = base => ['SKILL.md', '.roster-managed'].map(n => base + '/roster-telemetry/' + n);
+  // Init replaces the manifest with these local defaults; sync also honors selected entrypoints.
+  const out = [root + '/.claude/commands/roster-telemetry.md', root + '/.claude/rules/commit-telemetry.md',
+    ...skills(root + '/.agents/skills'), ...skills(root + '/.opencode/skills')];
+  for (const [name, fallback] of [['codex', '.agents/skills/'], ['codex-global', codexHome + '/skills'], ['opencode', '.opencode']]) {
+    if (!runtimes.some(r => r.name === name && r.enabled === true)) continue;
+    const base = resolve(runtimes.find(r => r.name === name)?.entrypoint ?? fallback);
+    out.push(...skills(base + (name === 'opencode' ? '/skills' : '')));
+    if (name === 'opencode') out.push(base + '/commands/roster-telemetry.md');
+  }
+  return out;
+}
 function preflight(root) {
-  for (const relative of ['.harness/bin/package.json', RUNTIME, '.harness/bin/roster-telemetry.js',
+  for (const relative of ['.harness/harness.json', '.harness/bin/package.json', RUNTIME, '.harness/bin/roster-telemetry.js',
+    '.harness/skills/roster-telemetry.md', '.harness/rules/commit-telemetry.md',
     '.harness/telemetry.json', '.harness/.local/commit-report.json', '.harness/.local/commit-intent.json',
     ...NAMES.map(n => '.harness/git-hooks/' + n)]) {
     guardPath(path.join(root, relative), root);
     guardPath(path.join(root, relative + `.tmp-${process.pid}`), root);
   }
+  for (const destination of projectionPaths(root)) guardPath(destination);
 }
 function adminPreflight(root) {
   for (const name of ['info/exclude', 'config', 'config.worktree']) {
@@ -282,9 +316,10 @@ function commentMarker(root, message = '') {
   if (configured !== 'auto') return configured;
   const scissors = message.match(/^(.+) ------------------------ >8 ------------------------$/m);
   if (scissors) return scissors[1];
-  const last = message.trimEnd().split('\n').at(-1) || '';
   const candidates = '#;@!$%^&|:';
-  if (last && candidates.includes(last[0])) return last[0];
+  const lines = message.split(/\r?\n/).filter(line => line.trim());
+  // An empty automatic template uses '#'; '$ subject' is ordinary authored text.
+  if (lines.length && lines.every(line => line.startsWith('#'))) return '#';
   return [...candidates].find(c => !message.split('\n').some(line => line.startsWith(c))) || '#';
 }
 function invocation() {
@@ -302,16 +337,38 @@ function currentIntent(root) {
     if (value?.parent?.pid === parent.pid && value.parent.start === parent.start &&
       /^[0-9a-f]+$/.test(value.head) && /^[0-9a-f]+$/.test(value.tree) &&
       value.expected && typeof value.expected === 'object' && !Array.isArray(value.expected) &&
-      Object.entries(value.expected).every(([k, v]) => OWNED_FIELD.test(k) && typeof v === 'string')) return value;
+      Object.entries(value.expected).every(([k, v]) => OWNED_FIELD.test(k) && typeof v === 'string') &&
+      value.footer === Object.entries(value.expected).map(([k, v]) => `${k}: ${v}\n`).join('') &&
+      (value.markers == null || (Array.isArray(value.markers) && value.markers.length === 2 && value.markers.every(m => typeof m === 'string' && m.endsWith('\n'))))) return { ...value, ownAt: null };
   } catch { /* Malformed or abandoned state is not a receipt for this operation. */ }
   return null;
 }
+function editorInput(message, intent) {
+  if (!intent?.markers) return [message, intent];
+  const [open, close] = intent.markers, a = message.indexOf(open), b = message.indexOf(close);
+  if (a < 0 && b < 0) return [message, { ...intent, lostFooter: intent.footer, footer: null }];
+  if (a < 0 || b < a || message.indexOf(open, a + 1) >= 0 || message.indexOf(close, b + 1) >= 0) fail('Prepared metadata envelope is partial or duplicated');
+  const inside = message.slice(a + open.length, b), at = inside.indexOf(intent.footer);
+  if (at < 0 || inside.indexOf(intent.footer, at + 1) >= 0) fail('Prepared metadata contradiction: generated footer changed');
+  return [message.slice(0, a) + inside + message.slice(b + close.length), { ...intent, ownAt: a + at }];
+}
+function preparedFooter(message, intent) {
+  if (!intent?.footer) return null;
+  if (intent.ownAt != null && message.slice(intent.ownAt, intent.ownAt + intent.footer.length) === intent.footer) return intent.ownAt;
+  const at = message.indexOf(intent.footer);
+  if (at >= 0 && (at === 0 || message[at - 1] === '\n') && message.indexOf(intent.footer, at + 1) < 0) return at;
+  const lines = new Set(message.split(/\r?\n/));
+  if (intent.footer.trimEnd().split('\n').some(line => lines.has(line))) fail('Prepared metadata contradiction: generated footer is partial or changed');
+  return null; // A whole-buffer editor replacement can contain entirely new authored text.
+}
 function fallback(root, c, message, file, comment, error, intent, cleanup = false) {
+  if (intent?.lostFooter && message.includes(intent.lostFooter)) fail('Prepared metadata provenance removed; cannot safely discard generated values');
+  const at = preparedFooter(message, intent);
   discardIntent(root);
   if (c.policy === 'strict') throw error;
   console.error(`roster-telemetry: advisory — ${error.message}; metrics unavailable`);
   // Raw user text in a no-generation fallback is not generated telemetry.
-  if (intent && message.split(/\r?\n/).includes(`Harness-Telemetry-Version: ${intent.expected['Harness-Telemetry-Version']}`)) fs.writeFileSync(file, replaceTrailers(message, {}, intent.comment || comment));
+  if (at !== null) fs.writeFileSync(file, message.slice(0, at) + message.slice(at + intent.footer.length));
   else if (cleanup) fs.writeFileSync(file, replaceTrailers(message, {}, comment, root));
 }
 function hook(root, action, file, source) {
@@ -319,9 +376,9 @@ function hook(root, action, file, source) {
   if (!c.enabled) return;
   if (!file) fail('Commit message path required');
   guardPath(intentPath(root));
-  const message = fs.readFileSync(file, 'utf8');
+  const [message, intent] = editorInput(fs.readFileSync(file, 'utf8'), action === 'validate' ? currentIntent(root) : null);
   const comment = commentMarker(root, message);
-  const intent = action === 'validate' ? currentIntent(root) : null;
+  const editing = action === 'prepare' && process.env.ROSTER_TELEMETRY_HOOK === '1' && process.env.GIT_EDITOR !== ':';
   const conflict = encodingConflict(root, message, comment, c);
   if (conflict) return fallback(root, c, message, file, comment, new Error(`Encoding conflict: ${conflict}`), intent);
   const hasContent = message.split(/\r?\n/).some(line => line.trim() && !line.startsWith(comment));
@@ -337,13 +394,22 @@ function hook(root, action, file, source) {
     if (intent) fail(`Prepared metadata contradiction: ${error.message}`);
     return fallback(root, c, message, file, comment, error, null, true);
   }
-  const expected = block(value, c);
+  const expected = block(value, c), footer = Object.entries(expected).map(([k, v]) => `${k}: ${v}\n`).join('');
+  const id = editing ? randomBytes(12).toString('hex') : null;
+  const markers = id ? ['start', 'end'].map(n => `${comment} roster-telemetry:${id}:${n}\n`) : null;
   const actual = action === 'validate' ? fields(message, comment, root) : {};
+  if (intent && canonical(intent.expected) !== canonical(expected)) fail('Prepared metadata report/config changed');
   if (!intent && Object.keys(actual).length && canonical(actual) !== canonical(expected)) return fallback(root, c, message, file, comment, new Error('Commit trailers do not match current report/config'), null, true);
   if (intent && Object.keys(actual).length) {
     if (canonical(actual) !== canonical(expected) || canonical(intent.expected) !== canonical(expected)) fail('Prepared commit trailers do not match current report/config');
-  } else fs.writeFileSync(file, replaceTrailers(message, expected, comment, root));
-  save(intentPath(root), { parent: invocation(), head: optional(root, 'rev-parse', '--verify', 'HEAD') || '0'.repeat(value.staged_tree.length), tree: value.staged_tree, expected, comment, commentSubject: explicit || Boolean(intent?.commentSubject) });
+    fs.writeFileSync(file, message);
+  } else {
+    if (preparedFooter(message, intent) !== null) fail('Prepared metadata displaced from actual trailers');
+    let output = replaceTrailers(message, expected, comment, root);
+    if (markers) { const at = output.lastIndexOf(footer); output = output.slice(0, at) + markers[0] + footer + markers[1] + output.slice(at + footer.length); }
+    fs.writeFileSync(file, output);
+  }
+  save(intentPath(root), { parent: invocation(), head: optional(root, 'rev-parse', '--verify', 'HEAD') || '0'.repeat(value.staged_tree.length), tree: value.staged_tree, expected, footer, markers, comment, commentSubject: explicit || Boolean(intent?.commentSubject) });
 }
 // Git exposes message reuse, not amend intent, to prepare-commit-msg. Inspect
 // the final commit's parent relation before its ref is published instead.
@@ -365,6 +431,7 @@ function transaction(root, event) {
   const [old, next] = update;
   if (git(root, 'show', '-s', '--format=%T', next) !== intent.tree) return;
   const message = git(root, 'show', '-s', '--format=%B', next);
+  if (intent.markers?.some(m => message.includes(m.trimEnd()))) fail('Prepared metadata requires final commit-msg validation');
   if (canonical(fields(message, commentMarker(root, message), root)) !== canonical(intent.expected)) fail('Final commit trailers changed during Git cleanup');
   const parents = git(root, 'show', '-s', '--format=%P', next).split(' ');
   if (!/^0+$/.test(old) && parents[0] !== old) {
