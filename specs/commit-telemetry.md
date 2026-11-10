@@ -4,7 +4,7 @@ type: spec
 status: draft
 feature: commit-telemetry
 brief: briefs/commit-telemetry-intake.md
-version: 1.0.0
+version: 1.0.1
 ---
 
 # Spec — commit telemetry boundary freeze
@@ -18,7 +18,7 @@ Claims metadata stays draft until implementation evidence is available; contract
 promote implementation claims to verified facts.
 
 Escalation entry: review round 3, cycle 1, `design-not-converging / novel-finding-streak`.
-Baseline: `5e1c13323c5616e72c9d38adc0a2b6529a0f182e`. The original contractual brief
+Baseline commit sha1: `5e1c13323c5616e72c9d38adc0a2b6529a0f182e`. The original contractual brief
 `briefs/commit-telemetry-spec.md` remains applicable and is not replaced or silently weakened.
 The identifiers below extend its requirement range. Review history and strike budget remain intact.
 
