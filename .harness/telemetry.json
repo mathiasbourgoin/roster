@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "enabled": true,
+  "policy": "advisory",
+  "fields": {
+    "elapsed_seconds": true,
+    "tokens": true,
+    "agents": true,
+    "mode": true,
+    "formal": true
+  }
+}

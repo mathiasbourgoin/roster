@@ -2,7 +2,7 @@
 name: roster-ship
 description: Carries a reviewed, QA'd branch through to a merged PR.
 when_to_use: "Use after roster-qa returns GO. Trigger: 'ship this', 'roster-ship'."
-version: 1.8.0
+version: 1.9.0
 domain: pipeline
 phase: ship
 preamble: true
@@ -69,6 +69,20 @@ If the repo is dirty on files outside the task scope → report and ask what to 
 If `tunables.pre_pr_checks` is defined, execute it and block on failure.
 
 ### 2. Conventional commits
+
+**Commit telemetry (before EVERY commit, including later KB/harness housekeeping).** When
+`.harness/bin/roster-telemetry.js` is installed and enabled, stage first, then prepare/update
+`.harness/.local/commit-report.json` (schema 1). `report <task>` creates a template only when
+absent. Set current manifest `harness_version`, actual `git write-tree` staged_tree, cumulative
+elapsed_seconds/input_tokens/output_tokens (null when unavailable), actual participating agent
+role names or null, actual ledger mode or null, and formal `{status,backend}`. Valid statuses:
+not-used/specified/verified/unavailable; backend null/rocq/quint. Never infer verified from a
+spec's presence or participants from the planned team. Only use successful checker evidence for
+the candidate; preserve its provenance locally. Respect enabled fields and policy; advisory
+unknowns do not block shipping, strict missing enabled measurements require evidence or an
+explicit policy change via `/roster-telemetry`. Never fabricate zero or bypass hooks to ship.
+Refresh staged_tree after any new staging, keep amend/same-task totals cumulative, never add
+previous totals twice. The local report is not a provider-authenticated usage receipt.
 
 From `briefs/<task>-impl.md`, build the commits:
 

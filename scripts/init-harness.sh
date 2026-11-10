@@ -165,6 +165,7 @@ CORE_RULES=(
     "rules/safety/escalation.md"
     "rules/common/code-quality.md"
     "rules/governance/human-validation.md"
+    "rules/workflow/commit-telemetry.md"
 )
 
 CORE_HOOKS=(
@@ -180,6 +181,7 @@ DEVELOPER_HOOKS=(
 
 CORE_SKILLS=(
     "skills/pipeline/roster-roadmap.md"
+    "skills/workflow/roster-telemetry.md"
 )
 
 DEVELOPER_SKILLS=(
@@ -355,6 +357,15 @@ jq -n \
   }' > "$MANIFEST"
 
 "$REPO_ROOT/scripts/sync-harness.sh" "$PROJECT_ROOT"
+
+# Silent, project-local telemetry setup. Never replace unrelated Git hooks/config.
+# Non-Git targets or conflicts remain usable, but must not be reported as activated.
+if command -v node >/dev/null 2>&1 && git -C "$PROJECT_ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
+    node "$REPO_ROOT/scripts/roster-telemetry.js" install --root "$PROJECT_ROOT" >/dev/null \
+        || echo "telemetry: WARN — hooks inactive/conflicting; run /roster-telemetry for remediation." >&2
+else
+    echo "telemetry: WARN — Node or Git checkout unavailable; hooks not activated." >&2
+fi
 
 # Review-tool bundle (F-1): install from this dev checkout, warn-on-drift (FR-132 — the
 # checkout is truth here; a mismatch against ITS OWN committed manifest is a warning, never an
