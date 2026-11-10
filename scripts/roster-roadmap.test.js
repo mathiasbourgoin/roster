@@ -385,3 +385,13 @@ test("exhausted blocked missions expose budget and recovery without hiding failu
   assert.equal(progress.exhausted, true); assert.equal(progress.reason, receipt.summary);
   assert.deepEqual(read(path.join(board, "state.json")).receipts[0].checks, receipt.checks);
 });
+
+test("stored receipt writes remain exact files even when their allowed scope is a directory", t => {
+  const a = task("a"); a.allowed_files = ["src/"];
+  const { board } = accepted(t, [a]); claim(board);
+  assert.equal(record(board, receiptFor(board)).code, 0);
+  const file = path.join(board, "state.json"), state = read(file);
+  state.receipts[0].changed_files = ["src/"]; write(file, state);
+  const result = run(board, "status");
+  assert.notEqual(result.code, 0); assert.match(result.data.error, /must name a file/);
+});
