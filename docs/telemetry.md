@@ -65,10 +65,13 @@ and current harness version must match. Retain measurement provenance separately
 
 prepare-commit-msg idempotently replaces only terminal owned trailers, preserving commit-body
 examples and positioning metadata before comments/scissors cleanup. commit-msg checks consistency.
-reference-transaction verifies the final strict metadata and actual amendment parent relation
+reference-transaction verifies prepared final metadata and the actual amendment parent relation
 before a matching prepared commit updates its ref (including --amend -m/-F, without mistaking
 ordinary -C message reuse for an amendment). Its ignored local commit-intent.json binds the
-prepared HEAD, staged tree and expected fields; it does not inspect unrelated ref transactions.
+prepared Git process (parent PID, plus process start identity on procfs platforms), HEAD, staged
+tree and expected fields. Abandoned/malformed receipts do not inspect unrelated ref transactions;
+disabled telemetry does not parse receipts. The process binding is consistency bookkeeping, not
+an authenticated identity. Folded continuation lines are invalid for owned single-line trailers.
 
 The installed runtime uses .cjs so it can start in ESM consumers without changing the module
 semantics of any neighboring consumer script. Layouts with shared core.bare:true/core.worktree
@@ -89,7 +92,10 @@ Available enabled measurements also produce Harness-Elapsed-Seconds, Harness-Inp
 Harness-Output-Tokens and Harness-Agents (comma-separated). Unknown/disabled fields are omitted.
 Advisory permits a commit with warnings when its report is missing/invalid, removing old owned
 trailers rather than recycling stale claims. Strict rejects invalid/missing reports and unavailable
-enabled time/token metrics. Strict does not turn agent statements into authenticated measurements.
+enabled time/token metrics. In both policies, a known final contradiction after valid preparation
+(e.g. changed amendment identity or metadata stripped by cleanup) is refused before publishing
+the ref; missing advisory measurements still never require invention or block a commit.
+Strict does not turn agent statements into authenticated measurements.
 Same-task totals cannot decrease relative to HEAD. Amend preserves the prior recorded task.
 Counters are cumulative snapshots: do not sum trailers across a task's commits to get its total.
 

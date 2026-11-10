@@ -5,8 +5,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const source = path.resolve(__dirname, 'roster-telemetry.js');
-function run(cmd, args, cwd) {
-  return spawnSync(cmd, args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_EDITOR: 'true', GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid' } });
+function run(cmd, args, cwd, extraEnv = {}) {
+  return spawnSync(cmd, args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_EDITOR: 'true', GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid', ...extraEnv } });
 }
 function git(root, ...args) {
   const r = run('git', args, root);
@@ -204,10 +204,13 @@ test('bare-parent and shared core.worktree layouts fail before configuration cha
   git(root, 'clone', '--bare', '-q', root, bare);
   git(root, '--git-dir', bare, 'worktree', 'add', '-qb', 'bare-linked', sibling);
   harness(sibling);
-  const before = git(sibling, 'config', '--local', '--list');
-  assert.notEqual(cli(sibling, 'install').status, 0);
-  assert.equal(git(sibling, 'config', '--local', '--list'), before);
-  git(sibling, 'status', '--porcelain');
+  for (const alias of ['true', 'yes', 'on', '1']) {
+    git(sibling, 'config', '--local', 'core.bare', alias);
+    const before = git(sibling, 'config', '--local', '--list');
+    assert.notEqual(cli(sibling, 'install').status, 0, alias);
+    assert.equal(git(sibling, 'config', '--local', '--list'), before);
+    git(sibling, 'status', '--porcelain');
+  }
   git(root, 'config', '--local', 'core.worktree', root);
   assert.notEqual(cli(root, 'install').status, 0);
   git(root, 'status', '--porcelain');
@@ -238,6 +241,64 @@ test('body examples and unrelated trailers survive valid and advisory cleanup', 
   const text = fs.readFileSync(file, 'utf8');
   assert.match(text, /Harness-Task: literal-example/); assert.match(text, /Signed-off-by: Person/);
   assert.match(text, /Harness-Task: test/); assert.doesNotMatch(text, /Harness-Task: stale/);
+});
+test('abandoned receipt never blocks an unrelated same-tree reset', t => {
+  const root = repo(t); ok(root, 'install'); ok(root, 'configure', '--policy', 'strict');
+  stage(root); report(root); git(root, 'commit', '-qm', 'feat: first');
+  const first = git(root, 'rev-parse', 'HEAD');
+  git(root, 'commit', '--allow-empty', '-qm', 'feat: second');
+  const aborted = run('git', ['commit', '--allow-empty', '--edit', '-m', 'feat: aborted'], root, { GIT_EDITOR: 'false' });
+  assert.notEqual(aborted.status, 0);
+  assert.ok(fs.existsSync(path.join(root, '.harness/.local/commit-intent.json')));
+  git(root, 'reset', '--hard', first);
+  assert.equal(git(root, 'rev-parse', 'HEAD'), first);
+});
+test('disabled telemetry ignores malformed local intent', t => {
+  const root = repo(t); ok(root, 'install'); ok(root, 'configure', '--enabled', 'false');
+  fs.mkdirSync(path.join(root, '.harness/.local'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.harness/.local/commit-intent.json'), 'not json');
+  stage(root); git(root, 'commit', '-qm', 'feat: disabled');
+  assert.doesNotMatch(git(root, 'log', '-1', '--format=%B'), /Harness-/);
+});
+test('folded owned trailers are not accepted as unchanged metadata', t => {
+  const root = repo(t); ok(root, 'install'); ok(root, 'configure', '--policy', 'strict');
+  stage(root); report(root);
+  const file = path.join(root, '.git/fold-message'); fs.writeFileSync(file, 'feat: fold\n');
+  assert.equal(cli(root, 'prepare', file, 'message').status, 0);
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('Harness-Agents: implementer', 'Harness-Agents: implementer\n extra-agent'));
+  assert.notEqual(cli(root, 'validate', file).status, 0);
+});
+test('advisory missing data is allowed, but contradictory final amend metadata is refused', t => {
+  const root = repo(t); ok(root, 'install'); stage(root); report(root);
+  git(root, 'commit', '-qm', 'feat: first'); const first = git(root, 'rev-parse', 'HEAD');
+  report(root, { task: 'different', input_tokens: 1 });
+  assert.notEqual(run('git', ['commit', '--amend', '-qm', 'feat: changed task'], root).status, 0);
+  assert.equal(git(root, 'rev-parse', 'HEAD'), first);
+});
+test('empty commits do not acquire metadata-only messages; interactive subjects work', t => {
+  const root = repo(t); ok(root, 'install'); ok(root, 'configure', '--policy', 'strict');
+  stage(root); report(root);
+  assert.notEqual(run('git', ['commit', '-qm', ''], root).status, 0);
+  const editor = path.join(root, '.git/subject-editor.sh');
+  fs.writeFileSync(editor, '#!/bin/sh\nprintf "feat: interactive\\n" > "$1"\n', { mode: 0o755 });
+  const result = run('git', ['commit', '-q'], root, { GIT_EDITOR: editor });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(git(root, 'log', '-1', '--format=%B'), /^feat: interactive\n/);
+  assert.match(git(root, 'log', '-1', '--format=%B'), /Harness-Task: test/);
+});
+test('comment-prefixed -m subjects are preserved', t => {
+  const root = repo(t); ok(root, 'install'); stage(root); report(root);
+  git(root, 'commit', '-qm', '# actual subject');
+  assert.match(git(root, 'log', '-1', '--format=%B'), /^# actual subject\n/);
+});
+test('automatic comment characters preserve strict scissors metadata', t => {
+  const root = repo(t); ok(root, 'install'); ok(root, 'configure', '--policy', 'strict');
+  git(root, 'config', 'core.commentChar', 'auto'); stage(root); report(root);
+  const file = path.join(root, '.git/auto-scissors-message');
+  fs.writeFileSync(file, 'feat: auto scissors\n\nBody.\n\n# ------------------------ >8 ------------------------\n# discarded\n');
+  git(root, 'commit', '-q', '--cleanup=scissors', '--edit', '-F', file);
+  const message = git(root, 'log', '-1', '--format=%B');
+  assert.match(message, /Harness-Task: test/); assert.doesNotMatch(message, /discarded/);
 });
 test('strict final metadata survives Git scissors cleanup', t => {
   const root = repo(t); ok(root, 'install'); ok(root, 'configure', '--policy', 'strict');
