@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 "use strict";
-
 // Portable artifact coordinator. This file deliberately uses only Node built-ins.
 // It does not launch agents, execute checks, authenticate identities or sandbox writes.
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
-
 const RUNTIMES = ["codex", "claude", "opencode", "pi"];
 const ROUTES = ["sequential", "subagent", "parallel", "multisession", "workflow"];
 const CAPABILITIES = ROUTES.filter(x => x !== "sequential");
@@ -22,25 +20,16 @@ const COMMANDS = {
   release: ["coordinator", "revision", "task", "reason", "reconciled-by"],
   complete: ["coordinator", "revision", "receipt"],
 };
-
 function fail(message) { throw new Error(message); }
-function object(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) fail(`${label} must be an object`);
-}
+function object(value, label) { if (!value || typeof value !== "object" || Array.isArray(value)) fail(`${label} must be an object`); }
 function keys(value, allowed, label) {
   object(value, label);
   for (const name of Object.keys(value)) if (!allowed.includes(name)) fail(`${label}: unknown field ${name}`);
 }
-function text(value, label) {
-  if (typeof value !== "string" || !value.trim()) fail(`${label} must be a nonempty string`);
-}
+function text(value, label) { if (typeof value !== "string" || !value.trim()) fail(`${label} must be a nonempty string`); }
 function identifier(value, label) { text(value, label); if (!ID.test(value)) fail(`${label} must be a safe identifier`); }
-function integer(value, label, min = 0, max = Number.MAX_SAFE_INTEGER) {
-  if (!Number.isSafeInteger(value) || value < min || value > max) fail(`${label} must be an integer in ${min}..${max}`);
-}
-function array(value, label, nonempty = false) {
-  if (!Array.isArray(value) || (nonempty && value.length === 0)) fail(`${label} must be ${nonempty ? "a nonempty" : "an"} array`);
-}
+function integer(value, label, min = 0, max = Number.MAX_SAFE_INTEGER) { if (!Number.isSafeInteger(value) || value < min || value > max) fail(`${label} must be an integer in ${min}..${max}`); }
+function array(value, label, nonempty = false) { if (!Array.isArray(value) || (nonempty && value.length === 0)) fail(`${label} must be ${nonempty ? "a nonempty" : "an"} array`); }
 function strings(value, label, nonempty = false) {
   array(value, label, nonempty); value.forEach((x, i) => text(x, `${label}[${i}]`));
   if (new Set(value).size !== value.length) fail(`${label} contains duplicates`);
@@ -223,15 +212,8 @@ function requireAccepted(ctx) {
   }
   const attempts = new Set();
   for (const receipt of ctx.state.receipts) {
-    keys(receipt, ["task_id", "attempt_id", "assignee", "contract_digest", "result", "summary", "evidence", "changed_files", "checks"], "stored receipt");
-    const task = taskById(ctx, receipt.task_id);
-    text(receipt.attempt_id, "stored receipt attempt"); identifier(receipt.assignee, "stored receipt assignee");
+    validateTaskReceipt(ctx, receipt);
     if (attempts.has(receipt.attempt_id)) fail("duplicate stored attempt receipt"); attempts.add(receipt.attempt_id);
-    if (receipt.contract_digest !== ctx.state.acceptance.contract_digest) fail("stored receipt contract mismatch");
-    oneOf(receipt.result, ["done", "blocked"], "stored receipt result"); text(receipt.summary, "stored receipt summary");
-    strings(receipt.evidence, "stored receipt evidence", true); paths(receipt.changed_files, "stored receipt writes");
-    for (const file of receipt.changed_files) if (!task.allowed_files.some(scope => scope === file || scope.endsWith("/") && file.startsWith(scope))) fail("stored receipt contains out-of-scope write");
-    checkResults(receipt.checks, task.checks, receipt.result === "done");
   }
   if (ctx.state.global_receipt !== null) {
     const receipt = ctx.state.global_receipt;
@@ -359,6 +341,19 @@ function taskById(ctx, id) {
   identifier(id, "task"); const task = ctx.contract.tasks.find(t => t.id === id);
   if (!task) fail(`unknown task ${id}`); return task;
 }
+function validateTaskReceipt(ctx, receipt) {
+  keys(receipt, ["task_id", "attempt_id", "assignee", "contract_digest", "result", "summary", "evidence", "changed_files", "checks"], "receipt");
+  const task = taskById(ctx, receipt.task_id);
+  text(receipt.attempt_id, "receipt.attempt_id"); identifier(receipt.assignee, "receipt.assignee");
+  if (receipt.contract_digest !== ctx.state.acceptance.contract_digest) fail("receipt contract mismatch");
+  oneOf(receipt.result, ["done", "blocked"], "receipt.result"); text(receipt.summary, "receipt.summary"); strings(receipt.evidence, "receipt.evidence", true);
+  paths(receipt.changed_files, "receipt.changed_files");
+  for (const file of receipt.changed_files) {
+    relative(file, "changed file", false);
+    if (!task.allowed_files.some(scope => scope === file || scope.endsWith("/") && file.startsWith(scope))) fail(`reported write outside allowed_files: ${file}`);
+  }
+  checkResults(receipt.checks, task.checks, receipt.result === "done"); return task;
+}
 function transitionAccept(ctx, options) {
   const { state, contract } = ctx;
   if (state.acceptance) fail("roadmap is already accepted; changed contracts require a revised board");
@@ -377,18 +372,10 @@ function transitionClaim(ctx, options) {
 }
 function transitionRecord(ctx, options) {
   const receipt = readJSON(required(options, "receipt"));
-  keys(receipt, ["task_id", "attempt_id", "assignee", "contract_digest", "result", "summary", "evidence", "changed_files", "checks"], "receipt");
-  const task = taskById(ctx, receipt.task_id), current = ctx.state.tasks[task.id], assignment = current.assignment;
+  const task = validateTaskReceipt(ctx, receipt), current = ctx.state.tasks[task.id], assignment = current.assignment;
   if (current.status !== "active" || !assignment) fail("receipt task has no active assignment");
   if (receipt.attempt_id !== assignment.id || receipt.assignee !== assignment.assignee || receipt.contract_digest !== assignment.contract_digest) fail("receipt assignment, assignee or contract mismatch");
   if (assignment.capabilities_digest !== hash(ctx.capabilities)) fail("capabilities changed during assignment; reconcile before accepting results");
-  oneOf(receipt.result, ["done", "blocked"], "receipt.result"); text(receipt.summary, "receipt.summary"); strings(receipt.evidence, "receipt.evidence", true);
-  paths(receipt.changed_files, "receipt.changed_files");
-  for (const file of receipt.changed_files) {
-    relative(file, "changed file", false);
-    if (!task.allowed_files.some(scope => scope === file || scope.endsWith("/") && file.startsWith(scope))) fail(`reported write outside allowed_files: ${file}`);
-  }
-  checkResults(receipt.checks, task.checks, receipt.result === "done");
   if (ctx.state.receipts.some(r => r.attempt_id === receipt.attempt_id)) fail("attempt receipt already recorded");
   ctx.state.receipts.push(receipt); current.status = receipt.result; current.assignment = null;
   current.reason = receipt.result === "blocked" ? receipt.summary : null;
