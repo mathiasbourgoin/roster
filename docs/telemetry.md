@@ -1,6 +1,6 @@
 # Local commit telemetry
 
-Roster telemetry runtime **1.0.0** and `/roster-telemetry` skill **1.0.0** add optional,
+Roster telemetry runtime **1.0.1** and `/roster-telemetry` skill **1.0.0** add optional,
 agent-reported commit trailers. Nothing is transmitted to a telemetry service. Committing
 and pushing makes the enabled metadata visible to repository readers.
 
@@ -152,6 +152,7 @@ The frozen success/fallback/refusal matrix is in `specs/commit-telemetry.md`.
 append filesystem, readonly, trailers, messages, encoding, receipts, reports or distribution to
 run a specific case. `node scripts/roster-telemetry-lifecycle-check.js` adds real-entrypoint
 asset/ancestor containment, post-editor fallback, automatic-comment bodies, branch transitions
-and authored-example/provenance cases (optional groups: assets, editor, auto, branch, content).
+authored-example/provenance and catalog cases (optional groups: assets, editor, auto, branch,
+content, catalog).
 Exit 0 is pass, 1 is an assertion, >=2 is a setup/tool/load error. All three commands are included
 in `npm test`. These checks do not claim a runtime exposes native UI controls.

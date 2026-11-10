@@ -9,7 +9,7 @@ const { spawnSync } = require('node:child_process');
 const base = path.resolve(__dirname, '..');
 const source = path.join(base, 'scripts/roster-telemetry.js');
 const cut = '# ------------------------ >8 ------------------------';
-const groups = ['assets', 'editor', 'auto', 'branch', 'content'];
+const groups = ['assets', 'editor', 'auto', 'branch', 'content', 'catalog'];
 let temp, serial = 0;
 const results = [];
 class SetupError extends Error {}
@@ -189,13 +189,34 @@ function branch() {
     assert.notEqual(r.status, 0); assert.equal(g(root, 'rev-parse', 'HEAD'), before);
   });
 }
+function skillCount(dir = path.join(base, 'skills'), names = new Set()) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) skillCount(file, names);
+    else if (entry.isFile() && entry.name.endsWith('.md') && !file.startsWith(path.join(base, 'skills/shared/preamble')))
+      names.add(entry.name);
+  }
+  return names.size;
+}
+function catalog() {
+  probe('catalog', 'documented skill total matches canonical sources', () => {
+    const text = fs.readFileSync(path.join(base, 'docs/agents.md'), 'utf8');
+    const count = text.match(/^## Skills \((\d+)\)/m); assert(count, 'missing skills total');
+    assert.equal(Number(count[1]), skillCount());
+  });
+  probe('catalog', 'guide overview matches runtime version', () => {
+    const text = fs.readFileSync(path.join(base, 'docs/telemetry.md'), 'utf8');
+    const version = text.match(/runtime \*\*(\d+\.\d+\.\d+)\*\*/); assert(version, 'missing runtime overview');
+    assert.equal(version[1], require(source).VERSION);
+  });
+}
 function main() {
   temp = fs.mkdtempSync(path.join(os.tmpdir(), 'telemetry-lifecycle-'));
   try {
     if (!fs.existsSync(source)) throw new SetupError('trusted source runtime missing');
     const gitVersion = run(temp, 'git', ['--version']); if (gitVersion.status) throw new SetupError(gitVersion.diagnostic);
     const selected = process.argv.slice(2); if (selected.some(n => !groups.includes(n))) throw new SetupError('unknown case');
-    for (const name of selected.length ? selected : groups) ({ assets, editor, auto, branch, content })[name]();
+    for (const name of selected.length ? selected : groups) ({ assets, editor, auto, branch, content, catalog })[name]();
   } catch (e) { console.log(`ERROR setup: ${e.stack}`); results.push({ result: 'ERROR' }); }
   finally { fs.rmSync(temp, { recursive: true, force: true }); }
   for (const name of groups) {
