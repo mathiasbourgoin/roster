@@ -107,6 +107,19 @@ detect_project_metadata() {
       }'
 }
 
+# Check with the trusted source runtime before any mkdir/copy can follow a
+# managed alias. --force permits replacement, not writes outside this boundary.
+need_cmd node
+TELEMETRY_SOURCE="$REPO_ROOT/scripts/roster-telemetry.js"
+if [ ! -f "$TELEMETRY_SOURCE" ] || [ -L "$TELEMETRY_SOURCE" ]; then
+    echo "telemetry: trusted source runtime unavailable at $TELEMETRY_SOURCE; restore the local Roster source before initializing." >&2
+    exit 1
+fi
+if ! node "$TELEMETRY_SOURCE" preflight --root "$PROJECT_ROOT"; then
+    echo "telemetry: initialization refused before writes; resolve the reported managed-path conflict and retry." >&2
+    exit 1
+fi
+
 # The exists-check must precede any mkdir, or a fresh target trips over the
 # directories this very run just created.
 if [ -d "$HARNESS_DIR" ] && [ "$FORCE" != "--force" ]; then

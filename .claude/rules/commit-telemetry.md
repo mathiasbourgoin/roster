@@ -27,3 +27,9 @@ For amend and same-task follow-up commits, retain cumulative totals without addi
 twice. Respect disabled fields and explicit disable. Advisory telemetry is not a quality gate;
 strict missing enabled measurements need real evidence or an explicit policy change by the owner.
 Never bypass hooks to force a commit. `/roster-telemetry` controls settings and updates.
+
+Respect encoding conflicts: strict refuses, advisory warns and emits no generated telemetry;
+never silently change Git settings. Scissors followed by non-comment supplied text is an explicit
+ambiguous layout, not permission to redact the body. Owned actual footer keys are case-insensitive;
+field switches control generated data, not arbitrary user-authored strings. Refuse managed
+filesystem aliases before writes; a forced update does not authorize changing an external inode.

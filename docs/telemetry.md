@@ -11,6 +11,13 @@ and pushing makes the enabled metadata visible to repository readers.
 respect to hook setup. Explicit disable persists. Custom hooks or unrelated hooksPath cause
 an actionable conflict, never replacement. No implicit package installation or download.
 
+Init and telemetry-enabled source distribution run a read-only filesystem preflight before
+copying, including before sync `--check` creates its regeneration sandbox. Existing/dangling
+managed symlinks, unsafe ancestor directories and multiply-linked managed files are refused:
+`--force` does not authorize changing a linked file outside the managed boundary. Direct
+configuration/local-state/admin writes receive the same containment checks. Standalone legacy
+sync copies without the telemetry source companion do not distribute or activate this feature.
+
 ```sh
 node scripts/roster-telemetry.js install --root /path/to/project
 node .harness/bin/roster-telemetry.cjs status
@@ -24,7 +31,9 @@ The versioned `.harness/telemetry.json` records schema_version 1, enabled (true 
 policy (advisory by default), and a fields object with elapsed_seconds, tokens, agents, mode,
 formal booleans (all true by default). This is project policy. Git activation is local to each
 worktree; new clones/worktrees must run init or doctor. Activation is not merely file presence:
-status checks hooksPath, wrapper bytes, execute permissions and runtime version.
+status checks hooksPath, wrapper bytes, execute permissions and runtime version. Its additive
+`encoding_available` / `encoding_conflict` fields separately describe whether the current Git
+configuration can represent the footer; physical `active` hooks are not proof of usable encoding.
 
 `configure --enabled false` makes wrappers no-ops; it does not remove unrelated hooks or erase
 historical commits. There is no attempt to chain arbitrary hooks automatically. Integration with
@@ -63,8 +72,10 @@ and current harness version must match. Retain measurement provenance separately
 
 ## Commit metadata
 
-prepare-commit-msg idempotently replaces only terminal owned trailers, preserving commit-body
-examples and positioning metadata before comments/scissors cleanup. commit-msg checks consistency.
+prepare-commit-msg idempotently replaces only actual owned footer fields, case-insensitively,
+preserving commit-body examples, unrelated trailers and verbatim body bytes/line endings.
+commit-msg checks consistency; native Git trailer parsing is checked separately from raw text.
+Owned fields are emitted once with canonical `Harness-*` spelling.
 reference-transaction verifies prepared final metadata and the actual amendment parent relation
 before a matching prepared commit updates its ref (including --amend -m/-F, without mistaking
 ordinary -C message reuse for an amendment). Its ignored local commit-intent.json binds the
@@ -103,8 +114,29 @@ Local hooks can be bypassed: --no-verify skips commit-msg but not prepare-commit
 core.hooksPath can skip all three. No CI/provider attestation is implied. Existing advisory
 `skills-meta/cost.jsonl` snapshots remain separate and must not be blindly added to these counters.
 
+## Encoding conflicts and supplied text
+
+If Git cannot represent the canonical footer (for example `core.commentChar=H`, a colliding
+comment string or an incompatible trailer separator), strict mode refuses with an explicit
+encoding conflict. Advisory mode warns and leaves an ordinary Git commit **without generated
+telemetry**. Neither policy automatically changes Git configuration.
+
+A recognized scissors marker followed by non-comment supplied text is conservatively treated
+as ambiguous: hooks cannot portably observe every per-invocation cleanup override. Strict refuses;
+advisory preserves Git's own cleanup behavior without generated telemetry. Normal edited scissors
+with only comment/blank suffixes remain supported. A lone `#` in an automatic editor template is
+not a subject; replacing that template with a real subject is supported.
+
+Raw user-authored `Harness-*` examples may remain when Git keeps them. Disabling collection is
+not a body-text redactor or a history scrubber. Raw bytes, generated values and Git's parsed
+trailers are distinct. An accepted preparation that ultimately loses/changes its actual metadata
+still fails before ref publication; it is never silently presented as a successful measurement.
+The frozen success/fallback/refusal matrix is in `specs/commit-telemetry.md`.
+
 ## Tests
 
-`node --test scripts/roster-telemetry.test.js` exercises real commits, strict/advisory policies,
-field controls, stale reports, amendments, conflicts and linked worktree isolation. The suite
-is included in `npm test`. It does not claim that a particular runtime exposes native UI controls.
+`node --test scripts/roster-telemetry.test.js` exercises the original 27 integration scenarios.
+`node scripts/roster-telemetry-contract-check.js` runs the self-contained refreeze contract cases;
+append filesystem, readonly, trailers, messages, encoding, receipts, reports or distribution to
+run a specific case. Exit 0 is pass, 1 is an assertion, >=2 is a setup/tool/load error. Both commands
+are included in `npm test`. These checks do not claim a runtime exposes native UI controls.

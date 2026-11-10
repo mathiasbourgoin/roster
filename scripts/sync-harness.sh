@@ -64,6 +64,22 @@ if [ -f "$ROADMAP_SOURCE" ]; then
     done
 fi
 
+# Use the trusted source, never a consumer-installed runtime. Check the real
+# project before --check clones links, as well as before normal sync writes.
+# Standalone legacy sync copies without this optional companion do not distribute
+# telemetry (see the matching source-availability guard below).
+TELEMETRY_SOURCE="$SCRIPT_DIR/roster-telemetry.js"
+if [ -e "$TELEMETRY_SOURCE" ] || [ -L "$TELEMETRY_SOURCE" ]; then
+    need_cmd node
+    if [ ! -f "$TELEMETRY_SOURCE" ] || [ -L "$TELEMETRY_SOURCE" ]; then
+        echo "telemetry: trusted source runtime unavailable at $TELEMETRY_SOURCE; restore the local Roster source before syncing." >&2
+        exit 1
+    fi
+    if ! node "$TELEMETRY_SOURCE" preflight --root "$PROJECT_ROOT"; then
+        echo "telemetry: sync refused before writes; resolve the reported managed-path conflict and retry." >&2
+        exit 1
+    fi
+fi
 
 if [ ! -f "$MANIFEST" ]; then
     echo "Shared harness manifest not found at $MANIFEST" >&2
