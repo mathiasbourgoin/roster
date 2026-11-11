@@ -310,7 +310,7 @@
       {
         "name": "roster-init",
         "source": "roster",
-        "version": "1.5.0",
+        "version": "1.5.1",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -549,7 +549,7 @@
       {
         "name": "roster-telemetry",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "domain": "workflow",
         "phase": null,
         "tunables": {

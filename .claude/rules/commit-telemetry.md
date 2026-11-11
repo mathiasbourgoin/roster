@@ -3,7 +3,7 @@ name: commit-telemetry
 description: Prepare available, agent-reported local commit metadata without fabricating measurements or participants.
 scope: global
 category: workflow
-version: 1.0.0
+version: 1.0.1
 ---
 
 # Commit telemetry
@@ -18,7 +18,7 @@ available, otherwise null. Input includes cached input without double counting. 
 zero, extrapolate from characters or claim an authenticated provider measurement. Preserve
 measurement provenance locally; do not copy transcripts, prompts or secrets into metadata.
 
-Record only actual participating agent role names (or null), actual express/fast/full mode
+Record only actual participating agent role names (or null), actual express-lite/express/fast/full mode
 (or null), and formal status not-used/specified/verified/unavailable with backend null/rocq/quint.
 Do not equate a planned team with participation, or a formal spec with successful verification.
 Only claim verified from checker evidence tied to the candidate; it remains agent-reported.

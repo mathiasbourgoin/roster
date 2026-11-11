@@ -2,7 +2,7 @@
 name: roster-init
 description: Bootstraps the roster harness, KB, and pipeline into a new or existing project.
 when_to_use: "Use the first time roster is installed in a repo. Trigger: 'set up roster here', 'greenfield onboard'."
-version: 1.5.0
+version: 1.5.1
 domain: pipeline
 phase: null
 preamble: true
@@ -284,7 +284,7 @@ extra prompt, then inspect `status`. Install/activation is worktree-local; no pa
 or global Git changes. Keep explicit `enabled:false` unchanged. Never overwrite unrelated hooks
 or hooksPath: report a conflict and point to `/roster-telemetry` instead. If Node/runtime is absent,
 report telemetry unavailable, never claim activation or install dependencies silently. Ensure
-`roster-telemetry` 1.0.0 is included in the canonical skills and manifest/projections.
+`roster-telemetry` 1.0.1 is included in the canonical skills and manifest/projections.
 
 ---
 

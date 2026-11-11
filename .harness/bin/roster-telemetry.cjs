@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
-const VERSION = '1.0.1';
+const VERSION = '1.0.2';
 const RUNTIME = '.harness/bin/roster-telemetry.cjs';
 const DEFAULTS = { schema_version: 1, enabled: true, policy: 'advisory', fields: { elapsed_seconds: true, tokens: true, agents: true, mode: true, formal: true } };
 const OWNED_FIELD = /^Harness-(?:Telemetry-Version|Version|Task|Elapsed-Seconds|Input-Tokens|Output-Tokens|Agents|Mode|Formal|Metrics-Source)$/i;
@@ -282,7 +282,7 @@ function validateReport(root, value, c) {
   if (value.staged_tree !== git(root, 'write-tree')) fail('Stale report: staged_tree differs from index');
   for (const key of ['elapsed_seconds', 'input_tokens', 'output_tokens']) if (value[key] !== null && (!Number.isSafeInteger(value[key]) || value[key] < 0)) fail(`Invalid ${key}`);
   if (value.agents !== null && (!Array.isArray(value.agents) || value.agents.length > 100 || value.agents.some(v => !safe(v)) || new Set(value.agents).size !== value.agents.length)) fail('Invalid agents');
-  if (value.mode !== null && !['express', 'fast', 'full'].includes(value.mode)) fail('Invalid mode');
+  if (value.mode !== null && !['express-lite', 'express', 'fast', 'full'].includes(value.mode)) fail('Invalid mode');
   const formal = value.formal;
   if (!formal || Object.keys(formal).sort().join() !== 'backend,status' || !['not-used', 'specified', 'verified', 'unavailable'].includes(formal.status) || ![null, 'rocq', 'quint'].includes(formal.backend) || (['specified', 'verified'].includes(formal.status) && !formal.backend) || (formal.status === 'not-used' && formal.backend !== null)) fail('Invalid formal status');
   if (c.policy === 'strict') {

@@ -13,7 +13,7 @@
     "input_tokens": {"$ref": "#/$defs/counter"},
     "output_tokens": {"$ref": "#/$defs/counter"},
     "agents": {"type": ["array", "null"], "maxItems": 100, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
-    "mode": {"enum": [null, "express", "fast", "full"]},
+    "mode": {"enum": [null, "express-lite", "express", "fast", "full"]},
     "formal": {
       "type": "object", "additionalProperties": false,
       "required": ["status", "backend"],

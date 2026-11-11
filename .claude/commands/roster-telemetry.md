@@ -2,7 +2,7 @@
 name: roster-telemetry
 description: Configure local commit telemetry, inspect hook activation and versions, disable collection or update the installed runtime.
 when_to_use: "Use to configure or disable commit metrics, participant names, Roster mode and formal verification metadata. Trigger: '/roster-telemetry'."
-version: 1.0.0
+version: 1.0.1
 domain: workflow
 preamble: true
 friction_log: true
@@ -167,7 +167,7 @@ menu with explicit current values. Never claim plain text is an interactive togg
 
 Offer:
 1. Enable/disable collection (default enabled).
-2. Select fields: elapsed time, tokens, actual participating agents, express/fast/full mode,
+2. Select fields: elapsed time, tokens, actual participating agents, express-lite/express/fast/full mode,
    formal specification/verification status (all enabled initially).
 3. Advisory (default) or strict policy. Explain strict blocks commits when enabled time/token
    measurements are missing; advisory allows commits with explicit warnings and no fake values.
@@ -204,7 +204,7 @@ Never scrape unrelated session data or include prompts, credentials, user names 
   source in local evidence; trailers label all data agent-reported, not authenticated.
 - Agents: unique safe role names actually invoked (including the executing role when known),
   not a planned team, model guesses or human identities; null if unknown.
-- Mode: actual ledger mode express/fast/full, otherwise null.
+- Mode: actual ledger mode express-lite/express/fast/full, otherwise null.
 - Formal: status not-used/specified/verified/unavailable, backend null/rocq/quint. A saved spec is
   not verification. Only report verified with a successful checker result tied to the candidate;
   this remains an agent assertion, not a cryptographic attestation.
