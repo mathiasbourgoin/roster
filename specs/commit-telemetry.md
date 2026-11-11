@@ -131,7 +131,8 @@ these normative lines discoverable by the installed claims reconciler.
   preferences, and surface conflicts without claiming activation. Locally available versioned
   runtime/skill/status/update and field controls MUST remain available in installed-only ESM
   projects without changing neighboring module semantics or downloading executable code. Agent
-  names/mode/formal context remain actual agent assertions, never planned participation or inferred
+  names/mode/formal context remain actual agent assertions; mode accepts express-lite, express,
+  fast, full or null, matching the ledger without mapping Express Lite to Express. Never claim planned participation or inferred
   verification. No external telemetry transmission or global Git writes may be introduced.
   [CHECK-8, AC-8]
 

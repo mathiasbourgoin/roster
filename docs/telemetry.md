@@ -1,6 +1,6 @@
 # Local commit telemetry
 
-Roster telemetry runtime **1.0.1** and `/roster-telemetry` skill **1.0.0** add optional,
+Roster telemetry runtime **1.0.2** and `/roster-telemetry` skill **1.0.1** add optional,
 agent-reported commit trailers. Nothing is transmitted to a telemetry service. Committing
 and pushing makes the enabled metadata visible to repository readers.
 
@@ -62,7 +62,7 @@ Store at `.harness/.local/commit-report.json`; installation adds the local direc
 local info/exclude. No raw transcripts, prompts, secrets or provider credentials are needed.
 All keys are required; unknown measurements are null, not zero. task and agents use safe
 1–80-character identifiers. Participants are actual agent role names, not planned membership.
-Mode is express/fast/full or null. Formal status is not-used/specified/verified/unavailable,
+Mode is express-lite/express/fast/full or null. Formal status is not-used/specified/verified/unavailable,
 with backend rocq/quint required for specified/verified. Verification needs actual successful
 checker evidence for the candidate; field validation alone cannot authenticate that assertion.
 
@@ -103,7 +103,7 @@ while modified/custom wrappers are never silently adopted.
 Example trailers:
 
 ```text
-Harness-Telemetry-Version: 1.0.1
+Harness-Telemetry-Version: 1.0.2
 Harness-Version: 1.0.0
 Harness-Task: commit-telemetry
 Harness-Metrics-Source: agent-reported-cumulative
@@ -147,7 +147,7 @@ The frozen success/fallback/refusal matrix is in `specs/commit-telemetry.md`.
 
 ## Tests
 
-`node --test scripts/roster-telemetry.test.js` exercises the original 27 integration scenarios.
+`node --test scripts/roster-telemetry.test.js` exercises 29 integration scenarios, including real Express Lite commits under both policies.
 `node scripts/roster-telemetry-contract-check.js` runs the self-contained refreeze contract cases;
 append filesystem, readonly, trailers, messages, encoding, receipts, reports or distribution to
 run a specific case. `node scripts/roster-telemetry-lifecycle-check.js` adds real-entrypoint

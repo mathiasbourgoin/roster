@@ -309,3 +309,18 @@ test('strict final metadata survives Git scissors cleanup', t => {
   const message = git(root, 'log', '-1', '--format=%B');
   assert.match(message, /Harness-Task: test/); assert.doesNotMatch(message, /discarded text/);
 });
+
+for (const policy of ['advisory', 'strict']) {
+  test(`Express Lite records the actual ledger mode under ${policy} policy`, t => {
+    const root = repo(t);
+    ok(root, 'install');
+    ok(root, 'configure', '--policy', policy);
+    stage(root); report(root, { mode: 'express-lite' });
+    git(root, 'commit', '-qm', 'docs: express lite');
+    const message = git(root, 'log', '-1', '--format=%B');
+    assert.match(message, /^Harness-Mode: express-lite$/m);
+    assert.match(message, /^Harness-Task: test$/m);
+    const schema = JSON.parse(fs.readFileSync(path.join(__dirname, '../schema/telemetry-report.schema.json'), 'utf8'));
+    assert.ok(schema.properties.mode.enum.includes('express-lite'));
+  });
+}
