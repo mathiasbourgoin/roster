@@ -89,6 +89,13 @@ Runtime labels are `codex`, `claude`, `opencode`, `pi`. Routes are `sequential`,
 no fallback is invented. All other strings remain explicit project choices. A workflow route
 (including a fallback) additionally requires an accepted workflow with nonempty steps.
 
+The shared model-routing policy is installed at `.harness/roadmap/model-routing.md`
+(source: `docs/model-routing.md`). Tier/rationale/actual-model observations live in compact
+mission briefs and `notes/model-routing.md`; they add no JSON fields or model authorization.
+`topology.model` remains part of the immutable accepted contract. A recommended escalation
+cannot change it in place, reset attempts, or treat a route fallback as a model fallback.
+Reconcile active work and use a separately accepted revised board when that choice changes.
+
 `policy` requires `max_attempts` (integer 1–100), `on_failure` (`retry` or `block`), nonempty
 distinct `stop_if` and `recovery` string arrays, and a nonempty `failure` terminal-condition
 description. The tool enforces attempt budgets and explicit reconciliation; the agent must

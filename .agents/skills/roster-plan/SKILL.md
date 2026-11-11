@@ -2,7 +2,7 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.5.0
+version: 1.6.0
 domain: pipeline
 phase: plan
 preamble: true
@@ -255,15 +255,27 @@ If KB is **absent**: skip silently.
 
 Read `briefs/<task>-intake.md` in full. Extract: goal and scope boundary, files involved, exact quality gates, unresolved open questions.
 
+Read `.harness/roadmap/model-routing.md` (source fallback `docs/model-routing.md`) once
+for this planning pass. Observe native model-selection controls and available candidates
+without exploring beyond the brief's scope. Plan the least costly available capable model
+per mission, using relative `economy`/`standard`/`strong` tiers; unknown cost/capability stays
+unknown. Explicit owner model choices, quality gates and independence requirements win.
+Use direct deterministic commands where possible and same-agent sequential work when
+delegation adds no value; required independent analyses/review must still remain independent.
+
 ### 2. Dual-voice: two independent analyses
 
 Run **sequentially** two independent analyses.
 
 **Decomposition shape — prefer vertical slices.** Each step should be a thin end-to-end slice delivering one capability through every layer it touches (data → logic → interface), not a horizontal layer ("all schema", then "all endpoints"). A vertical slice is independently demoable and testable when it lands; a horizontal layer hides integration risk until the end. Both voices should flag a layered plan.
 
-#### Voice 1 — Claude sub-agent (fresh context)
+#### Voice 1 — Authorized available analysis agent (fresh context)
 
-Spawn a sub-agent with this exact prompt (do not inject conversation context):
+Use an authorized available fresh analysis agent, without assuming a vendor or an
+unsupported model control. Supply its compact routing decision and this prompt, without
+the conversation history. If fresh delegation is unavailable, record the limitation and
+resolve the required independence through the existing gate rather than call self-analysis
+an independent agent result:
 
 ```
 You are a software architect. You are given a task brief.
@@ -285,9 +297,12 @@ Produce:
 
 #### Voice 2 — Second model or adversarial fallback
 
-**If a second model (codex, o3, etc.) is available:** run the same analysis via that model.
+**If an authorized independent second model is available:** run the same analysis via that
+model, preserving explicit owner preferences and recording its actual selection control.
 
-**If not available:** spawn a second Claude sub-agent with this prompt:
+**If not available:** use an authorized fresh adversarial sub-agent with the prompt below.
+Keep the two analyses separate and identify a same-model fallback honestly; do not invent
+second-model availability. If this delegation is unavailable, surface the independence gap.
 
 ```
 You are a skeptical senior engineer asked to challenge an implementation plan.
@@ -363,6 +378,12 @@ Produce `briefs/<task>-plan.md`:
 
 <Step N must precede step M because ...>
 
+## Model routing
+
+| Mission / role | Runtime; requested model / tier | Native control and evidence | Selection reason; cost/uncertainty; costly exception | Actual model | Failure trigger; existing bounds; authorized fallback |
+|---|---|---|---|---|---|
+| <mission> | <runtime; available identifier or inherited/unknown; economy/standard/strong/unknown> | <supported control or unknown; observation and owner sources> | <capability justification; observed comparison or unknown; exception or none> | <runtime-reported identifier or unknown> | <diagnosed capacity trigger; attempt/time/cost limits; permitted alternative or none> |
+
 ## Identified risks
 
 | Risk | Probability | Impact | Mitigation |
@@ -385,6 +406,15 @@ Produce `briefs/<task>-plan.md`:
 **`briefs/<task>-reviewer.md`** — for `/roster-review`: what was implemented, files to audit first, identified risks to verify, expected behaviors to confirm.
 
 **`briefs/<task>-qa-scope.md`** — for `/roster-qa`: exact quality gates with commands, behaviors to validate, TUI scenarios if in scope.
+
+Every sub-brief must include a self-contained `## Model routing` section with only that
+mission's compact record from the plan table: request/tier/runtime control, evidence and
+reason, cost unknowns/costly exception, actual model or unknown, failure trigger, existing
+bounds and authorized fallback. Do not copy the full policy or another mission's analysis.
+Diagnose environment/context/spec issues and ordinary red tests before model escalation;
+do not repeat unchanged expensive attempts or relax gates/budgets. If an accepted roadmap
+is involved, a different `topology.model` requires its revised accepted board process,
+preserving history and consumed attempts; this table cannot silently reroute it.
 
 ### 7. Human validation quiz
 

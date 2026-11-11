@@ -48,7 +48,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | kb-agent | 2.5.0 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
 | project-auditor | 1.1.0 | opus | Performs exhaustive project mapping and multi-slice audits, producing a hierarchical kb/ with components, invariants, risks, and fix candidates |
 | skill-creator | 1.4.0 | opus | Designs reusable workflow skills from repeated patterns, with search-first and safety checks |
-| planner | 1.2.0 | opus | Sub-agent behind `/roster-plan` — decomposes a validated brief into per-role sub-briefs with fresh context |
+| planner | 1.3.0 | opus | Sub-agent behind `/roster-plan` — decomposes a validated brief into per-role sub-briefs with fresh context |
 | pr-workflow | 1.2.0 | sonnet | Sub-agent behind `/roster-ship` — conventional commits, rebase merge, pre-push validation, and review rounds |
 | agents-md-guardian | 1.0.0 | sonnet | Reviews AGENTS.md / CLAUDE.md changes against a parameterizable checklist (size budget, required sections, forbidden inline patterns, doc links) |
 
@@ -108,12 +108,12 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | Skill | Version | Purpose |
 |-------|---------|---------|
 | roster-run | 1.14.0 | Classifies an incoming task and routes it to the right pipeline skill |
-| roster-roadmap | 1.0.0 | Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs |
+| roster-roadmap | 1.1.0 | Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs |
 | roster-init | 1.5.1 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
 | roster-intake | 1.5.0 | Turns a raw task description into a human-validated contractual brief |
 | roster-spec | 2.5.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
-| roster-plan | 1.5.0 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
-| roster-implement | 1.12.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
+| roster-plan | 1.6.0 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
+| roster-implement | 1.13.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
 | roster-review | 2.6.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
 | roster-qa | 1.10.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
 | roster-ship | 1.9.0 | Carries a reviewed, QA'd branch through to a merged PR |

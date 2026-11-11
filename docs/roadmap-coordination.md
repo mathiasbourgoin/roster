@@ -61,12 +61,33 @@ session creation can be an owner-approved request rather than immediate creation
 Discovery, messaging and creation are different capabilities. Recording multisession
 support in a board never removes those boundaries.
 
+## Choose model tiers and control cost
+
+Roadmap and `/roster-plan` share the [model-routing policy](model-routing.md), installed
+as `.harness/roadmap/model-routing.md`. Select the least costly observed, permitted model
+capable of meeting the unchanged checks. Economy, standard and strong are relative
+planning tiers; they are not a universal vendor ranking or verified prices.
+
+Record the selected model, evidence, rationale, costly exceptions and bounded escalation
+in `notes/model-routing.md` and each child brief's compact routing section. Give workers
+their decision rather than replaying the full policy. Report the model actually exposed
+by the runtime, or unknown; requesting a model does not establish that it ran. Direct
+deterministic checks and the current sequential agent can avoid unnecessary delegation.
+Required independent verification and explicit owner model choices still apply.
+
+Diagnose failed checks before attributing them to model capacity. Escalation must remain
+within authorization and attempt budgets. A different model changes accepted
+`topology.model`: reconcile the current assignment and use the existing revised-board
+acceptance procedure, retaining history. The toolkit does not select or switch models.
+Token use and monetary cost are different measures; this policy promises neither a
+measured token reduction nor savings without comparable end-to-end evidence.
+
 ## Use the portable tools
 
 In an installed project use `node .harness/bin/roster-roadmap.cjs`. In this repository
 use `node scripts/roster-roadmap.cjs`, or the `roster-roadmap` package binary. The CLI
 is self-contained and works in CommonJS and ESM consumers without local dependencies.
-Init/sync also install the artifact reference and non-operative example contract/profile
+Init/sync also install the model-routing policy, artifact reference and non-operative example contract/profile
 under `.harness/roadmap/`, so preparation does not require the Roster source checkout.
 
 ```bash
