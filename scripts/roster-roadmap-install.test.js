@@ -28,6 +28,7 @@ test("fresh ESM consumer gets runnable toolkit and all existing skill projection
   const cli = path.join(dir, ".harness/bin/roster-roadmap.cjs");
   assert.equal(fs.readFileSync(cli, "utf8"), fs.readFileSync(path.join(ROOT, "scripts/roster-roadmap.cjs"), "utf8"));
   assert.match(fs.readFileSync(path.join(dir, ".harness/roadmap/schema.md"), "utf8"), /## Receipts/);
+  assert.equal(fs.readFileSync(path.join(dir, ".harness/roadmap/model-routing.md"), "utf8"), fs.readFileSync(path.join(ROOT, "docs/model-routing.md"), "utf8"));
   const installed = require(cli);
   installed.validateContract(JSON.parse(fs.readFileSync(path.join(dir, ".harness/roadmap/example.json"))));
   installed.validateCapabilities(JSON.parse(fs.readFileSync(path.join(dir, ".harness/roadmap/capabilities.json"))));
@@ -84,4 +85,34 @@ test("sync replaces managed hard-link entries without truncating unrelated resou
   ok(command("bash", [path.join(ROOT, "scripts/sync-harness.sh"), dir], dir));
   assert.equal(fs.readFileSync(sentinel, "utf8"), "untouched\n");
   assert.match(fs.readFileSync(schema, "utf8"), /## Receipts/);
+});
+
+test("installed model policy is required, repairable and protected before sync writes", (t) => {
+  const dir = sandbox(t);
+  ok(command("bash", [path.join(ROOT, "scripts/init-harness.sh"), dir, "core"], dir));
+  const policy = path.join(dir, ".harness/roadmap/model-routing.md");
+  const expected = fs.readFileSync(path.join(ROOT, "docs/model-routing.md"), "utf8");
+  assert.equal(fs.readFileSync(policy, "utf8"), expected);
+  for (const missing of [false, true]) {
+    if (missing) fs.unlinkSync(policy);
+    else fs.appendFileSync(policy, "\nstale policy\n");
+    const check = command("bash", [path.join(ROOT, "scripts/sync-harness.sh"), dir, "--check"], dir);
+    assert.notEqual(check.status, 0, check.stdout + check.stderr);
+    assert.match(check.stderr, /roadmap runtime is missing or stale/);
+    if (missing) assert.equal(fs.existsSync(policy), false);
+    else assert.match(fs.readFileSync(policy, "utf8"), /stale policy/);
+    ok(command("bash", [path.join(ROOT, "scripts/sync-harness.sh"), dir], dir));
+    assert.equal(fs.readFileSync(policy, "utf8"), expected);
+  }
+  const sentinel = path.join(dir, "unrelated-policy.md");
+  fs.writeFileSync(sentinel, "owner content\n");
+  fs.unlinkSync(policy);
+  fs.symlinkSync(sentinel, policy);
+  for (const check of [[], ["--check"]]) {
+    const result = command("bash", [path.join(ROOT, "scripts/sync-harness.sh"), dir, ...check], dir);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /roadmap: refusing managed symlink/);
+    assert.equal(fs.readFileSync(sentinel, "utf8"), "owner content\n");
+    assert.equal(fs.lstatSync(policy).isSymbolicLink(), true);
+  }
 });

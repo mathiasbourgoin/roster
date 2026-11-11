@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express Lite/Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.12.0
+version: 1.13.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -168,6 +168,22 @@ constraint; the review scope gate remains the backstop.
 
 **Express Lite:** do not enter this section. Do not spawn an implementer. Make the small change locally, run its declared relevant check, reclassify the final diff, and write an impl brief with `Mode: express-lite` and `Assurance: local`. Any uncertainty routes to Fast before shipping.
 
+Before delegation, consume the plan/sub-brief's `Model routing` decision. If a new routing
+decision or escalation is needed, read `.harness/roadmap/model-routing.md` (source fallback
+`docs/model-routing.md`) once. Choose the least costly available capable model through
+observed native controls, preserving explicit owner model requirements, quality gates and
+independent verification. Use direct commands for deterministic work and same-agent
+sequential implementation when delegation adds no value; the specialization routes below
+apply when delegation is useful, supported and authorized.
+
+Legacy/Express/Fast plans without routing metadata remain supported: retain the current
+configured model and record unknown identity/control/cost honestly; do not add a mandatory
+planning phase. For each authorized dispatch pass only its compact routing decision plus
+goal, scope and checks. Record the requested model/tier, native control/evidence, reason,
+cost uncertainty/costly exception, actual runtime-reported model or unknown, failure trigger,
+existing bounds and authorized fallback in the implementation handoff. A request is not
+proof of the executed model. Never replace required independent review with self-review.
+
 **If OCaml scope and complex module (> `tunables.ocaml_specialist_threshold` lines of logic):**
 → Spawn the `ocaml-dune-specialist` sub-agent with the sub-brief as context.
   Reference path: `.claude/agents/ocaml-dune-specialist.md`
@@ -257,6 +273,14 @@ For each unit of work in the plan:
    - If still broken after N attempts → invoke `/improvement-loop` with bounded scope
    - If `/improvement-loop` fails → escalate to the human
 
+Before considering a model change, distinguish environment/tool failure, missing or excessive
+context, an ambiguous spec and an ordinary implementation defect from evidenced model
+capacity limits. A red test is not automatic promotion. Record diagnosis and a changed
+strategy; never repeat an unchanged costly attempt. Escalation must fit native controls,
+owner model constraints and existing attempt/time/cost permissions. For an accepted roadmap,
+changing `topology.model` requires a revised accepted board preserving history and consumed
+attempt bounds; routing advice cannot edit that contract or reset a correction budget.
+
 **Loop-back rounds only (FR-020, amended A-4):** on a re-entry after a review NO-GO, also run —
 as part of the quality gates in step 2 above — every non-`manual` spec `CHECK-N` command and every
 prior round's already-ratcheted check. A check you are introducing **this round** is expected to
@@ -309,6 +333,13 @@ Produce `briefs/<task>-impl.md`:
 
 <Non-trivial decisions made during implementation — with justification>
 <Deviations from the plan — with justification>
+
+## Model routing
+
+<Per mission: requested model/tier/runtime, observed control/evidence and selection reason;
+cost known or unknown, costly exception or none; actual runtime-reported model or unknown;
+diagnosed failure trigger, unchanged bounds and authorized fallback. For Lite or legacy
+tasks, record inherited configuration/unknowns without inventing a dispatch or planning gate.>
 
 ## Quality Gates
 

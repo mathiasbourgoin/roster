@@ -43,8 +43,8 @@ need_cmd jq
 # Refuse managed roadmap aliases before --check copies links into its sandbox.
 # Source is optional for legacy standalone sync copies that do not ship the toolkit.
 ROADMAP_SOURCE="$SCRIPT_DIR/roster-roadmap.cjs"
-ROADMAP_SOURCES=("$ROADMAP_SOURCE" "$SCRIPT_DIR/../schema/roadmap-schema.md" "$SCRIPT_DIR/../examples/roadmap/roadmap.json" "$SCRIPT_DIR/../examples/roadmap/capabilities.json")
-ROADMAP_TARGETS=("$HARNESS_DIR/bin/roster-roadmap.cjs" "$HARNESS_DIR/roadmap/schema.md" "$HARNESS_DIR/roadmap/example.json" "$HARNESS_DIR/roadmap/capabilities.json")
+ROADMAP_SOURCES=("$ROADMAP_SOURCE" "$SCRIPT_DIR/../schema/roadmap-schema.md" "$SCRIPT_DIR/../examples/roadmap/roadmap.json" "$SCRIPT_DIR/../examples/roadmap/capabilities.json" "$SCRIPT_DIR/../docs/model-routing.md")
+ROADMAP_TARGETS=("$HARNESS_DIR/bin/roster-roadmap.cjs" "$HARNESS_DIR/roadmap/schema.md" "$HARNESS_DIR/roadmap/example.json" "$HARNESS_DIR/roadmap/capabilities.json" "$HARNESS_DIR/roadmap/model-routing.md")
 if [ -f "$ROADMAP_SOURCE" ]; then
     for _roadmap_path in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/roadmap" "${ROADMAP_TARGETS[@]}"; do
         if [ -L "$_roadmap_path" ]; then

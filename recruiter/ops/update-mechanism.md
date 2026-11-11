@@ -272,6 +272,10 @@ symlinks and replace only after successful retrieval; never truncate linked targ
 Include `schema/roadmap-schema.md` as `.harness/roadmap/schema.md`, and the two
 `examples/roadmap/{roadmap,capabilities}.json` files as
 `.harness/roadmap/{example,capabilities}.json` from that same revision.
+When installing `roster-roadmap`, `roster-plan` or `roster-implement`, also distribute
+`docs/model-routing.md` as `.harness/roadmap/model-routing.md` from that same approved
+revision, using the same safe retrieval/replacement procedure. It is an on-demand
+planning reference, not a model catalog or an executable dispatcher.
 No npm dependencies, CWR, agent launcher or service activation is involved. If the
 runtime is absent, report the roadmap skill unavailable rather than inventing a
 fallback command. Keep boards unchanged on upgrade.
