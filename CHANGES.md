@@ -1,8 +1,14 @@
 # Changes
 
-## Unreleased — roadmap coordination
+## Unreleased — next 3.0.0-dev
 
-- `/roster-roadmap` 1.0.0 assists specification and coherence across multiple intakes,
+Development channel only; no `v3.0.0-dev` release tag is created by this version stamp. These
+changes are additional to the `main` roadmap feature and are not part of the `v2.7.0` tag.
+`VERSION` identifies the channel's development line; it does not establish a stable release.
+
+### Added
+
+- `/roster-roadmap` 1.2.0 assists specification and coherence across multiple intakes,
   selects capability-based agent topology, and coordinates persistent execution without CWR.
 - The portable `roster-roadmap` toolkit maintains contracts, assignments, checked local
   receipts, bounded prompts and separate global acceptance. Init/sync distribute it
@@ -22,6 +28,55 @@
   and remaining estimates yield conditional task/global ETAs when evidence permits;
   missing estimates, blockers and overruns remain visible. Only separate global acceptance
   establishes the completed outcome.
+
+- **Express Lite** (#87, #89): local implementation/review for demonstrably non-behavioral
+  descriptive docs, formatting or private renames. Skill/agent/rule/hook changes and ambiguous,
+  API, dependency-version or security work are excluded. Relevant checks remain required;
+  final ineligibility preserves the Lite ledger and restarts work as a new Fast/Full task.
+  Reports record check duration and avoided phases/delegations; these counters are not a
+  measured token or monetary saving.
+- **Local commit telemetry** (#98): `/roster-telemetry` 1.0.1 and runtime 1.0.2 configure
+  elapsed time, tokens, actual participating roles, pipeline mode and formal-verification
+  context. Init/full doctor install compatible local hooks by default; collection is
+  configurable and can be disabled, with no network transmission or global Git changes.
+  Custom hooks and explicit disable choices are preserved. Measurements may be unknown;
+  reports are agent assertions, not provider-authenticated usage receipts. Advisory policy
+  permits missing measurements; strict policy refuses missing enabled requirements.
+
+### Changed
+
+- **Model routing** (#99): roadmap 1.1.0, plan 1.6.0, implement 1.13.0 and planner 1.3.0 share
+  an on-demand policy for the least costly available capable model. Relative economy,
+  standard and strong tiers require explicit rationale, honest cost/identity unknowns and
+  diagnosis before bounded escalation. Child briefs carry compact decisions, preserving
+  owner model choices, independent verification, accepted contracts and attempt budgets.
+  This adds instructions and reporting, not an automatic model switcher or proven savings.
+- **Focused Fast checks** (#88): baseline/final complete gates, independent review and QA
+  remain; edits between them use the narrowest declared checks. A post-verification edit
+  invalidates the final evidence rather than silently reusing it.
+
+### Fixed
+
+- **Channel-aware update checks**: follow the installed stable/next marker, recognize
+  development suffixes on next and retain the selected channel during upgrade/changelog
+  retrieval. Explicit branch pins are not silently switched to a release channel.
+- **QA aggregation** (#92): independent gate failures remain visible in the final verdict.
+- **Previously resolved findings** (#93): required checks are rerun and failed checks reopen
+  their findings; a cached success or weakened green command cannot suppress a current failure.
+- **Read-only guards** (#94): snapshots fingerprint repository contents, detecting content
+  edits even when Git status labels remain unchanged. Setup errors remain distinct from
+  assertion failures; the guard is local consistency evidence, not a filesystem sandbox.
+- **Telemetry lifecycle** (#98): preparation/final-message consistency, actual amendment
+  identity, process-bound receipts, encoding fallback and telemetry-free branch behavior are
+  checked without claiming provider authentication. `express-lite` is accepted as its actual
+  ledger mode under both advisory and strict policies.
+
+## Main updates since v2.7.0
+
+The `main` 2.8.0 release candidate documents multi-intake roadmaps (#96), ESM consumer/tool
+compatibility (#86), truthful code-intel degradation (#85), projection newline consistency
+(#90) and bounded large-output review capture (#95). This is a channel comparison, not a
+claim that every main-only fix has been backported into `next`.
 
 ## v2.7.0 — Code-Intel Packs, Review-Bundle Distribution, Convergence Hardening
 

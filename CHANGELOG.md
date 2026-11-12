@@ -35,6 +35,14 @@ below) — both already present in this section.
   separate global acceptance. Planner duration ranges and explicit remaining estimates
   support conditional task/global ETAs; missing evidence, blockers and overruns remain
   unknown or require re-estimation. Forecasts do not establish completion or launch workers.
+- **Portable roadmap coordination** (#96, #97): `/roster-roadmap` and its dependency-free
+  artifact toolkit coordinate multiple intakes with persistent state and global acceptance.
+- **Express Lite routing** (#87, #89, `next` only): eligible descriptive docs, formatting and
+  private renames use a local review and declared checks; excluded or ambiguous changes
+  restart as Fast/Full. Avoided-phase counters do not prove token or monetary savings.
+- **Local commit telemetry** (#98, `next` only): configurable local hooks and
+  `/roster-telemetry`, with honest unknowns, actual roles/mode, advisory/strict policies and
+  preserved disable/custom-hook choices; no telemetry service or provider authentication.
 - **`agents-md-guardian` agent** (#27): `agents/management/agents-md-guardian.md` reviews
   `AGENTS.md` / `CLAUDE.md` changes against a parameterizable checklist (section size budget,
   required H2 sections, forbidden inline patterns, `docs/` link resolution). Mechanical checks go
@@ -119,6 +127,12 @@ below) — both already present in this section.
 
 ### Changed
 
+- **Model-tier routing** (#99, `next` only): roadmap/planning/implementation share relative
+  economy/standard/strong selection, compact per-mission decisions and diagnosis before
+  authorized escalation. Runtime controls, owner constraints, independence and existing
+  budgets remain authoritative; model requests are distinguished from observed execution.
+- **Fast gate efficiency** (#88, `next` only): preserve baseline/final complete gates and
+  independent review/QA while avoiding repeated full suites between bounded edits.
 - **Frontmatter/preamble consistency sweep** across ~18 friction-log skills — `description` as
   identity, `when_to_use` as triggers; one inherited preamble fragment for the pipeline-state and
   friction-log contracts instead of 18 duplicated copies; duplicated constants given single
@@ -138,6 +152,11 @@ below) — both already present in this section.
 
 ### Fixed
 
+- **Current verification evidence** (#92–#94, `next` only): aggregate independent QA failures,
+  reopen resolved findings when current checks fail, and fingerprint content in read-only
+  snapshots instead of relying only on Git status labels.
+- **Express Lite telemetry** (#98, `next` only): valid Lite reports retain their actual mode
+  under both policies rather than losing telemetry or blocking an otherwise valid commit.
 - Chamallaw shadow 1.3.1 includes its complete friction-log definition in installed
   instructions, with canonical preamble fallback that preserves consumer overrides.
 

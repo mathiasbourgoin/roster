@@ -80,7 +80,7 @@
       {
         "name": "recruiter",
         "source": "roster",
-        "version": "2.7.0",
+        "version": "3.0.0-dev",
         "role": "Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team across shared harness files and runtime-specific entrypoints.",
         "tunables": {}
       },

@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.0.0-dev] — unreleased next line
+
+- Stamp the `next` development line separately from the `main` 2.8.0 release candidate;
+  this entry does not assert a stable release or create a tag.
+- Upgrade notes cover Express Lite, model-routing resources, local telemetry configuration
+  and preservation of consumer overrides. Product details are in root `CHANGES.md`.
+
+---
+
 ## [2.7.0] — 2026-09-30
 
 First tagged release of the `2.7.0` line (stamped on `next` on 2026-06-05). The full

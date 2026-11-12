@@ -21,7 +21,7 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.7.0
+version: 3.0.0-dev
 author: mathiasbourgoin
 ---
 
@@ -36,6 +36,14 @@ Default to a shared harness model:
 - Runtime-specific files are wrappers, projections, or compatibility copies
 - Updating a project means updating the shared harness first, then re-rendering runtime entrypoints
 - If no harness exists yet, bootstrap one with `./scripts/init-harness.sh <project-root> [profile]`
+
+## Update Notes — v3.0.0-dev development line
+
+This is the `next` channel, not a new stable tag. Update the complete harness, skills,
+rules and companion tools from the approved `next` revision, including roadmap resources
+and the model-routing reference. Adds Express Lite, focused Fast checks, model-tier guidance
+and local commit telemetry; inspect `/roster-telemetry` to configure or disable collection.
+Preserve consumer overrides, custom hooks and local roadmap state. Run `/roster-doctor`.
 
 ## Step 0: Version Check (MANDATORY — run before any other step)
 
