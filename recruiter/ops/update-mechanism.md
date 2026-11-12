@@ -7,7 +7,12 @@ Reference for Step 0 upgrade response handling and the full `/recruit update` fl
 ## Step 0 Response
 
 Called when `version-check.sh` outputs `ROSTER_UPGRADE_AVAILABLE <local> <remote> <auto> <runtime>`.
-Capture the four values, then follow the appropriate sub-step.
+Capture the four values, then follow the appropriate sub-step. Read `.roster-channel` beside
+that runtime's `.roster-version` sentinel (see `runtime-paths.md`). Missing markers mean
+`stable`; `stable` maps to `main`, and `next` maps to `next`. Set `UPDATE_CHANNEL` to the
+observed `stable`/`next` value and `UPDATE_RAW` to that approved Roster ref's raw URL.
+Unknown/custom branch markers must not trigger an automatic channel switch; reconcile them
+through the explicit self-update flow. The check's four-value output protocol is unchanged.
 
 ### Step 0a — Auto-upgrade (when `<auto>` is `true`)
 
@@ -17,7 +22,7 @@ Capture the four values, then follow the appropriate sub-step.
 
 Run:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mathiasbourgoin/roster/main/scripts/install.sh | bash
+curl -fsSL "${UPDATE_RAW}/scripts/install.sh" | bash -s -- --channel "$UPDATE_CHANNEL"
 ```
 
 **If successful:**
@@ -32,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/mathiasbourgoin/roster/main/scripts
 5. Continue from **Mode Detection** in the newly loaded instructions. Do NOT re-run Step 0.
 
 **If the command fails:**
-- Display: "Auto-upgrade failed. Try manually: `curl -fsSL https://raw.githubusercontent.com/mathiasbourgoin/roster/main/scripts/install.sh | bash`"
+- Display: "Auto-upgrade failed. Retry the selected channel explicitly: `curl -fsSL "${UPDATE_RAW}/scripts/install.sh" | bash -s -- --channel "$UPDATE_CHANNEL"`"
 - Continue to Mode Detection with the current version.
 
 ### Step 0b — Manual update prompt (when `<auto>` is not `true`)
@@ -61,7 +66,7 @@ Use AskUserQuestion if available; otherwise present as numbered options and wait
 
 ```bash
 curl -fsSL --max-time 3 --connect-timeout 2 --silent \
-  "https://raw.githubusercontent.com/mathiasbourgoin/roster/main/recruiter/CHANGELOG.md" \
+  "${UPDATE_RAW}/recruiter/CHANGELOG.md" \
   2>/dev/null
 ```
 

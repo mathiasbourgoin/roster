@@ -24,6 +24,19 @@ fi
 _LOCAL=$(cat "$_SENTINEL" 2>/dev/null | tr -d '[:space:]')
 [ -z "$_LOCAL" ] && exit 0
 
+# Follow the installed channel; legacy installs without a marker remain stable.
+# Explicit branch pins are not silently changed to a release channel.
+_CHANNEL="stable"
+_CHANNEL_FILE="$(dirname "$_SENTINEL")/.roster-channel"
+if [ -f "$_CHANNEL_FILE" ]; then
+  _CHANNEL=$(tr -d '[:space:]' < "$_CHANNEL_FILE")
+fi
+case "$_CHANNEL" in
+  stable) _REF="main" ;;
+  next) _REF="next" ;;
+  *) exit 0 ;;
+esac
+
 # Tracking is active — now safe to create the state dir
 mkdir -p "$_ROSTER_DIR"
 
@@ -60,7 +73,7 @@ fi
 
 # Fetch remote VERSION (silent — fail = skip)
 _REMOTE=$(curl -fsSL --max-time 3 --connect-timeout 2 --silent \
-  "https://raw.githubusercontent.com/mathiasbourgoin/roster/main/VERSION" \
+  "https://raw.githubusercontent.com/mathiasbourgoin/roster/${_REF}/VERSION" \
   2>/dev/null | tr -d '[:space:]')
 
 # Write timestamp regardless of fetch result
@@ -68,7 +81,11 @@ date +%s > "$_LAST_FILE" 2>/dev/null || true
 
 # Validate and compare
 [ -z "$_REMOTE" ] && exit 0
-echo "$_REMOTE" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || exit 0
+if [ "$_CHANNEL" = "next" ]; then
+  echo "$_REMOTE" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$' || exit 0
+else
+  echo "$_REMOTE" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || exit 0
+fi
 [ "$_REMOTE" = "$_LOCAL" ] && exit 0
 
 echo "ROSTER_UPGRADE_AVAILABLE $_LOCAL $_REMOTE $_AUTO_UPGRADE $_RUNTIME"

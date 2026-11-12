@@ -68,6 +68,18 @@ curl -fsSL .../install.sh | bash -s -- --branch <ref>
 The installer records the channel in a per-runtime `.roster-channel` marker; `/roster-doctor`
 reports the active channel. `stable` is the default — omitting `--channel` reproduces prior behavior.
 
+The current `main` release preparation is **2.8.0**; the last published Git tag remains
+**v2.7.0** until a new tag is explicitly created. `next` is the **3.0.0-dev development line**.
+Read [product changes](CHANGES.md) for the channel-specific feature lists. Main includes
+portable multi-intake roadmaps; next additionally has Express Lite, focused Fast checks,
+model-tier routing and local commit telemetry. Native roadmap missions in Pi do not restore
+its removed installer. Model routing is guidance, not an automatic model switcher.
+
+For existing projects, ask `/recruit update` to update the **complete harness, skills,
+rules and companion tools** from the intended channel, then run `/roster-doctor`.
+Updating only agent prompts leaves the pipeline incomplete. These product/recruiter
+versions are independent of the npm tooling version in `package.json`.
+
 After install: run `/recruit` (Claude) or invoke the discovered `recruit` skill (OpenCode / Codex,
 via native Agent-Skills discovery) to assemble your team. The installed `SKILL.md` follows the open
 Agent-Skills standard, so it is also readable by other skill-aware tools (e.g. GitHub Copilot) that
