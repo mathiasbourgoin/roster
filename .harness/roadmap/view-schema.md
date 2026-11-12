@@ -7,6 +7,8 @@ Neither initializes, accepts, claims, verifies or launches work. Drafts are obse
 
 Use `view.schema.json` alongside this guide for client validation/code generation
 (source: `schema/roadmap-view.schema.json`). No runtime-specific UI dependency is needed.
+Generate a current sample with the read-only `view` command above; a saved observation
+is a snapshot of its source board, not a transferable acceptance or execution identity.
 Render imported strings, evidence references and command text as inert text, never HTML,
 shell commands or instructions. Observation is local evidence, not authentication.
 
