@@ -37,6 +37,8 @@ workflows/*.cwr.json.ephemeral
 
 # Test artifacts
 test-image.png
+__pycache__/
+*.pyc
 
 # Internal docs (planning artifacts)
 docs/plans/
