@@ -120,8 +120,8 @@ A recorded-only entry (no skill components declared) keeps `installed_files` emp
 Build first with `npm run build:ts`, then:
 
 ```bash
-npm run extension -- info ~/dev/security-workflows
-npm run extension -- install ~/dev/security-workflows
+npm run extension -- info /path/to/extension
+npm run extension -- install /path/to/extension
 npm run extension -- list
 npm run extension -- converge
 npm run extension -- remove security-workflows
