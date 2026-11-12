@@ -9,11 +9,8 @@ version: 1.1.0
 
 # Spec — Review/Implement Loop Convergence
 
-> **Provenance note:** produced under an explicit full-autonomy delegation from the human
-> (2026-07-13). Human gates in this phase were auto-decided; every auto-decision is recorded
-> in Clarifications/Challenges below. Items flagged **[HUMAN-REVIEW]** revise or refine a
-> previously human-ratified decision based on evidence found during research and should be
-> double-checked.
+Items flagged **[HUMAN-REVIEW]** revise or refine an earlier decision and require
+review against the implemented contract.
 
 ## Clarifications
 
@@ -26,7 +23,7 @@ version: 1.1.0
 | Ratchet vs ACCEPTED findings? | ACCEPTED is exempt (human waiver). The acceptance prompt must state the waiver is permanent — no check will ever guard this invariant. |
 | Who records `check`/`check_encodable`? | Implementer proposes via a new `## Ratchet` section in `briefs/<task>-impl.md`; roster-review consumes it into review.json (artifact channel — the loop crosses fresh contexts). |
 | Does roster-run's Full-mode spec-dispatch row honor the flag? | Yes: dispatch to /roster-spec when Type is feature/api-change OR `Trust boundary: yes` (roster-run.md:261 row). New design-not-converging row goes ABOVE the catch-all (roster-run.md:284). |
-| OQ1/OQ2 ratification | Auto-ratified under delegation per the brief's own proposals: `max_no_go_rounds = 5`; red-before-green mandatory and gate-enforced (US-4 promoted to P0 — the ratchet never ships without it). |
+| OQ1/OQ2 configuration | `max_no_go_rounds = 5`; red-before-green is mandatory and gate-enforced (US-4 priority P0). |
 
 ## User Stories
 

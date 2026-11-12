@@ -9,10 +9,7 @@ version: 1.1.0
 
 # Spec — Review Fan-out Convergence
 
-> **Provenance:** produced under explicit full-autonomy delegation (2026-07-13, "handle it
-> autonomously up to merging"). Evidence base: `~/dev/bounty-skills/skills-meta/health-2026-07-13.md`
-> (H-01..H-04). Extends the pipeline-loop-convergence family — FR numbering continues at FR-050.
-> All human gates auto-decided; decisions recorded below.
+Extends the pipeline-loop-convergence family; FR numbering continues at FR-050.
 
 ## Clarifications (challenge-resolution highlights)
 

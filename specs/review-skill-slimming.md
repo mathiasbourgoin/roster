@@ -9,11 +9,8 @@ version: 1.2.0
 
 # Spec — Review Skill Slimming
 
-> **Provenance:** intake human-validated at the gate (Type: feature; Trust boundary heuristic
-> overruled to `no` by the human — recorded false positive). Subsequent phases run under the
-> standing full-autonomy delegation. FR numbering continues the convergence family at FR-086.
-> Evidence base: downstream health-report follow-up ("instruction dilution", roster-review at
-> 5,445 words, +62%).
+FR numbering continues the convergence family at FR-086. The review skill size
+ratchet uses the documented 5,445-word baseline.
 
 ## Clarifications (challenge-resolution highlights; 23 challenges + 12 edge cases resolved)
 
