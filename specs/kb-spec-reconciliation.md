@@ -3,7 +3,6 @@ name: kb-spec-reconciliation
 type: spec
 status: live
 feature: deterministic KB/spec reconciliation
-brief: briefs/kb-spec-reconciliation-intake.md
 date: 2026-09-04
 version: 1.0.0
 ---

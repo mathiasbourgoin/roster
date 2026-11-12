@@ -3,7 +3,6 @@ name: retrospec-skill
 type: spec
 status: live
 feature: roster-spec-infer — evidence-tiered retroactive spec skill
-brief: briefs/retrospec-skill-intake.md
 date: 2026-05-25
 version: 1.0.0
 ---

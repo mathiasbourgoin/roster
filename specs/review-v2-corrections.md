@@ -3,7 +3,6 @@ name: review-v2-corrections
 type: spec
 status: live
 feature: Review v2 correctness fixes (finding identity, lifecycle, journal enforcement)
-brief: briefs/review-v2-corrections-intake.md
 date: 2026-07-13
 version: 1.3.0
 ---

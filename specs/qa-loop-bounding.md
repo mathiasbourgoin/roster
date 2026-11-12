@@ -3,7 +3,6 @@ name: qa-loop-bounding
 type: spec
 status: draft
 feature: QA loop bounding (round counter, qualifying cap, qa-not-converging escalation)
-brief: briefs/qa-loop-bounding-intake.md
 date: 2026-07-13
 version: 1.1.0
 ---

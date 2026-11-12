@@ -3,7 +3,6 @@ name: r5-trace-enforcement
 type: spec
 status: DRAFT
 feature: R-5 graduation — gate-enforced reviewer invocation traces
-brief: briefs/r5-trace-enforcement-intake.md
 date: 2026-07-13
 version: 1.2.0
 ---
