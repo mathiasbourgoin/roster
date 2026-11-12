@@ -10,6 +10,18 @@
 - Runtime-neutral missions cover Codex, Claude, OpenCode and Pi, with native delegation
   and authorized multisession when available. This does not restore the removed Pi
   installer or promise unattended execution after process exit.
+- Manual `roster-usage.cjs report` reads existing aggregate observations across projects
+  and runtimes, with unknown/overlapping coverage kept explicit. It installs no collectors,
+  hooks, reminders or messaging.
+- Recovery requires diagnosis and a source-bound changed-strategy record after three
+  consecutive roadmap-task or same-phase review/QA failures. Reframes preserve original
+  evidence and consumed bounds; review's two-strike rule and both five-round caps remain
+  separate. Old workers still require explicit reconciliation before retry.
+- Roadmap `view` and text status expose current assignments, failure reasons, accepted
+  receipt evidence and clearly labeled worker-reported progress. Planner duration ranges
+  and remaining estimates yield conditional task/global ETAs when evidence permits;
+  missing estimates, blockers and overruns remain visible. Only separate global acceptance
+  establishes the completed outcome.
 
 ## v2.7.0 — Code-Intel Packs, Review-Bundle Distribution, Convergence Hardening
 

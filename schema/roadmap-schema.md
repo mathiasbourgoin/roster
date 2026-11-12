@@ -2,8 +2,10 @@
 
 Use this contract to coordinate several Roster intakes without binding execution to a
 particular runtime. The executable validator is `scripts/roster-roadmap.cjs`. Its installed
-copy is `.harness/bin/roster-roadmap.cjs`; it requires only Node built-ins and remains usable
-in an ESM consumer. Commands coordinate artifacts; they never invoke an agent, shell,
+copy is `.harness/bin/roster-roadmap.cjs`; its `roster-artifacts.cjs`, `roster-recovery.cjs`,
+`roster-roadmap-view.cjs` and `roster-roadmap-estimates.cjs` siblings form the installed
+runtime closure from the same approved revision. It requires only Node built-ins and
+remains usable in an ESM consumer. Commands coordinate artifacts; they never invoke an agent, shell,
 network service, or verification command.
 
 ## Files and authority
@@ -15,6 +17,8 @@ An explicit board directory contains:
 | `roadmap.json` | Accepted execution contract; editing it invalidates acceptance |
 | `capabilities.json` | Current observed runtime availability and explicit capability authorization |
 | `state.json` | Sole execution authority: acceptance, ownership, tasks, receipts and events |
+| `estimates.json` | Optional contract-bound planner forecasts and revision history; advisory |
+| `progress/` | Optional per-attempt worker-reported progress; advisory |
 | `goal.md` | Human-facing observations, assumptions, recommendations, decisions and open questions |
 | `notes/` | Longer source-backed research, consulted when relevant |
 | `receipts/` | Candidate receipt files; accepted receipt objects live atomically in `state.json` |
@@ -131,13 +135,17 @@ missions without rewriting the accepted task contracts.
 
 ## Commands
 
-All commands return JSON on stdout, exit `0` on success and `1` on refusal/error. Unknown or
+Commands return JSON on stdout except `status --format text`, which returns formatted
+human-readable status. They exit `0` on success and `1` on refusal/error. Unknown or
 duplicate options fail. Run `node scripts/roster-roadmap.cjs --help` for option names.
 
 ```text
 init BOARD --id ID
 lint BOARD
-status BOARD
+status BOARD [--format json|text]
+view BOARD [--task TASK] [--events N]
+progress BOARD --task TASK --attempt ATTEMPT --assignee ID --sequence N --update FILE
+estimate BOARD --revision N --update FILE
 next BOARD
 prompt BOARD [--task TASK] [--max-chars N]
 accept BOARD --coordinator ID --revision N --decision FILE
@@ -152,6 +160,33 @@ unavailable runtime defaults. It refuses even an empty existing board directory.
 contract and observed capability profile before lint/accept. `status` can inspect an
 unaccepted draft; accepted boards additionally require intact acceptance/state.
 
+`status --format text` and `view` are read-only observations. The skill-level
+`/roster-roadmap status [board]` route resolves an explicit or unambiguous existing board,
+renders the formatted status and returns without execution or friction writes. `view`
+provides versioned JSON including source revision, a resource change token, bounded recent
+events, task/assignment/check states, separately labeled reported progress, recovery and
+task/global estimates. It supports task focus and `--events` in 0–100. Embedded labels,
+commands and paths are inert untrusted data. See [the view schema](roadmap-view-schema.md)
+and its installed `.harness/roadmap/view-schema.md` / `view.schema.json` resources.
+
+`progress` updates only the current assignment's advisory report under `progress/`, using
+task/attempt/assignee identity and a current progress sequence (`0` initially). It accepts
+a message, optional current step and declared check reports. It does not emit a receipt,
+increment execution revision or satisfy checks; malformed/stale reports remain unverified.
+Exact update bounds and shape are defined in the view schema.
+
+`estimate` appends a planner revision to optional `estimates.json`; `--revision` is the
+forecast revision (`0` initially), independent of execution revision. The update binds the
+accepted contract and current execution revision and records writer, capture time, basis,
+evidence, per-task duration/remaining ranges and global-verification duration or unknown.
+It changes no accepted contract, execution state, receipt or retry budget. See
+[the estimates schema](roadmap-estimates-schema.md), installed as
+`.harness/roadmap/estimates-schema.md` with guide `estimates.md`. Revisit estimates when
+planning evidence changes; no timing metadata is inferred for legacy boards. ETA remains
+conditional on authorization/capacity/dispatch/check assumptions, and missing timing or
+blocking evidence produces unknown values. Active remaining captures must match actual
+attempt/time anchors; elapsed pessimistic overruns require re-estimation.
+
 `lint` returns `contract_digest` for recording a decision. The decision file is exactly
 `{ "by": "owner", "basis": "Explicit owner agreement or precisely scoped delegated authority", "contract_digest": "<digest>" }`.
 The agent must not fabricate approval. Accept records that decision, sets the named
@@ -159,7 +194,7 @@ coordinator and initializes task states. Acceptance is immutable; changed goals/
 require a separately reviewed revised board, preserving prior history. Child intake/spec/plan
 gates are not satisfied merely by accepting the roadmap.
 
-Every mutation requires the current `state.json` revision and the designated coordinator
+Every execution-state mutation requires the current `state.json` revision and the designated coordinator
 label. Mutations lock the board using exclusive `.lock` directory creation and replace the
 state with a synced temporary-file rename. Do not delete `.lock` until the owning process
 has been inspected/stopped. The tool never infers that a stale-looking lock or silent session
@@ -176,6 +211,20 @@ Every accepted-state read replays the contiguous claim/record/release history, r
 task statuses, attempt counts, recorded receipt order and reconciliation reasons to agree.
 Lowering a persisted attempt counter cannot authorize a new attempt. These consistency
 checks detect malformed local state; they do not authenticate the history against a local owner.
+
+New execution events additionally record their actual emission time as optional `at`, a
+UTC ISO timestamp with milliseconds. Legacy events without `at` remain valid; views expose
+their timestamp as unknown/null. Do not backfill a guessed start or treat event order as a
+measured duration. Active forecasts may use the latest real claim timestamp, or require an
+explicit remaining estimate bound to the current attempt when its start is unknown.
+
+Three consecutive blocked receipt attempts on the unchanged accepted task trigger the
+separate recovery reframe requirement before another release/claim. The recovery resource
+retains exact source identity, failure evidence, diagnosis, changed strategy, discriminating
+check and append-only reframe history. It cannot edit acceptance, refund attempts, stop an
+old worker or bypass child gates. Review's novel-finding strikes and review/QA caps remain
+distinct. See [the recovery guide](../docs/failure-recovery.md) and installed
+`.harness/roadmap/failure-recovery.md` / `recovery-schema.md`.
 
 JSON reads and writes share a 16 MiB UTF-8 byte limit. A transition that would make the
 aggregate state unreadable refuses before replacing `state.json`, preserving the previous
@@ -240,6 +289,6 @@ The separate global candidate is exactly:
 
 `state_revision` must equal the current revision before `complete`, binding the audit to
 the latest recorded execution state. All tasks must be done and every global check must
-pass. Completion freezes further mutations. This structural check does not independently
+pass. Completion freezes further execution-state mutations. This structural check does not independently
 establish the truth or freshness of the evidence strings: the responsible verifier must
 inspect the integrated result and actual outputs before submitting them.

@@ -19,6 +19,8 @@ The board lives at `roadmaps/<slug>/` by default:
 | `roadmap.json` | Executable contract: goals, task graph, checks, topology and recovery policies |
 | `capabilities.json` | Observed runtime capabilities and separate authorization evidence |
 | `state.json` | Authoritative execution state, assignment attempts and accepted receipts |
+| `estimates.json` | Planner duration ranges and preserved forecast revisions; advisory |
+| `progress/` | Attempt-bound worker reports; advisory and separate from accepted receipts |
 | `receipts/` | Candidate receipt files prepared by workers for coordinator review |
 | `notes/` | Detailed research, coherence assessment and decision rationale |
 
@@ -86,14 +88,19 @@ measured token reduction nor savings without comparable end-to-end evidence.
 
 In an installed project use `node .harness/bin/roster-roadmap.cjs`. In this repository
 use `node scripts/roster-roadmap.cjs`, or the `roster-roadmap` package binary. The CLI
-is self-contained and works in CommonJS and ESM consumers without local dependencies.
-Init/sync also install the model-routing policy, artifact reference and non-operative example contract/profile
-under `.harness/roadmap/`, so preparation does not require the Roster source checkout.
+uses Node built-ins and works in CommonJS and ESM consumers without npm dependencies.
+Keep `roster-roadmap.cjs`, `roster-artifacts.cjs`, `roster-recovery.cjs`,
+`roster-roadmap-view.cjs` and `roster-roadmap-estimates.cjs` together in `.harness/bin/`
+from the same approved revision. Init/sync install the complete runtime closure and the
+matching policies, schemas and examples under `.harness/roadmap/`; copying a lone core
+file is insufficient. Repair the complete trusted installation on mismatch.
 
 ```bash
 node .harness/bin/roster-roadmap.cjs init roadmaps/release --id release
 node .harness/bin/roster-roadmap.cjs lint roadmaps/release
 node .harness/bin/roster-roadmap.cjs status roadmaps/release
+node .harness/bin/roster-roadmap.cjs status roadmaps/release --format text
+node .harness/bin/roster-roadmap.cjs view roadmaps/release --events 10
 node .harness/bin/roster-roadmap.cjs next roadmaps/release
 node .harness/bin/roster-roadmap.cjs prompt roadmaps/release
 ```
@@ -101,6 +108,52 @@ node .harness/bin/roster-roadmap.cjs prompt roadmaps/release
 `init` deliberately creates an incomplete draft. Fill the goal, global checks, tasks
 and actual capability observations before accepting it. See the [contract and CLI
 reference](../schema/roadmap-schema.md) and [example contract](../examples/roadmap/).
+
+`/roster-roadmap status [board]` selects an explicit or unambiguous existing board and
+returns formatted human status. It does not initialize/claim/resume work, append a friction
+entry or install hooks/reminders. Multiple possible boards require an explicit selection.
+The report distinguishes goal, task states/assignees, accepted checks, unverified worker
+reports, blockers and separate task/global ETA. Missing information stays unknown.
+
+`view BOARD [--task ID] [--events N]` supplies versioned, bounded JSON for a monitoring UI.
+Use its source revision and change token to detect resource changes; generated-at time and
+time-relative forecasts are observations, not execution events. Treat all labels, command
+strings and artifact paths as inert data, escape them when rendering, and never execute
+them because they appear in a snapshot. See [the view contract](../schema/roadmap-view-schema.md).
+
+An active worker can submit advisory progress:
+
+```bash
+node .harness/bin/roster-roadmap.cjs progress roadmaps/release --task implement --attempt ACTUAL_ID --assignee worker --sequence 0 --update /tmp/progress.json
+```
+
+The update includes a message, optional current step and declared check reports. Sequence
+is the current progress sequence (zero before the first report), bound to the current
+assignment. Unreported/stale/invalid progress is visibly distinct from accepted checks;
+progress neither finishes a task nor changes execution revision or retry budget.
+
+## Plan and refresh durations
+
+The planner estimates each task in optimistic/likely/pessimistic minutes, with basis,
+evidence and dispatch/dependency assumptions, and estimates integrated verification
+separately. On roadmap revisit, refresh ranges where new evidence changes the forecast;
+preserve prior revisions and mark missing timing unknown. Do not advance a deadline merely
+because status was polled. [Duration estimates](roadmap-estimates.md) document the sidecar.
+
+```bash
+node .harness/bin/roster-roadmap.cjs estimate roadmaps/release --revision 0 --update /tmp/estimates.json
+```
+
+Here revision is the forecast revision, independent of execution state. The input binds
+current accepted contract and execution revision, planner writer, rationale, evidence and
+capture time. `estimates.json` changes neither the accepted contract nor task receipts.
+For active work use its real claim timestamp or a remaining range captured for the current
+attempt; legacy missing starts stay unknown. An overrun requests re-estimation rather than
+silently resetting its countdown. Forecasts account for dependency order, maximum capacity,
+parallel authorization and overlapping write scopes; queued dispatch and successful checks
+remain conditional assumptions. Unresolved blockers or missing estimates prevent a fabricated
+delivery date. Missing global-verification timing may still leave a useful tasks-only ETA.
+Only the separate global receipt establishes completion, not an estimate or task count.
 
 Mutations use `--coordinator <id> --revision <current revision>` to detect conflicting
 updates. `accept` additionally reads `--decision <file>` with the current contract
@@ -131,6 +184,12 @@ After interruption, read `status` before doing work. An active assignment remain
 owned until the coordinator confirms the previous worker has stopped and reconciles
 its modifications. Do not reassign on a timeout alone. Occupied locks are not
 automatically stolen; inspect the previous process and board before recovering them.
+
+After three consecutive failures on the same mission, inspect the manual recovery status
+and record a diagnosed reframe with changed strategy, evidence and discriminating check
+before retrying. The [recovery guide](failure-recovery.md) describes exact source identities
+and commands. This preserves original failures and attempt budgets; it neither grants a
+retry nor replaces review's two-strike finding rule or review/QA five-round caps.
 
 The prompt and resources support continuation while a runtime is executing and
 resumption in a later invocation. They do not keep a killed process alive or promise

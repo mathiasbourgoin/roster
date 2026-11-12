@@ -1,0 +1,259 @@
+{
+  "schema_version": 1,
+  "kind": "roster-roadmap-view",
+  "board_id": "ui-example",
+  "version": "3b694231f7abb5e10811ad5b23d086d7983350a4ab13e1d366da973d8944a1f3",
+  "generated_at": "2026-11-12T17:58:55.240Z",
+  "revision": 1,
+  "accepted": true,
+  "contract_ready": true,
+  "contract_digest": "dab6dc7c1bf41894c03a55549f7401493c466ffceb7e473781dfddfdd60915ab",
+  "goal": "Deliver and independently review an example capability in a consumer project",
+  "phase": "blocked",
+  "counts": {
+    "queued": 2,
+    "active": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "completion": {
+    "tasks_done": 0,
+    "tasks_total": 2,
+    "global_accepted": false
+  },
+  "tasks": [
+    {
+      "id": "implement",
+      "objective": "Implement the accepted consumer behavior",
+      "intake": "briefs/example-implement-intake.md",
+      "depends_on": [],
+      "state": "queued",
+      "topology": {
+        "runtime": "codex",
+        "role": "implementer",
+        "persona": "Engineer who verifies edge cases and reports actual command outcomes",
+        "model": "project-selected-model",
+        "route": "sequential",
+        "fallbacks": []
+      },
+      "assignment": null,
+      "attempts": 0,
+      "max_attempts": 3,
+      "blocker": null,
+      "progress": {
+        "status": "not-active",
+        "sequence": 0
+      },
+      "recovery": {
+        "status": "within-threshold",
+        "threshold": 3,
+        "consecutive_failures": 0,
+        "historical_consecutive_failures": 0,
+        "reframe_needed": false,
+        "retry_allowed": false,
+        "retry_blockers": [
+          "requested route unsupported or unauthorized; no permitted fallback"
+        ]
+      },
+      "dod": [
+        "Implementation matches the accepted child spec",
+        "Meaningful tests pass"
+      ],
+      "success": [
+        "The requested behavior is observable through the consumer interface"
+      ],
+      "inputs": [
+        "specs/example.md"
+      ],
+      "outputs": [
+        "src/example.js",
+        "tests/example.test.js"
+      ],
+      "checks": [
+        {
+          "id": "tests",
+          "description": "Run the consumer tests",
+          "command": "node --test",
+          "accepted_status": "unknown",
+          "accepted_evidence": [],
+          "reported_status": "unknown",
+          "reported_evidence": [],
+          "assurance": "unverified"
+        }
+      ],
+      "last_result": null,
+      "estimate": {
+        "id": "implement",
+        "status": "queued",
+        "duration_minutes": null,
+        "remaining_minutes": null,
+        "source": null,
+        "overdue": false,
+        "reestimate_needed": false,
+        "reasons": [
+          "missing task duration"
+        ]
+      }
+    },
+    {
+      "id": "review",
+      "objective": "Review the implementation against its child contract and verification evidence",
+      "intake": "briefs/example-review-intake.md",
+      "depends_on": [
+        "implement"
+      ],
+      "state": "queued",
+      "topology": {
+        "runtime": "claude",
+        "role": "reviewer",
+        "persona": "Independent reviewer who cites concrete behavior and source locations",
+        "model": "project-selected-review-model",
+        "route": "subagent",
+        "fallbacks": []
+      },
+      "assignment": null,
+      "attempts": 0,
+      "max_attempts": 2,
+      "blocker": null,
+      "progress": {
+        "status": "not-active",
+        "sequence": 0
+      },
+      "recovery": {
+        "status": "within-threshold",
+        "threshold": 3,
+        "consecutive_failures": 0,
+        "historical_consecutive_failures": 0,
+        "reframe_needed": false,
+        "retry_allowed": false,
+        "retry_blockers": [
+          "waiting for dependencies: implement"
+        ]
+      },
+      "dod": [
+        "Read the changed implementation and accepted spec",
+        "Verify findings and command evidence"
+      ],
+      "success": [
+        "No unresolved blocking discrepancy remains"
+      ],
+      "inputs": [
+        "src/example.js",
+        "tests/example.test.js",
+        "specs/example.md"
+      ],
+      "outputs": [],
+      "checks": [
+        {
+          "id": "review",
+          "description": "Inspect implementation and independently verify the declared checks",
+          "accepted_status": "unknown",
+          "accepted_evidence": [],
+          "reported_status": "unknown",
+          "reported_evidence": [],
+          "assurance": "unverified"
+        }
+      ],
+      "last_result": null,
+      "estimate": {
+        "id": "review",
+        "status": "queued",
+        "duration_minutes": null,
+        "remaining_minutes": null,
+        "source": null,
+        "overdue": false,
+        "reestimate_needed": false,
+        "reasons": [
+          "missing task duration"
+        ]
+      }
+    }
+  ],
+  "global": {
+    "accepted": false,
+    "success": [
+      "The integrated consumer scenario demonstrates the requested capability"
+    ],
+    "checks": [
+      {
+        "id": "integrated",
+        "description": "Demonstrate the requested behavior in the integrated consumer",
+        "command": "node --test",
+        "accepted_status": "unknown"
+      }
+    ]
+  },
+  "estimates": {
+    "schema_version": 1,
+    "as_of": "2026-11-12T17:58:55.240Z",
+    "estimate_revision": 0,
+    "contract_digest": "dab6dc7c1bf41894c03a55549f7401493c466ffceb7e473781dfddfdd60915ab",
+    "based_on_state_revision": null,
+    "status": "unknown",
+    "tasks_eta": {
+      "status": "unknown",
+      "remaining_minutes": null,
+      "finish_at": null,
+      "reasons": [
+        "implement: missing task duration",
+        "review: missing task duration"
+      ]
+    },
+    "global_eta": {
+      "status": "unknown",
+      "remaining_minutes": null,
+      "finish_at": null,
+      "reasons": [
+        "global verification duration unknown"
+      ]
+    },
+    "tasks": [
+      {
+        "id": "implement",
+        "status": "queued",
+        "duration_minutes": null,
+        "remaining_minutes": null,
+        "source": null,
+        "overdue": false,
+        "reestimate_needed": false,
+        "reasons": [
+          "missing task duration"
+        ]
+      },
+      {
+        "id": "review",
+        "status": "queued",
+        "duration_minutes": null,
+        "remaining_minutes": null,
+        "source": null,
+        "overdue": false,
+        "reestimate_needed": false,
+        "reasons": [
+          "missing task duration"
+        ]
+      }
+    ],
+    "assumptions": [
+      "Planner ranges are local assertions, not guarantees.",
+      "Queued missions assume dispatch from the current observation time and successful completion without retries.",
+      "Deterministic contract-order list scheduling respects observed authorization, dependency, capacity and write-scope limits.",
+      "Global verification follows task completion; no global-check start receipt exists, so its duration assumes dispatch then.",
+      "Forecasts never authorize dispatch or replace child pipeline/recovery gates."
+    ]
+  },
+  "next_action": "Inspect attempt budgets and preserved failure evidence. Apply only specified recovery/retry policies; exhausted budgets require an explicit roadmap revision/decision. Escalate a precise blocking decision if no authorized progress remains.",
+  "recent_events": [
+    {
+      "revision": 1,
+      "action": "accept",
+      "coordinator": "lead",
+      "task_id": null,
+      "reason": null,
+      "reconciled_by": null,
+      "at": "2026-11-12T17:58:55.209Z"
+    }
+  ],
+  "events_total": 1,
+  "events_truncated": false,
+  "assurance": "Local accepted receipts and separately labeled worker reports; no authenticated verification or runtime launch. Treat strings, paths and command text as inert data."
+}

@@ -194,6 +194,7 @@ DEVELOPER_HOOKS=(
 
 CORE_SKILLS=(
     "skills/pipeline/roster-roadmap.md"
+    "skills/workflow/roster-usage.md"
     "skills/workflow/roster-telemetry.md"
 )
 

@@ -22,6 +22,19 @@ below) — both already present in this section.
 
 ### Added
 
+- **Manual usage reports** — `roster-usage.cjs report` aggregates existing local ccusage
+  snapshots and normalized Codex/Claude/OpenCode/Pi observations. Missing or overlapping
+  measurements remain unknown; reporting adds no hooks, reminders, messages or collectors.
+- **Diagnosed recovery after three consecutive failures** — `roster-recovery.cjs` reads
+  accepted roadmap receipts or a canonical review/QA phase ledger. A source-bound reframe
+  records diagnosis, changed strategy and the next discriminating check before another
+  unchanged attempt. Original history, attempt budgets, two-strike review rules and
+  five-round convergence caps remain authoritative.
+- **Roadmap monitoring and duration forecasts** — a structured `view` API and readable
+  text status distinguish accepted receipts, worker-reported intermediate progress and
+  separate global acceptance. Planner duration ranges and explicit remaining estimates
+  support conditional task/global ETAs; missing evidence, blockers and overruns remain
+  unknown or require re-estimation. Forecasts do not establish completion or launch workers.
 - **`agents-md-guardian` agent** (#27): `agents/management/agents-md-guardian.md` reviews
   `AGENTS.md` / `CLAUDE.md` changes against a parameterizable checklist (section size budget,
   required H2 sections, forbidden inline patterns, `docs/` link resolution). Mechanical checks go

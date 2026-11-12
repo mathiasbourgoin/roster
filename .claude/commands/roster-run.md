@@ -2,7 +2,7 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.14.0
+version: 1.15.0
 ---
 
 # Roster Run
@@ -324,6 +324,43 @@ If Full mode: check briefs/ state and use the routing table below.
 
 One table owns every verdict edge. Fresh Full-mode detection (above) and Step 3 resume both
 route through it; on resume, scope rows to the ledger's recorded mode.
+
+**Consecutive-failure recovery before retry (all modes, including resume).** After the
+existing review/QA convergence gates below permit a retry, run the manual recovery check
+before following any NO-GO edge into another implementation or same-phase retry:
+
+```bash
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase review
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase qa
+```
+
+Use the command for the phase driving route-back; implementation entry checks both.
+The source equivalent is `scripts/roster-recovery.cjs`. The completed phase must first
+persist its verdict artifacts, then append its one canonical Pipeline State event. This
+router only reads the ledger; never append a second failure on resume or tool invocation.
+If retry evidence exists but its canonical ledger is missing/incomplete, stop and reconcile
+the actual phase history rather than treating missing history as a fresh budget.
+
+- Exit 0: this recovery requirement permits continuing to the existing route; it is not GO
+  or general retry authorization. Pipeline `retry_allowed` remains null.
+- Exit 2 / `reframe_needed: true`: **do not start another unchanged attempt after the third failure**. Inspect the
+  original observations, diagnose the repeated cause, and prepare a decision with actor,
+  basis, diagnosis, changed_strategy, next_discriminating_check and evidence, bound to the
+  exact identity/source fingerprint/failure IDs from fresh status. Record it using
+  `reframe` with the same source arguments and `--decision <file>`, then recheck. Follow
+  `.harness/roadmap/failure-recovery.md` (source: `docs/failure-recovery.md`). Diagnosis or
+  existing spec/escalation routes may proceed; another attempt waits for the valid reframe.
+- Exit 1: malformed/stale evidence or setup failure blocks retry until reconciled.
+
+The threshold is **three consecutive same-phase NO-GO events**; other phases and rereads
+do not change it, and a matching GO resets only that failure streak. A valid reframe
+preserves all source events, prior records and consumed bounds. Existing novel-finding
+strikes (default 2), review/QA caps (default 5), stop policies, acceptance and human gates
+remain independently binding; a streak override does not waive this recovery check.
+For a roadmap child, also inspect its accepted board task with `check --board <board>
+--task <id>` before retry and reconcile any active worker through the roadmap core.
+The pipeline ledger does not prove an unchanged mission contract; preserve its task/phase
+identity and actual brief/spec context rather than renaming the task to reset a streak.
 
 **Convergence gate invocation (FR-024, A-1/A-2).** Before applying any `review`-phase row below —
 on both the fresh-detection path and the Step 3 resume edge — invoke the mechanical gate in

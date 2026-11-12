@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express Lite/Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.13.0
+version: 1.14.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -66,6 +66,35 @@ loop-back, from `briefs/<task>-review.json`). Establish the quality gates yourse
 
 In all modes, verify the quality gates are known before changing code — escalate if you cannot
 determine them.
+
+**Recovery check before edits or delegation (every entry, including direct invocation).**
+When `briefs/<task>-state.json` exists, run both read-only phase checks:
+
+```bash
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase review
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase qa
+```
+
+Source checkout: use `scripts/roster-recovery.cjs`. Run both checks even if the latest
+event is implementation or the other phase; an unrelated event cannot hide three
+consecutive same-phase NO-GO verdicts. Exit 2 / `reframe_needed` blocks another unchanged
+attempt until a diagnosed reframe is recorded with a changed strategy, next discriminating
+check and evidence bound to fresh source identity/fingerprint/failure IDs. Follow
+`.harness/roadmap/failure-recovery.md` (source: `docs/failure-recovery.md`), then recheck.
+Exit 1 blocks entry pending evidence/setup reconciliation. Exit 0 clears only this recovery
+requirement; it does not waive review's two-strike rule, either five-round cap, acceptance,
+human decisions or existing budgets. Pipeline `retry_allowed: null` leaves those external
+gates authoritative. Preserve the canonical task and actual brief/spec context: the ledger
+has no immutable mission digest, and a renamed task is not an authorized recovery.
+
+A genuinely fresh task without a ledger has no previous phase failures to check. When
+retry artifacts/history exist but the ledger is missing/incomplete, reconcile the actual
+history before entry; never fabricate GO or discard prior events. Do not append a ledger
+event merely for this check; implementation's normal artifact-then-event emission remains
+at phase exit. For a roadmap child, also run `check --board <board> --task <id>` and require
+the core's current assignment/bounds; reconcile an old active worker before reassignment.
+These artifact checks work identically under Codex, Claude, OpenCode and Pi; they neither
+launch nor stop workers and install no hooks.
 
 For **Express Lite**, the declared relevant check replaces the baseline build/test gate below; do not run a full baseline unless that check requires it.
 

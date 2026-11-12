@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 2.6.0
+version: 2.7.0
 domain: pipeline
 phase: review
 preamble: true
@@ -496,19 +496,27 @@ violation. A cross-runtime CRITICAL/HIGH sets `type = "cross-runtime-finding"`; 
 with `cause == "unattested-invocation"` sets `type = "review-integrity-failure"` (FR-175); any
 other gate violation sets `"design-not-converging"` with `cause` per §5.5.
 
+**Recovery before retry.** Persist artifacts, then append review's one Pipeline State event.
+Before NO-GO retry:
+
+```bash
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase review
+```
+
+Exit 2 requires diagnosed reframe after **three consecutive review NO-GOs**; exit 1 blocks
+retry. Follow roster-run's recovery procedure. Existing convergence/human gates remain
+binding; drafts/rereads never emit duplicate events.
+
 ### 7. Human gate
 
-Present a one-line summary: auto-fixes applied, finding counts by severity, GO/NO-GO status,
-`no_go_round` and the checks added this round (e.g. "round 2/5, 1 new ratcheted check
-(`checks/foo.test.js`, red-verified)"). If a finding's `pre_fix_sha` is null, flag it explicitly. If
+Summarize auto-fixes, finding counts by severity, GO/NO-GO,
+`no_go_round` and new checks (e.g. "round 2/5, 1 new ratcheted check
+(`checks/foo.test.js`, red-verified)"). Flag null `pre_fix_sha`. If
 NO-GO, name the HIGH+ findings to resolve. Surface any gate `warnings[]` verbatim. Wait for
 explicit human confirmation before proceeding.
 
 **Streak-escalation override.** When `no_go_reason.cause == "novel-finding-streak"`, present the
 override option (§5.5). Never offer it for `cause == "round-cap"` — non-overridable.
-
-**Known residual:** the review-GO → QA-NO-GO → implement loop is not bounded by the convergence
-gate — `/roster-qa` is explicitly out of scope for this mechanism.
 
 ## Output Contract
 

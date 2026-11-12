@@ -21,7 +21,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | skill-creator | 1.4.0 | opus | Designs reusable workflow skills from repeated patterns, with search-first and safety checks |
 | architect | 1.6.0 | sonnet | Code quality and architecture guardian focused on structural regressions, duplication, and maintainability risks |
 | context-manager | 1.3.0 | haiku | Maintains concise shared context for multi-agent execution to reduce drift and duplication |
-| planner | 1.3.0 | opus | Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent |
+| planner | 1.4.0 | opus | Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent |
 | pr-workflow | 1.2.0 | sonnet | Owns the project PR/git workflow — conventional commits, rebase merge, pre-push validation, and review rounds |
 | agents-md-guardian | 1.0.0 | sonnet | Reviews AGENTS.md / CLAUDE.md changes against a parameterizable checklist (size budget, required sections, forbidden inline patterns, doc links) |
 
@@ -78,7 +78,7 @@ These agents are domain-specific overlays for particular hardware/projects. Inst
 
 ---
 
-## Skills (41)
+## Skills (42)
 
 Skills are slash-command workflows that run in the main context and produce contractual artifacts that chain across pipeline phases.
 
@@ -123,6 +123,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 | `improvement-loop-planner` | management | Propose bounded improvement loops from KB, tests, issues, CI, and code signals |
 | `improvement-loop` | workflow | Execute a bounded verification-first improvement loop |
 | `roster-config` | workflow | Discover and set tunables across installed agents |
+| `roster-usage` | workflow | Explicit local usage reports with provenance and unknown coverage |
 | `roster-telemetry` | workflow | Configure local commit metrics, participants, pipeline/formal context and hook updates |
 | `team` | workflow | Manage the installed agent team — `build` (apply proposal), `review` (audit gaps), `run <task>` (execute pipeline) |
 | `chamallaw-shadow` | workflow | Evaluate a configured local decision contract against roster.intake without changing routing |
