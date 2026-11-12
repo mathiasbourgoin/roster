@@ -15,6 +15,13 @@ Default to a shared harness model:
 - Updating a project means updating the shared harness first, then re-rendering runtime entrypoints
 - If no harness exists yet, bootstrap one with `./scripts/init-harness.sh <project-root> [profile]`
 
+## Update Notes — v2.8.0 release preparation
+
+Update the complete harness, skills, rules and companion tools from the approved `main`
+revision, not only agent prompts. Includes portable multi-intake roadmap coordination and
+consumer-tool compatibility fixes. Read root `CHANGES.md` for the release-candidate status;
+Pi mission descriptions do not restore a Pi installer. Run `/roster-doctor` after updating.
+
 ## Step 0: Version Check (MANDATORY — run before any other step)
 
 Run the version check script — `.claude/agents/recruiter-ops/version-check.sh` (installed),

@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.8.0] — release preparation, 2026-11-12
+
+- Synchronize recruiter, installer fallback, plugin and harness metadata for the `main`
+  release candidate. No tag/publication is created by this change.
+- Surface full harness/skill/tool upgrade notes and the roadmap's installer limitations.
+- Root `CHANGES.md` covers the product changes. The npm tooling version remains independent.
+
+---
+
 ## [2.7.0] — 2026-09-30
 
 First tagged release of the `2.7.0` line (stamped on `next` on 2026-06-05). The full

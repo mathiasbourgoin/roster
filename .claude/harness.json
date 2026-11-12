@@ -67,7 +67,7 @@
         "name": "planner",
         "source": "roster",
         "version": "1.2.0",
-        "role": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context — no research history.",
+        "role": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context \u2014 no research history.",
         "tunables": {}
       },
       {
@@ -80,7 +80,7 @@
       {
         "name": "recruiter",
         "source": "roster",
-        "version": "2.7.0",
+        "version": "2.8.0",
         "role": "Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team across shared harness files and runtime-specific entrypoints.",
         "tunables": {}
       },
