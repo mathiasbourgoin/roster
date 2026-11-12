@@ -368,7 +368,7 @@ constraint entirely. That is not hypothetical here — it is the sibling project
 is executed not interpreted. **Drift left.** In-node prose (correctly).
 
 **In-house instance — épure is the realized Alternative F.** roster's sibling project
-`~/dev/epure` is exactly this architecture, already built (OCaml, shipping): a **headless
+épure is exactly this architecture, already built (OCaml, shipping): a **headless
 server** whose **Session Manager *is* a phase state machine** (DISCOVER→…→PRODUCE; story
 lifecycle `draft→challenged→accepted→implemented→validated`) held in **SQLite** (Story +
 Constraint DBs) — the typed state of record roster encodes as the prose `LEDGER_SCHEMA`. Its
@@ -388,7 +388,7 @@ deterministic engine when a workload needs F — or converge roster toward it. E
 **Stage 0 (extract the FSM/install-list/hook-bodies to typed data) is the first step along épure's
 axis**, and the prior research's **W0** (agent-runtime hooks — a "deterministic engine the LLM
 can't bypass," PreToolUse blocks) is where a deterministic execution layer can live *inside* the
-runtime today. (See the in-house `~/dev/epure-agent-roster-gstack-comparison` for the head-to-head.)
+runtime today.
 
 ---
 
@@ -432,12 +432,11 @@ boundaries, control flow as data — is already captured by Stages 0–1, and in
 a deterministic execution layer can only live via the prior research's **W0** (per-target hooks/CI).
 
 **The one strategic decision this report can't make for you:** F *as an external engine already
-exists in-house* — that is épure (`~/dev/epure`): an OCaml headless server whose Session Manager is
+exists* — that is épure: an OCaml headless server whose Session Manager is
 the phase state machine, with the LLM as a called backend. So the question isn't "engine or not,"
 it's **division of labour** — keep roster the lightweight, in-runtime prose harness (Stages 0–2)
 and route engine-grade, fully-deterministic workloads to épure; or deliberately converge roster
-toward épure. Stage 0 is the first step along that axis regardless. The `~/dev/epure-agent-roster-gstack-comparison`
-repo is where that call should be settled.
+toward épure. Stage 0 is the first step along that axis regardless.
 
 **Through-line:** the substrate problem and the prior verdict-trust problem are the same
 principle at two altitudes. Prior work: *don't trust an agent's self-reported verdict —

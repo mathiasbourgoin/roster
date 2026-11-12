@@ -9,9 +9,7 @@ version: 1.4.0
 
 # Spec — Review Tool Distribution
 
-> **Provenance:** intake human-validated (Type: feature; Trust boundary: no, human-confirmed).
-> Closes the standing distribution gap flagged in PR #49/#50/#51 and elevated to blocking by the
-> downstream v2 follow-up. FR numbering continues at FR-123.
+Addresses review-tool distribution; FR numbering continues at FR-123.
 
 ## Clarifications (challenge-resolution highlights; 22 challenges + 8 edge cases)
 

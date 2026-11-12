@@ -11,10 +11,7 @@ version: 1.1.0
 
 > A-1 (re-validation 2026-07-14, post lib-split c0123a0): review-lifecycle.js + finding-schema.js are at scripts/lib/review/ — FR-261/FR-264/AC-1/AC-2/CHECK-6/Entity/US-4/FR-281 corrected (CHECK-6 was actively broken pre-patch). roster-qa base v1.8.1 (delta to 1.7.0 carries NO round/state/counter mechanics — greenfield premise holds). New helpers still go in scripts/lib/qa/ (C-10). FR-260..286 no collision with r5 (FR-160..181). All FR logic, reuse premise, exit-contract, FR-032 supersession verified intact.
 
-> **Provenance:** produced under explicit full-autonomy delegation (2026-07-13). Open Questions in
-> the intake brief were resolved by binding gate decisions passed with the phase dispatch; each is
-> recorded in Clarifications and challenged where a concrete defect was found. Status is DRAFT —
-> human validation (quiz per human-validation.md) is still pending before VALIDATED.
+Status is DRAFT; the contract requires validation before it can be marked VALIDATED.
 >
 > **FR numbering:** the highest FR across all repo artifacts at spec time is FR-158
 > (`specs/review-bundle` family). The concurrent `r5-trace-enforcement` spec reserves the next
