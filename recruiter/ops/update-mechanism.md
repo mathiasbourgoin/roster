@@ -80,15 +80,25 @@ display `"Upgraded roster to v<remote>."` with no further detail.
 
 When invoked with "update" (e.g., `/recruit update` or "update yourself"):
 
-0. Resolve the update source deterministically:
-   - If the `roster_local_clone` tunable path exists and contains `recruiter/recruiter.md`, use that local clone first.
-   - Report: source path, current branch, `git rev-parse --short HEAD`, and whether `git status --short` is clean or dirty.
-   - If the local clone is absent, fetch from the configured remote roster repo.
+0. Resolve one update source before reading versions or discovering components:
+   - Respect an explicit owner-selected channel/ref. Otherwise read the active runtime's
+     `.roster-channel`: `stable` → `main`, `next` → `next`, `branch:<ref>` → that explicit
+     pin. A missing marker means stable; an unknown marker requires reconciliation, never
+     an implicit switch to main. Preserve explicit branch pins unless the owner changes them.
+   - Prefer `roster_local_clone` only when its checked-out revision matches that selection,
+     or the owner explicitly approved that local snapshot. Report path, branch, HEAD and
+     clean/dirty status. A dirty snapshot needs that explicit scope; do not call it an
+     immutable commit. Never change another session's checkout to obtain a matching branch.
+   - If the local checkout does not match, use a separate approved matching checkout or the
+     configured remote at the selected ref. Do not silently substitute its current branch.
+   - Bind the update to one approved revision (or explicitly approved local snapshot) and
+     report it. For a remote source set `ROSTER_RAW` to
+     `https://raw.githubusercontent.com/<roster_repo>/<approved-revision>`; retain that value
+     throughout recruiter, agents, skills, preambles, registries and companion-tool retrieval.
+     Recheck the candidate version before approval if it changed since the initial check.
 
-1. Fetch or read the latest version from the roster repo:
-   ```
-   https://raw.githubusercontent.com/<roster_repo>/main/recruiter/recruiter.md
-   ```
+1. Read `recruiter/recruiter.md` from that resolved local snapshot, or fetch
+   `${ROSTER_RAW}/recruiter/recruiter.md` for a remote source. Never reset the source to main.
 
 2. Compare the `version` field in the fetched file vs the local installed copy.
 
@@ -213,11 +223,18 @@ mkdir -p .harness/skills .claude/commands .agents/skills
 ```
 
 **Step 2 — Fetch the shared preamble and its frontmatter-gated fragments:**
+Reuse the approved source/revision from Self-Update step 0. On first-run assembly, resolve
+that same source contract before discovery. Do not introduce a new main/channel fallback.
+For a local snapshot read/copy the corresponding paths and use trusted checkout installers;
+the remote `curl` examples below do not apply to local snapshot reads. All companion files
+must come from that same snapshot, including when its current branch differs from the
+installed channel and was explicitly approved as an exception.
+
+For a remote source, retain the already resolved `ROSTER_RAW`:
 ```bash
-ROSTER_RAW="https://raw.githubusercontent.com/<roster_repo>/main"
-PREAMBLE=$(curl -sL "$ROSTER_RAW/skills/shared/preamble.md")
-PREAMBLE_PIPELINE=$(curl -sL "$ROSTER_RAW/skills/shared/preamble-pipeline.md")
-PREAMBLE_FRICTION=$(curl -sL "$ROSTER_RAW/skills/shared/preamble-friction.md")
+PREAMBLE=$(curl -fsSL "$ROSTER_RAW/skills/shared/preamble.md")
+PREAMBLE_PIPELINE=$(curl -fsSL "$ROSTER_RAW/skills/shared/preamble-pipeline.md")
+PREAMBLE_FRICTION=$(curl -fsSL "$ROSTER_RAW/skills/shared/preamble-friction.md")
 ```
 
 The two fragments are injected conditionally (mirroring `sync-harness.sh`):
@@ -417,7 +434,7 @@ consumes the recruiter's 3–5 focused-question budget. Deterministic procedure:
    plus `tsconfig.json`), mapped to the registry enum `go`/`rust`/`typescript`/`javascript`/`python`/`ocaml`.
 2. **Load the registry:** from a local roster checkout when running inside or alongside one
    (`registry/code-intel.jsonl`); otherwise fetch
-   `https://raw.githubusercontent.com/mathiasbourgoin/roster/main/registry/code-intel.jsonl`
+   `${ROSTER_RAW}/registry/code-intel.jsonl` from that same approved source/revision (or the corresponding local snapshot path)
    (20s timeout). On any failure, skip this offer silently — no question, no error.
 3. **Filter:** keep entries whose `languages` overlap the detected languages. Exclude
    already-installed packs — run `node scripts/code-intel-resolve.js list` when the resolver is
