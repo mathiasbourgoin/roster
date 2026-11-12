@@ -43,8 +43,46 @@ need_cmd jq
 # Refuse managed roadmap aliases before --check copies links into its sandbox.
 # Source is optional for legacy standalone sync copies that do not ship the toolkit.
 ROADMAP_SOURCE="$SCRIPT_DIR/roster-roadmap.cjs"
-ROADMAP_SOURCES=("$ROADMAP_SOURCE" "$SCRIPT_DIR/../schema/roadmap-schema.md" "$SCRIPT_DIR/../examples/roadmap/roadmap.json" "$SCRIPT_DIR/../examples/roadmap/capabilities.json" "$SCRIPT_DIR/../docs/model-routing.md")
-ROADMAP_TARGETS=("$HARNESS_DIR/bin/roster-roadmap.cjs" "$HARNESS_DIR/roadmap/schema.md" "$HARNESS_DIR/roadmap/example.json" "$HARNESS_DIR/roadmap/capabilities.json" "$HARNESS_DIR/roadmap/model-routing.md")
+ROADMAP_SOURCES=(
+    "$ROADMAP_SOURCE"
+    "$SCRIPT_DIR/roster-artifacts.cjs"
+    "$SCRIPT_DIR/roster-recovery.cjs"
+    "$SCRIPT_DIR/roster-roadmap-view.cjs"
+    "$SCRIPT_DIR/roster-roadmap-estimates.cjs"
+    "$SCRIPT_DIR/roster-usage.cjs"
+    "$SCRIPT_DIR/../schema/roadmap-schema.md"
+    "$SCRIPT_DIR/../examples/roadmap/roadmap.json"
+    "$SCRIPT_DIR/../examples/roadmap/capabilities.json"
+    "$SCRIPT_DIR/../docs/model-routing.md"
+    "$SCRIPT_DIR/../schema/recovery-schema.md"
+    "$SCRIPT_DIR/../docs/failure-recovery.md"
+    "$SCRIPT_DIR/../schema/usage-report-schema.md"
+    "$SCRIPT_DIR/../docs/usage-reports.md"
+    "$SCRIPT_DIR/../schema/roadmap-estimates-schema.md"
+    "$SCRIPT_DIR/../docs/roadmap-estimates.md"
+    "$SCRIPT_DIR/../schema/roadmap-view-schema.md"
+    "$SCRIPT_DIR/../schema/roadmap-view.schema.json"
+)
+ROADMAP_TARGETS=(
+    "$HARNESS_DIR/bin/roster-roadmap.cjs"
+    "$HARNESS_DIR/bin/roster-artifacts.cjs"
+    "$HARNESS_DIR/bin/roster-recovery.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-view.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-estimates.cjs"
+    "$HARNESS_DIR/bin/roster-usage.cjs"
+    "$HARNESS_DIR/roadmap/schema.md"
+    "$HARNESS_DIR/roadmap/example.json"
+    "$HARNESS_DIR/roadmap/capabilities.json"
+    "$HARNESS_DIR/roadmap/model-routing.md"
+    "$HARNESS_DIR/roadmap/recovery-schema.md"
+    "$HARNESS_DIR/roadmap/failure-recovery.md"
+    "$HARNESS_DIR/roadmap/usage-schema.md"
+    "$HARNESS_DIR/roadmap/usage-reports.md"
+    "$HARNESS_DIR/roadmap/estimates-schema.md"
+    "$HARNESS_DIR/roadmap/estimates.md"
+    "$HARNESS_DIR/roadmap/view-schema.md"
+    "$HARNESS_DIR/roadmap/view.schema.json"
+)
 if [ -f "$ROADMAP_SOURCE" ]; then
     for _roadmap_path in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/roadmap" "${ROADMAP_TARGETS[@]}"; do
         if [ -L "$_roadmap_path" ]; then

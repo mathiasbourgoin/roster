@@ -80,6 +80,32 @@ costly attempt or increase attempts merely to keep moving. Escalation still requ
 controls, owner model constraints, existing permissions/bounds and unchanged independence.
 If none permits progress, report the precise blocking decision; record unavailable switches honestly.
 
+After **three consecutive unsuccessful missions**, record a diagnosed reframe before another
+unchanged retry. Use the manually invoked recovery tool, which reads the original evidence:
+
+```sh
+node .harness/bin/roster-recovery.cjs check --board <board> --task <task-id>
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase review
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase qa
+```
+
+Select the applicable board/task or canonical pipeline phase source. Source checkout paths
+use `scripts/roster-recovery.cjs`. `check` exits 2 when reframe is needed, 1 on invalid/setup
+input and 0 when this recovery requirement permits continuing. A zero exit is not GO or a
+general retry authorization. A valid decision binds actor, basis, diagnosis, changed strategy,
+next discriminating check and evidence to the current identity and exact source prefix;
+record it with `reframe` and the same source arguments plus `--decision <file>`. Follow
+[the recovery procedure](failure-recovery.md) (installed sibling: `failure-recovery.md`).
+
+Roadmaps count distinct blocked receipt attempts for the accepted task contract. Pipeline
+review/QA count consecutive same-phase NO-GO events independently; a review GO does not
+clear QA failures. The pipeline ledger lacks an immutable mission digest, so retain its
+canonical task/phase and actual brief/spec context. A reframe preserves original evidence,
+prior records and consumed bounds; it never authorizes a model change, refunds a budget,
+waives acceptance or overrides the two-strike review rule or either five-round cap. Reconcile
+an old active worker through the roadmap core before another claim. These local artifact
+commands work across Codex, Claude, OpenCode and Pi without hooks or runtime control.
+
 ## Accepted roadmaps and older plans
 
 Accepted `topology.model` is immutable. A different requested model requires the existing

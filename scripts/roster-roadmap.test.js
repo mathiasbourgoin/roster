@@ -243,9 +243,10 @@ test("malformed state, unknown options and unsafe managed links fail closed", t 
   assert.deepEqual(fs.readFileSync(outside), bytes);
 });
 
-test("standalone installed cjs runs inside ESM consumer without dependencies", t => {
+test("standalone runtime closure runs inside ESM consumer without repository dependencies", t => {
   const root = temporary(t), cli = path.join(root, "roster-roadmap.cjs"), board = path.join(root, "board");
-  write(path.join(root, "package.json"), { type: "module" }); fs.copyFileSync(CLI, cli);
+  write(path.join(root, "package.json"), { type: "module" });
+  for (const name of ["roster-roadmap.cjs", "roster-artifacts.cjs", "roster-recovery.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-usage.cjs"]) fs.copyFileSync(path.join(__dirname, name), path.join(root, name));
   const out = run(board, "init", ["--id", "esm-consumer"], cli);
   assert.equal(out.code, 0, JSON.stringify(out));
   assert.equal(read(path.join(board, "roadmap.json")).id, "esm-consumer");

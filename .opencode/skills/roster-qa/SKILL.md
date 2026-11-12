@@ -2,7 +2,7 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.10.0
+version: 1.11.0
 domain: pipeline
 phase: qa
 preamble: true
@@ -552,6 +552,29 @@ qualifying rounds. This is a non-overridable human decision point (FR-275) — d
 `/roster-implement`. Present the `rounds_audit` trail and offer: revise the spec (`/roster-spec`),
 re-review (`/roster-review`), or split/abandon the task.
 ```
+
+**Finalize once before retry routing.** Preserve the fixed write order above: gated QA state,
+then QA report, then this phase's one canonical `qa` GO/NO-GO event in
+`briefs/<task>-state.json` per Pipeline State. Before following a NO-GO route into another
+unchanged implementation/QA attempt, run:
+
+```bash
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase qa
+```
+
+Source checkout: `scripts/roster-recovery.cjs`. Exit 2 / `reframe_needed` requires a diagnosed
+reframe after **three consecutive QA NO-GO events** before the fourth retry. Use the fresh
+identity/source fingerprint/failure IDs, actor, basis, diagnosis, changed strategy, next
+discriminating check and evidence; follow `.harness/roadmap/failure-recovery.md` (source:
+`docs/failure-recovery.md`), record the reframe and recheck. Exit 1 blocks retry pending
+reconciliation; exit 0 clears only this recovery requirement. Review GO does not reset QA's
+streak. Do not append duplicate verdicts on a reread, draft repair or check.
+
+This streak counts canonical QA NO-GO events, including environment-only failures; it does
+not change `qa_no_go_round`'s qualifying-cause rules or its default five-round cap. A valid
+reframe does not waive a cap-hit human decision, acceptance or any consumed bounds. Preserve
+the source history and reframe records. Existing spec/review escalation choices remain
+available; all implementation retry guidance below is conditional on both gates.
 
 ### 6. Human gate
 

@@ -2,7 +2,7 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.6.0
+version: 1.7.0
 domain: pipeline
 phase: plan
 preamble: true
@@ -80,6 +80,19 @@ per mission, using relative `economy`/`standard`/`strong` tiers; unknown cost/ca
 unknown. Explicit owner model choices, quality gates and independence requirements win.
 Use direct deterministic commands where possible and same-agent sequential work when
 delegation adds no value; required independent analyses/review must still remain independent.
+
+Estimate each bounded mission's optimistic/likely/pessimistic duration in minutes using
+the brief's scope, dependency/check burden and observed execution evidence. State the basis,
+assumptions and unknowns; an owner deadline is not duration evidence. For roadmap planning
+or a revisit, include all task ranges and a separate global-verification range (or unknown),
+revising only where evidence changes the estimate. Do not move an ETA merely because of a poll.
+Read `.harness/roadmap/estimates-schema.md` (source `schema/roadmap-estimates-schema.md`)
+for a planner `estimates.json` update. Bind it to the accepted contract digest, current execution
+revision and independent forecast revision, with writer, rationale, evidence and UTC capture.
+Active remaining estimates must name the actual attempt and capture time; otherwise elapsed
+time is unknown on legacy boards. Record uncertainty in the plan when evidence is unavailable;
+missing historical forecasts alone do not invalidate a brief. Forecast sidecars amend no
+accepted mission/model, receipt, plan-JSON schema, review gate or retry budget.
 
 ### 2. Dual-voice: two independent analyses
 
@@ -196,6 +209,17 @@ Produce `briefs/<task>-plan.md`:
 
 <Step N must precede step M because ...>
 
+## Duration forecast
+
+| Mission | Optimistic / likely / pessimistic minutes, or unknown | Basis and evidence | Assumptions / dependencies |
+|---|---|---|---|
+| <mission> | <range or unknown> | <scope/check evidence> | <dispatch/capacity assumptions> |
+| Global verification (roadmap only) | <range or unknown> | <integrated check burden> | <separate from task DoD> |
+
+For a roadmap revisit: state what changed, preserve earlier forecast revisions and provide
+the separate accepted-contract-bound estimates update. Task ETA and global ETA remain
+conditional on dispatch/authorization/check outcomes; unresolved blockers stay visible.
+
 ## Model routing
 
 | Mission / role | Runtime; requested model / tier | Native control and evidence | Selection reason; cost/uncertainty; costly exception | Actual model | Failure trigger; existing bounds; authorized fallback |
@@ -233,6 +257,9 @@ Diagnose environment/context/spec issues and ordinary red tests before model esc
 do not repeat unchanged expensive attempts or relax gates/budgets. If an accepted roadmap
 is involved, a different `topology.model` requires its revised accepted board process,
 preserving history and consumed attempts; this table cannot silently reroute it.
+Include only the mission's duration/remaining range, evidence basis, assumptions and any
+attempt/time anchor in its sub-brief. Use the separate forecast sidecar for roadmap updates;
+unknown timing must not become a promise or cause a weaker completion criterion.
 
 ### 7. Human validation quiz
 

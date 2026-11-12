@@ -10,9 +10,11 @@ const ROUTES = ["sequential", "subagent", "parallel", "multisession", "workflow"
 const CAPABILITIES = ROUTES.filter(x => x !== "sequential");
 const ID = /^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
-const MAX_JSON_BYTES = 16 * 1024 * 1024;
+const { readJSON, atomicWrite, safeAncestors } = require("./roster-artifacts.cjs");
 const COMMANDS = {
-  init: ["id"], lint: [], status: [], next: [],
+  init: ["id"], lint: [], status: ["format", "events", "task"], next: [], view: ["events", "task"],
+  progress: ["task", "attempt", "assignee", "sequence", "update"],
+  estimate: ["revision", "update"],
   prompt: ["task", "max-chars"],
   accept: ["coordinator", "revision", "decision"],
   claim: ["coordinator", "revision", "task", "assignee"],
@@ -115,40 +117,6 @@ function canonical(value) {
   return value;
 }
 function hash(value) { return crypto.createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex"); }
-function safeAncestors(target) {
-  const absolute = path.resolve(target), parsed = path.parse(absolute);
-  let current = parsed.root;
-  for (const part of absolute.slice(parsed.root.length).split(path.sep).filter(Boolean)) {
-    current = path.join(current, part);
-    try { if (fs.lstatSync(current).isSymbolicLink()) fail(`unsafe symlink at ${current}`); }
-    catch (err) { if (err.code !== "ENOENT") throw err; }
-  }
-}
-function readJSON(file) {
-  safeAncestors(file);
-  try {
-    const stat = fs.lstatSync(file);
-    if (!stat.isFile()) fail(`expected regular file ${file}`);
-    if (stat.size > MAX_JSON_BYTES) fail(`oversized JSON file ${file}`);
-    return JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch (err) { fail(`cannot read ${file}: ${err.message}`); }
-}
-function atomicWrite(file, value) {
-  safeAncestors(file);
-  const serialized = typeof value === "string" ? value : JSON.stringify(value, null, 2) + "\n";
-  if (Buffer.byteLength(serialized, "utf8") > MAX_JSON_BYTES) fail(`serialized artifact size exceeds ${MAX_JSON_BYTES} byte limit; keep long evidence in referenced files`);
-  const tmp = `${file}.tmp-${process.pid}-${crypto.randomUUID()}`;
-  let fd;
-  try {
-    fd = fs.openSync(tmp, "wx", 0o600);
-    fs.writeFileSync(fd, serialized);
-    fs.fsyncSync(fd); fs.closeSync(fd); fd = undefined;
-    fs.renameSync(tmp, file);
-  } finally {
-    if (fd !== undefined) fs.closeSync(fd);
-    fs.rmSync(tmp, { force: true });
-  }
-}
 function validateState(state) {
   keys(state, ["schema_version", "board_id", "revision", "coordinator", "acceptance", "tasks", "receipts", "events", "global_receipt"], "state");
   if (state.schema_version !== 1) fail("unsupported state schema_version");
@@ -164,7 +132,8 @@ function validateState(state) {
   object(state.tasks, "state.tasks"); array(state.receipts, "state.receipts"); array(state.events, "state.events");
   if (state.events.length !== state.revision) fail("state revision/event history mismatch");
   state.events.forEach((event, index) => {
-    keys(event, ["revision", "action", "coordinator", "task_id", "reason", "reconciled_by"], "state event");
+    keys(event, ["revision", "action", "coordinator", "task_id", "reason", "reconciled_by", "at"], "state event");
+    if (event.at !== undefined && (typeof event.at !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(event.at) || !Number.isFinite(Date.parse(event.at)))) fail("invalid state event timestamp");
     if (event.revision !== index + 1) fail("state event revisions are not contiguous");
     oneOf(event.action, ["accept", "claim", "record", "release", "complete"], "state event action");
     identifier(event.coordinator, "state event coordinator");
@@ -280,7 +249,7 @@ function routeFor(ctx, task) {
 function overlaps(a, b) {
   return a === b || a.endsWith("/") && b.startsWith(a) || b.endsWith("/") && a.startsWith(b);
 }
-function canClaim(ctx, task) {
+function canClaimBasic(ctx, task) {
   const state = ctx.state.tasks[task.id], active = ctx.contract.tasks.filter(t => ctx.state.tasks[t.id].status === "active");
   if (state.status !== "queued") return `task is ${state.status}`;
   if (state.attempts >= task.policy.max_attempts) return "attempt budget exhausted";
@@ -292,6 +261,12 @@ function canClaim(ctx, task) {
     if (!capability(ctx, task.topology.runtime, "parallel") || active.some(t => !capability(ctx, t.topology.runtime, "parallel"))) return "concurrent claims require authorized parallel capability on all involved runtimes";
     if (active.some(t => task.allowed_files.some(a => t.allowed_files.some(b => overlaps(a, b))))) return "write scope overlaps active mission";
   }
+  return null;
+}
+function canClaim(ctx, task) {
+  const reason = canClaimBasic(ctx, task); if (reason) return reason;
+  try { if (require("./roster-recovery.cjs").inspectBoard(ctx, task.id).reframe_needed) return "three consecutive failures require a diagnosed reframe before another attempt"; }
+  catch { return "recovery evidence is invalid; reconcile this mission before retrying"; }
   return null;
 }
 function next(ctx) {
@@ -387,6 +362,7 @@ function transitionRelease(ctx, options) {
   if (!["active", "blocked"].includes(current.status)) fail("only active or blocked work can be reconciled");
   if (task.policy.on_failure !== "retry") fail("task policy does not authorize retry");
   if (current.attempts >= task.policy.max_attempts) fail("attempt budget exhausted; revise the roadmap explicitly");
+  if (require("./roster-recovery.cjs").inspectBoard(ctx, task.id).reframe_needed) fail("three consecutive failures require a diagnosed reframe before requeueing");
   current.status = "queued"; current.assignment = null; current.reason = options.reason;
   return { task_id: task.id, reconciled: true, by: options["reconciled-by"], reason: options.reason };
 }
@@ -405,7 +381,7 @@ const TRANSITIONS = { accept: transitionAccept, claim: transitionClaim, record: 
 function persistTransition(ctx, command, options, result) {
   const { state, board } = ctx;
   state.revision++;
-  state.events.push({ revision: state.revision, action: command, coordinator: options.coordinator, task_id: options.task || result?.task_id || null, reason: options.reason || null, reconciled_by: options["reconciled-by"] || null });
+  state.events.push({ revision: state.revision, action: command, coordinator: options.coordinator, task_id: options.task || result?.task_id || null, reason: options.reason || null, reconciled_by: options["reconciled-by"] || null, at: new Date().toISOString() });
   validateState(state); requireAccepted(ctx); atomicWrite(path.join(board, "state.json"), state);
   return { ...result, revision: state.revision };
 }
@@ -475,7 +451,7 @@ function missionAction(ctx, task) {
 function main(argv) {
   if (argv.length === 1 && ["--help", "help"].includes(argv[0])) return { usage: "roster-roadmap.cjs <command> <board-dir> [options]", commands: COMMANDS, assurance: "Artifact coordination only; no agent/check execution. Source reference: schema/roadmap-schema.md; installed reference: .harness/roadmap/schema.md." };
   const [command, boardArg, ...args] = argv;
-  if (!Object.hasOwn(COMMANDS, command) || !boardArg || boardArg.startsWith("--")) fail("usage: roster-roadmap.cjs <init|lint|accept|status|next|prompt|claim|record|release|complete> <board-dir> [options]");
+  if (!Object.hasOwn(COMMANDS, command) || !boardArg || boardArg.startsWith("--")) fail("usage: roster-roadmap.cjs <init|lint|accept|status|view|progress|estimate|next|prompt|claim|record|release|complete> <board-dir> [options]");
   const options = {};
   for (let i = 0; i < args.length; i += 2) {
     if (!args[i].startsWith("--") || args[i + 1] === undefined) fail("options require --name value pairs");
@@ -485,16 +461,28 @@ function main(argv) {
   }
   const board = path.resolve(boardArg);
   if (command === "init") return init(board, options);
+  if (command === "progress") return require("./roster-roadmap-view.cjs").update(board, options);
+  if (command === "estimate") return require("./roster-roadmap-estimates.cjs").update(board, options);
   if (["accept", "claim", "record", "release", "complete"].includes(command)) return mutate(board, command, options);
-  const ctx = load(board, command !== "status");
+  const ctx = load(board, !["status", "view"].includes(command));
   if (command === "lint") return { valid: true, contract_digest: hash(ctx.contract), capability_digest: hash(ctx.capabilities), note: "Structural coherence only; semantic contradictions still require agent review." };
-  if (command === "status") return status(ctx);
+  if (command === "view") return require("./roster-roadmap-view.cjs").snapshot(ctx, options);
+  if (command === "status") {
+    if (options.format === "text") { const view = require("./roster-roadmap-view.cjs"); return view.format(view.snapshot(ctx, options)); }
+    if (options.format !== undefined && options.format !== "json" || options.task || options.events) fail("status supports --format json or text; use view for JSON filtering");
+    return status(ctx);
+  }
   if (command === "next") return next(ctx);
   return prompt(ctx, options);
 }
 
+function readBoard(board, draft = false) {
+  const ctx = load(path.resolve(board), !draft);
+  if (ctx.state.acceptance) requireAccepted(ctx);
+  return ctx;
+}
+module.exports = { main, validateContract, validateCapabilities, hash, readBoard, canClaimBasic, viewSupport: { status, next, routeFor }, io: { readJSON, atomicWrite, safeAncestors } };
 if (require.main === module) {
-  try { process.stdout.write(JSON.stringify(main(process.argv.slice(2)), null, 2) + "\n"); }
+  try { const result = main(process.argv.slice(2)); process.stdout.write((typeof result === "string" ? result : JSON.stringify(result, null, 2)) + "\n"); }
   catch (err) { process.stdout.write(JSON.stringify({ status: "error", error: err.message }) + "\n"); process.exitCode = 1; }
 }
-module.exports = { main, validateContract, validateCapabilities, hash };
