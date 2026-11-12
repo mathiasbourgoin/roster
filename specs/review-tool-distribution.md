@@ -3,7 +3,6 @@ name: review-tool-distribution
 type: spec
 status: live
 feature: Review tool bundle distribution (manifest, install paths, blocking preflight, scratch test)
-brief: briefs/review-tool-distribution-intake.md
 date: 2026-07-13
 version: 1.4.0
 ---

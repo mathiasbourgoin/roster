@@ -3,7 +3,6 @@ name: review-fanout-convergence
 type: spec
 status: live
 feature: Review fan-out convergence (two-strike escalation, cross-runtime circuit breaker, delta reviewer selection, authentic-path freeze)
-brief: briefs/review-fanout-convergence-intake.md
 date: 2026-07-13
 version: 1.1.0
 ---

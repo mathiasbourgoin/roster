@@ -3,7 +3,6 @@ name: skill-prompt-injection-sweep
 type: spec
 status: VALIDATED
 feature: Injection-safe task-description heuristics in skill contracts
-brief: briefs/skill-prompt-injection-sweep-intake.md
 date: 2026-07-14
 version: 1.0.0
 ---

@@ -3,7 +3,6 @@ name: review-bundle-path-containment
 type: spec
 status: VALIDATED
 feature: Manifest-path containment guard for the review-bundle installer's four modes
-brief: briefs/review-bundle-path-containment-intake.md
 date: 2026-07-14
 version: 1.0.0
 ---

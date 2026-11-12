@@ -3,7 +3,6 @@ name: roster-spec
 type: spec
 status: live
 feature: critical pipeline route port
-brief: briefs/critical-route-port-intake.md
 date: 2026-06-14
 version: 1.0.0
 ---

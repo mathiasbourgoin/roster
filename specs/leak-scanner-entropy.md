@@ -3,7 +3,6 @@ name: leak-scanner-entropy
 type: spec
 status: VALIDATED
 feature: Shape- and entropy-aware HIGH_BLOB detection in the leak scanner
-brief: briefs/leak-scanner-entropy-intake.md
 date: 2026-07-13
 version: 1.4.0
 ---

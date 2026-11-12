@@ -3,7 +3,6 @@ name: roster-spec
 type: spec
 status: live
 feature: Surgical implementation discipline (prose + review scope gate + manifest-freeze hook)
-brief: briefs/surgical-implementation-intake.md
 date: 2026-07-10
 version: 1.1.0
 ---

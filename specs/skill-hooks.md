@@ -3,7 +3,6 @@ name: skill-hooks
 type: spec
 status: live
 feature: Skill-Level Hook System with Declarative DSL
-brief: briefs/skill-hooks-intake.md
 date: 2026-05-25
 version: 1.1.0
 ---

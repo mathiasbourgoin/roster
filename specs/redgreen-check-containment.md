@@ -3,7 +3,6 @@ name: redgreen-check-containment
 type: spec
 status: VALIDATED
 feature: Path containment + green-phase tree-integrity for the ratcheted redgreen check runner
-brief: briefs/redgreen-check-containment-intake.md
 date: 2026-07-14
 version: 1.0.0
 ---
@@ -24,9 +23,8 @@ whose non-regression RGC-6 freezes, never a local identifier).
 
 ## Context
 
-Evidence base: `briefs/xruntime-rerun-pass-triage.md` (codex cross-runtime re-run) surfaced two
-CONFIRMED-HIGH defects in `scripts/lib/redgreen-scratch.js`; the intake reproduced (a) as a real ACE
-at HEAD.
+Two defects in the redgreen scratch runner are described below. The path-containment
+defect permits arbitrary code execution through a crafted `checkRelPath`.
 
 - **FIX-A (path containment, defect (a) — reproduced ACE).** `checkRelPath` flows unsanitized from
   `review.json` into `path.resolve(repoRoot, checkRelPath)` (line 47) and
@@ -220,10 +218,6 @@ but carry known, bounded limitations. Recorded here so review/QA do not mistake 
 
 - **Symlink/hardlink escape (OQ2, deferred)** — see D-3. Track as a follow-up (`fs.realpathSync` +
   containment re-check) unless a future planning pass deems it cheap.
-- **`scripts-lib-split` file move** — `scripts-lib-split` (plan `briefs/scripts-lib-split-plan.md`,
-  step 1) relocates `scripts/lib/redgreen-scratch.js` → `scripts/lib/review/redgreen-scratch.js` and
-  rewrites the `require` in `check-review-convergence.js`. This task edits the flat path in place and
-  lets that split rebase over it (same convention `convergence-gate-fail-closed` adopted).
 - **`.git`-internal / TOCTOU snapshot gaps** — D-1 and D-2 above, if a stronger green-phase integrity
   guarantee is later required.
 

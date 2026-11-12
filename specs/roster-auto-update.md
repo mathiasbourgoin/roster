@@ -2,7 +2,6 @@
 
 **Date:** 2026-05-27
 **Status:** LIVE
-**Intake brief:** briefs/roster-auto-update-intake.md
 
 ---
 

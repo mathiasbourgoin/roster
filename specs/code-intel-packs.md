@@ -3,7 +3,6 @@ name: roster-spec
 type: spec
 status: live
 feature: Tiered code-intel tool packs — registry, consumer seam, discovery, arch-index reference pack
-brief: briefs/code-intel-packs-intake.md
 date: 2026-07-09
 version: 1.0.0
 ---
