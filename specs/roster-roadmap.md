@@ -8,12 +8,12 @@ version: 1.0.0
 
 # Spec — portable roadmap coordination
 
-**Status: VALIDATED for implementation under owner's delegated autonomy.**
+**Status: validated contract.**
 Contract acceptance does not assert implementation verification. Local tooling is a coordination aid, not agent authentication, sandboxing or an unattended execution service.
 
 ## Clarifications
 
-The owner requires no CWR, runtime-adaptive routes (including subagents and authorized multisession), useful workflow proposals, GoalBuddy-like persistent resources, compact context refresh, and continued progress toward a global outcome. Routine decisions are delegated. Native sessions/tools execute work; this toolkit never launches sessions, sends messages or runs verification commands implicitly.
+The roadmap supports runtime-adaptive routes (including subagents and multisession), workflow proposals, persistent resources, compact context refresh, and progress toward a global outcome. Native sessions/tools execute work; this toolkit never launches sessions, sends messages or runs verification commands implicitly.
 
 ## User Stories
 
