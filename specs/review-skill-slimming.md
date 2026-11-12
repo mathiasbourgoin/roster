@@ -3,7 +3,6 @@ name: review-skill-slimming
 type: spec
 status: live
 feature: Review-skill slimming (cross-runtime helper, H-05 normalizer, size ratchet)
-brief: briefs/review-skill-slimming-intake.md
 date: 2026-07-13
 version: 1.2.0
 ---

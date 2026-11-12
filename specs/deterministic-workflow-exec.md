@@ -3,7 +3,6 @@ name: deterministic-workflow-exec
 type: spec
 status: live
 feature: Deterministic Workflow Execution
-brief: briefs/deterministic-workflow-exec-intake.md
 date: 2026-06-13
 version: 1.0.0
 ---

@@ -3,7 +3,6 @@ name: roster-spec
 type: spec
 status: validated
 feature: roster-roadmap
-brief: briefs/roster-roadmap-intake.md
 version: 1.0.0
 ---
 
