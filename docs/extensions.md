@@ -18,10 +18,8 @@ npm run build:ts
 Then inspect or install:
 
 ```bash
-npm run extension -- info ~/dev/security-workflows
-npm run extension -- install ~/dev/security-workflows
-npm run extension -- info ~/dev/verification-apparatus
-npm run extension -- install ~/dev/verification-apparatus
+npm run extension -- info /path/to/extension
+npm run extension -- install /path/to/extension
 ```
 
 Use `--target <project-root>` to install into another roster-managed project. Use `--dry-run` to see the planned file set without writing.

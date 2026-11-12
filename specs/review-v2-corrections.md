@@ -9,12 +9,9 @@ version: 1.3.0
 
 # Spec — Review v2 Corrections
 
-**Profile: minimal-freeze** (Type: fix + Trust boundary: yes — human-overruled at the intake
-gate: finding-ledger integrity is a review-evidence surface). Per the minimal-freeze contract:
-Invariants + Runnable Checks + paired ACs only; no story ceremony; `min_user_stories`/
-`min_gwtscenarios_per_story` do not apply. Evidence base:
-`~/dev/bounty-skills/skills-meta/health-2026-07-13-roster-review-v2-followup.md` (3 HIGH,
-5 MEDIUM; two claims independently verified upstream before this freeze).
+**Profile: minimal-freeze** (Type: fix + Trust boundary: yes; finding-ledger integrity
+is a review-evidence surface). Per the minimal-freeze contract: Invariants + Runnable
+Checks + paired ACs only; `min_user_stories`/`min_gwtscenarios_per_story` do not apply.
 
 ## Invariants
 
