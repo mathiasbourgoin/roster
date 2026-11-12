@@ -10,7 +10,7 @@ version: 1.4.0
 
 # Spec — Leak Scanner Entropy (minimal-freeze)
 
-> Validation: gate exercised under standing user delegation ("do them fully autonomously", 2026-07-13). Invariants, checks, and OQ encodings reviewed against the intake brief; the measured entropy constraint (hex ≤ 4.0 bits/char < prose corpus) was verified as the binding design constraint.
+> The binding design constraint is shape-aware detection: a hex string at or below 4.0 bits per character must not be classified as a high-entropy blob solely by length.
 
 **Profile: minimal-freeze** (Type: fix + Trust boundary: yes — this changes secret-detection
 behavior, the repo's fail-closed leak gate). Per the minimal-freeze contract: Invariants +

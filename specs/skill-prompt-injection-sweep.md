@@ -10,7 +10,7 @@ version: 1.0.0
 
 # Spec — Injection-safe task-description heuristics
 
-> Validation (standing user delegation, 2026-07-14): live vulnerability + fix empirically confirmed (old echo form creates canary, heredoc+printf form does not, HIT token preserved). SPI-1..4 binding. Snippets run via the agent Bash tool (bash); POSIX-conformant replacement — a strict improvement over the equally shell-dependent old form.
+> SPI-1..4 cover the observed injection path: the old `echo` form executes a canary, while a quoted heredoc with `printf` preserves the literal task text and the HIT token.
 
 **Profile: minimal-freeze**
 

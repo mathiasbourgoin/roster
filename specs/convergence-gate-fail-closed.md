@@ -10,7 +10,7 @@ version: 1.0.0
 
 # Spec — Convergence Gate Fail-Closed (minimal-freeze)
 
-> Validation (standing user delegation, autonomous batch 2026-07-14): invariants/checks reviewed; all three bypasses were reproduced at HEAD by intake. Binding refinement from spec review — FIX-B: classify a green-phase failure as `weakened` only on an actual `recordedBlob !== currentBlob` mismatch, NOT on `recordedBlob !== null` (otherwise a legitimate red-reproduced failure is mislabeled). FIX-B fast-path is an optimization; correctness holds even if roster-review does not persist `red_verified` back onto the finding (CHECK-2 pins the persisted-true case).
+> FIX-B: classify a green-phase failure as `weakened` only on an actual `recordedBlob !== currentBlob` mismatch, not on `recordedBlob !== null` (which would mislabel a legitimate red-reproduced failure). The fast path is optional; CHECK-2 also covers a persisted `red_verified` value.
 
 **Profile: minimal-freeze** (Type: `fix` + Trust boundary: `yes` — the review-convergence gate is
 a fail-closed security control; each defect lets an unsafe verdict slip past a block that was meant
@@ -21,9 +21,8 @@ owned by leak-scanner-entropy; neither is reused).
 
 ## Context
 
-The codex cross-runtime re-run pass (`briefs/xruntime-rerun-pass-triage.md`) found three
-CONFIRMED-HIGH gate-integrity defects where the gate — a fail-closed control — fails **open**. All
-three reproduce at current HEAD (verified at intake):
+Three gate-integrity defects let this fail-closed control fail **open**. Their
+reproductions are described below:
 
 - **FIX-A — non-array `review.findings` gates as zero findings.** `deriveGateRoundInputs`
   (`scripts/check-review-convergence.js:199`) does
