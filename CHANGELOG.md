@@ -22,6 +22,9 @@ below) — both already present in this section.
 
 ### Added
 
+- **Portable roadmap coordination** (#96): `/roster-roadmap` 1.0.0 and the dependency-free
+  artifact toolkit coordinate multiple intakes with persistent state, compact mission
+  prompts, capability-based routes and separate global acceptance; no CWR dependency.
 - **`agents-md-guardian` agent** (#27): `agents/management/agents-md-guardian.md` reviews
   `AGENTS.md` / `CLAUDE.md` changes against a parameterizable checklist (section size budget,
   required H2 sections, forbidden inline patterns, `docs/` link resolution). Mechanical checks go
@@ -125,6 +128,9 @@ below) — both already present in this section.
 
 ### Fixed
 
+- **Consumer compatibility and evidence** (#85, #86, #90): preserve ESM/CommonJS module
+  boundaries, degrade unsupported research queries honestly, and normalize generated
+  projection newlines without weakening freshness checks.
 - Review bundle 1.9.1: `xruntime-review` captures up to 64 MiB of runtime output (was the 1 MiB
   `spawnSync` default, which turned large Codex reviews into `spawn-error`); output beyond that is
   reported as the distinct degraded reason `output-overflow`, never `spawn-error`.

@@ -21,7 +21,7 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.7.0
+version: 2.8.0
 author: mathiasbourgoin
 ---
 
@@ -36,6 +36,13 @@ Default to a shared harness model:
 - Runtime-specific files are wrappers, projections, or compatibility copies
 - Updating a project means updating the shared harness first, then re-rendering runtime entrypoints
 - If no harness exists yet, bootstrap one with `./scripts/init-harness.sh <project-root> [profile]`
+
+## Update Notes — v2.8.0 release preparation
+
+Update the complete harness, skills, rules and companion tools from the approved `main`
+revision, not only agent prompts. Includes portable multi-intake roadmap coordination and
+consumer-tool compatibility fixes. Read root `CHANGES.md` for the release-candidate status;
+Pi mission descriptions do not restore a Pi installer. Run `/roster-doctor` after updating.
 
 ## Step 0: Version Check (MANDATORY — run before any other step)
 

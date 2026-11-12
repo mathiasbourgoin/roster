@@ -1,15 +1,39 @@
 # Changes
 
-## Unreleased — roadmap coordination
+## v2.8.0 — Multi-intake roadmaps and portable consumer tooling
 
-- `/roster-roadmap` 1.0.0 assists specification and coherence across multiple intakes,
-  selects capability-based agent topology, and coordinates persistent execution without CWR.
-- The portable `roster-roadmap` toolkit maintains contracts, assignments, checked local
-  receipts, bounded prompts and separate global acceptance. Init/sync distribute it
-  into `.harness/bin/`; existing child-intake gates remain authoritative.
-- Runtime-neutral missions cover Codex, Claude, OpenCode and Pi, with native delegation
-  and authorized multisession when available. This does not restore the removed Pi
-  installer or promise unattended execution after process exit.
+Release preparation: 2026-11-12. This section describes the `main` candidate; preparing
+these notes does not create a Git tag or a GitHub release. The npm tooling remains on its
+independent 1.x version track.
+
+### Added
+
+- **Multi-intake roadmaps** (#96): `/roster-roadmap` 1.0.0 helps specify task dependencies,
+  definitions of done, success/failure/recovery conditions and separately checked global
+  acceptance. A dependency graph passing lint is not proof of semantic coherence.
+- **Persistent execution resources**: the dependency-free `roster-roadmap` toolkit maintains
+  accepted contracts, assignments, local receipts and bounded continuation prompts. The
+  coordinator continues admissible work toward the global goal; child-intake review/QA gates
+  remain authoritative. Init/sync install the toolkit and its references in consumers.
+- **Capability-based topology**: sequential execution, native subagents, compatible parallel
+  work, authorized multisession and supported workflows. Runtime-neutral missions cover
+  Codex, Claude, OpenCode and Pi without CWR. This does not restore a Pi installer, grant tool
+  permissions or keep a terminated process running.
+
+### Fixed
+
+- **Channel-aware update checks**: follow the installed stable/next marker, recognize
+  development suffixes on next and retain the selected channel during upgrade/changelog
+  retrieval. Explicit branch pins are not silently switched to a release channel.
+- **Installed tools in ESM projects** (#86): explicit CommonJS boundaries preserve neighboring
+  module semantics; bundle removal retains shared consumer scope. Extension help succeeds on
+  stdout, and installed shadow instructions include their friction-log reference.
+- **Research evidence boundaries** (#85): unsupported `arch-index` reachability degrades
+  instead of producing a false passing result.
+- **Claims projection freshness** (#90): generated projections use a single trailing newline,
+  keeping freshness checks and Git whitespace checks consistent.
+- **Large alternate-runtime output** (#95): review capture is bounded at 64 MiB; overflow is
+  reported explicitly rather than misclassified as a generic spawn failure.
 
 ## v2.7.0 — Code-Intel Packs, Review-Bundle Distribution, Convergence Hardening
 
