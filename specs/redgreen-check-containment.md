@@ -10,7 +10,7 @@ version: 1.0.0
 
 # Spec — Redgreen Check Containment (minimal-freeze)
 
-> Validation (standing user delegation, autonomous batch 2026-07-14): ACE traversal reproduced by intake — priority fix. Binding rulings on surfaced defects — D-5 (non-repo green run): if the tree snapshot cannot be taken because cwd is not a git repo, FAIL CLOSED (exit 2, distinct reason), never skip the guard. D-1 (working-tree vs full .git integrity), D-2 (mutate-then-revert TOCTOU), D-3 (symlink/hardlink escape, OQ2) accepted as v1 residuals — same limitation class xruntime-exec.sh already accepts; record all three in the residuals section. RGC-5: composes above convergence-gate-fail-closed`s red_verified fast path; implementer rebases onto the shipped convergence-gate code and re-checks the compose point against real post-fix verifyCheck.
+> D-5: when cwd is not a Git repository and the tree snapshot cannot be taken, fail closed (exit 2 with a distinct reason). D-1, D-2 and D-3 record the working-tree, mutate-then-revert and symlink/hardlink residuals. RGC-5 composes with the convergence gate's `red_verified` fast path.
 
 **Profile: minimal-freeze** (Type: `fix` + Trust boundary: `yes` — `scripts/lib/redgreen-scratch.js`
 runs an attacker-influenceable `check` field from `review.json` through `git hash-object`,
