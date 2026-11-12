@@ -3,7 +3,6 @@ name: convergence-gate-fail-closed
 type: spec
 status: VALIDATED
 feature: Fail-closed hardening of the review-convergence gate (three CONFIRMED-HIGH bypasses)
-brief: briefs/convergence-gate-fail-closed-intake.md
 date: 2026-07-14
 version: 1.0.0
 ---

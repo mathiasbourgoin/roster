@@ -3,7 +3,6 @@ name: pipeline-loop-convergence
 type: spec
 status: live
 feature: Review/implement loop convergence (invariant ratchet + mechanical gate)
-brief: briefs/pipeline-loop-convergence-intake.md
 date: 2026-07-13
 version: 1.1.0
 ---

@@ -3,17 +3,14 @@ name: roster-spec
 type: spec
 status: live
 feature: arch-index-orient — research-orientation provider for the arch-index code-intel pack
-brief: briefs/arch-index-orient-intake.md
 date: 2026-07-22
 version: 1.0.0
 ---
 
 # Spec — arch-index-orient
 
-> Implements follow-ups 1–3 of `briefs/graphify-research-backend-eval.md` §5. Human validation gate
-> WAIVED (autonomous mode, user-authorized 2026-07-22). Reuses FR-030..033 / FR-040 / FR-050..061
-> concepts from `briefs/graphify-research-backend-spec.md`, re-scoped to arch-index as the concrete
-> `research-orientation` provider.
+> `arch-index` supplies the `research-orientation` provider through the code-intel resolver.
+> Its requirements reuse FR-030..033, FR-040 and FR-050..061 for this provider.
 
 ## Clarifications
 

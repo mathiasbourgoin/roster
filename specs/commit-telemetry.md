@@ -3,30 +3,16 @@ name: roster-spec
 type: spec
 status: draft
 feature: commit-telemetry
-brief: briefs/commit-telemetry-intake.md
 version: 1.0.1
 ---
 
 # Spec — commit telemetry boundary freeze
 
 **Profile: minimal-freeze**
-**Status: VALIDATED for implementation — owner selected A; remaining mechanical boundaries approved under delegated nonblocking authority. Not ship approval.**
 
-The owner explicitly selected the advisory fallback / strict refusal / unchanged Git settings policy.
-No claim is made that the earlier research was blind or that a retrospective scope freeze existed.
-Claims metadata stays draft until implementation evidence is available; contract approval does not
-promote implementation claims to verified facts.
-
-Escalation entry: review round 3, cycle 1, `design-not-converging / novel-finding-streak`.
-Baseline commit sha1: `5e1c13323c5616e72c9d38adc0a2b6529a0f182e`. The original contractual brief
-`briefs/commit-telemetry-spec.md` remains applicable and is not replaced or silently weakened.
-The identifiers below extend its requirement range. Review history and strike budget remain intact.
-
-Evidence: `roster/commit-telemetry/refreeze-research.md` and `refreeze-evidence/`;
-primary Git-only control matrix `refreeze-evidence/git-message-probe.json`.
-The fresh documentarian used neutral questions, not previous findings. Its subprocess/activation
-limitations are recorded: inspected tests are not test passes. The primary Git-only matrix has
-no telemetry installed and distinguishes Git's own cleanup from telemetry-induced changes.
+The contract uses advisory fallback, strict refusal when required, and unchanged Git
+settings. Claims remain draft until implementation evidence is available. The Git-only
+control matrix distinguishes Git's own cleanup from telemetry-induced changes.
 
 Scope: UTF-8 commit messages, supported local Node/Git installations, ordinary and linked
 worktrees, and telemetry runtime/hook/configuration/local-evidence writes, including the init/sync
@@ -158,10 +144,8 @@ participation, and disabling collection is not a promise to scrub arbitrary auth
 
 ## Runnable Checks
 
-These are implementation obligations, not ship approval. The new self-contained checker
-`scripts/roster-telemetry-contract-check.js` was authored and run red before corrective product
-edits; its declared outcomes below were not weakened to match the implementation. Each case
-uses disposable real repositories and explicit assertions:
+The self-contained checker `scripts/roster-telemetry-contract-check.js` uses disposable
+repositories and explicit assertions. Its exit codes are:
 0 = invariant holds, 1 = an assertion fired, >=2 = setup/load/tool error. A test runner's undifferentiated
 exit 1 is not sufficient evidence. Record raw commands, Git version, fixtures and environment failures.
 Existing full `npm test`, telemetry tests, projection freshness, claims and review gates remain required.

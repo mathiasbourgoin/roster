@@ -3,7 +3,6 @@ name: express-lite
 type: spec
 status: live
 feature: express lite routing
-brief: briefs/express-lite-intake.md
 date: 2026-10-22
 version: 1.0.0
 ---
