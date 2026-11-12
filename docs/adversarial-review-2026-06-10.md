@@ -145,7 +145,7 @@ The project's design documents describe a sophisticated, layered safety and qual
 
 ### M2 — rm -rf guards are narrow — mass deletion of named paths passes
 - **File:** `hooks/safety/block-dangerous-commands.md`
-- **Problem:** The rm guard only matches targets literally `/`, `~`, or `.`. So `rm -rf src/`, `rm -rf /home/mathias/dev/agent-roster`, `rm -rf "$HOME"`, `rm -rf $TARGET` all pass. Separately, `git push origin --delete main` and `git push origin :main` delete a protected branch but contain no `-f/--force` token.
+- **Problem:** The rm guard only matches targets literally `/`, `~`, or `.`. So `rm -rf src/`, `rm -rf /path/to/repo`, `rm -rf "$HOME"`, `rm -rf $TARGET` all pass. Separately, `git push origin --delete main` and `git push origin :main` delete a protected branch but contain no `-f/--force` token.
 - **Evidence:** `block-dangerous-commands.md:41,45`: target pattern only matches `(/|~|\.)`
 - **Blast radius:** Recursive deletion of any named directory and deletion of shared remote branches proceed unblocked.
 

@@ -10,11 +10,9 @@ version: 1.0.0
 
 # Spec — Review-Bundle Path Containment (minimal-freeze)
 
-> Validation (standing user delegation, 2026-07-14): confirmed the installer is unguarded at all 6 sites post-#58. BINDING implementation requirement from spec review — D-2: the `..` rejection MUST be **segment-aware** (split on `/`, reject a path with any segment == "..") — NOT a `case *..*` substring test, which would false-reject legitimate names like `a..b/c.js` and violate BPC-3. Add a `..`-containing-but-legitimate fixture name to pin it. D-1 (installer stays lexically weaker than verify.js, which resolves symlinks) is an accepted v1 residual; record a follow-up note that installer↔verifier symlink parity is a future hardening.
+> D-2: reject `..` as a complete path segment by splitting on `/`. A substring test would also reject legitimate names such as `a..b/c.js`; the fixture must cover that case. D-1 retains lexical validation in the installer; symlink parity with the verifier is outside this version's contract.
 
-> Validation: DRAFT — not yet gated. Written under the minimal-freeze profile from the VALIDATED
-> intake (`briefs/review-bundle-path-containment-intake.md`, standing user delegation 2026-07-14).
-> Binding OQ rulings applied verbatim: pure-bash **lexical** rejection as the primary guard (no
+> The path guard uses pure-bash **lexical** rejection (no
 > `realpath -m` dependency — BSD/macOS portability); a single `validate_rel_path()` helper applied
 > **uniformly to all six sites** incl. the three read-only ones; fail closed with a distinct error
 > string; **symlink-in-target following is a documented v1 residual** (parity with the verifier's
