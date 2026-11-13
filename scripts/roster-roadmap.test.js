@@ -246,7 +246,7 @@ test("malformed state, unknown options and unsafe managed links fail closed", t 
 test("standalone runtime closure runs inside ESM consumer without repository dependencies", t => {
   const root = temporary(t), cli = path.join(root, "roster-roadmap.cjs"), board = path.join(root, "board");
   write(path.join(root, "package.json"), { type: "module" });
-  for (const name of ["roster-roadmap.cjs", "roster-artifacts.cjs", "roster-recovery.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-roadmap-requests.cjs", "roster-roadmap-requests-view.cjs", "roster-usage.cjs"]) fs.copyFileSync(path.join(__dirname, name), path.join(root, name));
+  for (const name of ["roster-roadmap.cjs", "roster-artifacts.cjs", "roster-recovery.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-roadmap-requests.cjs", "roster-roadmap-requests-view.cjs", "roster-roadmap-validate.cjs", "roster-roadmap-history.cjs", "roster-roadmap-missions.cjs", "roster-roadmap-prompt.cjs", "roster-usage.cjs"]) fs.copyFileSync(path.join(__dirname, name), path.join(root, name));
   const out = run(board, "init", ["--id", "esm-consumer"], cli);
   assert.equal(out.code, 0, JSON.stringify(out));
   assert.equal(read(path.join(board, "roadmap.json")).id, "esm-consumer");

@@ -6,6 +6,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const core = () => require("./roster-roadmap.cjs");
+const { missionById } = require("./roster-roadmap-missions.cjs");
 const ID = /^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/;
 const INSTANT = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
 // One character rule shared by write-time refusal and render-time cleaning (FR-003, FR-018):
@@ -143,8 +144,7 @@ function opOpen(ctx, annex, input, meta) {
     created_at: meta.at, created_by: meta.coordinator, status: "open", supersedes: input.supersedes ?? null, answer: null, withdrawal: null };
   validateRequest(request, annex.requests.length);
   if (annex.requests.some(other => other.id === request.id)) fail(`request id ${request.id} is already used`);
-  const tasks = Array.isArray(ctx.contract.tasks) ? ctx.contract.tasks : [];
-  if (request.task_id !== null && !tasks.some(task => task.id === request.task_id)) fail(`unknown task ${request.task_id}`);
+  if (request.task_id !== null && !missionById(ctx, request.task_id)) fail(`unknown task ${request.task_id}`);
   if (annex.requests.length >= MAX_REQUESTS) fail(`at most ${MAX_REQUESTS} requests per board`);
   if (annex.requests.filter(isOpen).length >= MAX_OPEN) fail(`at most ${MAX_OPEN} open requests; answer or withdraw some first`);
   if (request.supersedes !== null) {

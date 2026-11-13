@@ -4,6 +4,7 @@
 // projection. It never throws for an invalid annex and never influences claim/next.
 const requests = () => require("./roster-roadmap-requests.cjs");
 const core = () => require("./roster-roadmap.cjs");
+const { missionById } = require("./roster-roadmap-missions.cjs");
 const RANK = { now: 0, later: 1, unscheduled: 2 };
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const clean = value => requests().cleanText(value);
@@ -16,8 +17,7 @@ function empty(status, reason = null) {
 
 function taskState(ctx, id) {
   if (id === null) return { state: null, task: null };
-  const tasks = Array.isArray(ctx.contract.tasks) ? ctx.contract.tasks : [];
-  const task = tasks.find(other => other.id === id);
+  const task = missionById(ctx, id);
   if (!task) return { state: "unknown", task: null };
   if (!ctx.state.acceptance) return { state: "draft", task };
   return { state: Object.hasOwn(ctx.state.tasks, id) ? ctx.state.tasks[id].status : "unknown", task };

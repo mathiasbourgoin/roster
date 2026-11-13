@@ -91,8 +91,9 @@ In an installed project use `node .harness/bin/roster-roadmap.cjs`. In this repo
 use `node scripts/roster-roadmap.cjs`, or the `roster-roadmap` package binary. The CLI
 uses Node built-ins and works in CommonJS and ESM consumers without npm dependencies.
 Keep `roster-roadmap.cjs`, `roster-artifacts.cjs`, `roster-recovery.cjs`,
-`roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs` and
-`roster-roadmap-requests-view.cjs` together in `.harness/bin/`
+`roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`,
+`roster-roadmap-requests-view.cjs`, `roster-roadmap-validate.cjs`, `roster-roadmap-history.cjs`,
+`roster-roadmap-missions.cjs` and `roster-roadmap-prompt.cjs` together in `.harness/bin/`
 from the same approved revision. Init/sync install the complete runtime closure and the
 matching policies, schemas and examples under `.harness/roadmap/`; copying a lone core
 file is insufficient. Repair the complete trusted installation on mismatch.
