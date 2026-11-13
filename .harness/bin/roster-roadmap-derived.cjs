@@ -1,7 +1,8 @@
 "use strict";
 // Derived correction missions: receipt blames, the derive transition and its definition digest,
-// the FR-007 review requeue, the review release freeze, the fresh-context rule on correction
-// chains, definition validation, their history replay and the per-attempt timeline. Identity
+// the FR-007 review requeue, the strict review release refusal (OD-3), the fresh-context rule on
+// a review's family (OD-1, OD-4), withdrawal of a queued correction (FR-022), definition
+// validation and their history replay. Identity
 // labels (assignees, coordinators) are unauthenticated local assertions; the rules compare
 // declared labels, they do not authenticate agents.
 const { readJSON } = require("./roster-artifacts.cjs");
@@ -69,8 +70,23 @@ function validateDefinitions(ctx) {
     if (definition.max_attempts > parent.policy.max_attempts) fail(`derived mission ${id} budget exceeds its parent budget`);
   }
 }
+// Settlement of one correction: done, withdrawn (FR-022), exhausted (blocked at its own budget)
+// or pending (queued, active, or blocked with attempts left).
+function correctionState(id, definition, tasks) {
+  const current = tasks[id];
+  if (current.status === "done" || current.status === "withdrawn") return current.status;
+  return current.status === "blocked" && current.attempts >= definition.max_attempts ? "exhausted" : "pending";
+}
+// FR-021 (mixed history, under OD-4): every earlier claim of a family member must carry
+// its assignment, otherwise the fresh-context rule has no identity to compare.
+function legacyClaimRefusal(family, events) {
+  const event = events.find(e => e.action === "claim" && family.has(e.task_id) && e.assignment === undefined);
+  return event ? `the claim of ${event.task_id} at revision ${event.revision} has no assignment (written by an older runtime or edited), so the fresh-context rule cannot tell who already worked on the family of this review; revise the board instead` : null;
+}
 // FR-003 conditions derivable from state and contract; shared by derive and its replay.
-function derivePrecondition(ctx, tasks, receipts, known, parentId, causeId) {
+// history = { tasks, receipts, events, known } as of the derivation (live state or replay prefix).
+function derivePrecondition(ctx, history, parentId, causeId) {
+  const { tasks, receipts, events, known } = history;
   const cause = contractTask(ctx, causeId), parent = contractTask(ctx, parentId);
   if (!cause) return `cause ${causeId} is not a contract task`;
   if (!parent) return `parent ${parentId} is not a contract task`;
@@ -82,8 +98,10 @@ function derivePrecondition(ctx, tasks, receipts, known, parentId, causeId) {
   if (tasks[parentId].status !== "done") return `parent ${parentId} is not done`;
   if (cause.policy.on_failure !== "retry") return `cause ${causeId} policy does not authorize retry`;
   if (tasks[causeId].attempts >= cause.policy.max_attempts) return `cause ${causeId} attempt budget exhausted`;
-  if (known.some(([, d]) => d.parent === parentId && d.cause.task_id === causeId && d.cause.attempt_id === receipt.attempt_id)) return `a derived mission already exists for ${parentId} and this receipt of ${causeId}`;
-  return null;
+  // FR-003 B-exhaustion: a new correction for the same receipt only once earlier ones are settled.
+  const open = known.find(([id, d]) => d.parent === parentId && d.cause.task_id === causeId && d.cause.attempt_id === receipt.attempt_id && ["done", "pending"].includes(correctionState(id, d, tasks)));
+  if (open) return `correction ${open[0]} already exists for ${parentId} and this receipt of ${causeId} and is ${correctionState(open[0], open[1], tasks)}; derive again only after it is exhausted or withdrawn`;
+  return legacyClaimRefusal(familyOf(known, receipts, causeId), events);
 }
 function takenIds(ctx, known) { return new Set([...m.contractTasks(ctx).map(task => task.id), ...known.map(([id]) => id)]); }
 function allocateId(parentId, taken) {
@@ -105,10 +123,11 @@ function readRequest(ctx, file) {
 // FR-002..FR-004: board acceptance, completion and coordinator are checked by the core mutate.
 function transitionDerive(ctx, options) {
   const { state } = ctx, request = readRequest(ctx, options.request), known = m.derivedEntries(ctx);
-  const reason = derivePrecondition(ctx, state.tasks, state.receipts, known, request.parent, request.cause);
+  const reason = derivePrecondition(ctx, { tasks: state.tasks, receipts: state.receipts, events: state.events, known }, request.parent, request.cause);
   if (reason) fail(`cannot derive: ${reason}`);
-  // Live-only precondition (FR-010): never re-checked during replay.
+  // Live-only preconditions (FR-010): never re-checked during replay.
   if (require("./roster-recovery.cjs").inspectBoard(ctx, request.cause).reframe_needed) fail("cannot derive: the cause needs a diagnosed recovery reframe first");
+  if (!require("./roster-roadmap.cjs").viewSupport.routeFor(ctx, { topology: request.topology, workflow: { recommendation: "none", steps: [] } })) fail("cannot derive: no route of the requested topology is claimable now (runtime unavailable, or route unsupported or unauthorized with no permitted fallback)");
   const id = allocateId(request.parent, takenIds(ctx, known));
   identifier(id, "derived mission id");
   if (contractTask(ctx, id) || Object.hasOwn(state.tasks, id)) fail(`derived mission id ${id} collides with an existing mission`);
@@ -119,9 +138,6 @@ function transitionDerive(ctx, options) {
   state.derived[id] = definition;
   state.tasks[id] = { status: "queued", attempts: 0, assignment: null, reason: null };
   return { task_id: id, derived: definition };
-}
-function correctionsOf(known, causeId, attemptId) {
-  return known.filter(([, d]) => d.cause.task_id === causeId && d.cause.attempt_id === attemptId).map(([id]) => id);
 }
 // FR-007 (owner decision 3): after a done receipt of a derived mission, requeue its cause only when
 // every dependency blamed by the cause's latest blocked receipt has a done derived mission created
@@ -136,35 +152,53 @@ function applyRequeue(task, receipt, tasks, receipts, known) {
   tasks[causeId].status = "queued"; tasks[causeId].reason = `corrections done: ${done.map(([id]) => id).join(", ")}`;
   return causeId;
 }
-function pendingCorrections(taskId, tasks, receipts, known) {
+// OD-3: each dependency blamed by the latest blocked receipt of taskId that has no done correction
+// from that receipt: { dependency, state: missing|pending|exhausted, correction }.
+function blameGaps(taskId, tasks, receipts, known) {
   const latest = latestReceipt(receipts, taskId);
-  if (!latest || latest.result !== "blocked") return [];
-  const budget = new Map(known.map(([id, d]) => [id, d.max_attempts]));
-  return correctionsOf(known, taskId, latest.attempt_id).filter(id => {
-    const current = tasks[id];
-    return current.status !== "done" && !(current.status === "blocked" && current.attempts >= budget.get(id));
-  });
+  if (!latest || latest.result !== "blocked" || !latest.blames) return [];
+  const own = known.filter(([, d]) => d.cause.task_id === taskId && d.cause.attempt_id === latest.attempt_id);
+  return latest.blames.map(dependency => {
+    const states = own.filter(([, d]) => d.parent === dependency).map(([id, d]) => [id, correctionState(id, d, tasks)]);
+    if (states.some(([, s]) => s === "done")) return null;
+    const found = states.find(([, s]) => s === "pending") || states.filter(([, s]) => s === "exhausted").at(-1);
+    return found ? { dependency, state: found[1], correction: found[0] } : { dependency, state: "missing", correction: null };
+  }).filter(Boolean);
 }
-// FR-007 freeze: the cause cannot be released while a correction of its latest receipt is pending.
+function describeGap({ dependency, state, correction }) {
+  if (state === "missing") return `derive a correction for ${dependency}`;
+  if (state === "pending") return `finish correction ${correction} of ${dependency} (release it if blocked with attempts left, or withdraw it if queued and unclaimable)`;
+  return `correction ${correction} of ${dependency} is exhausted: derive a new correction for ${dependency} from the same receipt, or request a revised-roadmap decision`;
+}
+// OD-3 strict (FR-007): a blocked task cannot be released while a dependency blamed by its latest
+// blocked receipt has no done correction; next_action carries the same text.
+function releaseAdvice(taskId, tasks, receipts, known) {
+  if (tasks[taskId]?.status !== "blocked") return null;
+  const gaps = blameGaps(taskId, tasks, receipts, known);
+  return gaps.length ? gaps.map(describeGap).join("; ") : null;
+}
 function releaseRefusal(taskId, tasks, receipts, known) {
-  const pending = pendingCorrections(taskId, tasks, receipts, known);
-  return pending.length ? `corrections pending: ${pending.join(", ")}; the task is requeued automatically when they are done` : null;
+  const advice = releaseAdvice(taskId, tasks, receipts, known);
+  return advice ? `blamed dependencies lack a done correction: ${advice}; the task is requeued automatically once every blamed dependency has one` : null;
 }
 // FR-006 (D2): never the assignee of the failed cause receipt. Also checked on stored receipts and
 // active assignments, where the fresh-context rule below cannot apply (the attempt is its own).
 function causeRefusal(task, assignee) {
   return task.derived && assignee === task.derived.cause.assignee ? `assignee ${assignee} produced the failed cause receipt and cannot take its correction` : null;
 }
-// FR-020 (owner decision 1): the correction chain of a derived mission with parent P and cause C is
-// P, C and every derived mission with that parent and cause task (over every receipt of C). A cause
-// C with at least one derived mission is on the union of its chains. Null: not on any chain.
-function chainMembers(known, task) {
-  if (task.derived) {
-    const { parent, cause } = task.derived;
-    return new Set([parent, cause.task_id, ...known.filter(([, d]) => d.parent === parent && d.cause.task_id === cause.task_id).map(([id]) => id)]);
-  }
-  const corrections = known.filter(([, d]) => d.cause.task_id === task.id);
-  return corrections.length ? new Set([task.id, ...corrections.flatMap(([id, d]) => [d.parent, id])]) : null;
+// FR-020 (owner decisions OD-1 and OD-4): the family of a review C is C, every dependency blamed by
+// any receipt of C, every derived mission caused by C and their parents.
+function familyOf(known, receipts, causeId) {
+  const family = new Set([causeId]);
+  for (const receipt of receipts) if (receipt.task_id === causeId) for (const id of receipt.blames || []) family.add(id);
+  for (const [id, d] of known) if (d.cause.task_id === causeId) { family.add(id); family.add(d.parent); }
+  return family;
+}
+// A derived mission is on the family of its cause; a review with at least one derived mission is
+// on its own family. Null: the task is on no family (no rule applies).
+function chainMembers(known, receipts, task) {
+  if (task.derived) return familyOf(known, receipts, task.derived.cause.task_id);
+  return known.some(([, d]) => d.cause.task_id === task.id) ? familyOf(known, receipts, task.id) : null;
 }
 // Declared identities of every attempt of the members: receipts, claim payloads, active assignments.
 function seenAssignees(members, { events, receipts, tasks }) {
@@ -176,9 +210,9 @@ function seenAssignees(members, { events, receipts, tasks }) {
 }
 // history = { known, events, receipts, tasks? } as of the claim (live state or replay prefix).
 function freshnessRefusal(task, assignee, history) {
-  const members = chainMembers(history.known, task);
+  const members = chainMembers(history.known, history.receipts, task);
   if (!members || !seenAssignees(members, history).has(assignee)) return null;
-  return `assignee ${assignee} already appeared on the correction chain of ${task.id} (${[...members].join(", ")}); claim with a newly launched agent`;
+  return `assignee ${assignee} already appeared on the correction chain of ${task.id} (review family: ${[...members].join(", ")}); claim with a newly launched agent`;
 }
 function claimRefusal(ctx, task, assignee) {
   const { events, receipts, tasks } = ctx.state;
@@ -188,7 +222,8 @@ function replayDerive(ctx, event, replay, receipts, known) {
   const definition = event.task_id === null ? undefined : ctx.state.derived?.[event.task_id];
   if (!definition || definition.revision !== event.revision || event.reason !== null || event.reconciled_by !== null || Object.hasOwn(replay, event.task_id)) fail(`derive history mismatch for ${event.task_id}`);
   if (definitionDigest(definition) !== event.definition_digest) fail(`derive history digest mismatch for ${event.task_id}: the definition changed after its derive event`);
-  const reason = derivePrecondition(ctx, replay, receipts, known, definition.parent, definition.cause.task_id);
+  const history = { tasks: replay, receipts, events: ctx.state.events.slice(0, event.revision - 1), known };
+  const reason = derivePrecondition(ctx, history, definition.parent, definition.cause.task_id);
   if (reason) fail(`illegal derive history for ${event.task_id}: ${reason}`);
   const receipt = latestReceipt(receipts, definition.cause.task_id);
   if (receipt.attempt_id !== definition.cause.attempt_id || receipt.assignee !== definition.cause.assignee) fail(`derive history cause mismatch for ${event.task_id}`);
@@ -199,11 +234,11 @@ function replayDerive(ctx, event, replay, receipts, known) {
 // history = { known, receiptIndex: { value } } of the replay at this claim event.
 function checkClaimPayload(ctx, task, event, history) {
   const payload = event.assignment;
-  // Chains only exist with the current tool, which always writes the claim payload.
-  if (payload === undefined && (task.derived || chainMembers(history.known, task))) fail(`claim history of ${task.id} on a correction chain lacks its assignment`);
+  const prefix = { known: history.known, events: ctx.state.events.slice(0, event.revision - 1), receipts: ctx.state.receipts.slice(0, history.receiptIndex.value) };
+  // Families only exist with the current tool, which always writes the claim payload.
+  if (payload === undefined && (task.derived || chainMembers(history.known, prefix.receipts, task))) fail(`claim history of ${task.id} on a correction chain lacks its assignment`);
   if (payload === undefined) return;
   if (payload.runtime !== task.topology.runtime || payload.model !== task.topology.model || ![task.topology.route, ...task.topology.fallbacks].includes(payload.route)) fail(`claim history assignment disagrees with the topology of ${task.id}`);
-  const prefix = { known: history.known, events: ctx.state.events.slice(0, event.revision - 1), receipts: ctx.state.receipts.slice(0, history.receiptIndex.value) };
   const refusal = causeRefusal(task, payload.assignee) || freshnessRefusal(task, payload.assignee, prefix);
   if (refusal) fail(`illegal claim history for ${task.id}: ${refusal}`);
 }
@@ -214,7 +249,30 @@ function checkActivePayload(id, assignment, payload) {
   if (!assignment || !payload) return;
   if (["id", "assignee", "runtime", "route"].some(name => assignment[name] !== payload[name])) fail(`active assignment of ${id} disagrees with its claim history`);
 }
+// FR-022: withdraw-derived retires a queued correction with a mandatory reason read from a file.
+function transitionWithdraw(ctx, options) {
+  identifier(options.task, "--task");
+  const definition = Object.hasOwn(ctx.state.derived || {}, options.task) ? ctx.state.derived[options.task] : null;
+  if (!definition) fail(`cannot withdraw ${options.task}: not a derived correction mission`);
+  const current = ctx.state.tasks[options.task];
+  if (current.status !== "queued") fail(`cannot withdraw ${options.task}: it is ${current.status}; only a queued correction can be withdrawn`);
+  text(options.withdrawal, "--withdrawal");
+  const input = readJSON(options.withdrawal);
+  exact(input, ["reason"], "withdrawal file"); objective(input.reason, "withdrawal reason");
+  current.status = "withdrawn"; current.reason = input.reason;
+  return { task_id: options.task, withdrawn: true, reason: input.reason };
+}
+function replayWithdraw(ctx, event, replay) {
+  const id = event.task_id, current = id === null ? undefined : replay[id];
+  if (!current || !Object.hasOwn(ctx.state.derived || {}, id) || !Object.hasOwn(replay, id)) fail(`withdraw history names ${id}, which is not a derived mission at that point`);
+  if (current.status !== "queued" || event.reconciled_by !== null) fail(`illegal withdraw history for ${id}: it was ${current.status}`);
+  current.status = "withdrawn"; current.reason = event.reason; current.payload = null;
+}
 function validateEventPayloads(event) {
+  if (event.action === "withdraw-derived") {
+    if (event.task_id === null) fail("withdraw-derived event needs its task");
+    objective(event.reason, "withdraw-derived event reason");
+  }
   if (event.action === "derive" || event.definition_digest !== undefined) {
     if (event.action !== "derive") fail("state event definition_digest is allowed only on derive events");
     v.digestString(event.definition_digest, "derive event definition_digest");
@@ -239,10 +297,11 @@ function claimPayload(assignment, task) {
 function eventPayload(ctx, command, result) {
   if (command === "claim") return { assignment: claimPayload(result.assignment, m.missionById(ctx, result.task_id)) };
   if (command === "derive") return { definition_digest: definitionDigest(result.derived) };
+  if (command === "withdraw-derived") return { reason: result.reason };
   return {};
 }
 module.exports = {
-  validateReceiptLinks, validateDerivedShape, validateDefinitions, transitionDerive, applyRequeue, releaseRefusal,
+  validateReceiptLinks, validateDerivedShape, validateDefinitions, transitionDerive, transitionWithdraw, replayWithdraw, applyRequeue, releaseRefusal, releaseAdvice,
   causeRefusal, claimRefusal, replayDerive, checkClaimPayload, checkReceiptPayload, checkActivePayload, validateEventPayloads,
   eventPayload, definitionDigest, allocateId, derivedBlock, entries: m.derivedEntries,
 };

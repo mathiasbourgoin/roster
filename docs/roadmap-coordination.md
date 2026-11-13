@@ -216,16 +216,43 @@ Then run `derive BOARD --coordinator <id> --revision <n> --request <file>` with
 `{parent, cause, objective, topology, max_attempts}`: choose the correction's runtime, model
 and role from the escalation ladder, with a budget no larger than the parent's. The tool
 assigns `<parent>-fix-<n>`, which inherits the parent's scope and checks and runs as its own
-mission (its own claims, receipts and budget). Owner decision (13 November 2026), fresh context:
-every attempt on a correction chain (the parent, the review, and every correction of that parent
-from that review) needs an agent new to the chain; `claim` and history replay refuse an
-assignee already seen there, which includes the implementer, the failed reviewer, earlier fixers
-and the review's next attempt. Roster compares declared identifiers: give each attempt the
-identifier of a newly launched agent. The review stays blocked and cannot be released while its
-corrections are pending; it is requeued automatically only when every dependency its receipt
-blames has a done correction (owner decision). If a correction exhausts its budget, release the
-review under the usual rules or escalate. The `derive` event records a SHA-256 digest of the
-definition, and reads refuse a definition edited afterwards (owner decision).
+mission (its own claims, receipts and budget). `derive` refuses a topology that no route can
+claim right now (runtime unavailable, or route unauthorized with no permitted fallback).
+
+Owner decisions (Mathias, 13 November 2026):
+
+- **Fresh context over the review's family.** The family of a review is the review, every
+  dependency any of its receipts blames, and every correction of those dependencies from that
+  review. Every correction attempt needs an agent that never appeared on that family, and so
+  does **the review's next attempt after a correction**: `claim` and history replay refuse an
+  assignee already seen there (the implementers, the failed reviewer, every earlier fixer).
+  Roster compares declared identifiers: give each attempt the identifier of a newly launched
+  agent.
+- **Strict re-queue.** The review stays blocked, and `release` of it is refused, until every
+  dependency its latest blocked receipt blames has a done correction from that receipt. There is
+  no exception for an exhausted correction. `status` gives the review a `next_action` naming the
+  step: derive a correction for a dependency, finish a pending one, or, when a correction
+  exhausted its budget, derive a new one (`<parent>-fix-<n+1>`, fresh budget capped by the
+  parent's) from the same receipt or request a revised-roadmap decision.
+- **Digest.** The `derive` event records a SHA-256 digest of the definition and reads refuse a
+  definition edited afterwards. The digest is unkeyed and lives in `state.json`: it catches an
+  accidental or naive edit, not someone who rewrites the file and recomputes it. The same limit
+  applies to adding `blames` to a stored receipt or removing a `derive` event with everything
+  after it.
+
+If a queued correction cannot be claimed (its runtime or route became unavailable), retire it
+with `withdraw-derived BOARD --coordinator <id> --revision <n> --task <fix id> --withdrawal
+<file>`, where the file is `{"reason": "..."}`; the same receipt can then derive a new correction.
+
+Older claims: a claim written by the runtime before this feature has no `assignment`. It stays
+valid for a contract task outside any review family, so old boards keep reading, but `derive`
+refuses a review whose family holds such a claim, because that attempt's agent cannot be
+compared. Revise the board instead.
+
+Compatibility: a board becomes unreadable by an older runtime as soon as this version writes its
+first `claim`, even if `derive` is never used, because every new claim event carries
+`assignment`. Install the runtime closure together and do not downgrade a board in use.
+
 `view` lists the correction after the contract tasks with its parent and cause and a timeline of
 every attempt. The roadmap completes only when every contract task is done and no correction is
 queued or active. Owner decision D1 chose this correction mission; D2 to D6 are deduced and to be

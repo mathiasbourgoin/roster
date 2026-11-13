@@ -217,15 +217,22 @@ that direct dependency, then run `derive <board> --coordinator <id> --revision <
 <file>` with `{parent, cause, objective, topology, max_attempts}`. Pick the correction's
 runtime/model/role from the escalation ladder, with a budget no larger than the parent's. The tool
 assigns `<parent>-fix-<n>`; claim, verify and record it like any mission (it inherits the
-parent's scope and checks). Fresh context (owner decision, 13 November 2026): launch a new agent
-for every attempt on a correction chain (the parent, the review and every correction of that
-parent from that review); `claim` and replay refuse an assignee already seen on the chain, so
-never reuse the implementer, the failed reviewer or an earlier fixer, including for the review's
-next attempt. The review stays frozen while its corrections are pending and requeues
-automatically only when every dependency its receipt blames has a done correction (owner
-decision); derive one per blamed dependency, in any order. If a correction exhausts its budget,
-release or escalate the review normally. The `derive` event carries a digest of the definition;
-never edit `state.derived` by hand. Completion needs no correction queued or active.
+parent's scope and checks). `derive` refuses a topology no route can claim now. Fresh context
+(owner decision, 13 November 2026): launch a new agent for every attempt on the review's family
+(the review, every dependency it blames and all their corrections); `claim` and replay refuse an
+assignee already seen there, so never reuse an implementer, the failed reviewer or any earlier
+fixer, and the review's next attempt after a correction needs a new agent too. Strict re-queue
+(owner decision): `release` of the review is refused until every dependency its latest blocked
+receipt blames has a done correction, with no exception for an exhausted one; it then requeues
+automatically. Follow its `next_action`: derive one correction per blamed dependency, in any
+order; if one exhausts its budget, derive `<parent>-fix-<n+1>` from the same receipt or request a
+revised-roadmap decision. Retire a queued correction that cannot be claimed with
+`withdraw-derived <board> --coordinator <id> --revision <n> --task <fix> --withdrawal <file>`
+(`{"reason": "..."}`). `derive` refuses a review whose family holds a claim without `assignment`
+(written by an older runtime): revise the board. The `derive` event carries a digest of the
+definition that catches accidental edits, not a deliberate rewrite of `state.json`; never edit
+`state.derived` by hand. A board is unreadable by an older runtime after this version's first
+`claim`, even without `derive`. Completion needs no correction queued or active.
 Owner decision D1 chose this; D2–D6 are deduced and to be confirmed on the PR. Labels are
 unauthenticated: the rules compare declared identifiers only. Shapes: `.harness/roadmap/schema.md`.
 

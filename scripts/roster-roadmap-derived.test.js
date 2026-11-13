@@ -4,63 +4,10 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
-const core = require("./roster-roadmap.cjs");
+const { core, write, read, task, TOPOLOGY, setup, state, cmd, claim, receipt, record, finish, release, request, derive, blockedReview, unchanged, tampered } = require("./roster-roadmap-derived.fixture.js");
 const CLI = path.join(__dirname, "roster-roadmap.cjs");
-const write = (file, value) => fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n");
-const read = file => JSON.parse(fs.readFileSync(file, "utf8"));
-function task(id, deps = [], policy = {}) {
-  return { id, intake: `briefs/${id}.md`, objective: `Deliver ${id}`, depends_on: deps, inputs: [], outputs: [`src/${id}.js`], allowed_files: [`src/${id}.js`],
-    dod: ["Checks pass"], success: [`${id} works`], checks: [{ id: "unit", description: "Unit checks pass" }],
-    topology: { runtime: "codex", model: "configured", role: "implementer", persona: "Engineer", route: "sequential", fallbacks: [] },
-    policy: { max_attempts: 3, on_failure: "retry", stop_if: ["Scope changed"], recovery: ["Diagnose"], failure: "Budget exhausted", ...policy },
-    workflow: { recommendation: "none", reason: "Bounded mission", steps: [] } };
-}
-const TOPOLOGY = { runtime: "codex", model: "opus", role: "implementer", persona: "Engineer", route: "sequential", fallbacks: [] };
-function setup(t, tasks = [task("impl"), task("review", ["impl"])], accept = true) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "roadmap-derived-")), board = path.join(root, "board");
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  core.main(["init", board, "--id", "demo"]);
-  const contract = { schema_version: 1, id: "demo", goal: "Deliver demo", success: ["Integrated"], global_checks: [{ id: "global", description: "Demo works" }], execution: { max_active: 1 }, tasks };
-  write(path.join(board, "roadmap.json"), contract);
-  write(path.join(board, "capabilities.json"), { schema_version: 1, runtimes: { codex: { available: true, evidence: ["Observed"], capabilities: {} } } });
-  const decision = path.join(root, "decision.json");
-  write(decision, { by: "owner", basis: "Disposable test", contract_digest: core.hash(contract) });
-  if (accept) core.main(["accept", board, "--coordinator", "lead", "--revision", "0", "--decision", decision]);
-  return { root, board, stateFile: path.join(board, "state.json"), roadmapFile: path.join(board, "roadmap.json") };
-}
-const state = f => read(f.stateFile);
-const cmd = (f, command, args = []) => core.main([command, f.board, "--coordinator", "lead", "--revision", String(state(f).revision), ...args]);
-const claim = (f, id, assignee = "dev") => cmd(f, "claim", ["--task", id, "--assignee", assignee]).assignment;
-function receipt(f, id, result, extra = {}) {
-  const a = state(f).tasks[id].assignment;
-  return { task_id: id, attempt_id: a.id, assignee: a.assignee, contract_digest: a.contract_digest, result, summary: `${id} ${result}`,
-    evidence: ["log"], changed_files: result === "done" ? [`src/${id.replace(/-fix-\d+$/, "")}.js`] : [], checks: [{ id: "unit", status: result === "done" ? "pass" : "fail", evidence: ["log"] }], ...extra };
-}
-function record(f, value) { const file = path.join(f.root, "receipt.json"); write(file, value); return cmd(f, "record", ["--receipt", file]); }
-function finish(f, id, result, assignee, extra) { claim(f, id, assignee); return record(f, receipt(f, id, result, extra)); }
-const release = (f, id) => cmd(f, "release", ["--task", id, "--reason", "Reconciled", "--reconciled-by", "lead"]);
-function request(f, overrides = {}) {
-  const file = path.join(f.root, "derive.json");
-  write(file, { parent: "impl", cause: "review", objective: "Fix the null check", topology: TOPOLOGY, max_attempts: 2, ...overrides });
-  return file;
-}
-const derive = (f, overrides) => cmd(f, "derive", ["--request", request(f, overrides)]);
-// impl done by dev; review blocked by rev1 blaming impl.
-function blockedReview(t, tasks, blames = ["impl"]) {
-  const f = setup(t, tasks);
-  for (const id of Object.keys(state(f).tasks)) if (id !== "review" && !state(f).tasks.review.attempts && read(f.roadmapFile).tasks.find(x => x.id === "review").depends_on.includes(id)) finish(f, id, "done", "dev");
-  finish(f, "review", "blocked", "rev1", blames ? { blames } : {});
-  return f;
-}
-function unchanged(f, action) {
-  const stateBytes = fs.readFileSync(f.stateFile), roadmapBytes = fs.readFileSync(f.roadmapFile);
-  assert.throws(action);
-  assert.deepEqual(fs.readFileSync(f.stateFile), stateBytes);
-  assert.deepEqual(fs.readFileSync(f.roadmapFile), roadmapBytes);
-}
 
 test("AC-1 derive from a blaming blocked review receipt records definition, queued state and one event (real CLI)", t => {
   const f = blockedReview(t), before = state(f), roadmap = fs.readFileSync(f.roadmapFile);
@@ -79,30 +26,33 @@ test("AC-1 derive from a blaming blocked review receipt records definition, queu
 
 test("AC-2 derive refuses without blames, with another blamed dependency, or with a malformed request", t => {
   const unblamed = blockedReview(t, undefined, null);
-  unchanged(unblamed, () => derive(unblamed));
+  unchanged(unblamed, () => derive(unblamed), /latest receipt of review does not blame impl/);
   const other = blockedReview(t, [task("impl"), task("lib"), task("review", ["impl", "lib"])], ["lib"]);
-  unchanged(other, () => derive(other));
+  unchanged(other, () => derive(other), /latest receipt of review does not blame impl/);
   const f = blockedReview(t);
-  for (const bad of [{ extra: 1 }, { objective: "" }, { objective: "x".repeat(2001) }, { max_attempts: 0 }, { max_attempts: 4 }, { max_attempts: 1.5 },
-    { topology: { ...TOPOLOGY, runtime: "unknown" } }, { topology: { ...TOPOLOGY, route: "workflow" } }, { parent: "missing" }, { cause: "impl-fix-1" }]) unchanged(f, () => derive(f, bad));
+  const budget = /request\.max_attempts must be an integer in 1\.\.3/;
+  for (const [bad, pattern] of [[{ extra: 1 }, /derive request: unknown field extra/], [{ objective: "" }, /request\.objective must be a nonempty string/],
+    [{ objective: "x".repeat(2001) }, /request\.objective exceeds 2000 characters/], [{ max_attempts: 0 }, budget], [{ max_attempts: 4 }, budget], [{ max_attempts: 1.5 }, budget],
+    [{ topology: { ...TOPOLOGY, runtime: "unknown" } }, /request\.topology\.runtime must be one of/], [{ topology: { ...TOPOLOGY, route: "workflow" } }, /workflow route needs accepted nonempty workflow steps/],
+    [{ parent: "missing" }, /parent missing is not a contract task/], [{ cause: "impl-fix-1" }, /cause impl-fix-1 is not a contract task/]]) unchanged(f, () => derive(f, bad), pattern);
   const file = request(f); const value = read(file); delete value.max_attempts; write(file, value);
-  unchanged(f, () => cmd(f, "derive", ["--request", file]));
-  unchanged(f, () => core.main(["derive", f.board, "--coordinator", "stranger", "--revision", String(state(f).revision), "--request", request(f)]));
+  unchanged(f, () => cmd(f, "derive", ["--request", file]), /derive request: missing field max_attempts/);
+  unchanged(f, () => core.main(["derive", f.board, "--coordinator", "stranger", "--revision", String(state(f).revision), "--request", request(f)]), /foreign coordinator/);
 });
 
 test("AC-2 every FR-003 precondition refuses without mutation", t => {
   const queued = setup(t); finish(queued, "impl", "done", "dev");
-  unchanged(queued, () => derive(queued));
+  unchanged(queued, () => derive(queued), /cause review is queued, not blocked/);
   const parentNotDependency = blockedReview(t, [task("impl"), task("other"), task("review", ["impl"])]);
-  unchanged(parentNotDependency, () => derive(parentNotDependency, { parent: "other" }));
+  unchanged(parentNotDependency, () => derive(parentNotDependency, { parent: "other" }), /other is not a direct dependency of review/);
   const blocking = blockedReview(t, [task("impl"), task("review", ["impl"], { on_failure: "block" })]);
-  unchanged(blocking, () => derive(blocking));
+  unchanged(blocking, () => derive(blocking), /cause review policy does not authorize retry/);
   const exhausted = blockedReview(t, [task("impl"), task("review", ["impl"], { max_attempts: 1 })]);
-  unchanged(exhausted, () => derive(exhausted));
+  unchanged(exhausted, () => derive(exhausted), /cause review attempt budget exhausted/);
   const twice = blockedReview(t); derive(twice);
-  unchanged(twice, () => derive(twice));
+  unchanged(twice, () => derive(twice), /correction impl-fix-1 already exists for impl and this receipt of review and is pending/);
   const otherDone = blockedReview(t, [task("impl"), task("other"), task("review", ["impl"])]); finish(otherDone, "other", "done", "dev");
-  unchanged(otherDone, () => derive(otherDone, { parent: "other" }));
+  unchanged(otherDone, () => derive(otherDone, { parent: "other" }), /other is not a direct dependency of review/);
   const draft = setup(t, undefined, false);
   assert.throws(() => core.main(["derive", draft.board, "--coordinator", "lead", "--revision", "0", "--request", request(draft)]), /not accepted/);
 });
@@ -110,20 +60,22 @@ test("AC-2 every FR-003 precondition refuses without mutation", t => {
 test("AC-2 a cause that needs a recovery reframe cannot derive (live-only check)", t => {
   const f = setup(t, [task("impl"), task("review", ["impl"], { max_attempts: 5 })]);
   finish(f, "impl", "done", "dev");
-  for (let i = 0; i < 3; i++) { if (i) release(f, "review"); finish(f, "review", "blocked", "rev1", { blames: ["impl"] }); }
+  // Only the last receipt blames: a blamed receipt without a done correction cannot be released (OD-3).
+  for (let i = 0; i < 3; i++) { if (i) release(f, "review"); finish(f, "review", "blocked", "rev1", i === 2 ? { blames: ["impl"] } : {}); }
   assert.throws(() => derive(f), /reframe/);
 });
 
 test("AC-2 FR-001 blames misuse and EC-8 blames on a derived receipt are refused", t => {
   const f = setup(t, [task("impl"), task("other"), task("review", ["impl"])]);
   claim(f, "impl");
-  assert.throws(() => record(f, receipt(f, "impl", "done", { blames: ["impl"] })), /blocked/);
+  assert.throws(() => record(f, receipt(f, "impl", "done", { blames: ["impl"] })), /receipt\.blames is allowed only on a blocked receipt/);
   record(f, receipt(f, "impl", "done"));
   claim(f, "review", "rev1");
-  for (const blames of [[], ["impl", "impl"], ["other"], "impl", ["bad id"]]) assert.throws(() => record(f, receipt(f, "review", "blocked", { blames })));
+  for (const [blames, pattern] of [[[], /receipt\.blames must be a nonempty array/], [["impl", "impl"], /receipt\.blames contains duplicates/], [["other"], /names other, which is not a direct dependency of review/],
+    ["impl", /receipt\.blames must be a nonempty array/], [["bad id"], /receipt\.blames entry must be a safe identifier/]]) assert.throws(() => record(f, receipt(f, "review", "blocked", { blames })), pattern);
   record(f, receipt(f, "review", "blocked", { blames: ["impl"] }));
   derive(f); claim(f, "impl-fix-1", "fixer");
-  assert.throws(() => record(f, receipt(f, "impl-fix-1", "blocked", { blames: ["impl"] })), /direct dependency/);
+  assert.throws(() => record(f, receipt(f, "impl-fix-1", "blocked", { blames: ["impl"] })), /names impl, which is not a direct dependency of impl-fix-1/);
 });
 
 test("AC-3 a different agent completes the correction; the review is requeued in the same record event", t => {
@@ -144,28 +96,30 @@ test("AC-3 a different agent completes the correction; the review is requeued in
 
 test("AC-3 a done receipt outside the parent's allowed_files is refused", t => {
   const f = blockedReview(t); derive(f); claim(f, "impl-fix-1", "fixer");
-  unchanged(f, () => record(f, receipt(f, "impl-fix-1", "done", { changed_files: ["src/review.js"] })));
+  unchanged(f, () => record(f, receipt(f, "impl-fix-1", "done", { changed_files: ["src/review.js"] })), /reported write outside allowed_files: src\/review\.js/);
 });
 
 test("AC-4 the failed reviewer cannot claim the correction and release follows the derived budget", t => {
   const f = blockedReview(t); derive(f);
-  unchanged(f, () => claim(f, "impl-fix-1", "rev1"));
+  unchanged(f, () => claim(f, "impl-fix-1", "rev1"), /assignee rev1 produced the failed cause receipt/);
   finish(f, "impl-fix-1", "blocked", "fixer");
   release(f, "impl-fix-1");
   finish(f, "impl-fix-1", "blocked", "fixer2");
   assert.equal(state(f).tasks["impl-fix-1"].attempts, 2);
-  unchanged(f, () => release(f, "impl-fix-1"));
+  unchanged(f, () => release(f, "impl-fix-1"), /attempt budget exhausted; revise the roadmap explicitly/);
 });
 
-test("AC-4/EC-3 the review is frozen while corrections are pending and released again once they are exhausted", t => {
-  const f = blockedReview(t); derive(f, { max_attempts: 1 });
-  unchanged(f, () => release(f, "review"));
+test("AC-4/EC-3 OD-3 strict: the review release is refused while its correction is pending and after it is exhausted", t => {
+  const f = blockedReview(t);
+  unchanged(f, () => release(f, "review"), /derive a correction for impl/);
+  derive(f, { max_attempts: 1 });
+  unchanged(f, () => release(f, "review"), /finish correction impl-fix-1 of impl/);
   claim(f, "impl-fix-1", "fixer");
-  unchanged(f, () => release(f, "review"));
+  unchanged(f, () => release(f, "review"), /finish correction impl-fix-1 of impl/);
   record(f, receipt(f, "impl-fix-1", "blocked"));
   assert.equal(state(f).tasks.review.status, "blocked");
-  release(f, "review");
-  assert.equal(state(f).tasks.review.status, "queued");
+  unchanged(f, () => release(f, "review"), /correction impl-fix-1 of impl is exhausted: derive a new correction for impl/);
+  assert.match(core.main(["status", f.board]).tasks.find(x => x.id === "review").next_action, /impl-fix-1 of impl is exhausted: derive a new correction for impl/);
 });
 
 test("EC-1 two blamed dependencies: one derive per parent and the review requeues when both are done", t => {
@@ -176,8 +130,9 @@ test("EC-1 two blamed dependencies: one derive per parent and the review requeue
   assert.equal(derive(f, { parent: "lib" }).task_id, "lib-fix-1");
   finish(f, "impl-fix-1", "done", "fixer");
   assert.equal(state(f).tasks.review.status, "blocked");
-  unchanged(f, () => release(f, "review"));
-  finish(f, "lib-fix-1", "done", "fixer");
+  unchanged(f, () => release(f, "review"), /finish correction lib-fix-1 of lib/);
+  unchanged(f, () => claim(f, "lib-fix-1", "fixer"), /already appeared on the correction chain/); // OD-4: family of the review
+  finish(f, "lib-fix-1", "done", "fixer2");
   assert.equal(state(f).tasks.review.reason, "corrections done: impl-fix-1, lib-fix-1");
 });
 
@@ -187,8 +142,8 @@ test("EC-2 a second blocked review derives impl-fix-2 and the requeue gate uses 
   finish(f, "review", "blocked", "rev2", { blames: ["impl"] });
   assert.equal(derive(f).task_id, "impl-fix-2");
   assert.equal(state(f).derived["impl-fix-2"].cause.assignee, "rev2");
-  unchanged(f, () => release(f, "review"));
-  for (const seen of ["dev", "rev1", "rev2", "fixer"]) unchanged(f, () => claim(f, "impl-fix-2", seen)); // FR-020: whole chain
+  unchanged(f, () => release(f, "review"), /finish correction impl-fix-2 of impl/);
+  for (const seen of ["dev", "rev1", "rev2", "fixer"]) unchanged(f, () => claim(f, "impl-fix-2", seen), new RegExp(`assignee ${seen} (already appeared on the correction chain|produced the failed cause receipt)`)); // FR-020: whole family
   claim(f, "impl-fix-2", "fixer2");
   record(f, receipt(f, "impl-fix-2", "done"));
   assert.equal(state(f).tasks.review.reason, "corrections done: impl-fix-2");
@@ -206,30 +161,25 @@ function derivedBoard(t) {
   const f = blockedReview(t); derive(f); finish(f, "impl-fix-1", "blocked", "fixer"); release(f, "impl-fix-1");
   return f;
 }
-function tampered(f, change) {
-  const value = state(f); change(value); write(f.stateFile, value);
-  assert.throws(() => core.main(["status", f.board]));
-  assert.throws(() => core.main(["next", f.board]));
-}
-for (const [label, change] of [
-  ["derive event without its definition", s => { delete s.derived["impl-fix-1"]; delete s.tasks["impl-fix-1"]; }],
-  ["definition without its event", s => { s.derived["impl-fix-9"] = { ...s.derived["impl-fix-1"], revision: s.revision }; s.tasks["impl-fix-9"] = { status: "queued", attempts: 0, assignment: null, reason: null }; }],
-  ["edited cause attempt", s => { s.derived["impl-fix-1"].cause.attempt_id = "forged"; }],
-  ["edited cause assignee", s => { s.derived["impl-fix-1"].cause.assignee = "someone"; }],
-  ["derived id in state.tasks without definition", s => { s.tasks["impl-fix-7"] = { status: "queued", attempts: 0, assignment: null, reason: null }; }],
-  ["lowered derived attempt counter", s => { s.tasks["impl-fix-1"].attempts = 0; }],
-  ["EC-4 definition revision differs from its event", s => { s.derived["impl-fix-1"].revision += 1; }],
-  ["derived budget above the parent budget", s => { s.derived["impl-fix-1"].max_attempts = 9; }],
-  ["unknown definition field", s => { s.derived["impl-fix-1"].note = "x"; }],
-  ["renamed derived id", s => { s.derived["impl-fix-5"] = s.derived["impl-fix-1"]; delete s.derived["impl-fix-1"]; s.tasks["impl-fix-5"] = s.tasks["impl-fix-1"]; delete s.tasks["impl-fix-1"]; s.events.forEach(e => { if (e.task_id === "impl-fix-1") e.task_id = "impl-fix-5"; }); s.receipts.forEach(r => { if (r.task_id === "impl-fix-1") r.task_id = "impl-fix-5"; }); }],
-  ["claim payload naming the failed reviewer", s => { s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment.assignee = "rev1"; s.receipts.find(r => r.task_id === "impl-fix-1").assignee = "rev1"; }],
-  ["claim payload disagreeing with its receipt", s => { s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment.id = "other"; }],
-  ["claim payload with a foreign model", s => { s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment.model = "other"; }],
-  ["assignment payload on a release event", s => { s.events.find(e => e.action === "release").assignment = s.events.find(e => e.action === "claim").assignment; }],
-  ["derived claim payload deleted", s => { delete s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment; }],
-  ["derived claim payload deleted and receipt relabelled to the failed reviewer", s => { delete s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment; s.receipts.find(r => r.task_id === "impl-fix-1").assignee = "rev1"; }],
-  ["forged review requeue", s => { s.tasks.review = { status: "queued", attempts: 1, assignment: null, reason: "corrections done: impl-fix-1" }; }],
-]) test(`AC-5 tampered derived history is refused: ${label}`, t => tampered(derivedBoard(t), change));
+for (const [label, change, pattern] of [
+  ["derive event without its definition", s => { delete s.derived["impl-fix-1"]; delete s.tasks["impl-fix-1"]; }, /derive history mismatch for impl-fix-1/],
+  ["definition without its event", s => { s.derived["impl-fix-9"] = { ...s.derived["impl-fix-1"], revision: s.revision }; s.tasks["impl-fix-9"] = { status: "queued", attempts: 0, assignment: null, reason: null }; }, /derived mission definitions disagree with derive history/],
+  ["edited cause attempt", s => { s.derived["impl-fix-1"].cause.attempt_id = "forged"; }, /derive history digest mismatch for impl-fix-1/],
+  ["edited cause assignee", s => { s.derived["impl-fix-1"].cause.assignee = "someone"; }, /derive history digest mismatch for impl-fix-1/],
+  ["derived id in state.tasks without definition", s => { s.tasks["impl-fix-7"] = { status: "queued", attempts: 0, assignment: null, reason: null }; }, /state task set differs from accepted contract/],
+  ["lowered derived attempt counter", s => { s.tasks["impl-fix-1"].attempts = 0; }, /task impl-fix-1 state\/attempt count disagrees with execution history/],
+  ["EC-4 definition revision differs from its event", s => { s.derived["impl-fix-1"].revision += 1; }, /derive history mismatch for impl-fix-1/],
+  ["derived budget above the parent budget", s => { s.derived["impl-fix-1"].max_attempts = 9; }, /derived mission impl-fix-1 budget exceeds its parent budget/],
+  ["unknown definition field", s => { s.derived["impl-fix-1"].note = "x"; }, /derived mission impl-fix-1: unknown field note/],
+  ["renamed derived id", s => { s.derived["impl-fix-5"] = s.derived["impl-fix-1"]; delete s.derived["impl-fix-1"]; s.tasks["impl-fix-5"] = s.tasks["impl-fix-1"]; delete s.tasks["impl-fix-1"]; s.events.forEach(e => { if (e.task_id === "impl-fix-1") e.task_id = "impl-fix-5"; }); s.receipts.forEach(r => { if (r.task_id === "impl-fix-1") r.task_id = "impl-fix-5"; }); }, /derive history id allocation mismatch for impl-fix-5/],
+  ["claim payload naming the failed reviewer", s => { s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment.assignee = "rev1"; s.receipts.find(r => r.task_id === "impl-fix-1").assignee = "rev1"; }, /illegal claim history for impl-fix-1: assignee rev1 produced the failed cause receipt/],
+  ["claim payload disagreeing with its receipt", s => { s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment.id = "other"; }, /receipt disagrees with its claim assignment for impl-fix-1/],
+  ["claim payload with a foreign model", s => { s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment.model = "other"; }, /claim history assignment disagrees with the topology of impl-fix-1/],
+  ["assignment payload on a release event", s => { s.events.find(e => e.action === "release").assignment = s.events.find(e => e.action === "claim").assignment; }, /state event assignment is allowed only on claim events/],
+  ["derived claim payload deleted", s => { delete s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment; }, /claim history of impl-fix-1 on a correction chain lacks its assignment/],
+  ["derived claim payload deleted and receipt relabelled to the failed reviewer", s => { delete s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment; s.receipts.find(r => r.task_id === "impl-fix-1").assignee = "rev1"; }, /claim history of impl-fix-1 on a correction chain lacks its assignment/],
+  ["forged review requeue", s => { s.tasks.review = { status: "queued", attempts: 1, assignment: null, reason: "corrections done: impl-fix-1" }; }, /task review state\/attempt count disagrees with execution history/],
+]) test(`AC-5 tampered derived history is refused: ${label}`, t => tampered(derivedBoard(t), change, pattern));
 
 test("AC-5 a release of the review hidden in history while corrections were pending is refused on read", t => {
   const f = blockedReview(t); derive(f);
@@ -237,7 +187,7 @@ test("AC-5 a release of the review hidden in history while corrections were pend
   value.revision++; value.events.push({ revision: value.revision, action: "release", coordinator: "lead", task_id: "review", reason: "Sneak", reconciled_by: "lead", at: new Date().toISOString() });
   value.tasks.review = { status: "queued", attempts: 1, assignment: null, reason: "Sneak" };
   write(f.stateFile, value);
-  assert.throws(() => core.main(["status", f.board]), /corrections were pending/);
+  assert.throws(() => core.main(["status", f.board]), /illegal release history for review: blamed dependencies lack a done correction: finish correction impl-fix-1 of impl/);
 });
 
 test("AC-5 replay reproduces derived missions and the review requeue; active payload must match", t => {
@@ -284,7 +234,8 @@ test("EC-7/C-11 a later reframe condition leaves earlier derive events valid; th
   finish(f, "impl", "done", "dev");
   finish(f, "review", "blocked", "rev1", { blames: ["impl"] });
   derive(f, { max_attempts: 1 }); finish(f, "impl-fix-1", "blocked", "fixer");
-  release(f, "review"); finish(f, "review", "blocked", "rev2");
+  derive(f, { max_attempts: 1 }); finish(f, "impl-fix-2", "done", "fixer2"); // B-exhaustion requeues the review
+  finish(f, "review", "blocked", "rev2");
   release(f, "review"); finish(f, "review", "blocked", "rev3");
   const recovery = require("./roster-recovery.cjs").inspectBoard(core.readBoard(f.board), "review");
   assert.equal(recovery.reframe_needed, true); assert.equal(recovery.consecutive_failures, 3);
@@ -310,20 +261,23 @@ test("FR-007 owner decision 3: the review requeues only once every blamed depend
   assert.equal(state(f).tasks.review.status, "blocked");
   assert.equal(core.main(["status", f.board]).tasks.find(x => x.id === "review").status, "blocked"); // replay agrees
   assert.equal(derive(f, { parent: "lib" }).task_id, "lib-fix-1");
-  assert.equal(finish(f, "lib-fix-1", "done", "fixer").requeued, "review");
+  assert.equal(finish(f, "lib-fix-1", "done", "fixer2").requeued, "review");
   assert.deepEqual(state(f).tasks.review, { status: "queued", attempts: 1, assignment: null, reason: "corrections done: impl-fix-1, lib-fix-1" });
 });
 
-test("FR-007 owner decision 3: an exhausted correction of one blamed dependency keeps the review blocked", t => {
+test("FR-007 OD-3: an exhausted correction keeps the review blocked until a new correction of that dependency is done", t => {
   const f = setup(t, [task("impl"), task("lib"), task("review", ["impl", "lib"])]);
   finish(f, "impl", "done", "dev"); finish(f, "lib", "done", "dev");
   finish(f, "review", "blocked", "rev1", { blames: ["impl", "lib"] });
   derive(f, { max_attempts: 1 }); derive(f, { parent: "lib" });
   finish(f, "impl-fix-1", "blocked", "fixer");
-  assert.equal(finish(f, "lib-fix-1", "done", "fixer").requeued, undefined);
+  assert.equal(finish(f, "lib-fix-1", "done", "fixer2").requeued, undefined);
   assert.equal(state(f).tasks.review.status, "blocked");
-  release(f, "review"); // every pending correction is settled: the usual release rules apply
-  assert.equal(state(f).tasks.review.status, "queued");
+  unchanged(f, () => release(f, "review"), /correction impl-fix-1 of impl is exhausted: derive a new correction for impl from the same receipt/); // OD-3 strict
+  assert.equal(derive(f).task_id, "impl-fix-2"); // B-exhaustion: same receipt, new budget
+  assert.equal(finish(f, "impl-fix-2", "done", "fixer3").requeued, "review");
+  assert.deepEqual(state(f).tasks.review, { status: "queued", attempts: 1, assignment: null, reason: "corrections done: lib-fix-1, impl-fix-2" });
+  assert.equal(state(f).tasks["impl-fix-1"].status, "blocked"); // the exhausted attempt stays in history
 });
 
 test("FR-007 owner decision 3: a forged requeue after a partial correction is refused on read", t => {
@@ -331,15 +285,15 @@ test("FR-007 owner decision 3: a forged requeue after a partial correction is re
   finish(f, "impl", "done", "dev"); finish(f, "lib", "done", "dev");
   finish(f, "review", "blocked", "rev1", { blames: ["impl", "lib"] });
   derive(f); finish(f, "impl-fix-1", "done", "fixer");
-  tampered(f, s => { s.tasks.review = { status: "queued", attempts: 1, assignment: null, reason: "corrections done: impl-fix-1" }; });
+  tampered(f, s => { s.tasks.review = { status: "queued", attempts: 1, assignment: null, reason: "corrections done: impl-fix-1" }; }, /task review state\/attempt count disagrees with execution history/);
 });
 
 // Owner decision 1 (2026-11-13): a fresh-context agent on every attempt of a correction chain.
 test("FR-020 owner decision 1: claim refuses every assignee already seen on the correction chain", t => {
   const f = blockedReview(t); derive(f); // chain impl/review: dev (impl), rev1 (review)
-  for (const seen of ["dev", "rev1"]) unchanged(f, () => claim(f, "impl-fix-1", seen));
+  for (const seen of ["dev", "rev1"]) unchanged(f, () => claim(f, "impl-fix-1", seen), new RegExp(`assignee ${seen} (already appeared on the correction chain|produced the failed cause receipt)`));
   finish(f, "impl-fix-1", "blocked", "fixer"); release(f, "impl-fix-1");
-  unchanged(f, () => claim(f, "impl-fix-1", "fixer")); // its own earlier attempt
+  unchanged(f, () => claim(f, "impl-fix-1", "fixer"), /assignee fixer already appeared on the correction chain of impl-fix-1/); // its own earlier attempt
   assert.equal(finish(f, "impl-fix-1", "done", "fixer2").requeued, "review");
   for (const seen of ["dev", "rev1", "fixer", "fixer2"]) assert.throws(() => claim(f, "review", seen), /correction chain/);
   claim(f, "review", "rev2");
@@ -351,25 +305,25 @@ test("FR-020 owner decision 1: a chain is one parent and one review; another rev
   finish(f, "impl", "done", "dev");
   finish(f, "review", "blocked", "rev1", { blames: ["impl"] }); derive(f);
   finish(f, "audit", "done", "fixer"); // audit is not on the impl/review chain until it derives
-  unchanged(f, () => claim(f, "impl-fix-1", "dev"));
+  unchanged(f, () => claim(f, "impl-fix-1", "dev"), /assignee dev already appeared on the correction chain of impl-fix-1/);
   claim(f, "impl-fix-1", "fixer"); // the audit agent never appeared on this chain
 });
 
-for (const [label, change] of [
+for (const [label, change, pattern] of [
   ["a correction claim reusing the parent's implementer", s => {
     s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment.assignee = "dev";
     s.receipts.find(r => r.task_id === "impl-fix-1").assignee = "dev";
-  }],
+  }, /illegal claim history for impl-fix-1: assignee dev already appeared on the correction chain/],
   ["a review claim after correction reusing the fixer", s => {
     s.events.filter(e => e.action === "claim" && e.task_id === "review").at(-1).assignment.assignee = "fixer";
     s.tasks.review.assignment.assignee = "fixer";
-  }],
+  }, /illegal claim history for review: assignee fixer already appeared on the correction chain/],
   ["a review claim after correction without its payload", s => {
     delete s.events.filter(e => e.action === "claim" && e.task_id === "review").at(-1).assignment;
-  }],
+  }, /claim history of review on a correction chain lacks its assignment/],
 ]) test(`FR-020 owner decision 1: replay refuses ${label}`, t => {
   const f = blockedReview(t); derive(f); finish(f, "impl-fix-1", "done", "fixer"); claim(f, "review", "rev2");
-  tampered(f, change);
+  tampered(f, change, pattern);
 });
 
 // Owner decision 2 (2026-11-13): the derive event carries a verified digest of the definition.
@@ -383,15 +337,15 @@ test("FR-019 owner decision 2: the derive event records the sha256 of the canoni
   assert.equal(s.events.at(-1).definition_digest, canonicalDigest({ parent, cause, objective, topology, max_attempts }));
 });
 
-for (const [label, change] of [
-  ["edited objective", s => { s.derived["impl-fix-1"].objective = "Rewrite everything"; }],
-  ["edited topology", s => { s.derived["impl-fix-1"].topology.persona = "Someone else"; }],
-  ["lowered budget", s => { s.derived["impl-fix-1"].max_attempts = 1; }],
-  ["deleted digest", s => { delete s.events.find(e => e.action === "derive").definition_digest; }],
-  ["digest on a claim event", s => { s.events.find(e => e.action === "claim").definition_digest = s.events.find(e => e.action === "derive").definition_digest; }],
+for (const [label, change, pattern] of [
+  ["edited objective", s => { s.derived["impl-fix-1"].objective = "Rewrite everything"; }, /derive history digest mismatch for impl-fix-1/],
+  ["edited topology", s => { s.derived["impl-fix-1"].topology.persona = "Someone else"; }, /derive history digest mismatch for impl-fix-1/],
+  ["lowered budget", s => { s.derived["impl-fix-1"].max_attempts = 1; }, /derive history digest mismatch for impl-fix-1/],
+  ["deleted digest", s => { delete s.events.find(e => e.action === "derive").definition_digest; }, /derive event definition_digest/],
+  ["digest on a claim event", s => { s.events.find(e => e.action === "claim").definition_digest = s.events.find(e => e.action === "derive").definition_digest; }, /definition_digest is allowed only on derive events/],
 ]) test(`FR-019 owner decision 2: replay refuses a definition modified after its derive event: ${label}`, t => {
   const f = blockedReview(t); derive(f);
-  tampered(f, change);
+  tampered(f, change, pattern);
 });
 
 test("FR-006 the receipt check independently refuses the cause assignee on a derived mission", () => {

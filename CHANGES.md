@@ -11,14 +11,18 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
 - `/roster-roadmap` 1.4.0 records derived correction missions: a blocked review receipt may
   blame a direct dependency (`blames`), and `derive` creates `<parent>-fix-<n>` in
   `state.derived` with its own topology, claims, receipts and budget. The implementation stays
-  `done`; no agent already seen on the correction chain (implementer, failed reviewer, earlier
-  fixers) may claim the correction or the review's next attempt; the review is frozen, then
-  requeued automatically when every dependency its receipt blames has a done correction. The
-  `derive` event carries a SHA-256 `definition_digest` recomputed on replay. Replay verifies derive
+  `done`; no agent already seen on the review's family (implementers of blamed dependencies,
+  failed reviewer, earlier fixers) may claim a correction or the review's next attempt; the
+  review's `release` is refused, with no exception, until every dependency its latest receipt
+  blames has a done correction, then it is requeued automatically. An exhausted correction allows
+  a new one for the same receipt; `withdraw-derived` retires a queued correction; `derive`
+  refuses an unclaimable topology and a family holding a claim without `assignment`. The
+  `derive` event carries a SHA-256 `definition_digest` recomputed on replay, which detects
+  accidental edits, not a deliberate rewrite of `state.json`. Replay verifies derive
   events and the new claim-event `assignment`; `view` adds `kind`, `derived`, `corrections` and a
   per-attempt `timeline`. Owner decisions D1 and, on 13 November 2026, fresh context, verified
   digest and requeue; the other points are deduced, to be confirmed. Labels stay unauthenticated.
-  A board with any `claim` written by this version is refused by the earlier runtime.
+  See the migration notes below.
 - `/roster-roadmap` 1.3.0 records what the coordinator waits for from the human operator in the
   advisory annex `requests.json` (`request-open`, `request-answer`, `request-withdraw`,
   `request-journal`), shown in `view`, `status --format text` and `prompt`. Requests are
@@ -87,6 +91,21 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
   identity, process-bound receipts, encoding fallback and telemetry-free branch behavior are
   checked without claiming provider authentication. `express-lite` is accepted as its actual
   ledger mode under both advisory and strict policies.
+
+### Migration notes
+
+- **Roadmap boards and older runtimes.** A roadmap board becomes unreadable by a runtime from
+  before derived missions as soon as this version writes its first `claim`, even if `derive` is
+  never used: every new claim event carries `assignment`, which the older runtime refuses
+  (`state event: unknown field assignment`). A `derive` or `withdraw-derived` event, a
+  `withdrawn` task or `state.derived` has the same effect. Install the whole runtime closure
+  together and do not downgrade a board in use. Boards written by the older runtime keep reading.
+- **Legacy claims and derivation.** A claim event without `assignment` (older runtime) stays
+  valid outside any review family, but `derive` refuses a review whose family holds one; such a
+  board needs a revised roadmap to use corrections.
+- **Strict review release.** `release` of a review whose latest blocked receipt carries
+  `blames` is refused until every blamed dependency has a done correction, including after a
+  correction exhausts its budget: derive a new correction for the same receipt instead.
 
 ## Main updates since v2.7.0
 
