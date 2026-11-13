@@ -60,7 +60,7 @@ for (const [label, change, pattern] of [
   ["withdraw event of an active correction", s => {
     s.revision++; s.events.push({ revision: s.revision, action: "withdraw-derived", coordinator: "lead", task_id: "impl-fix-1", reason: "x", reconciled_by: null, at: new Date().toISOString() });
     s.tasks["impl-fix-1"] = { status: "withdrawn", attempts: 1, assignment: null, reason: "x" };
-  }, /illegal withdraw history for impl-fix-1: it was active/],
+  }, /illegal withdraw history for impl-fix-1: it is active/],
 ]) test(`FR-022 replay refuses a ${label}`, t => {
   const f = blockedReview(t); derive(f);
   if (label.includes("active")) claim(f, "impl-fix-1", "fixer");

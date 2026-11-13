@@ -25,13 +25,23 @@ below) — both already present in this section.
 - **Roadmap derived correction missions** — receipt `blames`, the `derive` command and event,
   optional `state.derived` and claim-event `assignment`, the automatic review requeue and release
   freeze, verified replay, and view `kind`/`derived`/`corrections`/`timeline` with
-  `completion.derived_done/derived_total`. New runtime module `roster-roadmap-derived.cjs`.
+  `completion.derived_done/derived_total` and optional `derived_active/derived_blocked`. New
+  runtime module `roster-roadmap-derived.cjs`.
   Owner decisions of 13 November 2026: fresh-context agents on every attempt of a review's family
   (claim and replay), a `definition_digest` on `derive` events that detects accidental edits,
   and a strict review requeue and release refusal until every blamed dependency has a done
-  correction. `derive` refuses an unclaimable topology and a family with a claim lacking
-  `assignment`; an exhausted correction allows `<parent>-fix-<n+1>` for the same receipt;
-  `withdraw-derived` retires a queued correction. See the migration notes below.
+  correction. The family is the review, every dependency it blames or that has a correction, and
+  every correction of those dependencies whichever review caused it; the rule covers the claim of
+  every task one of whose dependencies has a correction. `derive` refuses an unclaimable topology
+  and a family with a claim lacking `assignment` whose attempt was released without a receipt;
+  an exhausted correction allows `<parent>-fix-<n+1>` for the same receipt, up to the parent's
+  `max_attempts` corrections that were not withdrawn per receipt and dependency;
+  `withdraw-derived` retires a queued correction that was never claimed; for a derived mission
+  `record` accepts a `blocked` receipt after `capabilities.json` changed. `next_action` and the
+  `release` refusal say `no correction can be derived for <dependency>: <reason>` when `derive`
+  would be refused. `status --format text` counts contract tasks and corrections apart, labels
+  the reason line `Withdrawn:`, `Requeued:` or `Blocker:` and lists one `Attempt n:` line per
+  attempt of a correction or of a failed or retried mission. See the migration notes below.
 - **Roadmap operator requests** — advisory annex `requests.json` with `request-open`,
   `request-answer`, `request-withdraw` and `request-journal` commands, exposed in `view`
   (`operator_requests`), `status --format text` (`Waiting on:`) and `prompt`. Requests never
@@ -218,11 +228,17 @@ below) — both already present in this section.
   `withdrawn` task or `state.derived` has the same effect. Install the whole runtime closure
   together and do not downgrade a board in use. Boards written by the older runtime keep reading.
 - **Legacy claims and derivation.** A claim event without `assignment` (older runtime) stays
-  valid outside any review family, but `derive` refuses a review whose family holds one; such a
-  board needs a revised roadmap to use corrections.
+  valid outside any review family and does not block `derive` when its attempt ended with a
+  receipt (the receipt names the agent), so a board started with an older runtime and continued
+  with this one can derive. `derive` refuses only when a member of the review's family has such
+  a claim whose attempt was released without a receipt; that board needs a revised roadmap to
+  use corrections.
 - **Strict review release.** `release` of a review whose latest blocked receipt carries
   `blames` is refused until every blamed dependency has a done correction, including after a
-  correction exhausts its budget: derive a new correction for the same receipt instead.
+  correction exhausts its budget: derive a new correction for the same receipt instead, up to
+  the parent's `max_attempts` corrections that were not withdrawn per receipt and dependency;
+  past that limit, request a revised-roadmap decision. A correction that was claimed cannot be
+  withdrawn: it ends by its receipts and its budget.
 
 ## [1.2.0] — 2026-06-03
 

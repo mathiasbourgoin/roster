@@ -137,9 +137,18 @@ declares them without requiring them, so earlier saved views still validate.
   `constructor` are ordinary keys).
 
 `completion.tasks_done/tasks_total` count contract tasks only; `completion.derived_done` and
-`derived_total` count derived missions. `counts` covers every mission; a `withdrawn` key appears
+`derived_total` count derived missions, and the optional `completion.derived_active` and
+`derived_blocked` count the derived missions in those states (absent from earlier saved views).
+`counts` covers every mission; a `withdrawn` key appears
 only when a correction was retired with `withdraw-derived` (its item `state` is `withdrawn`). While a derived mission
 is `queued` or `active`, `estimates.tasks_eta` and `global_eta` are `unknown` with a reason
 naming it; estimates files never hold derived IDs. `status --format text` prints each derived
-mission with its parent and cause, a `Corrections:` row on the corrected task and a
-`corrections done/total` count on the `Tasks:` line. View `schema_version` stays 1.
+mission with its parent and cause and a `Corrections:` row on the corrected task. Its header
+counts contract tasks and corrections apart:
+`Tasks: a/b done; x active; y blocked. Corrections: c/d done; e active; f blocked` (the
+`Corrections:` part appears only when the board has a derived mission). The reason line of a
+mission is labelled `Withdrawn:` for a withdrawn correction, `Requeued:` for a queued mission and
+`Blocker:` otherwise. A derived mission, and any mission with a blocked attempt or more than one
+attempt, lists one line per attempt:
+`Attempt n: <assignee>, <outcome>, <claimed_at> to <ended_at or now>`. View `schema_version`
+stays 1.

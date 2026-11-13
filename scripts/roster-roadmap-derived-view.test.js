@@ -92,7 +92,7 @@ test("AC-6 view lists derived missions after contract tasks with kind, derived b
   assert.deepEqual(view.tasks.map(x => x.corrections), [["impl-fix-1"], [], []]);
   assert.equal(view.tasks[0].derived, null);
   assert.deepEqual(fix.outputs, ["src/impl.js"]); assert.equal(fix.topology.model, "opus"); assert.deepEqual(fix.depends_on, []);
-  assert.deepEqual(view.completion, { tasks_done: 1, tasks_total: 2, derived_done: 1, derived_total: 1, global_accepted: false });
+  assert.deepEqual(view.completion, { tasks_done: 1, tasks_total: 2, derived_done: 1, derived_total: 1, derived_active: 0, derived_blocked: 0, global_accepted: false });
   assert.deepEqual(validView(view), []);
 });
 
@@ -140,7 +140,7 @@ test("EC-5 legacy events without at or assignment leave timeline fields null, ne
 
 test("AC-6 an earlier saved view without the new fields still validates", t => {
   const view = core.main(["view", corrected(t).board]);
-  delete view.completion.derived_done; delete view.completion.derived_total;
+  for (const name of ["derived_done", "derived_total", "derived_active", "derived_blocked"]) delete view.completion[name];
   view.tasks = view.tasks.map(({ kind, derived, corrections, timeline, ...rest }) => rest);
   assert.deepEqual(validView(view), []);
   const broken = core.main(["view", corrected(t).board]); broken.tasks[0].timeline[0].surprise = 1;
@@ -153,7 +153,7 @@ test("AC-7 text status shows the derived mission with its parent and cause", t =
   assert.match(text, /\[queued\] impl-fix-1 — Fix the null check/);
   assert.ok(text.includes(`Derived correction of impl; cause: review attempt ${cause.attempt_id} by rev1`), text);
   assert.match(text, /Corrections: impl-fix-1/);
-  assert.match(text, /corrections 0\/1 done/);
+  assert.match(text, /Corrections: 0\/1 done/);
 });
 
 test("AC-7 forecasts are unknown while a derived mission is queued or active, naming it", t => {
@@ -193,7 +193,7 @@ test("EC-9 view --task on a derived mission returns its item with board-wide cou
   const f = setup(t), view = core.main(["view", f.board, "--task", "impl-fix-1"]);
   assert.deepEqual(view.tasks.map(x => x.id), ["impl-fix-1"]);
   assert.deepEqual(view.counts, { queued: 1, active: 0, blocked: 1, done: 1 });
-  assert.deepEqual(view.completion, { tasks_done: 1, tasks_total: 2, derived_done: 0, derived_total: 1, global_accepted: false });
+  assert.deepEqual(view.completion, { tasks_done: 1, tasks_total: 2, derived_done: 0, derived_total: 1, derived_active: 0, derived_blocked: 0, global_accepted: false });
   assert.deepEqual(validView(view), []);
 });
 

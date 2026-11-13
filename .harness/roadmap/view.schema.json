@@ -68,6 +68,14 @@
         "derived_total": {
           "type": "integer",
           "minimum": 0
+        },
+        "derived_active": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "derived_blocked": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
