@@ -58,9 +58,12 @@ While a correction is open, every task that depends on the corrected implementat
   depends on it, not only for the review that blamed it. Such a task cannot be claimed (so `next`
   and `prompt` do not offer it); one that is already active cannot record `done` while the
   correction is open (a `blocked` receipt stays allowed); the fresh-context rule is checked again
-  at `record`, not only at `claim`; replay applies the same checks (FR-024). It closes the two
-  holes of the fourth review: an agent holding a second review writing the correction then
-  validating it, and a second review completed on the implementation from before the correction.
+  at `record`, not only at `claim`; replay applies the same checks (FR-024). It closes the first
+  hole of the fourth review (an agent holding a second review writing the correction then
+  validating it) and only partially the second (a second review completed on the implementation
+  from before the correction): the freeze starts at `derive`, not at the blaming receipt, so
+  "Known limitations" A to D remain, accepted by the owner on 13 November 2026 (merge with the
+  limits documented, no further behavior change).
 - **D2–D6 (deduced from B and the owner's escalation rule; to be confirmed on the PR)**:
   D2 own model, agent, receipts and attempt budget, never the agent of the failed review;
   D3 created only after a blocked review receipt that blames the implementation it depends on;
@@ -167,6 +170,34 @@ As the coordinator, I want `next`, `prompt` and `complete` to treat derived miss
 2. **Given** `prompt --task impl-fix-1`, **Then** the mission view carries its objective, inherited scope and checks, its topology and a `derived` block.
 3. **Given** a derived mission not done, **When** `complete`, **Then** refused.
 4. **Given** queued `review` and `qa` blocked blaming `impl` with `impl-fix-1` queued, **When** `next` or `prompt`, **Then** the ready mission is `impl-fix-1`, not `review` (OD-5).
+
+## Known limitations
+
+Accepted by the owner on 13 November 2026 after the last review round: the feature merges with
+these limits documented and no further behavior change. Two reviewers found no divergence between
+command and replay and no way around the attempt caps. Each limit gives the coordinator's conduct.
+
+- **A. The freeze starts at `derive`, not at the blocked receipt that blames.** Between the two,
+  `next` and `prompt` can offer a dependent of the blamed parent, and it can be validated on the
+  implementation from before the correction. The same holds after a correction is exhausted or
+  withdrawn (`withdraw-derived` lifts the freeze). An attempt of a dependent that started before
+  the correction can record `done` once the correction is done. Conduct: derive the correction
+  immediately after the receipt that blames; claim no dependent of the parent in between; do not
+  withdraw or exhaust a correction while a dependent is active unless the dependent is to be
+  re-run.
+- **B. Circular wait.** `derive` is accepted even when an active dependent of the parent prevents
+  claiming the correction (`max_active` reached, overlapping `allowed_files`, no `parallel`). That
+  dependent cannot record `done` during the correction, so with budgets of 1 the only way out is a
+  `blocked` receipt or a withdrawal. The `next_action` "wait for it" is misleading in that case.
+  Conduct: before `derive`, check that the correction can be claimed; on a circular wait, record a
+  `blocked` receipt for the dependent or withdraw the correction.
+- **C. A dependent held by an agent that later appears on the correction chain** can neither
+  record `done` nor be released once its budget is exhausted, and its `next_action` still says
+  "Continue the owned attempt". Conduct: give every correction attempt a newly launched agent
+  (fresh context) and record a `blocked` receipt for such a dependent.
+- **D. Transitive dependencies are not frozen and not in the family.** A task that depends on a
+  `done` dependent of the parent is neither frozen nor checked for fresh context. Conduct: treat
+  such tasks as dependents by hand and claim them only after the correction is done.
 
 ## Challenges
 

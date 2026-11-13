@@ -188,7 +188,7 @@ test("FR-007 the release refusal promises an automatic requeue only when a gap c
   const stateBytes = JSON.stringify(state(f));
   let message = "";
   try { release(f, "review"); } catch (err) { message = err.message; }
-  assert.match(message, /cannot release review: blamed dependencies lack a done correction: no correction can be derived for impl \(impl-fix-1 exhausted\): impl already had 1 corrections/);
+  assert.match(message, /cannot release review: blamed dependencies lack a done correction: no correction can be derived for impl \(impl-fix-1 exhausted\): impl already had 1 correction for this receipt of review/);
   assert.doesNotMatch(message, /requeued automatically/);
   assert.equal(JSON.stringify(state(f)), stateBytes);
 });

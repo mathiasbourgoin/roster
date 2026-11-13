@@ -331,12 +331,12 @@ review is requeued automatically when its corrections are done; D6 `view` shows 
 mission and every attempt at its time.
 
 Four owner decisions (Mathias, 13 November 2026) sharpen D2 and D5 and are enforced:
-**fresh context** (« L'important c'est surtout d'utiliser un agent au contexte frais »), over the
-**family of the review**: no assignee may take a correction of a review, or the next attempt of
-any task that depends on a corrected mission, after appearing on that task, on a dependency it
-blames or that has a correction, or on one of their corrections;
-**verified digest**: the `derive` event carries a digest of the definition, recomputed on replay
-(it detects accidental or naive edits only, see below); **strict re-queue**: a failed review
+**OD-1 fresh context** (« L'important c'est surtout d'utiliser un agent au contexte frais »),
+widened by **OD-4 over the family of the review**: no assignee may take a correction of a review,
+or the next attempt of any task that depends on a corrected mission, after appearing on that task,
+on a dependency it blames or that has a correction, or on one of their corrections;
+**OD-2 verified digest**: the `derive` event carries a digest of the definition, recomputed on
+replay (it detects accidental or naive edits only, see below); **OD-3 strict re-queue**: a failed review
 returns to the queue only when every dependency its latest blocked receipt blames has a done
 correction, and its `release` is refused until then, with no exception for an exhausted
 correction.
@@ -479,11 +479,29 @@ correction:
   (`cannot record: a done receipt of <task> is refused while a dependency is under correction:
   ...`); a `blocked` receipt stays allowed, and the task's `next_action` says so.
 
-Limits of the freeze: it starts at `derive`, not at the blaming receipt, so between the blocked
-receipt and `derive` another dependent can still be claimed; an attempt of a dependent that
-started before the correction may record `done` once the correction is done, if its agent is
-fresh for the family; and an exhausted correction does not freeze dependents, although the
-dependency it was meant to correct is still uncorrected.
+Known limitations of corrections (accepted by the owner on 13 November 2026; coordinator conduct
+in each item):
+
+- **A. The freeze starts at `derive`, not at the blocked receipt that blames.** Between the two,
+  `next` and `prompt` can offer a dependent of the blamed parent, and it can be validated on the
+  implementation from before the correction. The same holds after a correction is exhausted or
+  withdrawn (`withdraw-derived` lifts the freeze), and an attempt of a dependent that started
+  before the correction may record `done` once the correction is done. Conduct: derive the
+  correction immediately after the receipt that blames; claim no dependent of the parent in
+  between.
+- **B. Circular wait.** `derive` is accepted although an active dependent of the parent can
+  prevent claiming the correction (`max_active`, overlapping `allowed_files`, no `parallel`); that
+  dependent cannot record `done` during the correction, and with budgets of 1 the only way out is
+  a `blocked` receipt or a withdrawal. Its `next_action` "wait for it" is then misleading.
+  Conduct: check before `derive` that the correction can be claimed; on a circular wait, record a
+  `blocked` receipt or withdraw the correction.
+- **C. A dependent held by an agent that later appears on the correction chain** can neither
+  record `done` nor be released once its budget is exhausted, and its `next_action` still says
+  "Continue the owned attempt". Conduct: give every correction attempt a newly launched agent and
+  record a `blocked` receipt for such a dependent.
+- **D. Transitive dependencies are not frozen and not in the family**: a task that depends on a
+  `done` dependent of the parent is neither frozen nor checked for fresh context. Conduct: claim
+  such a task only after the correction is done.
 
 Legacy claims: a claim event without `assignment` (written by the runtime before derived
 missions) stays valid for a contract task that is on no family at that point, because older

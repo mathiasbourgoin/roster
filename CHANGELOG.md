@@ -234,8 +234,6 @@ below) — both already present in this section.
 - **`FR-120` budget test hardcoded 4001 words**, so it stopped testing anything the moment the
   budget was raised. Now derived from `BUDGETS`.
 
----
-
 ### Migration notes
 
 - **Roadmap boards and older runtimes.** A roadmap board becomes unreadable by a runtime from
@@ -271,6 +269,20 @@ below) — both already present in this section.
   whose `capabilities.json` changed and whose agent is gone has one exit: restore
   `capabilities.json` to its content at the claim (the blocked-receipt exception is for
   corrections only).
+- **Known limitations of corrections** (accepted by the owner on 13 November 2026: merged with the
+  limits documented, no further behavior change; coordinator conduct in
+  `schema/roadmap-schema.md` and `specs/roadmap-derived-missions.md`). A: the freeze of dependents
+  starts at `derive`, not at the blocked receipt that blames, nor after an exhausted or withdrawn
+  correction; between the two, a dependent can be offered and validated on the implementation from
+  before the correction, and an attempt started earlier can record `done` once the correction is
+  done. B: circular wait is possible, `derive` being accepted while an active dependent prevents
+  claiming the correction; with budgets of 1 the only exit is a `blocked` receipt or a withdrawal,
+  and `next_action` "wait for it" misleads. C: a dependent held by an agent that later appears on
+  the correction chain can neither record `done` nor be released at an exhausted budget, while
+  `next_action` still says "Continue the owned attempt". D: transitive dependencies are neither
+  frozen nor in the family.
+
+---
 
 ## [1.2.0] — 2026-06-03
 

@@ -43,8 +43,9 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
   accidental edits, not a deliberate rewrite of `state.json`. Replay verifies derive
   events and the new claim-event `assignment`; `view` adds `kind`, `derived`, `corrections` and a
   per-attempt `timeline`; `status --format text` counts contract tasks and corrections apart and
-  lists the attempts of a correction or of a failed or retried mission. Owner decisions D1 and, on 13 November 2026, fresh context, verified
-  digest and requeue; the other points are deduced, to be confirmed. Labels stay unauthenticated.
+  lists the attempts of a correction or of a failed or retried mission. Owner decisions D1 and, on 13 November 2026, OD-1 fresh context, OD-2 verified
+  digest, OD-3 requeue, OD-4 fresh context over the review's family and OD-5 freeze of dependents
+  until the correction (with known limitations A to D, see the schema); the other points are deduced, to be confirmed. Labels stay unauthenticated.
   See the migration notes below.
 - `/roster-roadmap` 1.3.0 records what the coordinator waits for from the human operator in the
   advisory annex `requests.json` (`request-open`, `request-answer`, `request-withdraw`,

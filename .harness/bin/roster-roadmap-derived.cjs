@@ -124,9 +124,9 @@ function derivePrecondition(ctx, history, parentId, causeId) {
   if (open) return `correction ${open[0]} already exists for ${parentId} and this receipt of ${causeId} and is ${correctionState(open[0], open[1], tasks)}; derive again only after it is exhausted or withdrawn`;
   // Bound: a correction that never ran (withdrawn, FR-022) does not count; the others are capped by the parent's budget.
   const ran = same.filter(([id]) => tasks[id].status !== "withdrawn").length, withdrawn = same.length - ran;
-  if (ran >= parent.policy.max_attempts) return `${parentId} already had ${ran} corrections for this receipt of ${causeId}, the limit set by its max_attempts; request a revised-roadmap decision`;
+  if (ran >= parent.policy.max_attempts) return `${parentId} already had ${ran} correction${ran === 1 ? "" : "s"} for this receipt of ${causeId}, the limit set by its max_attempts; request a revised-roadmap decision`;
   // The same cap bounds the withdrawals, so derive / withdraw-derived cannot alternate forever.
-  if (withdrawn >= parent.policy.max_attempts) return `${parentId} already had ${withdrawn} withdrawn corrections for this receipt of ${causeId}, the limit set by its max_attempts; request a revised-roadmap decision`;
+  if (withdrawn >= parent.policy.max_attempts) return `${parentId} already had ${withdrawn} withdrawn correction${withdrawn === 1 ? "" : "s"} for this receipt of ${causeId}, the limit set by its max_attempts; request a revised-roadmap decision`;
   return legacyClaimRefusal(correctionFamily(ctx, known, receipts, causeId, parentId), events);
 }
 // Every refusal of derive that does not depend on the request: FR-003 plus the live reframe check
