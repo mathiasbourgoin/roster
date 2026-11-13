@@ -28,7 +28,6 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
   and remaining estimates yield conditional task/global ETAs when evidence permits;
   missing estimates, blockers and overruns remain visible. Only separate global acceptance
   establishes the completed outcome.
-
 - **Express Lite** (#87, #89): local implementation/review for demonstrably non-behavioral
   descriptive docs, formatting or private renames. Skill/agent/rule/hook changes and ambiguous,
   API, dependency-version or security work are excluded. Relevant checks remain required;
