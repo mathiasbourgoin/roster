@@ -7,11 +7,11 @@ const core = () => require("./roster-roadmap.cjs");
 const { fail, keys, object, text, identifier, integer, array, oneOf, digestString } = v;
 const AT = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
 function validateEvent(event, index) {
-  keys(event, ["revision", "action", "coordinator", "task_id", "reason", "reconciled_by", "at", "assignment"], "state event");
+  keys(event, ["revision", "action", "coordinator", "task_id", "reason", "reconciled_by", "at", "assignment", "definition_digest"], "state event");
   if (event.at !== undefined && (typeof event.at !== "string" || !AT.test(event.at) || !Number.isFinite(Date.parse(event.at)))) fail("invalid state event timestamp");
   if (event.revision !== index + 1) fail("state event revisions are not contiguous");
   oneOf(event.action, ["accept", "claim", "record", "release", "complete", "derive"], "state event action");
-  derived.validateClaimPayload(event);
+  derived.validateEventPayloads(event);
   identifier(event.coordinator, "state event coordinator");
   if (event.task_id !== null) identifier(event.task_id, "state event task");
   if (event.reason !== null) text(event.reason, "state event reason");
@@ -50,10 +50,10 @@ function validateState(state) {
   derived.validateDerivedShape(state);
   if (state.global_receipt !== null) object(state.global_receipt, "global receipt");
 }
-function replayClaim(task, current, event, replay) {
+function replayClaim(ctx, task, current, event, replay, history) {
   if (current.status !== "queued" || current.attempts >= task.policy.max_attempts) fail(`illegal claim history for ${task.id}`);
   if (task.depends_on.some(id => replay[id].status !== "done")) fail(`claim history has unmet dependencies for ${task.id}`);
-  derived.checkClaimPayload(task, event);
+  derived.checkClaimPayload(ctx, task, event, history);
   current.attempts++; current.status = "active"; current.reason = null; current.payload = event.assignment || null;
 }
 function replayRecord(ctx, task, current, replay, history) {
@@ -75,7 +75,7 @@ function replayTaskEvent(ctx, event, replay, receiptIndex, known = []) {
   if (event.action === "derive") return derived.replayDerive(ctx, event, replay, ctx.state.receipts.slice(0, receiptIndex.value), known);
   const task = core().taskById(ctx, event.task_id), current = replay[task.id];
   if (!current) fail(`history references ${task.id} before its derive event`);
-  if (event.action === "claim") replayClaim(task, current, event, replay);
+  if (event.action === "claim") replayClaim(ctx, task, current, event, replay, history);
   else if (event.action === "record") replayRecord(ctx, task, current, replay, history);
   else if (event.action === "release") replayRelease(ctx, task, current, event, replay, history);
   else fail(`invalid task history action ${event.action}`);

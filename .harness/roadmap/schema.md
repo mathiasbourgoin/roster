@@ -329,6 +329,12 @@ the implementation it depends on; D4 the implementation stays `done` and is anno
 review is requeued automatically when its corrections are done; D6 `view` shows every derived
 mission and every attempt at its time.
 
+Three owner decisions (Mathias, 13 November 2026) sharpen D2 and D5 and are enforced:
+**fresh context** (« L'important c'est surtout d'utiliser un agent au contexte frais »): no
+assignee may appear twice on a correction chain; **verified digest**: the `derive` event carries
+a digest of the definition, recomputed on replay; **re-queue**: a failed review returns to the
+queue only when every dependency its receipt blames has a done correction.
+
 `derive` reads a request that is exactly:
 
 ```json
@@ -356,7 +362,13 @@ map `state.derived`:
   "objective": "Fix the null check", "topology": { "...": "..." }, "max_attempts": 2, "revision": 7 } }
 ```
 
-`revision` is the revision of the single `derive` event, whose `task_id` is the derived id. Its
+`revision` is the revision of the single `derive` event, whose `task_id` is the derived id. That
+event also carries `"definition_digest"`: the lowercase hex SHA-256 of the UTF-8 bytes of
+`JSON.stringify` of `{parent, cause, objective, topology, max_attempts}` taken from the
+definition, with object keys sorted at every depth, array order kept and no whitespace (the
+canonical form of `contract_digest`). It is required on `derive` events and refused on any other
+event; replay recomputes it and refuses a definition modified after its event. `revision` is not
+covered by the digest: replay compares it with the event revision. Its
 runtime state lives in `state.tasks[<id>]` like any mission, starting `queued` with 0 attempts.
 The mission set is the contract tasks followed by derived missions in creation order. A derived
 mission inherits `intake`, `inputs`, `outputs`, `allowed_files`, `dod`, `success`, `checks` and
@@ -365,27 +377,53 @@ topology, `policy.on_failure: "retry"` with its own `max_attempts`, and workflow
 record, release, write-scope overlap, capacity, progress reports, recovery inspection and
 operator-request binding treat it as a mission with its own budget.
 
-`claim` of a derived mission refuses the assignee of its cause receipt. A done receipt of a derived
-mission, when every derived mission of the same cause receipt is done and that receipt is still
-the cause's latest, moves the cause from `blocked` to `queued` with reason
-`corrections done: <ids in creation order>` in the same `record` event. While any correction of
+A **correction chain** is defined by the links a definition records. The chain of a derived
+mission with `parent` P and `cause.task_id` C is P, C and every derived mission with that same
+parent and cause task, over every receipt of C (`impl-fix-2` derived after a second failed review
+is on the chain of `impl-fix-1`). A review C that has at least one derived mission is on the
+union of its chains: C, those derived missions and their parents. Two corrections of different
+parents from the same review are on different chains (deduced, to confirm on the PR).
+
+`claim` of a mission on a chain refuses any assignee already seen on that chain: the `assignee`
+of a receipt, of a claim-event `assignment` or of an active assignment of any chain member,
+including earlier attempts of the same derived mission. So a correction is never claimed by the
+implementer of its parent, the failed reviewer or an earlier fixer, and the review's next attempt
+after a correction needs an agent new to the chain. Roster compares declared identifiers only: the
+coordinator must give each attempt the identifier of a newly launched agent. Replay applies the
+same rule to every claim event against the history before it, and a claim of a mission on a chain
+must carry its `assignment`. A legacy claim without `assignment` whose attempt was released
+leaves no identity to compare.
+
+A done receipt of a derived mission, when that mission's cause receipt is still the cause's latest
+and every dependency named in its `blames` has a done derived mission created from it, moves the
+cause from `blocked` to `queued` with reason `corrections done: <done ids in creation order>` in
+the same `record` event. A blamed dependency without a correction, or whose correction is not
+done, keeps the review blocked. While any correction of
 the cause's latest blocked receipt is `queued`, `active` or `blocked` with attempts left,
 `release` of the cause refuses; once every such correction is exhausted, the usual release
-rules apply again. Because the requeue waits only for the corrections derived so far, derive one
-correction per blamed dependency before any of them is recorded done; once the review is requeued,
-a further derive from that receipt refuses (the review is no longer blocked). Each derivation consumes a distinct blocked receipt of the review, so the
-review's own budget bounds derivations.
+rules apply again (a blamed dependency that was never derived does not freeze the release). Derive
+one correction per blamed dependency, in any order, while the review is blocked; once the review is
+requeued, a further derive from that receipt refuses (the review is no longer blocked). Each
+derivation consumes a distinct blocked receipt of the review, so the review's own budget bounds
+derivations.
 
 New `claim` events carry an optional `assignment` = `{id, assignee, runtime, route, model}`
 copied from the assignment the claim created; no other event may carry it, and a claim of a
 derived mission must carry it (the legacy exemption covers contract tasks only). A receipt or an
 active assignment of a derived mission whose assignee equals its cause assignee is refused. Replay creates each
 derived mission at its `derive` event and re-checks the state-derivable preconditions, the id
-allocation and the cause receipt, verifies claim payloads against the topology, the following
-receipt and the active assignment, re-checks the cause-assignee ban on claims that carry a payload,
-replays the requeue and the release freeze, and refuses a definition without its event or the
-reverse. Boards without `derived` and claim events without `assignment` read exactly as before.
-Older tools refuse boards that use either field; install the runtime closure together.
+allocation, the cause receipt and the definition digest, verifies claim payloads against the
+topology, the following receipt and the active assignment, re-checks the cause-assignee ban and the
+fresh-context rule on claims, replays the requeue and the release freeze, and refuses a definition
+without its event or the reverse. Boards without `derived` and claim events without `assignment`
+read exactly as before.
+
+Compatibility: the runtime before derived missions refuses a whole board (every command that reads
+it, observed on `status`, `view` and `next`: `state event: unknown field assignment`) as soon as
+it holds one `claim` written by this version, because every new claim event, of a contract task
+or a derived mission, carries `assignment`; the same holds for a `derive` event or `state.derived`.
+A board that only has `accept`, or `record`/`release` events on claims written by the older
+runtime, stays readable. Install the runtime closure together and do not downgrade a board in use.
 
 Completion means every contract task `done` and no derived mission `queued` or `active`
 (`next`, `complete`, the stored global receipt and completion history). Identity labels

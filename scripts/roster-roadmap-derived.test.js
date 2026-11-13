@@ -71,7 +71,7 @@ test("AC-1 derive from a blaming blocked review receipt records definition, queu
   assert.deepEqual(after.derived["impl-fix-1"], { parent: "impl", cause: { task_id: "review", attempt_id: cause.attempt_id, assignee: "rev1" }, objective: "Fix the null check", topology: TOPOLOGY, max_attempts: 2, revision: before.revision + 1 });
   assert.deepEqual(after.tasks["impl-fix-1"], { status: "queued", attempts: 0, assignment: null, reason: null });
   assert.equal(after.events.length, before.events.length + 1);
-  assert.deepEqual({ ...after.events.at(-1), at: null }, { revision: before.revision + 1, action: "derive", coordinator: "lead", task_id: "impl-fix-1", reason: null, reconciled_by: null, at: null });
+  assert.deepEqual({ ...after.events.at(-1), at: null, definition_digest: null }, { revision: before.revision + 1, action: "derive", coordinator: "lead", task_id: "impl-fix-1", reason: null, reconciled_by: null, at: null, definition_digest: null });
   assert.deepEqual(after.tasks.impl, before.tasks.impl); assert.deepEqual(after.tasks.review, before.tasks.review);
   assert.deepEqual(after.receipts, before.receipts);
   assert.deepEqual(fs.readFileSync(f.roadmapFile), roadmap);
@@ -152,7 +152,7 @@ test("AC-4 the failed reviewer cannot claim the correction and release follows t
   unchanged(f, () => claim(f, "impl-fix-1", "rev1"));
   finish(f, "impl-fix-1", "blocked", "fixer");
   release(f, "impl-fix-1");
-  finish(f, "impl-fix-1", "blocked", "fixer");
+  finish(f, "impl-fix-1", "blocked", "fixer2");
   assert.equal(state(f).tasks["impl-fix-1"].attempts, 2);
   unchanged(f, () => release(f, "impl-fix-1"));
 });
@@ -188,7 +188,8 @@ test("EC-2 a second blocked review derives impl-fix-2 and the requeue gate uses 
   assert.equal(derive(f).task_id, "impl-fix-2");
   assert.equal(state(f).derived["impl-fix-2"].cause.assignee, "rev2");
   unchanged(f, () => release(f, "review"));
-  claim(f, "impl-fix-2", "rev1"); // the first reviewer is not the cause of this correction
+  for (const seen of ["dev", "rev1", "rev2", "fixer"]) unchanged(f, () => claim(f, "impl-fix-2", seen)); // FR-020: whole chain
+  claim(f, "impl-fix-2", "fixer2");
   record(f, receipt(f, "impl-fix-2", "done"));
   assert.equal(state(f).tasks.review.reason, "corrections done: impl-fix-2");
   assert.deepEqual(core.main(["status", f.board]).tasks.map(x => x.id), ["impl", "review", "impl-fix-1", "impl-fix-2"]);
@@ -283,8 +284,8 @@ test("EC-7/C-11 a later reframe condition leaves earlier derive events valid; th
   finish(f, "impl", "done", "dev");
   finish(f, "review", "blocked", "rev1", { blames: ["impl"] });
   derive(f, { max_attempts: 1 }); finish(f, "impl-fix-1", "blocked", "fixer");
-  release(f, "review"); finish(f, "review", "blocked", "rev1");
-  release(f, "review"); finish(f, "review", "blocked", "rev1");
+  release(f, "review"); finish(f, "review", "blocked", "rev2");
+  release(f, "review"); finish(f, "review", "blocked", "rev3");
   const recovery = require("./roster-recovery.cjs").inspectBoard(core.readBoard(f.board), "review");
   assert.equal(recovery.reframe_needed, true); assert.equal(recovery.consecutive_failures, 3);
   assert.equal(core.main(["status", f.board]).tasks.find(x => x.id === "impl-fix-1").status, "blocked");
@@ -298,13 +299,99 @@ test("AC-5 an active derived assignment relabelled to the failed reviewer is ref
   assert.throws(() => core.main(["status", f.board]), /rev1/);
 });
 
-test("EC-1 ordering: every blamed dependency must be derived before the first correction is done", t => {
+// Owner decision 3 (2026-11-13): FR-007 requeue only when every blamed dependency has a done correction.
+test("FR-007 owner decision 3: the review requeues only once every blamed dependency has a done correction", t => {
+  const f = setup(t, [task("impl"), task("lib"), task("review", ["impl", "lib"])]);
+  finish(f, "impl", "done", "dev"); finish(f, "lib", "done", "dev");
+  finish(f, "review", "blocked", "rev1", { blames: ["impl", "lib"] });
+  derive(f);
+  const first = finish(f, "impl-fix-1", "done", "fixer");
+  assert.equal(first.requeued, undefined);
+  assert.equal(state(f).tasks.review.status, "blocked");
+  assert.equal(core.main(["status", f.board]).tasks.find(x => x.id === "review").status, "blocked"); // replay agrees
+  assert.equal(derive(f, { parent: "lib" }).task_id, "lib-fix-1");
+  assert.equal(finish(f, "lib-fix-1", "done", "fixer").requeued, "review");
+  assert.deepEqual(state(f).tasks.review, { status: "queued", attempts: 1, assignment: null, reason: "corrections done: impl-fix-1, lib-fix-1" });
+});
+
+test("FR-007 owner decision 3: an exhausted correction of one blamed dependency keeps the review blocked", t => {
+  const f = setup(t, [task("impl"), task("lib"), task("review", ["impl", "lib"])]);
+  finish(f, "impl", "done", "dev"); finish(f, "lib", "done", "dev");
+  finish(f, "review", "blocked", "rev1", { blames: ["impl", "lib"] });
+  derive(f, { max_attempts: 1 }); derive(f, { parent: "lib" });
+  finish(f, "impl-fix-1", "blocked", "fixer");
+  assert.equal(finish(f, "lib-fix-1", "done", "fixer").requeued, undefined);
+  assert.equal(state(f).tasks.review.status, "blocked");
+  release(f, "review"); // every pending correction is settled: the usual release rules apply
+  assert.equal(state(f).tasks.review.status, "queued");
+});
+
+test("FR-007 owner decision 3: a forged requeue after a partial correction is refused on read", t => {
   const f = setup(t, [task("impl"), task("lib"), task("review", ["impl", "lib"])]);
   finish(f, "impl", "done", "dev"); finish(f, "lib", "done", "dev");
   finish(f, "review", "blocked", "rev1", { blames: ["impl", "lib"] });
   derive(f); finish(f, "impl-fix-1", "done", "fixer");
-  assert.equal(state(f).tasks.review.reason, "corrections done: impl-fix-1");
-  unchanged(f, () => derive(f, { parent: "lib" }));
+  tampered(f, s => { s.tasks.review = { status: "queued", attempts: 1, assignment: null, reason: "corrections done: impl-fix-1" }; });
+});
+
+// Owner decision 1 (2026-11-13): a fresh-context agent on every attempt of a correction chain.
+test("FR-020 owner decision 1: claim refuses every assignee already seen on the correction chain", t => {
+  const f = blockedReview(t); derive(f); // chain impl/review: dev (impl), rev1 (review)
+  for (const seen of ["dev", "rev1"]) unchanged(f, () => claim(f, "impl-fix-1", seen));
+  finish(f, "impl-fix-1", "blocked", "fixer"); release(f, "impl-fix-1");
+  unchanged(f, () => claim(f, "impl-fix-1", "fixer")); // its own earlier attempt
+  assert.equal(finish(f, "impl-fix-1", "done", "fixer2").requeued, "review");
+  for (const seen of ["dev", "rev1", "fixer", "fixer2"]) assert.throws(() => claim(f, "review", seen), /correction chain/);
+  claim(f, "review", "rev2");
+  assert.equal(state(f).tasks.review.assignment.assignee, "rev2");
+});
+
+test("FR-020 owner decision 1: a chain is one parent and one review; another review starts with no chain", t => {
+  const f = setup(t, [task("impl"), task("review", ["impl"]), task("audit", ["impl"])]);
+  finish(f, "impl", "done", "dev");
+  finish(f, "review", "blocked", "rev1", { blames: ["impl"] }); derive(f);
+  finish(f, "audit", "done", "fixer"); // audit is not on the impl/review chain until it derives
+  unchanged(f, () => claim(f, "impl-fix-1", "dev"));
+  claim(f, "impl-fix-1", "fixer"); // the audit agent never appeared on this chain
+});
+
+for (const [label, change] of [
+  ["a correction claim reusing the parent's implementer", s => {
+    s.events.find(e => e.action === "claim" && e.task_id === "impl-fix-1").assignment.assignee = "dev";
+    s.receipts.find(r => r.task_id === "impl-fix-1").assignee = "dev";
+  }],
+  ["a review claim after correction reusing the fixer", s => {
+    s.events.filter(e => e.action === "claim" && e.task_id === "review").at(-1).assignment.assignee = "fixer";
+    s.tasks.review.assignment.assignee = "fixer";
+  }],
+  ["a review claim after correction without its payload", s => {
+    delete s.events.filter(e => e.action === "claim" && e.task_id === "review").at(-1).assignment;
+  }],
+]) test(`FR-020 owner decision 1: replay refuses ${label}`, t => {
+  const f = blockedReview(t); derive(f); finish(f, "impl-fix-1", "done", "fixer"); claim(f, "review", "rev2");
+  tampered(f, change);
+});
+
+// Owner decision 2 (2026-11-13): the derive event carries a verified digest of the definition.
+function canonicalDigest(value) {
+  const sort = x => Array.isArray(x) ? x.map(sort) : x && typeof x === "object" ? Object.fromEntries(Object.keys(x).sort().map(k => [k, sort(x[k])])) : x;
+  return require("node:crypto").createHash("sha256").update(JSON.stringify(sort(value)), "utf8").digest("hex");
+}
+test("FR-019 owner decision 2: the derive event records the sha256 of the canonical definition", t => {
+  const f = blockedReview(t); derive(f);
+  const s = state(f), { parent, cause, objective, topology, max_attempts } = s.derived["impl-fix-1"];
+  assert.equal(s.events.at(-1).definition_digest, canonicalDigest({ parent, cause, objective, topology, max_attempts }));
+});
+
+for (const [label, change] of [
+  ["edited objective", s => { s.derived["impl-fix-1"].objective = "Rewrite everything"; }],
+  ["edited topology", s => { s.derived["impl-fix-1"].topology.persona = "Someone else"; }],
+  ["lowered budget", s => { s.derived["impl-fix-1"].max_attempts = 1; }],
+  ["deleted digest", s => { delete s.events.find(e => e.action === "derive").definition_digest; }],
+  ["digest on a claim event", s => { s.events.find(e => e.action === "claim").definition_digest = s.events.find(e => e.action === "derive").definition_digest; }],
+]) test(`FR-019 owner decision 2: replay refuses a definition modified after its derive event: ${label}`, t => {
+  const f = blockedReview(t); derive(f);
+  tampered(f, change);
 });
 
 test("FR-006 the receipt check independently refuses the cause assignee on a derived mission", () => {
