@@ -53,3 +53,6 @@ scripts/xruntime-review.cjs
 specs/consumer-script-scope.md
 briefs/
 scripts/check-pipeline-install.js
+AGENTS.md
+.harness/harness.json
+.claude/harness.json
