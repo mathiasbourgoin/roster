@@ -3,7 +3,8 @@
 Use this contract to coordinate several Roster intakes without binding execution to a
 particular runtime. The executable validator is `scripts/roster-roadmap.cjs`. Its installed
 copy is `.harness/bin/roster-roadmap.cjs`; its `roster-artifacts.cjs`, `roster-recovery.cjs`,
-`roster-roadmap-view.cjs` and `roster-roadmap-estimates.cjs` siblings form the installed
+`roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs` and
+`roster-roadmap-requests-view.cjs` siblings form the installed
 runtime closure from the same approved revision. It requires only Node built-ins and
 remains usable in an ESM consumer. Commands coordinate artifacts; they never invoke an agent, shell,
 network service, or verification command.
@@ -18,6 +19,7 @@ An explicit board directory contains:
 | `capabilities.json` | Current observed runtime availability and explicit capability authorization |
 | `state.json` | Sole execution authority: acceptance, ownership, tasks, receipts and events |
 | `estimates.json` | Optional contract-bound planner forecasts and revision history; advisory |
+| `requests.json` | Optional advisory annex of coordinator asks to the human operator, with its own revision and history; never read by claim/next |
 | `progress/` | Optional per-attempt worker-reported progress; advisory |
 | `goal.md` | Human-facing observations, assumptions, recommendations, decisions and open questions |
 | `notes/` | Longer source-backed research, consulted when relevant |
@@ -146,6 +148,10 @@ status BOARD [--format json|text]
 view BOARD [--task TASK] [--events N]
 progress BOARD --task TASK --attempt ATTEMPT --assignee ID --sequence N --update FILE
 estimate BOARD --revision N --update FILE
+request-open BOARD --coordinator ID --revision N --request FILE
+request-answer BOARD --coordinator ID --revision N --id RID --answer FILE
+request-withdraw BOARD --coordinator ID --revision N --id RID --withdrawal FILE
+request-journal BOARD --coordinator ID --revision N --journal FILE
 next BOARD
 prompt BOARD [--task TASK] [--max-chars N]
 accept BOARD --coordinator ID --revision N --decision FILE
@@ -186,6 +192,14 @@ planning evidence changes; no timing metadata is inferred for legacy boards. ETA
 conditional on authorization/capacity/dispatch/check assumptions, and missing timing or
 blocking evidence produces unknown values. Active remaining captures must match actual
 attempt/time anchors; elapsed pessimistic overruns require re-estimation.
+
+`request-open`, `request-answer`, `request-withdraw` and `request-journal` write the optional
+advisory annex `requests.json` (what the coordinator waits for from the human operator) under
+the board lock, with the annex's own revision (`0` initially) and `--coordinator` equal to
+`state.coordinator` on accepted boards. They change no accepted contract, execution state,
+receipt or `claim`/`next` behaviour; an open request is a signal, never a refusal. Requests
+never contain secrets. See [the requests schema](roadmap-requests-schema.md), installed as
+`.harness/roadmap/requests-schema.md`.
 
 `lint` returns `contract_digest` for recording a decision. The decision file is exactly
 `{ "by": "owner", "basis": "Explicit owner agreement or precisely scoped delegated authority", "contract_digest": "<digest>" }`.

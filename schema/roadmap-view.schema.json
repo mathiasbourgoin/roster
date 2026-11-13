@@ -397,6 +397,12 @@
                 "type": "null"
               }
             ]
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -790,6 +796,314 @@
           "type": "null"
         }
       ]
+    },
+    "operator_requests": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "absent",
+            "valid",
+            "invalid"
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "journal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counts": {
+          "type": "object",
+          "properties": {
+            "open": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "now": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "later": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unscheduled": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "answered": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "withdrawn": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "archived": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "open",
+            "now",
+            "later",
+            "unscheduled",
+            "answered",
+            "withdrawn",
+            "archived"
+          ],
+          "additionalProperties": false
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "to": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "role",
+                      "person"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              "kind": {
+                "enum": [
+                  "decision",
+                  "supply",
+                  "action",
+                  "information"
+                ]
+              },
+              "text": {
+                "type": "string"
+              },
+              "task_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "need": {
+                "enum": [
+                  "blocking",
+                  "before-task",
+                  "later"
+                ]
+              },
+              "refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "created_by": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "open",
+                  "answered",
+                  "withdrawn"
+                ]
+              },
+              "supersedes": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "answer": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string"
+                      },
+                      "by": {
+                        "type": "string"
+                      },
+                      "at": {
+                        "type": "string"
+                      },
+                      "relayed_by": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "by",
+                      "at",
+                      "relayed_by"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "withdrawal": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string"
+                      },
+                      "by": {
+                        "type": "string"
+                      },
+                      "at": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "reason",
+                      "by",
+                      "at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "due": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "now",
+                      "later",
+                      "unscheduled"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "task_state": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "closed_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "superseded_by": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "to",
+              "kind",
+              "text",
+              "task_id",
+              "need",
+              "refs",
+              "created_at",
+              "created_by",
+              "status",
+              "supersedes",
+              "answer",
+              "withdrawal",
+              "due",
+              "task_state",
+              "closed_at",
+              "superseded_by"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "reason",
+        "revision",
+        "journal",
+        "counts",
+        "items",
+        "truncated"
+      ],
+      "additionalProperties": false
     },
     "next_action": {
       "type": "string"

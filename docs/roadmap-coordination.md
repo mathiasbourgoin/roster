@@ -20,6 +20,7 @@ The board lives at `roadmaps/<slug>/` by default:
 | `capabilities.json` | Observed runtime capabilities and separate authorization evidence |
 | `state.json` | Authoritative execution state, assignment attempts and accepted receipts |
 | `estimates.json` | Planner duration ranges and preserved forecast revisions; advisory |
+| `requests.json` | Coordinator asks to the human operator (optional annex with its own revision); advisory, never read by claim/next |
 | `progress/` | Attempt-bound worker reports; advisory and separate from accepted receipts |
 | `receipts/` | Candidate receipt files prepared by workers for coordinator review |
 | `notes/` | Detailed research, coherence assessment and decision rationale |
@@ -90,7 +91,8 @@ In an installed project use `node .harness/bin/roster-roadmap.cjs`. In this repo
 use `node scripts/roster-roadmap.cjs`, or the `roster-roadmap` package binary. The CLI
 uses Node built-ins and works in CommonJS and ESM consumers without npm dependencies.
 Keep `roster-roadmap.cjs`, `roster-artifacts.cjs`, `roster-recovery.cjs`,
-`roster-roadmap-view.cjs` and `roster-roadmap-estimates.cjs` together in `.harness/bin/`
+`roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs` and
+`roster-roadmap-requests-view.cjs` together in `.harness/bin/`
 from the same approved revision. Init/sync install the complete runtime closure and the
 matching policies, schemas and examples under `.harness/roadmap/`; copying a lone core
 file is insufficient. Repair the complete trusted installation on mismatch.
@@ -154,6 +156,19 @@ parallel authorization and overlapping write scopes; queued dispatch and success
 remain conditional assumptions. Unresolved blockers or missing estimates prevent a fabricated
 delivery date. Missing global-verification timing may still leave a useful tasks-only ETA.
 Only the separate global receipt establishes completion, not an estimate or task count.
+
+## Operator requests
+
+When the coordinator needs the human operator, it records an advisory request in
+`requests.json` instead of pausing silently: `request-open`, then `request-answer` (relaying
+the operator's reply) or `request-withdraw`; `request-journal` stores an inert reference to
+the project logbook. An open request bound to a mission is a signal (`now`, `later`,
+`unscheduled`) shown in `view.operator_requests`, in a `Waiting on:` block of
+`status --format text` and in `prompt`; it never blocks `claim`. An answered request stays
+visible until its mission is done. There is no operator-side command or authentication, and
+no secret may be stored: a leaked secret must be treated as compromised and rotated. See
+[the requests schema](../schema/roadmap-requests-schema.md), installed as
+`.harness/roadmap/requests-schema.md`.
 
 Mutations use `--coordinator <id> --revision <current revision>` to detect conflicting
 updates. `accept` additionally reads `--decision <file>` with the current contract

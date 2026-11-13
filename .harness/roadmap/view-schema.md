@@ -76,3 +76,33 @@ overrun and re-estimation flags. `tasks_eta` forecasts tasks; `global_eta` addit
 requires an explicit global-verification duration. `conditional` means the declared
 assumptions hold, `unknown` supplies reasons, and `complete` has no future finish date.
 See `estimates-schema.md` and `estimates.md` for planner revisions and scheduling rules.
+
+## Operator requests
+
+`operator_requests` (top level, optional for older saved views) exposes the advisory annex
+`requests.json`; each task carries `requests`, the IDs of its open requests. The contract is
+in `requests-schema.md` (source: `schema/roadmap-requests-schema.md`). The block is board-wide:
+`--task` does not filter it.
+
+- `status` is `absent` (no file, revision 0), `valid` or `invalid`. An invalid annex (corrupt,
+  symlinked, foreign board, bad revision) never makes `view`, `status` or `prompt` fail:
+  `reason` says why and every request command refuses until the file is repaired by hand.
+- `counts = {open, now, later, unscheduled, answered, withdrawn, archived}`; `open` is the sum
+  of the three due buckets, `answered` and `withdrawn` are file totals, `archived` counts
+  closed requests absent from `items`.
+- `items` lists every open request first, ordered by due (`now`, `later`, `unscheduled`), then
+  `created_at`, `id`; then closed requests by `closed_at` descending. Closed requests bound to
+  a done task are archived (an answered request stays visible until its mission is done; an
+  unbound one stays). Each item is the stored record plus `due`, `task_state` (`unknown` when
+  the task left a draft contract, `draft` on drafts), `closed_at` and `superseded_by`. If the
+  block exceeds 512 KiB, closed items are dropped oldest first and `truncated` is `true`; open
+  items are never dropped and counts stay exact.
+- `journal` is an inert reference to the project logbook; the tool never opens it.
+- When valid with requests due now, `next_action` starts with
+  `Waiting on <label> (<n>)[, ...]: <total> request(s) due now.`; `version` includes the annex
+  status, revision and the open `[id, due]` list.
+- `status --format text` prints a `Waiting on:` block right after `Goal:` (open items with
+  their due, then closed items with answer or reason), or
+  `Waiting on: requests annex invalid — <reason>`. Strings are cleaned of control,
+  bidirectional and invisible characters; render them as inert text. Labels are
+  unauthenticated assertions; answers must never carry secrets.
