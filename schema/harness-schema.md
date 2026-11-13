@@ -24,6 +24,11 @@ the two. The check reports both possibilities, recommends no removal, and remain
 nonzero until the discrepancy is reconciled. Ordinary sync preserves these extras.
 Inspect ownership and canonical sources before deciding how to reconcile them;
 an intentionally local file does not automatically become a managed projection.
+The flat-entry check reads directory entries directly, including hidden names and
+symlinks without inspecting their targets. Spaces, colons and control characters
+in filenames do not evade it; diagnostics escape filenames using Bash `%q` so a
+newline in a name stays on one display line. A symlinked flat directory is reported
+without enumerating its target.
 
 This conservative check may fail for legitimate local extras. It preserves
 removed-source detection without claiming those files are safe to delete.
