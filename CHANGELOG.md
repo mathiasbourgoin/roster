@@ -152,6 +152,9 @@ below) — both already present in this section.
 
 ### Fixed
 
+- `sync-harness --check` no longer recommends removal of unattributed flat files in
+  user-preserving agent/rule directories. Unknown extras still fail conservatively;
+  unusual filenames and symlinks cannot silently escape the check.
 - **Current verification evidence** (#92–#94, `next` only): aggregate independent QA failures,
   reopen resolved findings when current checks fail, and fingerprint content in read-only
   snapshots instead of relying only on Git status labels.
