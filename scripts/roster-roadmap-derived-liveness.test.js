@@ -62,9 +62,10 @@ test("FR-003 corrections of one dependency for one receipt are capped by the par
 });
 
 test("FR-003 a withdrawn correction never ran and does not count toward the cap", t => {
-  const f = blockedReview(t, [task("impl", [], { max_attempts: 1 }), task("review", ["impl"])]);
+  const f = blockedReview(t, [task("impl", [], { max_attempts: 2 }), task("review", ["impl"])]);
   derive(f, { max_attempts: 1 }); withdraw(f, "impl-fix-1");
-  derive(f, { max_attempts: 1 }); withdraw(f, "impl-fix-2");
+  derive(f, { max_attempts: 1 }); finish(f, "impl-fix-2", "blocked", "fixer0");
+  // Three corrections for a cap of two that ran: the withdrawn one is counted apart.
   assert.equal(derive(f, { max_attempts: 1 }).task_id, "impl-fix-3");
   assert.equal(finish(f, "impl-fix-3", "done", "fixer").requeued, "review");
 });

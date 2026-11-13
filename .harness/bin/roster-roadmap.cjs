@@ -85,7 +85,8 @@ function canClaimBasic(ctx, task) {
   const state = ctx.state.tasks[task.id], active = missions(ctx).filter(t => ctx.state.tasks[t.id].status === "active");
   if (state.status !== "queued") return `task is ${state.status}`;
   if (state.attempts >= task.policy.max_attempts) return "attempt budget exhausted";
-  const unmet = task.depends_on.filter(id => ctx.state.tasks[id].status !== "done");
+  // OD-5: a dependency with an open correction is unmet for every task that depends on it.
+  const unmet = [...task.depends_on.filter(id => ctx.state.tasks[id].status !== "done"), ...derived.frozenDependencies(task, ctx.state.tasks, derived.entries(ctx))];
   if (unmet.length) return `waiting for dependencies: ${unmet.join(", ")}`;
   if (!routeFor(ctx, task)) return "requested route unsupported or unauthorized; no permitted fallback";
   if (active.length >= ctx.contract.execution.max_active) return "active mission limit reached";
@@ -113,13 +114,13 @@ function next(ctx) {
 }
 function taskProgress(ctx, task) {
   const current = ctx.state.tasks[task.id], exhausted = !["active", "done", "withdrawn"].includes(current.status) && current.attempts >= task.policy.max_attempts;
-  const advice = derived.liveAdvice(ctx, task.id), lastAttempt = derived.lastAttemptAdvice(task, current);
+  const advice = derived.liveAdvice(ctx, task.id), activeAdvice = derived.activeAdvice(ctx, task, current);
   let nextAction;
-  if (exhausted) nextAction = "Attempt budget exhausted: preserve failure evidence and request an explicit revised-roadmap decision before further attempts.";
+  if (exhausted) nextAction = derived.exhaustedAdvice(ctx, task) || "Attempt budget exhausted: preserve failure evidence and request an explicit revised-roadmap decision before further attempts.";
   else if (advice) nextAction = `Release is refused until every blamed dependency has a done correction: ${advice}.`;
   else if (current.status === "withdrawn") nextAction = "Withdrawn correction: kept for history; no further attempt.";
   else if (current.status === "blocked") nextAction = task.policy.on_failure === "retry" ? "Inspect the failure and apply declared recovery, then explicitly reconcile before requeueing." : "Retry is not authorized by policy; request the blocking decision.";
-  else if (lastAttempt) nextAction = lastAttempt;
+  else if (activeAdvice) nextAction = activeAdvice;
   else if (current.status === "active") nextAction = "Continue the owned attempt or explicitly reconcile inspected interrupted work.";
   else if (current.status === "done") nextAction = "Keep the accepted receipt and continue toward the global outcome.";
   else nextAction = canClaim(ctx, task) || "Claim the mission using the current revision.";
@@ -173,6 +174,7 @@ function transitionRecord(ctx, options) {
   if (receipt.attempt_id !== assignment.id || receipt.assignee !== assignment.assignee || receipt.contract_digest !== assignment.contract_digest) fail("receipt assignment, assignee or contract mismatch");
   if (assignment.capabilities_digest !== hash(ctx.capabilities) && !derived.acceptsStaleCapabilities(task, receipt)) fail("capabilities changed during assignment; reconcile before accepting results");
   if (ctx.state.receipts.some(r => r.attempt_id === receipt.attempt_id)) fail("attempt receipt already recorded");
+  const refusal = derived.liveRecordRefusal(ctx, task, receipt); if (refusal) fail(`cannot record: ${refusal}`);
   ctx.state.receipts.push(receipt); current.status = receipt.result; current.assignment = null;
   current.reason = receipt.result === "blocked" ? receipt.summary : null;
   const requeued = derived.applyRequeue(task, receipt, ctx.state.tasks, ctx.state.receipts, derived.entries(ctx));

@@ -1,8 +1,9 @@
 "use strict";
 // Derived correction missions: receipt blames, the derive transition and its definition digest,
 // the FR-007 review requeue, the strict review release refusal (OD-3), the fresh-context rule on
-// a review's family (OD-1, OD-4), withdrawal of a never-claimed correction (FR-022), definition
-// validation and their history replay. Identity
+// a review's family (OD-1, OD-4), the freeze of every dependent of a dependency under correction
+// (OD-5), withdrawal of a never-claimed correction (FR-022), definition validation and their
+// history replay. Identity
 // labels (assignees, coordinators) are unauthenticated local assertions; the rules compare
 // declared labels, they do not authenticate agents.
 const { readJSON } = require("./roster-artifacts.cjs");
@@ -77,6 +78,14 @@ function correctionState(id, definition, tasks) {
   if (current.status === "done" || current.status === "withdrawn") return current.status;
   return current.status === "blocked" && current.attempts >= definition.max_attempts ? "exhausted" : "pending";
 }
+// OD-5 (FR-024): a dependency with an open (pending) correction is unmet for every task that depends
+// on it. Returns one label per such dependency; tasks is the live state or a replay map.
+function frozenDependencies(task, tasks, known) {
+  return task.depends_on.flatMap(dependency => {
+    const open = known.filter(([id, d]) => d.parent === dependency && correctionState(id, d, tasks) === "pending").map(([id]) => id);
+    return open.length ? [`${dependency} (open correction ${open.join(", ")})`] : [];
+  });
+}
 function unreceiptedLegacyClaim(family, events) {
   const open = new Map();
   for (const event of events) {
@@ -114,9 +123,11 @@ function derivePrecondition(ctx, history, parentId, causeId) {
   const open = same.find(([id, d]) => ["done", "pending"].includes(correctionState(id, d, tasks)));
   if (open) return `correction ${open[0]} already exists for ${parentId} and this receipt of ${causeId} and is ${correctionState(open[0], open[1], tasks)}; derive again only after it is exhausted or withdrawn`;
   // Bound: a correction that never ran (withdrawn, FR-022) does not count; the others are capped by the parent's budget.
-  const ran = same.filter(([id]) => tasks[id].status !== "withdrawn").length;
+  const ran = same.filter(([id]) => tasks[id].status !== "withdrawn").length, withdrawn = same.length - ran;
   if (ran >= parent.policy.max_attempts) return `${parentId} already had ${ran} corrections for this receipt of ${causeId}, the limit set by its max_attempts; request a revised-roadmap decision`;
-  return legacyClaimRefusal(familyOf(ctx, known, receipts, causeId), events);
+  // The same cap bounds the withdrawals, so derive / withdraw-derived cannot alternate forever.
+  if (withdrawn >= parent.policy.max_attempts) return `${parentId} already had ${withdrawn} withdrawn corrections for this receipt of ${causeId}, the limit set by its max_attempts; request a revised-roadmap decision`;
+  return legacyClaimRefusal(correctionFamily(ctx, known, receipts, causeId, parentId), events);
 }
 // Every refusal of derive that does not depend on the request: FR-003 plus the live reframe check
 // (FR-010: never re-checked during replay). Shared by derive, release and next_action.
@@ -192,43 +203,73 @@ function blameGaps(taskId, tasks, receipts, known) {
   }).filter(Boolean);
 }
 const settledText = settled => settled.length ? ` (${settled.map(([id, s]) => `${id} ${s}`).join(", ")})` : "";
-function describeGap({ dependency, state, correction, settled }) {
+// The step of a pending correction follows its state: each text names a gesture the tool accepts.
+function pendingStep(correction, dependency, current) {
+  if (current.status === "active") return `finish the active attempt of correction ${correction} of ${dependency} and record its receipt`;
+  if (current.status === "blocked") return `release correction ${correction} of ${dependency} (it has attempts left), then claim it with a newly launched agent`;
+  return `claim correction ${correction} of ${dependency} with a newly launched agent${current.attempts === 0 ? ", or withdraw it (withdraw-derived) if it cannot be claimed" : ""}`;
+}
+function describeGap({ dependency, state, correction, settled }, tasks) {
   if (state === "missing") return `derive a correction for ${dependency}${settledText(settled)}`;
-  if (state === "pending") return `finish correction ${correction} of ${dependency} (release it if blocked with attempts left, or withdraw it if queued and never claimed)`;
+  if (state === "pending") return pendingStep(correction, dependency, tasks[correction]);
   return `no correction of ${dependency} succeeded${settledText(settled)}: derive a new correction for ${dependency} from the same receipt, or request a revised-roadmap decision`;
 }
-// The same gaps for a live board, where a derivation that would be refused is replaced by its real
-// way forward (policy, budgets, reframe, unknown identity).
-function liveAdvice(ctx, taskId) {
+function reframeState(ctx, id) {
+  try { return require("./roster-recovery.cjs").inspectBoard(ctx, id).reframe_needed ? "needed" : null; } catch { return "invalid"; }
+}
+// Live obstacles of a pending correction that the state alone does not show: a release that the
+// recovery streak refuses, or a started correction whose route is no longer claimable.
+function livePendingStep(ctx, { correction, dependency }) {
+  const current = ctx.state.tasks[correction], reframe = current.status === "blocked" ? reframeState(ctx, correction) : null;
+  if (reframe === "needed") return `correction ${correction} of ${dependency} failed three times in a row and its release is refused: record a diagnosed reframe for it (roster-recovery reframe), then release it and claim it with a newly launched agent`;
+  if (reframe === "invalid") return `the recovery evidence of correction ${correction} of ${dependency} is invalid: reconcile it, then release the correction`;
+  const claimable = current.status !== "queued" || require("./roster-roadmap.cjs").viewSupport.routeFor(ctx, m.missionById(ctx, correction));
+  if (!claimable && current.attempts > 0) return `correction ${correction} of ${dependency} already started and has no claimable route: restore a claimable route in capabilities.json or request a revised-roadmap decision`;
+  return claimable ? null : `correction ${correction} of ${dependency} has no claimable route: withdraw it (withdraw-derived), or restore a claimable route in capabilities.json`;
+}
+// The same gaps for a live board, where a step the tool would refuse is replaced by its real way
+// forward (policy, budgets, reframe, unknown identity, unclaimable route). closable: a correction
+// exists or can be derived, so the automatic requeue can still happen.
+function liveGaps(ctx, taskId) {
   const { tasks, receipts } = ctx.state;
-  if (tasks[taskId]?.status !== "blocked") return null;
-  const steps = blameGaps(taskId, tasks, receipts, m.derivedEntries(ctx)).map(gap => {
-    const blocker = gap.state === "pending" ? null : deriveBlocker(ctx, gap.dependency, taskId);
-    return blocker ? `no correction can be derived for ${gap.dependency}${settledText(gap.settled)}: ${blocker}` : describeGap(gap);
+  if (tasks[taskId]?.status !== "blocked") return [];
+  return blameGaps(taskId, tasks, receipts, m.derivedEntries(ctx)).map(gap => {
+    if (gap.state === "pending") return { text: livePendingStep(ctx, gap) || describeGap(gap, tasks), closable: true };
+    const blocker = deriveBlocker(ctx, gap.dependency, taskId);
+    return blocker ? { text: `no correction can be derived for ${gap.dependency}${settledText(gap.settled)}: ${blocker}`, closable: false } : { text: describeGap(gap, tasks), closable: true };
   });
-  return steps.length ? steps.join("; ") : null;
+}
+function liveAdvice(ctx, taskId) {
+  const gaps = liveGaps(ctx, taskId);
+  return gaps.length ? gaps.map(gap => gap.text).join("; ") : null;
 }
 // OD-3 strict (FR-007): a blocked task cannot be released while a dependency blamed by its latest
 // blocked receipt has no done correction; next_action carries the same text.
-function releaseAdvice(taskId, tasks, receipts, known) {
-  if (tasks[taskId]?.status !== "blocked") return null;
-  const gaps = blameGaps(taskId, tasks, receipts, known);
-  return gaps.length ? gaps.map(describeGap).join("; ") : null;
-}
-const frozenText = advice =>  `blamed dependencies lack a done correction: ${advice}; the task is requeued automatically once every blamed dependency has one`;
+const frozenText = (advice, closable = true) => `blamed dependencies lack a done correction: ${advice}${closable ? "; the task is requeued automatically once every blamed dependency has one" : ""}`;
 // The replayed refusal (state only) and the live one (same decision, real way forward in its text).
 function releaseRefusal(taskId, tasks, receipts, known) {
-  const advice = releaseAdvice(taskId, tasks, receipts, known);
-  return advice ? frozenText(advice) : null;
+  if (tasks[taskId]?.status !== "blocked") return null;
+  const gaps = blameGaps(taskId, tasks, receipts, known);
+  return gaps.length ? frozenText(gaps.map(gap => describeGap(gap, tasks)).join("; ")) : null;
 }
 function liveReleaseRefusal(ctx, taskId) {
-  const advice = liveAdvice(ctx, taskId);
-  return advice ? frozenText(advice) : null;
+  const gaps = liveGaps(ctx, taskId);
+  return gaps.length ? frozenText(gaps.map(gap => gap.text).join("; "), gaps.some(gap => gap.closable)) : null;
 }
-// N5: an active correction on its last attempt cannot be released (budget) nor withdrawn (started).
-function lastAttemptAdvice(task, current) {
-  if (!task.derived || current.status !== "active" || current.attempts < task.policy.max_attempts) return null;
+// Advice for an active mission. N5: a correction on its last attempt cannot be released (budget)
+// nor withdrawn (started). OD-5: a dependent of a dependency under correction cannot record done.
+function activeAdvice(ctx, task, current) {
+  if (current.status !== "active") return null;
+  const frozen = frozenDependencies(task, ctx.state.tasks, m.derivedEntries(ctx));
+  if (frozen.length) return `A dependency is under correction: ${frozen.join(", ")}. A done receipt is refused until the correction is done; wait for it, or record a blocked receipt.`;
+  if (!task.derived || current.attempts < task.policy.max_attempts) return null;
   return "Last attempt of this correction: continue it. If its agent is gone, the coordinator records a blocked receipt under the attempt id and assignee of the assignment (accepted even after capabilities.json changed); release is refused at the budget.";
+}
+// An exhausted correction has no gesture of its own: the way forward belongs to its cause review.
+function exhaustedAdvice(ctx, task) {
+  if (!task.derived) return null;
+  const cause = task.derived.cause.task_id;
+  return ctx.state.tasks[cause].status === "blocked" ? `Correction exhausted: no further attempt of this mission; follow the next_action of ${cause}, the review that caused it.` : "Correction exhausted: kept for history; no further attempt.";
 }
 // N5: a blocked receipt only ends the attempt, so a correction accepts it after a capabilities change.
 function acceptsStaleCapabilities(task, receipt) { return Boolean(task.derived) && receipt.result === "blocked"; }
@@ -248,25 +289,48 @@ function familyOf(ctx, known, receipts, causeId) {
   for (const [id, d] of known) if (parents.has(d.parent)) family.add(id);
   return family;
 }
-// A derived mission is on the family of its cause; a contract task one of whose dependencies has a
-// correction is on its own family. Null: the task is on no family (no rule applies).
+// OD-5: a correction also counts every contract task that depends on its parent, so an agent that
+// holds or held an attempt of such a task (a second review started earlier) cannot write the fix.
+function correctionFamily(ctx, known, receipts, causeId, parentId) {
+  const family = familyOf(ctx, known, receipts, causeId);
+  for (const task of m.contractTasks(ctx)) if (task.depends_on.includes(parentId)) family.add(task.id);
+  return family;
+}
+// A derived mission is on the family of its cause, widened by the dependents of its parent; a
+// contract task one of whose dependencies has a correction is on its own family. Null: the task is
+// on no family (no rule applies).
 function chainMembers(ctx, known, receipts, task) {
-  if (task.derived) return familyOf(ctx, known, receipts, task.derived.cause.task_id);
+  if (task.derived) return correctionFamily(ctx, known, receipts, task.derived.cause.task_id, task.derived.parent);
   return known.some(([, d]) => task.depends_on.includes(d.parent)) ? familyOf(ctx, known, receipts, task.id) : null;
 }
-// Declared identities of every attempt of the members: receipts, claim payloads, active assignments.
-function seenAssignees(members, { events, receipts, tasks }) {
+// Declared identities of every attempt of the members: receipts, claim payloads, active
+// assignments. ownAttempt (record-time check) leaves out the attempt being recorded.
+function seenAssignees(members, { events, receipts, tasks }, ownAttempt) {
   const seen = new Set();
-  for (const receipt of receipts) if (members.has(receipt.task_id)) seen.add(receipt.assignee);
-  for (const event of events) if (event.action === "claim" && event.assignment && members.has(event.task_id)) seen.add(event.assignment.assignee);
-  for (const id of members) if (tasks?.[id]?.assignment) seen.add(tasks[id].assignment.assignee);
+  for (const receipt of receipts) if (members.has(receipt.task_id) && receipt.attempt_id !== ownAttempt) seen.add(receipt.assignee);
+  for (const event of events) if (event.action === "claim" && event.assignment && members.has(event.task_id) && event.assignment.id !== ownAttempt) seen.add(event.assignment.assignee);
+  for (const id of members) if (tasks?.[id]?.assignment && tasks[id].assignment.id !== ownAttempt) seen.add(tasks[id].assignment.assignee);
   return seen;
 }
-// history = { known, events, receipts, tasks? } as of the claim (live state or replay prefix).
-function freshnessRefusal(ctx, task, assignee, history) {
+// history = { known, events, receipts, tasks? } as of the claim or record (live state or replay prefix).
+function freshnessRefusal(ctx, task, assignee, history, ownAttempt = null) {
   const members = chainMembers(ctx, history.known, history.receipts, task);
-  if (!members || !seenAssignees(members, history).has(assignee)) return null;
-  return `assignee ${assignee} already appeared on the correction chain of ${task.id} (review family: ${[...members].join(", ")}); claim with a newly launched agent`;
+  if (!members || !seenAssignees(members, history, ownAttempt).has(assignee)) return null;
+  const exit = ownAttempt ? "record a blocked receipt or release this attempt, then claim with a newly launched agent" : "claim with a newly launched agent";
+  return `assignee ${assignee} already appeared on the correction chain of ${task.id} (review family: ${[...members].join(", ")}); ${exit}`;
+}
+// OD-5 (FR-024): a done receipt is refused while a dependency of its task is under correction, and
+// the fresh-context rule is checked again against every other attempt of the family. A blocked
+// receipt always ends the attempt. history as above, taken before this receipt is stored.
+function recordRefusal(ctx, task, receipt, history) {
+  if (receipt.result !== "done") return null;
+  const frozen = frozenDependencies(task, history.tasks, history.known);
+  if (frozen.length) return `a done receipt of ${task.id} is refused while a dependency is under correction: ${frozen.join(", ")}; record it once the correction is done, or record a blocked receipt`;
+  return freshnessRefusal(ctx, task, receipt.assignee, history, receipt.attempt_id);
+}
+function liveRecordRefusal(ctx, task, receipt) {
+  const { events, receipts, tasks } = ctx.state;
+  return recordRefusal(ctx, task, receipt, { known: m.derivedEntries(ctx), events, receipts, tasks });
 }
 function claimRefusal(ctx, task, assignee) {
   const { events, receipts, tasks } = ctx.state;
@@ -296,8 +360,12 @@ function checkClaimPayload(ctx, task, event, history) {
   const refusal = causeRefusal(task, payload.assignee) || freshnessRefusal(ctx, task, payload.assignee, prefix);
   if (refusal) fail(`illegal claim history for ${task.id}: ${refusal}`);
 }
-function checkReceiptPayload(task, payload, receipt) {
+// history = { known, receiptIndex: { value } } once this receipt was consumed; tasks = replay map.
+function checkReceiptPayload(ctx, task, payload, receipt, event, history, tasks) {
   if (payload && (receipt.attempt_id !== payload.id || receipt.assignee !== payload.assignee)) fail(`receipt disagrees with its claim assignment for ${task.id}`);
+  const prefix = { known: history.known, events: ctx.state.events.slice(0, event.revision - 1), receipts: ctx.state.receipts.slice(0, history.receiptIndex.value - 1), tasks };
+  const refusal = recordRefusal(ctx, task, receipt, prefix);
+  if (refusal) fail(`illegal record history for ${task.id}: ${refusal}`);
 }
 function checkActivePayload(id, assignment, payload) {
   if (!assignment || !payload) return;
@@ -362,7 +430,7 @@ function eventPayload(ctx, command, result) {
 }
 module.exports = {
   validateReceiptLinks, validateDerivedShape, validateDefinitions, transitionDerive, transitionWithdraw, replayWithdraw, applyRequeue, releaseRefusal,
-  liveReleaseRefusal, liveAdvice, lastAttemptAdvice, acceptsStaleCapabilities,
-  causeRefusal, claimRefusal, replayDerive, checkClaimPayload, checkReceiptPayload, checkActivePayload, validateEventPayloads,
+  liveReleaseRefusal, liveAdvice, activeAdvice, exhaustedAdvice, acceptsStaleCapabilities, frozenDependencies,
+  causeRefusal, claimRefusal, liveRecordRefusal, replayDerive, checkClaimPayload, checkReceiptPayload, checkActivePayload, validateEventPayloads,
   eventPayload, definitionDigest, allocateId, derivedBlock, entries: m.derivedEntries,
 };

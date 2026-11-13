@@ -32,14 +32,31 @@ below) — both already present in this section.
   and a strict review requeue and release refusal until every blamed dependency has a done
   correction. The family is the review, every dependency it blames or that has a correction, and
   every correction of those dependencies whichever review caused it; the rule covers the claim of
-  every task one of whose dependencies has a correction. `derive` refuses an unclaimable topology
+  every task one of whose dependencies has a correction. For the claim of a correction the family
+  also holds every contract task that depends on its parent, so an agent that holds or held an
+  attempt of another dependent (`qa` when `review` caused the correction of `impl`) cannot claim
+  it. Owner decision OD-5 of 13 November 2026, frozen until the correction: a dependency with an
+  open correction (queued, active, or blocked with attempts left) is unmet for every task that
+  depends on it; such a task cannot be claimed (`waiting for dependencies: <dep> (open correction
+  <fix id>)`, not offered by `next` or `prompt`) and, if already active, cannot record a `done`
+  receipt until the correction is done (a `blocked` receipt stays allowed). The fresh-context
+  rule is checked again when a `done` receipt is recorded, and replay applies these checks.
+  Limits: the freeze starts at `derive`, not at the blaming receipt; an attempt of a dependent
+  started before the correction may record `done` after it, if its agent is fresh; an exhausted
+  correction does not freeze dependents. `derive` refuses an unclaimable topology
   and a family with a claim lacking `assignment` whose attempt was released without a receipt;
   an exhausted correction allows `<parent>-fix-<n+1>` for the same receipt, up to the parent's
-  `max_attempts` corrections that were not withdrawn per receipt and dependency;
-  `withdraw-derived` retires a queued correction that was never claimed; for a derived mission
-  `record` accepts a `blocked` receipt after `capabilities.json` changed. `next_action` and the
+  `max_attempts` corrections that were not withdrawn per receipt and dependency, and withdrawals
+  have their own equal cap (at most 2 x parent `max_attempts` corrections per receipt and
+  dependency); `withdraw-derived` retires a queued correction that was never claimed; for a
+  derived mission `record` accepts a `blocked` receipt after `capabilities.json` changed. `next_action` and the
   `release` refusal say `no correction can be derived for <dependency>: <reason>` when `derive`
-  would be refused. `status --format text` counts contract tasks and corrections apart, labels
+  would be refused; for a pending correction `next_action` names only the gesture the tool
+  accepts in its state (claim, finish and record, release, `roster-recovery reframe`,
+  `withdraw-derived`, or restore a claimable route), an exhausted correction refers to the
+  `next_action` of its review, and the `release` refusal promises the automatic requeue only when
+  a gap can still be closed.
+  `status --format text` counts contract tasks and corrections apart, labels
   the reason line `Withdrawn:`, `Requeued:` or `Blocker:` and lists one `Attempt n:` line per
   attempt of a correction or of a failed or retried mission. See the migration notes below.
 - **Roadmap operator requests** — advisory annex `requests.json` with `request-open`,
@@ -237,8 +254,23 @@ below) — both already present in this section.
   `blames` is refused until every blamed dependency has a done correction, including after a
   correction exhausts its budget: derive a new correction for the same receipt instead, up to
   the parent's `max_attempts` corrections that were not withdrawn per receipt and dependency;
-  past that limit, request a revised-roadmap decision. A correction that was claimed cannot be
+  past that limit, request a revised-roadmap decision. Withdrawn corrections have their own equal
+  cap per receipt and dependency (with a parent `max_attempts` of 1, a single withdrawal ends
+  derivation for that receipt). A correction that was claimed cannot be
   withdrawn: it ends by its receipts and its budget.
+- **Frozen dependents and replay.** Replay refuses a claim made while a dependency of its task
+  had an open correction, a `done` receipt recorded during it, and a `done` receipt by an agent
+  already seen on another attempt of the task's family, as well as a correction claimed by an
+  agent of another task that depends on its parent. A board whose history was edited by hand, or
+  written by an earlier build of this feature, and that violates one of these fails every read.
+- **Known limits.** Assignee labels are compared exactly, case included (`Fixer` and `fixer` are
+  two agents). Renaming `assignment.assignee` in the claim event and task state of an attempt
+  later released without a receipt passes reads, like any consistent rewrite of an unsigned
+  `state.json`. On a board mixing old and new claim formats, an older-format attempt that left a
+  receipt is known only by that receipt's `assignee`. A contract review on its last attempt
+  whose `capabilities.json` changed and whose agent is gone has one exit: restore
+  `capabilities.json` to its content at the claim (the blocked-receipt exception is for
+  corrections only).
 
 ## [1.2.0] — 2026-06-03
 
