@@ -26,6 +26,10 @@ below) — both already present in this section.
   optional `state.derived` and claim-event `assignment`, the automatic review requeue and release
   freeze, verified replay, and view `kind`/`derived`/`corrections`/`timeline` with
   `completion.derived_done/derived_total`. New runtime module `roster-roadmap-derived.cjs`.
+  Owner decisions of 13 November 2026: fresh-context agents on every attempt of a correction
+  chain (claim and replay), a verified `definition_digest` on `derive` events, and a review
+  requeue only when every blamed dependency has a done correction. Any `claim` written by this
+  version makes the board unreadable by the earlier runtime.
 - **Roadmap operator requests** — advisory annex `requests.json` with `request-open`,
   `request-answer`, `request-withdraw` and `request-journal` commands, exposed in `view`
   (`operator_requests`), `status --format text` (`Waiting on:`) and `prompt`. Requests never

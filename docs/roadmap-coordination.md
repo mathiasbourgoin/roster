@@ -216,10 +216,16 @@ Then run `derive BOARD --coordinator <id> --revision <n> --request <file>` with
 `{parent, cause, objective, topology, max_attempts}`: choose the correction's runtime, model
 and role from the escalation ladder, with a budget no larger than the parent's. The tool
 assigns `<parent>-fix-<n>`, which inherits the parent's scope and checks and runs as its own
-mission (its own claims, receipts and budget). It refuses a claim by the failed reviewer's
-label. The review stays blocked and cannot be released while its corrections are pending;
-when every correction of that receipt is done, the review is requeued automatically. If every
-correction exhausts its budget, release the review under the usual rules or escalate.
+mission (its own claims, receipts and budget). Owner decision (13 November 2026), fresh context:
+every attempt on a correction chain (the parent, the review, and every correction of that parent
+from that review) needs an agent new to the chain; `claim` and history replay refuse an
+assignee already seen there, which includes the implementer, the failed reviewer, earlier fixers
+and the review's next attempt. Roster compares declared identifiers: give each attempt the
+identifier of a newly launched agent. The review stays blocked and cannot be released while its
+corrections are pending; it is requeued automatically only when every dependency its receipt
+blames has a done correction (owner decision). If a correction exhausts its budget, release the
+review under the usual rules or escalate. The `derive` event records a SHA-256 digest of the
+definition, and reads refuse a definition edited afterwards (owner decision).
 `view` lists the correction after the contract tasks with its parent and cause and a timeline of
 every attempt. The roadmap completes only when every contract task is done and no correction is
 queued or active. Owner decision D1 chose this correction mission; D2 to D6 are deduced and to be

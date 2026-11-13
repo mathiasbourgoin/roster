@@ -5,7 +5,7 @@ status: live
 feature: Roadmap derived correction missions
 brief: briefs/roadmap-derived-missions-intake.md
 date: 2026-11-13
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Spec — Roadmap derived correction missions
@@ -19,6 +19,16 @@ topology (runtime, model, role), claims, receipts and attempt budget; the implem
 ## Owner decisions
 
 - **D1 (Mathias, 2026-11-13)** Option B: derived correction mission, no reopening.
+- **OD-1 Fresh context (owner decision, Mathias, 13 November 2026)**: « L'important c'est surtout
+  d'utiliser un agent au contexte frais. » The assignee of every attempt of a derived mission, and
+  of every attempt of the review after a correction, must not have appeared as assignee on any
+  attempt of the same correction chain (FR-020). It strengthens D2.
+- **OD-2 Verified digest (owner decision, Mathias, 13 November 2026)**: the `derive` event records
+  a SHA-256 digest of the derived mission's definition; replay recomputes it and refuses a
+  definition modified afterwards (FR-019).
+- **OD-3 Re-queue (owner decision, Mathias, 13 November 2026)**: a failed review returns to the
+  queue only when every dependency its receipt blames has a done derived mission (FR-007). It
+  makes D5 precise.
 - **D2–D6 (deduced from B and the owner's escalation rule; to be confirmed on the PR)**:
   D2 own model, agent, receipts and attempt budget, never the agent of the failed review;
   D3 created only after a blocked review receipt that blames the implementation it depends on;
@@ -35,7 +45,11 @@ topology (runtime, model, role), claims, receipts and attempt budget; the implem
 | Who chooses the model? | The coordinator, in the derive request (`topology`), following the escalation ladder; the tool validates the topology shape and the agent rule, not the ladder. |
 | How is derivation bounded? | Each derivation needs a distinct blocked receipt of the review; the review's own `max_attempts` bounds those receipts; a review whose budget is exhausted, whose policy is not `retry`, or that needs a recovery reframe cannot cause a derivation. |
 | Is the derived id caller-chosen? | No: tool-assigned `<parent>-fix-<n>` with the smallest `n ≥ 1` not used by any mission; if that exceeds the 80-character identifier limit, `fix-<n>` with the smallest unused `n`. |
-| What does the review requeue wait for? | Every derived mission created from the same blocked review receipt is `done`. |
+| What does the review requeue wait for? (OD-3) | Every dependency named in the `blames` of the review's latest blocked receipt has a `done` derived mission created from that receipt. A blamed dependency without a correction, or whose correction is not done (including exhausted), keeps the review blocked. |
+| What is a correction chain? (OD-1) | The code links a derived mission to its `parent` (a contract task) and its `cause` (`task_id` = the review, `attempt_id`/`assignee` = the blocked receipt). The chain of a derived mission with parent P and cause task C is the set {P, C} ∪ {every derived mission whose `parent` is P and whose `cause.task_id` is C}, across every receipt of C (so `impl-fix-2` derived from a second failed review is on the chain of `impl-fix-1`). A review C with at least one derived mission is on the union of its chains (C, every derived mission with `cause.task_id` C, and their parents). A contract task with no derived mission naming it as cause is on no chain when claimed. Deduced, to confirm on the PR: two derived missions with different parents from the same review are on different chains, so one agent may correct both. |
+| Which identities does OD-1 compare? | Declared identity only: the `assignee` of every receipt, every claim-event `assignment` and every active assignment of a chain member, as recorded at the time of the claim. Roster cannot tell agents apart; the coordinator must give each attempt the identifier of a newly launched agent. A legacy claim without `assignment` whose attempt was released leaves no identity to compare. |
+| What does the derive digest cover? (OD-2) | `definition_digest` = lowercase hex SHA-256 of the UTF-8 bytes of `JSON.stringify` of `{parent, cause, objective, topology, max_attempts}` with object keys sorted at every depth, array order kept and no whitespace (the same canonical form as `contract_digest`). `revision` is not covered: it is checked against the event revision. |
+| Can an older runtime read a board written by this version? | No, as soon as the board has one `claim` written by this version (contract or derived mission): every such claim event carries `assignment`, and the pre-feature runtime refuses the whole state (`state event: unknown field assignment`, observed on `status`, `view` and `next`). The same holds for a `derive` event or `state.derived`. A board with only `accept` (or with `record`/`release` events on claims written by the older runtime) stays readable. The new runtime reads older boards unchanged. |
 | What does a derived mission inherit? | `intake`, `allowed_files`, `checks`, `dod`, `success`, `inputs`, `outputs` from the parent; `depends_on` is empty (the parent is done); `policy.on_failure` is `retry` with the request's `max_attempts`; `workflow` is `none`. |
 | Which predicates stay contract-only? | Completion predicates: "every task done" in `verifyHistory`, the stored global receipt check, `transitionComplete`, `next`'s global-verification branch and the forecast `complete` status mean "every contract task done and no derived mission `queued` or `active`". Everything else iterates missions. |
 | What is a "mission"? | The mission set is contract tasks followed by derived missions in creation order. Every check that today iterates contract tasks (task-set equality, budget/assignment/receipt checks, history replay, capacity and write-scope overlap, `next`, `status`, `prompt`, `view`, progress reports, operator-request binding, recovery inspection) iterates missions. A derived mission is resolved to a synthesized task object (FR-005) wherever a task is looked up. |
@@ -66,7 +80,10 @@ budget and agent rules.
 **Scope**: This story does NOT cover running the agent.
 **Independent Test**: claim/record/release `impl-fix-1` on a fixture board.
 **Acceptance Scenarios**:
-1. **Given** queued `impl-fix-1`, **When** `claim --task impl-fix-1 --assignee rev1` (the failed reviewer), **Then** refused (D2); with `--assignee fixer` it succeeds, attempts 1, assignment runtime/route from the derived topology.
+1. **Given** queued `impl-fix-1`, **When** `claim --task impl-fix-1 --assignee rev1` (the failed reviewer) or `--assignee dev` (the implementer of `impl`), **Then** refused (D2, OD-1); with `--assignee fixer` it succeeds, attempts 1, assignment runtime/route from the derived topology.
+4. **Given** `impl-fix-1` blocked by `fixer` and released, **When** `claim --task impl-fix-1 --assignee fixer`, **Then** refused (OD-1); `fixer2` succeeds.
+5. **Given** `review` requeued after `impl-fix-1` was done by `fixer2`, **When** `claim --task review` with `dev`, `rev1`, `fixer` or `fixer2`, **Then** refused (OD-1); `rev2` succeeds.
+6. **Given** R blames `impl` and `lib` and only `impl-fix-1` exists, **When** `impl-fix-1` is recorded `done`, **Then** `review` stays `blocked`; after `lib-fix-1` is derived and recorded `done`, `review` is `queued` (OD-3).
 2. **Given** active `impl-fix-1`, **When** a done receipt with `task_id: "impl-fix-1"` covering the parent's checks and only the parent's `allowed_files` is recorded, **Then** `impl-fix-1` is `done`, and `review` goes `blocked → queued` with a reason naming the correction (D5); `impl` stays `done`.
 3. **Given** a blocked receipt for `impl-fix-1`, **When** `release`, **Then** it is requeued while its own attempts remain; at `max_attempts` it is refused.
 
@@ -79,6 +96,8 @@ As anyone reading the board, I want derived missions replayed and verified like 
 1. **Given** a board with a derived mission, **When** any command reads it, **Then** replay reproduces every derived mission's status, attempts and reason and the review requeue.
 2. **Given** a `derive` event without its definition, a definition without its event, an edited cause attempt, a derived id in `state.tasks` without definition, or a lowered derived attempt counter, **Then** reads fail with a history error.
 3. **Given** a legacy `state.json` without `derived`, **Then** it reads unchanged.
+4. **Given** a definition whose `objective`, `topology` or `max_attempts` was edited after its `derive` event, a `derive` event without `definition_digest`, or a digest on another event, **Then** reads fail (OD-2).
+5. **Given** a hand-written history whose claim on a chain names an assignee already seen on that chain, or a claim of the review after a derivation without its `assignment`, **Then** reads fail (OD-1).
 
 ### US-4: View and timeline show derived missions and attempts (Priority: P0)
 As the operator or a Gantt page reading `view`, I want each derived mission and each attempt with its times.
@@ -107,10 +126,12 @@ As the coordinator, I want `next`, `prompt` and `complete` to treat derived miss
 |---|---|---|---|
 | C-1 | US-1 | Unbounded derivation loops | Bounded by distinct blocked review receipts and the review's own budget; refused when the review cannot retry or needs a reframe. |
 | C-2 | US-1 | Who decides the blame | The review receipt itself (`blames`), validated against `depends_on`; the coordinator cannot derive without it. |
-| C-3 | US-2 | Same agent fixing as reviewing | Claim refuses the cause receipt's assignee. Labels are unauthenticated assertions (documented). |
+| C-3 | US-2 | Same agent fixing as reviewing | Claim refuses the cause receipt's assignee, and (OD-1) every assignee already seen on the correction chain, at claim and on replay. Labels are unauthenticated assertions (documented). |
+| C-21 | US-3 | Definition edited after derivation | OD-2: `definition_digest` on the `derive` event, recomputed on replay. |
+| C-22 | US-2 | Review requeued with a blamed dependency left uncorrected | OD-3: requeue needs a done correction for every blamed dependency. |
 | C-4 | US-2 | Write scope | Inherited from the parent; receipt changed files must stay inside it; overlap rules apply as for any mission. |
-| C-5 | US-3 | State shape change | `derived` is optional; absent means none; `schema_version` stays 1; older tools reading a board that has derived missions refuse it (documented; the closure is installed together). |
-| C-6 | US-3 | Event payload | The `derive` event carries the derived id in `task_id`; the definition (incl. creation revision) lives in `state.derived` and must match the event. The event key set gains one optional key, `assignment`, on claim events only (C-16). Like `derived`, older tools refuse boards that use them (documented; the runtime closure is installed together). |
+| C-5 | US-3 | State shape change | `derived` is optional; absent means none; `schema_version` stays 1; older tools reading a board that has derived missions, or any claim written by this version, refuse it (verified on the pre-feature runtime; documented; the closure is installed together). |
+| C-6 | US-3 | Event payload | The `derive` event carries the derived id in `task_id`; the definition (incl. creation revision) lives in `state.derived` and must match the event. The event key set gains two keys: `assignment`, optional and on claim events only (C-16), and `definition_digest`, required on `derive` events only (OD-2). Like `derived`, older tools refuse boards that use them (documented; the runtime closure is installed together). |
 | C-7 | US-4 | Attempt identity for released attempts | Released attempts have no receipt; their `attempt_id` comes from the claim event's `assignment` when present, else `null`; times come from the claim and release events. |
 | C-8 | US-4 | Strict view schema | New item fields declared; `kind` and `timeline` on every task item; `derived`/`corrections` nullable. |
 | C-9 | US-4 | ETA honesty | Unknown while a derived mission is open; no invented range. |
@@ -136,14 +157,17 @@ As the coordinator, I want `next`, `prompt` and `complete` to treat derived miss
 
 #### Execution [US-2]
 - **FR-005** [US-2]: A derived mission MUST behave as a mission whose `intake`, `objective` (from the request), `inputs`, `outputs`, `allowed_files`, `dod`, `success`, `checks` come from its parent, with `depends_on: []`, its own `topology`, and `policy = {max_attempts, on_failure: "retry"}` plus the parent's `stop_if`, `recovery`, `failure`.
-- **FR-006** [US-2]: `claim` of a derived mission MUST refuse the assignee of its cause receipt.
-- **FR-007** [US-2]: Recording a `done` receipt for a derived mission MUST, when every derived mission of the same cause receipt is `done`, move the cause task from `blocked` to `queued` with reason `corrections done: <ids in creation order, comma-separated>`, within the same `record` event; while such corrections are pending, `release` of the cause task MUST be refused unless every one of them is blocked with no attempts left.
+- **FR-006** [US-2]: `claim` of a derived mission MUST refuse the assignee of its cause receipt (and FR-020 applies).
+- **FR-007** [US-2]: (OD-3) Recording a `done` receipt for a derived mission MUST, when the cause's latest receipt is still that mission's cause receipt and every dependency named in its `blames` has a `done` derived mission created from that receipt, move the cause task from `blocked` to `queued` with reason `corrections done: <done correction ids in creation order, comma-separated>`, within the same `record` event, and MUST NOT otherwise; while such corrections are pending, `release` of the cause task MUST be refused unless every one of them is blocked with no attempts left.
 - **FR-008** [US-2]: `release`, attempt counting, write-scope overlap, capacity, recovery inspection, worker progress reports and operator-request binding MUST apply to derived missions as missions, with their own budget.
 
 #### History [US-3]
 - **FR-009** [US-3]: State validation MUST accept an optional `derived` object; every key MUST be a safe identifier present in `state.tasks`, and the accepted state task set MUST equal contract ids ∪ derived ids.
-- **FR-010** [US-3]: History replay MUST create each derived mission at its `derive` event, re-check the state-internal FR-003 conditions against the replayed state at that point (not the live recovery file), verify claim-event `assignment` payloads (required on claim events of derived missions; the legacy exemption applies only to contract tasks), replay the review freeze on `release` events using the derived missions known at that point, re-check the cause-assignee ban (FR-006) on claim events, and independently refuse any stored or live receipt and any active assignment of a derived mission whose assignee equals its cause assignee, and reproduce claims, records (including FR-007), releases and attempt counts for derived missions; any mismatch MUST fail reads.
+- **FR-010** [US-3]: History replay MUST create each derived mission at its `derive` event, re-check the state-internal FR-003 conditions against the replayed state at that point (not the live recovery file), verify claim-event `assignment` payloads (required on claim events of derived missions; the legacy exemption applies only to contract tasks), replay the review freeze on `release` events using the derived missions known at that point, re-check the cause-assignee ban (FR-006) and the fresh-context rule (FR-020) on claim events against the history before each claim, recompute the derive digest (FR-019), and independently refuse any stored or live receipt and any active assignment of a derived mission whose assignee equals its cause assignee, and reproduce claims, records (including FR-007), releases and attempt counts for derived missions; any mismatch MUST fail reads.
 - **FR-011** [US-3]: A state without `derived` MUST read and behave exactly as before.
+
+- **FR-019** [US-3]: (OD-2) `derive` MUST append `definition_digest` to its event, computed per the Clarifications canonical form over `{parent, cause, objective, topology, max_attempts}`; state validation MUST require it on `derive` events and refuse it on any other event; replay MUST recompute it from `state.derived[<id>]` and refuse a mismatch.
+- **FR-020** [US-2, US-3]: (OD-1) `claim` of a mission on a correction chain (Clarifications) MUST refuse an assignee that appears as the `assignee` of a receipt, a claim-event `assignment` or an active assignment of any chain member; replay MUST apply the same rule to each claim event against the history before it, and MUST require the claim `assignment` on every claim of a mission on a chain (derived missions and reviews with a derived mission). The check is on declared identity; the identifier MUST designate a newly launched agent.
 
 #### Observation [US-4]
 - **FR-012** [US-4]: `view.tasks` MUST list contract tasks then derived missions; every item MUST carry `kind: "contract"|"derived"`, `derived` (`{parent, cause, created_at}` or `null`), `corrections` (derived ids for a contract task, `[]` otherwise) and `timeline`; the schema declares them without making them required, so earlier saved views still validate.
@@ -169,11 +193,15 @@ As the coordinator, I want `next`, `prompt` and `complete` to treat derived miss
 - **AC-7** [US-4]: text status shows derived missions; ETA unknown while open.
 - **AC-8** [US-5]: `next`, `prompt --task`, `complete` behave per FR-016/FR-017.
 - **AC-9** [C-12]: closure contains the module; core ≤ 500 lines; full suite green.
+- **AC-10** [OD-2, C-21]: the derive event's digest equals the canonical SHA-256; edited objective/topology/budget, a missing digest or a misplaced digest refuse reads.
+- **AC-11** [OD-1, C-3]: claims reusing a chain assignee refuse (derived mission and review); a hand-written history doing so refuses reads.
+- **AC-12** [OD-3, C-22]: a review blaming two dependencies stays blocked until both have a done correction; a forged early requeue refuses reads.
 
 ## Edge Cases
 
-- EC-1 [US-1]: two blamed dependencies in one receipt → one derive per parent; the review requeues when both are done.
-- EC-2 [US-1]: a second blocked review after a first correction → a new derive from the new receipt (`impl-fix-2`); the requeue gate uses the review's latest blocked receipt only.
+- EC-1 [US-1]: two blamed dependencies in one receipt → one derive per parent, in any order while the review is blocked; the review requeues when both have a done correction (OD-3).
+- EC-2 [US-1]: a second blocked review after a first correction → a new derive from the new receipt (`impl-fix-2`), on the same chain as `impl-fix-1`; the requeue gate uses the review's latest blocked receipt only.
+- EC-10 [US-2]: one blamed dependency's correction exhausted, the other done → the review stays blocked; its correction freeze is lifted, so `release` of the review is allowed again under its usual rules.
 - EC-3 [US-2]: derived mission blocked and exhausted → review stays blocked but `release` of the review becomes allowed again under its usual rules.
 - EC-4 [US-3]: `derive` event whose definition revision differs → refused on read.
 - EC-5 [US-4]: legacy events without `at` → timeline times `null`, never guessed.
@@ -184,7 +212,7 @@ As the coordinator, I want `next`, `prompt` and `complete` to treat derived miss
 
 ## Runnable Checks
 
-- **CHECK-1** [AC-1, AC-2, AC-3, AC-4, AC-5]: (authentic-success-path, fail-closed-path) `node --test scripts/roster-roadmap-derived.test.js` → exit 0.
+- **CHECK-1** [AC-1, AC-2, AC-3, AC-4, AC-5, AC-10, AC-11, AC-12]: (authentic-success-path, fail-closed-path) `node --test scripts/roster-roadmap-derived.test.js` → exit 0.
 - **CHECK-2** [AC-6, AC-7, AC-8]: `node --test scripts/roster-roadmap-derived-view.test.js` → exit 0.
 - **CHECK-3** [AC-9]: `npm run test:roadmap` → exit 0.
 - **CHECK-4** [AC-9]: `test $(wc -l < scripts/roster-roadmap.cjs) -le 500` → exit 0.
@@ -212,6 +240,8 @@ As the coordinator, I want `next`, `prompt` and `complete` to treat derived miss
 {"record":"requirement","id":"FR-016","lifecycle":"draft","external_sources":[],"depends_on":[]}
 {"record":"requirement","id":"FR-017","lifecycle":"draft","external_sources":[],"depends_on":[]}
 {"record":"requirement","id":"FR-018","lifecycle":"draft","external_sources":[],"depends_on":[]}
+{"record":"requirement","id":"FR-019","lifecycle":"draft","external_sources":[],"depends_on":[]}
+{"record":"requirement","id":"FR-020","lifecycle":"draft","external_sources":[],"depends_on":[]}
 {"record":"acceptance-criterion","id":"AC-1","for":["FR-002","FR-004"]}
 {"record":"acceptance-criterion","id":"AC-2","for":["FR-001","FR-003"]}
 {"record":"acceptance-criterion","id":"AC-3","for":["FR-005","FR-007"]}
@@ -221,7 +251,10 @@ As the coordinator, I want `next`, `prompt` and `complete` to treat derived miss
 {"record":"acceptance-criterion","id":"AC-7","for":["FR-014","FR-015"]}
 {"record":"acceptance-criterion","id":"AC-8","for":["FR-016","FR-017"]}
 {"record":"acceptance-criterion","id":"AC-9","for":["FR-018"]}
-{"record":"check","id":"CHECK-1","for":["AC-1","AC-2","AC-3","AC-4","AC-5"]}
+{"record":"acceptance-criterion","id":"AC-10","for":["FR-019"]}
+{"record":"acceptance-criterion","id":"AC-11","for":["FR-006","FR-020"]}
+{"record":"acceptance-criterion","id":"AC-12","for":["FR-007"]}
+{"record":"check","id":"CHECK-1","for":["AC-1","AC-2","AC-3","AC-4","AC-5","AC-10","AC-11","AC-12"]}
 {"record":"check","id":"CHECK-2","for":["AC-6","AC-7","AC-8"]}
 {"record":"check","id":"CHECK-3","for":["AC-9"]}
 {"record":"check","id":"CHECK-4","for":["AC-9"]}

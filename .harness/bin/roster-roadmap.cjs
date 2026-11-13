@@ -48,7 +48,7 @@ function requireAccepted(ctx) {
     const current = ctx.state.tasks[task.id];
     if (current.attempts > task.policy.max_attempts) fail(`attempt budget corrupted for ${task.id}`);
     if (current.assignment && (current.assignment.contract_digest !== ctx.state.acceptance.contract_digest || current.assignment.runtime !== task.topology.runtime || ![task.topology.route, ...task.topology.fallbacks].includes(current.assignment.route))) fail(`assignment contract/topology mismatch for ${task.id}`);
-    if (current.assignment && derived.claimRefusal(task, current.assignment.assignee)) fail(`assignment of ${task.id} refused: ${derived.claimRefusal(task, current.assignment.assignee)}`);
+    if (current.assignment && derived.causeRefusal(task, current.assignment.assignee)) fail(`assignment of ${task.id} refused: ${derived.causeRefusal(task, current.assignment.assignee)}`);
     if (current.status === "done" && !ctx.state.receipts.some(r => r.task_id === task.id && r.result === "done" && r.contract_digest === ctx.state.acceptance.contract_digest)) fail(`done task ${task.id} has no receipt`);
   }
   const attempts = new Set();
@@ -158,7 +158,7 @@ function transitionAccept(ctx, options) {
 }
 function transitionClaim(ctx, options) {
   const task = taskById(ctx, required(options, "task")); identifier(options.assignee, "--assignee");
-  const reason = canClaim(ctx, task) || derived.claimRefusal(task, options.assignee); if (reason) fail(`cannot claim ${task.id}: ${reason}`);
+  const reason = canClaim(ctx, task) || derived.claimRefusal(ctx, task, options.assignee); if (reason) fail(`cannot claim ${task.id}: ${reason}`);
   const current = ctx.state.tasks[task.id]; current.status = "active"; current.attempts++; current.reason = null;
   current.assignment = { id: crypto.randomUUID(), assignee: options.assignee, contract_digest: hash(ctx.contract), capabilities_digest: hash(ctx.capabilities), route: routeFor(ctx, task), runtime: task.topology.runtime };
   return { task_id: task.id, assignment: current.assignment };
@@ -202,7 +202,7 @@ function persistTransition(ctx, command, options, result) {
   const { state, board } = ctx;
   state.revision++;
   const event = { revision: state.revision, action: command, coordinator: options.coordinator, task_id: options.task || result?.task_id || null, reason: options.reason || null, reconciled_by: options["reconciled-by"] || null, at: new Date().toISOString() };
-  if (command === "claim") event.assignment = derived.claimPayload(result.assignment, taskById(ctx, result.task_id));
+  Object.assign(event, derived.eventPayload(ctx, command, result));
   state.events.push(event);
   validateState(state); requireAccepted(ctx); atomicWrite(path.join(board, "state.json"), state);
   return { ...result, revision: state.revision };

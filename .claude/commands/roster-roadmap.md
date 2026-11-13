@@ -215,16 +215,19 @@ and never replaces the existing two-strike finding rule or five-round review/QA 
 never reopen the implementation. Record the review's blocked receipt with `blames` naming
 that direct dependency, then run `derive <board> --coordinator <id> --revision <n> --request
 <file>` with `{parent, cause, objective, topology, max_attempts}`. Pick the correction's
-runtime/model/role from the escalation ladder, never the failed reviewer's agent, with a budget
-no larger than the parent's. The tool assigns `<parent>-fix-<n>`; claim, verify and record it
-like any mission (it inherits the parent's scope and checks). The review stays frozen until its
-corrections are done, then requeues automatically; if every correction exhausts its budget,
-release or escalate the review normally. Derive a correction for every blamed dependency
-before recording any of them done: the review requeues once every correction derived so far is
-done, after which a further derive from that receipt is refused. Completion needs no correction
-queued or active.
+runtime/model/role from the escalation ladder, with a budget no larger than the parent's. The tool
+assigns `<parent>-fix-<n>`; claim, verify and record it like any mission (it inherits the
+parent's scope and checks). Fresh context (owner decision, 13 November 2026): launch a new agent
+for every attempt on a correction chain (the parent, the review and every correction of that
+parent from that review); `claim` and replay refuse an assignee already seen on the chain, so
+never reuse the implementer, the failed reviewer or an earlier fixer, including for the review's
+next attempt. The review stays frozen while its corrections are pending and requeues
+automatically only when every dependency its receipt blames has a done correction (owner
+decision); derive one per blamed dependency, in any order. If a correction exhausts its budget,
+release or escalate the review normally. The `derive` event carries a digest of the definition;
+never edit `state.derived` by hand. Completion needs no correction queued or active.
 Owner decision D1 chose this; D2–D6 are deduced and to be confirmed on the PR. Labels are
-unauthenticated: the reviewer ban compares labels only. Shapes: `.harness/roadmap/schema.md`.
+unauthenticated: the rules compare declared identifiers only. Shapes: `.harness/roadmap/schema.md`.
 
 Diagnose environment, context, spec and ordinary implementation failures before claiming
 a model-capacity shortfall. Red tests do not automatically promote the model; never repeat

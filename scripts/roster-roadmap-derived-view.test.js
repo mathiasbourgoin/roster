@@ -16,7 +16,7 @@ function task(id, deps = []) {
     workflow: { recommendation: "none", reason: "Bounded mission", steps: [] } };
 }
 const TOPOLOGY = { runtime: "codex", model: "opus", role: "implementer", persona: "Engineer", route: "sequential", fallbacks: [] };
-function setup(t) {
+function setup(t, beforeImpl = () => {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "roadmap-derived-view-")), board = path.join(root, "board");
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   core.main(["init", board, "--id", "demo"]);
@@ -27,6 +27,7 @@ function setup(t) {
   write(decision, { by: "owner", basis: "Disposable test", contract_digest: core.hash(contract) });
   core.main(["accept", board, "--coordinator", "lead", "--revision", "0", "--decision", decision]);
   const f = { root, board, stateFile: path.join(board, "state.json"), contract };
+  beforeImpl(f);
   finish(f, "impl", "done", "dev");
   finish(f, "review", "blocked", "rev1", { blames: ["impl"] });
   const request = path.join(root, "derive.json");
@@ -45,11 +46,13 @@ function finish(f, id, result, assignee, extra = {}) {
 }
 const release = (f, id) => cmd(f, "release", ["--task", id, "--reason", "Reconciled", "--reconciled-by", "lead"]);
 // claim -> release (active), claim -> blocked, release (blocked: not an attempt), claim -> done.
-function corrected(t) {
-  const f = setup(t);
-  claim(f, "impl-fix-1", "fixer"); release(f, "impl-fix-1");
-  finish(f, "impl-fix-1", "blocked", "fixer"); release(f, "impl-fix-1");
-  finish(f, "impl-fix-1", "done", "fixer");
+// Each attempt is a newly launched agent (fresh-context rule on the correction chain).
+const FIXERS = ["fixer1", "fixer2", "fixer3"];
+function corrected(t, beforeImpl) {
+  const f = setup(t, beforeImpl);
+  claim(f, "impl-fix-1", FIXERS[0]); release(f, "impl-fix-1");
+  finish(f, "impl-fix-1", "blocked", FIXERS[1]); release(f, "impl-fix-1");
+  finish(f, "impl-fix-1", "done", FIXERS[2]);
   return f;
 }
 function check(schema, value, root, where = "$") {
@@ -98,7 +101,7 @@ test("AC-6 timeline entries carry attempts, identities, times and outcomes in cl
   assert.equal(fix[0].attempt_id, claims[0].assignment.id);
   assert.deepEqual(fix.map(x => x.attempt_id), [claims[0].assignment.id, s.receipts[2].attempt_id, s.receipts[3].attempt_id]);
   for (const [i, entry] of fix.entries()) {
-    assert.deepEqual([entry.assignee, entry.runtime, entry.route, entry.model], ["fixer", "codex", "sequential", "opus"]);
+    assert.deepEqual([entry.assignee, entry.runtime, entry.route, entry.model], [FIXERS[i], "codex", "sequential", "opus"]);
     assert.equal(entry.claimed_at, claims[i].at); assert.ok(entry.ended_at >= entry.claimed_at);
   }
   assert.deepEqual(view.tasks[1].timeline.map(x => [x.attempt, x.assignee, x.outcome, x.model]), [[1, "rev1", "blocked", "configured"]]);
@@ -109,15 +112,17 @@ test("AC-6 timeline entries carry attempts, identities, times and outcomes in cl
 });
 
 test("EC-5 legacy events without at or assignment leave timeline fields null, never guessed", t => {
-  const f = corrected(t);
+  const f = corrected(t, board => { claim(board, "impl", "dev0"); release(board, "impl"); });
   claim(f, "review", "rev2"); release(f, "review");
-  const s = state(f), derivedIds = Object.keys(s.derived);
-  // Legacy tools never wrote claim payloads; derived missions always carry theirs (FR-010).
-  for (const event of s.events) { delete event.at; if (!derivedIds.includes(event.task_id)) delete event.assignment; }
+  const s = state(f), firstDerive = s.events.find(e => e.action === "derive").revision;
+  // Legacy tools never wrote claim payloads; claims on a correction chain (every claim after the
+  // first derive here) always carry theirs (FR-010, FR-020).
+  for (const event of s.events) { delete event.at; if (event.revision < firstDerive) delete event.assignment; }
   write(f.stateFile, s);
   const view = core.main(["view", f.board]), review = view.tasks[1], fix = view.tasks[2];
   assert.equal(fix.derived.created_at, null);
-  assert.deepEqual(review.timeline[1], { attempt: 2, attempt_id: null, assignee: null, runtime: null, route: null, model: null, claimed_at: null, ended_at: null, outcome: "released" });
+  assert.deepEqual(view.tasks[0].timeline[0], { attempt: 1, attempt_id: null, assignee: null, runtime: null, route: null, model: null, claimed_at: null, ended_at: null, outcome: "released" });
+  assert.deepEqual({ ...review.timeline[1], attempt_id: null }, { attempt: 2, attempt_id: null, assignee: "rev2", runtime: "codex", route: "sequential", model: "configured", claimed_at: null, ended_at: null, outcome: "released" });
   assert.deepEqual([review.timeline[0].attempt_id, review.timeline[0].assignee, review.timeline[0].runtime, review.timeline[0].claimed_at], [s.receipts[1].attempt_id, "rev1", null, null]);
   assert.deepEqual([fix.timeline[0].outcome, fix.timeline[0].runtime, fix.timeline[0].claimed_at, fix.timeline[0].ended_at], ["released", "codex", null, null]);
   assert.deepEqual(validView(view), []);
