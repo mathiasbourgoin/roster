@@ -5,11 +5,9 @@
 const requests = () => require("./roster-roadmap-requests.cjs");
 const core = () => require("./roster-roadmap.cjs");
 const RANK = { now: 0, later: 1, unscheduled: 2 };
-const LIMIT = 512 * 1024;
-const CONTROL = /[\x00-\x1f\x7f-\x9f]/g;
-const INVISIBLE = new RegExp("[\\u200b-\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2060-\\u2069\\ufeff]", "g");
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-const clean = value => String(value ?? "").replace(CONTROL, " ").replace(INVISIBLE, "");
+const clean = value => requests().cleanText(value);
+const internal = error => `internal error: ${clean(error instanceof Error ? error.message : error)}`;
 function cut(value, max) { const text = clean(value); return text.length > max ? `${text.slice(0, max - 1)}…` : text; }
 function zeroCounts() { return { open: 0, now: 0, later: 0, unscheduled: 0, answered: 0, withdrawn: 0, archived: 0 }; }
 function empty(status, reason = null) {
@@ -45,28 +43,34 @@ function order(items) {
   const closed = items.filter(item => item.status !== "open").sort((a, b) => cmp(b.closed_at, a.closed_at) || cmp(a.id, b.id));
   return [...open, ...closed];
 }
+// Drops closed items, oldest first; only a hand-edited annex can then still be over the
+// budget, and the trailing open items are dropped so the view renders (FR-019).
 function fit(items) {
-  const sizes = items.map(item => Buffer.byteLength(JSON.stringify(item), "utf8") + 1);
+  const limit = requests().OPEN_BUDGET, sizes = items.map(requests().itemBytes);
   let total = sizes.reduce((sum, size) => sum + size, 0), keep = items.length;
-  while (total > LIMIT && keep > 0 && items[keep - 1].status !== "open") total -= sizes[--keep];
+  while (total > limit && keep > 0 && items[keep - 1].status !== "open") total -= sizes[--keep];
+  while (total > limit && keep > 0) total -= sizes[--keep];
   return items.slice(0, keep);
+}
+function decorateAll(ctx, annex) {
+  const supersededBy = new Map(annex.requests.filter(request => request.supersedes !== null).map(request => [request.supersedes, request.id]));
+  return order(annex.requests.map(request => decorate(ctx, request, supersededBy)));
 }
 function build(ctx, read) {
   if (read.status === "invalid") return empty("invalid", clean(read.reason));
   if (read.status === "absent") return empty("absent");
   const { annex } = read;
-  const supersededBy = new Map(annex.requests.filter(request => request.supersedes !== null).map(request => [request.supersedes, request.id]));
-  const all = annex.requests.map(request => decorate(ctx, request, supersededBy));
-  const items = fit(order(all.filter(visible)));
+  const all = decorateAll(ctx, annex);
+  const shown = all.filter(visible), items = fit(shown);
   const counts = zeroCounts();
   for (const item of all) {
     if (item.status === "open") { counts.open++; counts[item.due]++; } else counts[item.status]++;
   }
-  counts.archived = all.filter(item => item.status !== "open").length - items.filter(item => item.status !== "open").length;
-  return { status: "valid", reason: null, revision: annex.revision, journal: annex.journal, counts, items, truncated: items.length < all.filter(visible).length };
+  counts.archived = all.filter(item => item.status !== "open" && !visible(item)).length;
+  return { status: "valid", reason: null, revision: annex.revision, journal: annex.journal, counts, items, truncated: items.length < shown.length };
 }
 function observe(ctx) {
-  try { return build(ctx, requests().readAnnex(ctx)); } catch (error) { return empty("invalid", clean(error.message)); }
+  try { return build(ctx, requests().readAnnex(ctx)); } catch (error) { return empty("invalid", internal(error)); }
 }
 
 function prefix(block) {
@@ -94,17 +98,24 @@ function textRows(block) {
   return block.items.length ? ["Waiting on:", ...block.items.map(line)] : [];
 }
 
-function trim(value) { return value.length > 300 ? `${value.slice(0, 300)}…[truncated]` : value; }
+// Prompt strings pass through the same character rule as the text view: hand-edited
+// format characters (tag characters included) never reach a resumed agent session.
+function trim(value) { const text = clean(value); return text.length > 300 ? `${text.slice(0, 300)}…[truncated]` : text; }
 function promptItem(item) {
-  const brief = { id: item.id, to: item.to, kind: item.kind, task_id: item.task_id, need: item.need, due: item.due, status: item.status, text: trim(item.text), refs_count: item.refs.length };
-  return item.status === "answered" ? { ...brief, answer: { ...item.answer, text: trim(item.answer.text) } } : brief;
+  const brief = { id: item.id, to: { kind: item.to.kind, label: clean(item.to.label) }, kind: item.kind, task_id: item.task_id, need: item.need, due: item.due, status: item.status, text: trim(item.text), refs_count: item.refs.length };
+  if (item.status !== "answered") return brief;
+  return { ...brief, answer: { ...item.answer, by: clean(item.answer.by), text: trim(item.answer.text) } };
 }
-function forPrompt(ctx, taskId) {
-  const block = observe(ctx);
-  if (block.status === "invalid") return { status: "invalid", reason: block.reason };
+// Derived from every stored request, never from the view's budget-truncated items (FR-021).
+function promptBlock(ctx, read, taskId) {
+  if (read.status === "invalid") return { status: "invalid", reason: clean(read.reason) };
+  const base = { status: read.status, revision: read.annex.revision, journal: read.annex.journal === null ? null : clean(read.annex.journal) };
   const keep = item => (taskId ? item.task_id === taskId && item.status !== "withdrawn"
     : item.status === "open" || (item.status === "answered" && item.task_id !== null && item.task_state !== "done"));
-  return { status: block.status, revision: block.revision, journal: block.journal, items: block.items.filter(keep).map(promptItem) };
+  return { ...base, items: decorateAll(ctx, read.annex).filter(keep).map(promptItem) };
+}
+function forPrompt(ctx, taskId) {
+  try { return promptBlock(ctx, requests().readAnnex(ctx), taskId); } catch (error) { return { status: "invalid", reason: internal(error) }; }
 }
 
 module.exports = { observe, prefix, versionInputs, idsFor, textRows, forPrompt };

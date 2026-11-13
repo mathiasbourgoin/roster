@@ -253,3 +253,95 @@ test("AC-13 closure: sibling modules and schema doc are installed and the core s
   assert.ok(sync.includes("roadmap-requests-schema.md") && sync.includes("roadmap/requests-schema.md"));
   assert.ok(fs.readFileSync(path.join(__dirname, "roster-roadmap.cjs"), "utf8").split("\n").length - 1 <= 500);
 });
+
+test("FR-003 refuses every Unicode format character and both separators in every string", t => {
+  const f = fixture(t);
+  const bad = ["؜", "­", "᠎", "\u{E0041}", "\u{E007F}", " ", "‎", "⁦"].map(c => `a${c}b`);
+  for (const value of bad) {
+    unchanged(f, () => open(f, { ...BASE, id: "f1", text: value }, 0), /control, bidirectional or invisible/);
+    unchanged(f, () => open(f, { ...BASE, id: "f2", to: { kind: "role", label: value } }, 0), /control, bidirectional or invisible/);
+    unchanged(f, () => open(f, { ...BASE, id: "f3", refs: [value] }, 0), /control, bidirectional or invisible/);
+    unchanged(f, () => journal(f, { path: value }, 0), /control, bidirectional or invisible/);
+  }
+  open(f, BASE, 0); open(f, { ...BASE, id: "q1" }, 1);
+  for (const value of bad) {
+    unchanged(f, () => answer(f, "key-b", { text: value, by: "owner" }, 2), /control, bidirectional or invisible/);
+    unchanged(f, () => answer(f, "key-b", { text: "ok", by: value }, 2), /control, bidirectional or invisible/);
+    unchanged(f, () => withdraw(f, "q1", { reason: value }, 2), /control, bidirectional or invisible/);
+  }
+});
+
+test("FR-002 every length bound is accepted at the bound and refused one over", t => {
+  const f = fixture(t), x = n => "x".repeat(n);
+  open(f, { ...BASE, id: "max", text: x(2000), to: { kind: "person", label: x(200) }, refs: Array(10).fill(x(500)) }, 0);
+  unchanged(f, () => open(f, { ...BASE, id: "o1", text: x(2001) }, 1), /text must be nonempty text of at most 2000/);
+  unchanged(f, () => open(f, { ...BASE, id: "o2", to: { kind: "role", label: x(201) } }, 1), /to\.label must be nonempty text of at most 200/);
+  unchanged(f, () => open(f, { ...BASE, id: "o3", refs: [x(501)] }, 1), /refs must be nonempty text of at most 500/);
+  unchanged(f, () => open(f, { ...BASE, id: "o4", refs: Array(11).fill("r") }, 1), /at most 10 references/);
+  open(f, { ...BASE, id: "q1" }, 1);
+  unchanged(f, () => answer(f, "max", { text: x(2001), by: "owner" }, 2), /answer\.text must be nonempty text of at most 2000/);
+  unchanged(f, () => answer(f, "max", { text: "ok", by: x(201) }, 2), /answer\.by must be nonempty text of at most 200/);
+  answer(f, "max", { text: x(2000), by: x(200) }, 2);
+  unchanged(f, () => withdraw(f, "q1", { reason: x(2001) }, 3), /withdrawal\.reason must be nonempty text of at most 2000/);
+  withdraw(f, "q1", { reason: x(2000) }, 3);
+  unchanged(f, () => journal(f, { path: x(1001) }, 4), /journal must be nonempty text of at most 1000/);
+  journal(f, { path: x(1000) }, 4);
+  const annex = read(f.annex);
+  assert.deepEqual([annex.revision, annex.requests[0].answer.text.length, annex.requests[1].withdrawal.reason.length, annex.journal.length], [5, 2000, 2000, 1000]);
+});
+
+test("FR-003 a write that would push open requests past 512 KiB of UTF-8 is refused; the view still renders", t => {
+  const f = fixture(t), cjk = n => "漢".repeat(n);
+  const body = i => ({ ...BASE, id: `big${i}`, task_id: null, need: "blocking", text: cjk(2000), to: { kind: "role", label: cjk(200) }, refs: Array(10).fill(cjk(500)) });
+  let accepted = 0;
+  for (; accepted < 100; accepted++) {
+    try { open(f, body(accepted), accepted); } catch (error) { assert.match(error.message, /open requests would exceed 524288 bytes/); break; }
+  }
+  assert.ok(accepted > 0 && accepted < 100, `refused before the count limit (accepted ${accepted})`);
+  unchanged(f, () => open(f, body(accepted), accepted), /would exceed 524288 bytes/);
+  const block = core.main(["view", f.board]).operator_requests;
+  assert.deepEqual([block.status, block.counts.open, block.items.length, block.truncated], ["valid", accepted, accepted, false]);
+  assert.match(core.main(["status", f.board, "--format", "text"]), /Waiting on:/);
+  withdraw(f, "big0", { reason: "Too long" }, accepted);
+  assert.equal(open(f, { ...BASE, id: "small", task_id: null, need: "later" }, accepted + 1).written, true);
+});
+
+test("FR-003 an oversize hand-edited annex can still be reduced by answer and withdraw", t => {
+  const f = fixture(t), cjk = n => "漢".repeat(n);
+  const body = i => ({ ...BASE, id: `big${i}`, task_id: null, need: "blocking", text: cjk(2000), to: { kind: "role", label: cjk(200) }, refs: Array(10).fill(cjk(500)) });
+  let revision = 0;
+  for (; revision < 100; revision++) { try { open(f, body(revision), revision); } catch { break; } }
+  const annex = read(f.annex);
+  annex.requests.push({ ...annex.requests[0], id: "edited" });
+  annex.history.push({ ...annex.history[0], revision: revision + 1, request_id: "edited" }); annex.revision = revision + 1;
+  write(f.annex, annex);
+  assert.equal(core.main(["view", f.board]).operator_requests.status, "valid");
+  assert.equal(answer(f, "edited", { text: "Confirmed out of band", by: "owner" }, revision + 1).written, true);
+  assert.equal(withdraw(f, "big0", { reason: "Too long" }, revision + 2).written, true);
+});
+
+function tree(dir, base = dir, out = {}) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name), rel = path.relative(base, file);
+    if (entry.isDirectory()) { out[`${rel}/`] = true; tree(file, base, out); } else if (rel !== "requests.json") out[rel] = fs.readFileSync(file).toString("base64");
+  }
+  return out;
+}
+test("FR-012 request commands leave receipts, estimates and progress untouched and release unchanged", t => {
+  const f = fixture(t), plain = fixture(t);
+  fs.mkdirSync(path.join(f.board, "receipts"), { recursive: true }); write(path.join(f.board, "receipts", "a-1.json"), { candidate: true });
+  fs.mkdirSync(path.join(f.board, "progress"), { recursive: true }); write(path.join(f.board, "progress", "a-1.json"), { sequence: 1 });
+  write(path.join(f.board, "estimates.json"), { schema_version: 1, sentinel: true });
+  const before = tree(f.board);
+  open(f, { ...BASE, id: "blk", task_id: "a", need: "blocking" }, 0); open(f, { ...BASE, id: "q1" }, 1);
+  answer(f, "q1", { text: "ok", by: "owner" }, 2); withdraw(f, "blk", { reason: "Moot" }, 3);
+  open(f, { ...BASE, id: "blk2", task_id: "a", need: "blocking" }, 4); journal(f, { path: "j.html" }, 5);
+  assert.deepEqual(tree(f.board), before);
+  const release = g => {
+    core.main(["claim", g.board, "--coordinator", "lead", "--revision", "1", "--task", "a", "--assignee", "w"]);
+    return core.main(["release", g.board, "--coordinator", "lead", "--revision", "2", "--task", "a", "--reason", "retry", "--reconciled-by", "lead"]);
+  };
+  assert.deepEqual(release(f), release(plain));
+  assert.deepEqual(read(f.state).tasks, read(plain.state).tasks);
+  assert.equal(read(f.annex).revision, 6);
+});

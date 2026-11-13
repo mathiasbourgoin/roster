@@ -236,7 +236,7 @@ test("FR-019 oversized blocks drop oldest closed items first, never open ones", 
   assert.equal(b.truncated, true);
   assert.equal(b.items[0].id, "open1");
   assert.ok(Buffer.byteLength(JSON.stringify(b.items)) <= 512 * 1024 + b.items.length);
-  assert.equal(b.counts.answered, 150); assert.equal(b.counts.archived, 150 - (b.items.length - 1));
+  assert.equal(b.counts.answered, 150); assert.equal(b.counts.archived, 0, "truncated visible items are not archived (FR-015)");
   const kept = b.items.slice(1).map(item => item.id);
   assert.deepEqual(kept, [...kept].sort().reverse(), "newest closed items are kept");
   assert.deepEqual(validView(core.main(["view", f.board])), []);
@@ -279,4 +279,65 @@ test("prompt overflow still refuses with an actionable error", t => {
 test("coordinator continuation tells to open a request instead of pausing and to keep secrets out", t => {
   const f = fixture(t);
   assert.match(promptOf(f).continuation, /request-open.*instead of pausing silently.*never put secrets in requests/);
+});
+
+const cjk = n => "漢".repeat(n);
+const heavy = (id, extra = {}) => req(id, { need: "blocking", text: cjk(2000), to: { kind: "role", label: cjk(200) }, refs: Array(10).fill(cjk(500)), ...extra });
+
+test("FR-019 a hand-edited annex whose open items exceed 512 KiB still renders with exact counts", t => {
+  const f = fixture(t);
+  put(f, [...Array.from({ length: 100 }, (_, i) => heavy(`o${String(i).padStart(3, "0")}`)), answered("c1", AT)]);
+  const view = core.main(["view", f.board]), b = view.operator_requests;
+  assert.deepEqual([b.status, b.truncated, b.counts.open, b.counts.now, b.counts.answered], ["valid", true, 100, 100, 1]);
+  assert.ok(b.items.length > 0 && b.items.length < 100);
+  assert.ok(b.items.every(item => item.status === "open"));
+  assert.deepEqual(b.items.map(item => item.id), Array.from({ length: b.items.length }, (_, i) => `o${String(i).padStart(3, "0")}`), "leading open items are kept");
+  assert.ok(Buffer.byteLength(JSON.stringify(b.items)) <= 512 * 1024 + b.items.length);
+  assert.deepEqual(validView(view), []);
+  assert.match(core.main(["status", f.board, "--format", "text"]), /Waiting on:\n {2}\[now\] o000/);
+});
+
+test("FR-009 stored data over the count limits reads as invalid; format characters stay readable", t => {
+  const f = fixture(t);
+  put(f, Array.from({ length: 101 }, (_, i) => req(`o${i}`)));
+  assert.deepEqual([block(f).status, block(f).reason], ["invalid", "requests: at most 100 open requests"]);
+  put(f, [...Array.from({ length: 100 }, (_, i) => req(`o${i}`)), ...Array.from({ length: 401 }, (_, i) => answered(`c${i}`, AT))]);
+  assert.match(block(f).reason, /at most 500 requests/);
+  put(f, [req("long", { text: "x".repeat(2001) })]);
+  assert.match(block(f).reason, /text must be nonempty text of at most 2000/);
+  put(f, [req("tag", { text: "see\u{E0041}\u{E0042} this؜­", to: { kind: "role", label: "ow᠎ner" }, need: "blocking" }), answered("ans", AT, { task_id: "a", answer: { text: "do\u{E0049}ne", by: "o​wner", at: AT, relayed_by: "lead" } })], "j\u{E0041}.html");
+  assert.equal(block(f).status, "valid");
+  assert.match(core.main(["status", f.board, "--format", "text"]), /\[now\] tag → owner \(supply; unbound\): see this\n {2}\[answered [^\]]+\] ans ← owner: done/);
+  const p = JSON.parse(core.main(["prompt", f.board]).prompt).operator_requests;
+  assert.deepEqual([p.journal, p.items[0].text, p.items[0].to.label, p.items[1].answer.text, p.items[1].answer.by], ["j.html", "see this", "owner", "done", "owner"]);
+});
+
+test("FR-021 mission prompt keeps answered requests of a done task and derives from the full set", t => {
+  const f = fixture(t, { tasks: [task("a"), task("b", ["a"])] });
+  put(f, [req("oa", { task_id: "a" }), answered("aa", AT, { task_id: "a" }), withdrawn("wa", AT, { task_id: "a" })]);
+  const assignment = claim(f, "a", 1); record(f, "a", assignment, "done", 2);
+  assert.deepEqual(promptOf(f, "--task", "a").operator_requests.items.map(item => item.id), ["oa", "aa"]);
+  assert.deepEqual(promptOf(f).operator_requests.items.map(item => item.id), ["oa"]);
+  const big = Array.from({ length: 150 }, (_, i) => answered(`c${String(i).padStart(3, "0")}`, AT, { task_id: "b", text: "t".repeat(2000), refs: Array(10).fill("r".repeat(500)), answer: { text: "a".repeat(2000), by: "o", at: AT, relayed_by: "lead" } }));
+  put(f, [req("ob", { task_id: "b" }), ...big]);
+  assert.equal(block(f).truncated, true);
+  const mission = JSON.parse(core.main(["prompt", f.board, "--task", "b", "--max-chars", "1000000"]).prompt).operator_requests;
+  assert.equal(mission.items.length, 151);
+  const coordinator = JSON.parse(core.main(["prompt", f.board, "--max-chars", "1000000"]).prompt).operator_requests;
+  assert.equal(coordinator.items.length, 151);
+});
+
+test("an internal error renders as invalid with an internal-error reason, never as an invalid annex", t => {
+  const f = fixture(t);
+  put(f, [req("o1")]);
+  const original = core.io.readJSON;
+  core.io.readJSON = () => { throw new TypeError("boom"); };
+  try {
+    const view = core.main(["view", f.board]);
+    assert.deepEqual([view.operator_requests.status, view.operator_requests.reason], ["invalid", "internal error: boom"]);
+    assert.match(core.main(["status", f.board, "--format", "text"]), /Waiting on: requests annex invalid — internal error: boom/);
+    assert.deepEqual(JSON.parse(core.main(["prompt", f.board]).prompt).operator_requests, { status: "invalid", reason: "internal error: boom" });
+  } finally { core.io.readJSON = original; }
+  fs.writeFileSync(f.annex, "garbage");
+  assert.doesNotMatch(block(f).reason, /internal error/);
 });
