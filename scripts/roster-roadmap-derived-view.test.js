@@ -16,7 +16,7 @@ function task(id, deps = []) {
     workflow: { recommendation: "none", reason: "Bounded mission", steps: [] } };
 }
 const TOPOLOGY = { runtime: "codex", model: "opus", role: "implementer", persona: "Engineer", route: "sequential", fallbacks: [] };
-function setup(t, beforeImpl = () => {}) {
+function accepted(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "roadmap-derived-view-")), board = path.join(root, "board");
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   core.main(["init", board, "--id", "demo"]);
@@ -26,7 +26,10 @@ function setup(t, beforeImpl = () => {}) {
   const decision = path.join(root, "decision.json");
   write(decision, { by: "owner", basis: "Disposable test", contract_digest: core.hash(contract) });
   core.main(["accept", board, "--coordinator", "lead", "--revision", "0", "--decision", decision]);
-  const f = { root, board, stateFile: path.join(board, "state.json"), contract };
+  return { root, board, stateFile: path.join(board, "state.json"), contract };
+}
+function setup(t, beforeImpl = () => {}) {
+  const f = accepted(t), { root } = f;
   beforeImpl(f);
   finish(f, "impl", "done", "dev");
   finish(f, "review", "blocked", "rev1", { blames: ["impl"] });
@@ -114,18 +117,25 @@ test("AC-6 timeline entries carry attempts, identities, times and outcomes in cl
 test("EC-5 legacy events without at or assignment leave timeline fields null, never guessed", t => {
   const f = corrected(t, board => { claim(board, "impl", "dev0"); release(board, "impl"); });
   claim(f, "review", "rev2"); release(f, "review");
-  const s = state(f), firstDerive = s.events.find(e => e.action === "derive").revision;
-  // Legacy tools never wrote claim payloads; claims on a correction chain (every claim after the
-  // first derive here) always carry theirs (FR-010, FR-020).
-  for (const event of s.events) { delete event.at; if (event.revision < firstDerive) delete event.assignment; }
+  const s = state(f);
+  // Every claim of a review family must keep its payload (FR-021), so only the times are legacy here.
+  for (const event of s.events) delete event.at;
   write(f.stateFile, s);
   const view = core.main(["view", f.board]), review = view.tasks[1], fix = view.tasks[2];
   assert.equal(fix.derived.created_at, null);
-  assert.deepEqual(view.tasks[0].timeline[0], { attempt: 1, attempt_id: null, assignee: null, runtime: null, route: null, model: null, claimed_at: null, ended_at: null, outcome: "released" });
+  assert.deepEqual({ ...view.tasks[0].timeline[0], attempt_id: null }, { attempt: 1, attempt_id: null, assignee: "dev0", runtime: "codex", route: "sequential", model: "configured", claimed_at: null, ended_at: null, outcome: "released" });
   assert.deepEqual({ ...review.timeline[1], attempt_id: null }, { attempt: 2, attempt_id: null, assignee: "rev2", runtime: "codex", route: "sequential", model: "configured", claimed_at: null, ended_at: null, outcome: "released" });
-  assert.deepEqual([review.timeline[0].attempt_id, review.timeline[0].assignee, review.timeline[0].runtime, review.timeline[0].claimed_at], [s.receipts[1].attempt_id, "rev1", null, null]);
   assert.deepEqual([fix.timeline[0].outcome, fix.timeline[0].runtime, fix.timeline[0].claimed_at, fix.timeline[0].ended_at], ["released", "codex", null, null]);
   assert.deepEqual(validView(view), []);
+  // A board without derived missions may still hold claims written by an older runtime.
+  const legacy = accepted(t);
+  claim(legacy, "impl", "dev0"); release(legacy, "impl"); finish(legacy, "impl", "blocked", "dev1");
+  const old = state(legacy);
+  for (const event of old.events) { delete event.at; delete event.assignment; }
+  write(legacy.stateFile, old);
+  const lines = core.main(["view", legacy.board]).tasks[0].timeline;
+  assert.deepEqual(lines[0], { attempt: 1, attempt_id: null, assignee: null, runtime: null, route: null, model: null, claimed_at: null, ended_at: null, outcome: "released" });
+  assert.deepEqual([lines[1].attempt_id, lines[1].assignee, lines[1].runtime, lines[1].claimed_at], [old.receipts[0].attempt_id, "dev1", null, null]);
 });
 
 test("AC-6 an earlier saved view without the new fields still validates", t => {

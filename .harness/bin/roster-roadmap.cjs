@@ -24,6 +24,7 @@ const COMMANDS = {
   claim: ["coordinator", "revision", "task", "assignee"],
   record: ["coordinator", "revision", "receipt"],
   derive: ["coordinator", "revision", "request"],
+  "withdraw-derived": ["coordinator", "revision", "task", "withdrawal"],
   release: ["coordinator", "revision", "task", "reason", "reconciled-by"],
   complete: ["coordinator", "revision", "receipt"],
 };
@@ -111,11 +112,12 @@ function next(ctx) {
   return { status: "blocked", blocked: missions(ctx).filter(t => ctx.state.tasks[t.id].status !== "done").map(t => taskProgress(ctx, t)), next_action: "Inspect attempt budgets and preserved failure evidence. Apply only specified recovery/retry policies; exhausted budgets require an explicit roadmap revision/decision. Escalate a precise blocking decision if no authorized progress remains." };
 }
 function taskProgress(ctx, task) {
-  const current = ctx.state.tasks[task.id], exhausted = !["active", "done"].includes(current.status) && current.attempts >= task.policy.max_attempts;
-  const frozen = current.status === "blocked" ? derived.releaseRefusal(task.id, ctx.state.tasks, ctx.state.receipts, derived.entries(ctx)) : null;
+  const current = ctx.state.tasks[task.id], exhausted = !["active", "done", "withdrawn"].includes(current.status) && current.attempts >= task.policy.max_attempts;
+  const advice = derived.releaseAdvice(task.id, ctx.state.tasks, ctx.state.receipts, derived.entries(ctx));
   let nextAction;
   if (exhausted) nextAction = "Attempt budget exhausted: preserve failure evidence and request an explicit revised-roadmap decision before further attempts.";
-  else if (frozen) nextAction = `Wait for the derived correction missions: ${frozen}.`;
+  else if (advice) nextAction = `Release is refused until every blamed dependency has a done correction: ${advice}.`;
+  else if (current.status === "withdrawn") nextAction = "Withdrawn correction: kept for history; no further attempt.";
   else if (current.status === "blocked") nextAction = task.policy.on_failure === "retry" ? "Inspect the failure and apply declared recovery, then explicitly reconcile before requeueing." : "Retry is not authorized by policy; request the blocking decision.";
   else if (current.status === "active") nextAction = "Continue the owned attempt or explicitly reconcile inspected interrupted work.";
   else if (current.status === "done") nextAction = "Keep the accepted receipt and continue toward the global outcome.";
@@ -124,7 +126,7 @@ function taskProgress(ctx, task) {
 }
 function status(ctx) {
   const counts = { queued: 0, active: 0, blocked: 0, done: 0 };
-  for (const task of Object.values(ctx.state.tasks)) counts[task.status]++;
+  for (const task of Object.values(ctx.state.tasks)) counts[task.status] = (counts[task.status] ?? 0) + 1;
   const current = ctx.state.acceptance?.contract_digest === hash(ctx.contract);
   if (ctx.state.acceptance) requireAccepted(ctx);
   const tasks = ctx.state.acceptance ? missions(ctx).map(task => taskProgress(ctx, task)) : [];
@@ -197,7 +199,7 @@ function transitionComplete(ctx, options) {
   checkResults(receipt.checks, contract.global_checks, true); state.global_receipt = receipt;
   return { complete: true, summary: receipt.summary };
 }
-const TRANSITIONS = { accept: transitionAccept, claim: transitionClaim, record: transitionRecord, release: transitionRelease, complete: transitionComplete, derive: derived.transitionDerive };
+const TRANSITIONS = { accept: transitionAccept, claim: transitionClaim, record: transitionRecord, release: transitionRelease, complete: transitionComplete, derive: derived.transitionDerive, "withdraw-derived": derived.transitionWithdraw };
 function persistTransition(ctx, command, options, result) {
   const { state, board } = ctx;
   state.revision++;
@@ -241,7 +243,7 @@ function init(board, options) {
 function main(argv) {
   if (argv.length === 1 && ["--help", "help"].includes(argv[0])) return { usage: "roster-roadmap.cjs <command> <board-dir> [options]", commands: COMMANDS, assurance: "Artifact coordination only; no agent/check execution. Source reference: schema/roadmap-schema.md; installed reference: .harness/roadmap/schema.md." };
   const [command, boardArg, ...args] = argv;
-  if (!Object.hasOwn(COMMANDS, command) || !boardArg || boardArg.startsWith("--")) fail("usage: roster-roadmap.cjs <init|lint|accept|status|view|progress|estimate|request-open|request-answer|request-withdraw|request-journal|next|prompt|claim|record|release|derive|complete> <board-dir> [options]");
+  if (!Object.hasOwn(COMMANDS, command) || !boardArg || boardArg.startsWith("--")) fail("usage: roster-roadmap.cjs <init|lint|accept|status|view|progress|estimate|request-open|request-answer|request-withdraw|request-journal|next|prompt|claim|record|release|derive|withdraw-derived|complete> <board-dir> [options]");
   const options = {};
   for (let i = 0; i < args.length; i += 2) {
     if (!args[i].startsWith("--") || args[i + 1] === undefined) fail("options require --name value pairs");
@@ -254,7 +256,7 @@ function main(argv) {
   if (command === "progress") return require("./roster-roadmap-view.cjs").update(board, options);
   if (command === "estimate") return require("./roster-roadmap-estimates.cjs").update(board, options);
   if (command.startsWith("request-")) return require("./roster-roadmap-requests.cjs").command(board, command, options);
-  if (["accept", "claim", "record", "release", "derive", "complete"].includes(command)) return mutate(board, command, options);
+  if (["accept", "claim", "record", "release", "derive", "withdraw-derived", "complete"].includes(command)) return mutate(board, command, options);
   const ctx = load(board, !["status", "view"].includes(command));
   if (command === "lint") return { valid: true, contract_digest: hash(ctx.contract), capability_digest: hash(ctx.capabilities), note: "Structural coherence only; semantic contradictions still require agent review." };
   if (command === "view") return require("./roster-roadmap-view.cjs").snapshot(ctx, options);

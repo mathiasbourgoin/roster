@@ -10,7 +10,7 @@ function validateEvent(event, index) {
   keys(event, ["revision", "action", "coordinator", "task_id", "reason", "reconciled_by", "at", "assignment", "definition_digest"], "state event");
   if (event.at !== undefined && (typeof event.at !== "string" || !AT.test(event.at) || !Number.isFinite(Date.parse(event.at)))) fail("invalid state event timestamp");
   if (event.revision !== index + 1) fail("state event revisions are not contiguous");
-  oneOf(event.action, ["accept", "claim", "record", "release", "complete", "derive"], "state event action");
+  oneOf(event.action, ["accept", "claim", "record", "release", "complete", "derive", "withdraw-derived"], "state event action");
   derived.validateEventPayloads(event);
   identifier(event.coordinator, "state event coordinator");
   if (event.task_id !== null) identifier(event.task_id, "state event task");
@@ -20,7 +20,8 @@ function validateEvent(event, index) {
 function validateTaskState(id, task) {
   identifier(id, "state task id");
   keys(task, ["status", "attempts", "assignment", "reason"], "task state");
-  oneOf(task.status, ["queued", "active", "blocked", "done"], "task state status"); integer(task.attempts, "task attempts");
+  // "withdrawn" is reachable only by a derived mission (FR-022); replay enforces it.
+  oneOf(task.status, ["queued", "active", "blocked", "done", "withdrawn"], "task state status"); integer(task.attempts, "task attempts");
   if (task.reason !== null) text(task.reason, "task reason");
   if (task.assignment !== null) {
     keys(task.assignment, ["id", "assignee", "contract_digest", "capabilities_digest", "route", "runtime"], "assignment");
@@ -29,7 +30,7 @@ function validateTaskState(id, task) {
     oneOf(task.assignment.route, v.ROUTES, "assignment route"); oneOf(task.assignment.runtime, v.RUNTIMES, "assignment runtime");
   }
   if ((task.status === "active") !== (task.assignment !== null)) fail(`assignment/status mismatch for ${id}`);
-  if (task.status !== "queued" && task.attempts === 0) fail(`missing attempt for ${id}`);
+  if (!["queued", "withdrawn"].includes(task.status) && task.attempts === 0) fail(`missing attempt for ${id}`);
 }
 function validateState(state) {
   keys(state, ["schema_version", "board_id", "revision", "coordinator", "acceptance", "tasks", "receipts", "events", "global_receipt", "derived"], "state");
@@ -65,7 +66,8 @@ function replayRecord(ctx, task, current, replay, history) {
 }
 function replayRelease(ctx, task, current, event, replay, history) {
   if (!["active", "blocked"].includes(current.status) || task.policy.on_failure !== "retry" || current.attempts >= task.policy.max_attempts) fail(`illegal release history for ${task.id}`);
-  if (derived.releaseRefusal(task.id, replay, ctx.state.receipts.slice(0, history.receiptIndex.value), history.known)) fail(`illegal release history for ${task.id}: corrections were pending`);
+  const refusal = derived.releaseRefusal(task.id, replay, ctx.state.receipts.slice(0, history.receiptIndex.value), history.known);
+  if (refusal) fail(`illegal release history for ${task.id}: ${refusal}`);
   text(event.reason, "release history reason"); identifier(event.reconciled_by, "release history actor");
   current.status = "queued"; current.reason = event.reason; current.payload = null;
 }
@@ -73,6 +75,7 @@ function replayRelease(ctx, task, current, event, replay, history) {
 function replayTaskEvent(ctx, event, replay, receiptIndex, known = []) {
   const history = { receiptIndex, known };
   if (event.action === "derive") return derived.replayDerive(ctx, event, replay, ctx.state.receipts.slice(0, receiptIndex.value), known);
+  if (event.action === "withdraw-derived") return derived.replayWithdraw(ctx, event, replay);
   const task = core().taskById(ctx, event.task_id), current = replay[task.id];
   if (!current) fail(`history references ${task.id} before its derive event`);
   if (event.action === "claim") replayClaim(ctx, task, current, event, replay, history);

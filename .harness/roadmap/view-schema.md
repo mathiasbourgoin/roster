@@ -133,9 +133,12 @@ declares them without requiring them, so earlier saved views still validate.
   event's optional `assignment` (the receipt supplies `attempt_id` and `assignee` when the claim
   event has none); a released attempt takes its `attempt_id` from the claim event, else `null`.
   Times are the events' `at`, else `null`; never infer them.
+  A mission that was never claimed has `timeline: []`, whatever its ID (IDs such as
+  `constructor` are ordinary keys).
 
 `completion.tasks_done/tasks_total` count contract tasks only; `completion.derived_done` and
-`derived_total` count derived missions. `counts` covers every mission. While a derived mission
+`derived_total` count derived missions. `counts` covers every mission; a `withdrawn` key appears
+only when a correction was retired with `withdraw-derived` (its item `state` is `withdrawn`). While a derived mission
 is `queued` or `active`, `estimates.tasks_eta` and `global_eta` are `unknown` with a reason
 naming it; estimates files never hold derived IDs. `status --format text` prints each derived
 mission with its parent and cause, a `Corrections:` row on the corrected task and a

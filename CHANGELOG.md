@@ -26,10 +26,12 @@ below) — both already present in this section.
   optional `state.derived` and claim-event `assignment`, the automatic review requeue and release
   freeze, verified replay, and view `kind`/`derived`/`corrections`/`timeline` with
   `completion.derived_done/derived_total`. New runtime module `roster-roadmap-derived.cjs`.
-  Owner decisions of 13 November 2026: fresh-context agents on every attempt of a correction
-  chain (claim and replay), a verified `definition_digest` on `derive` events, and a review
-  requeue only when every blamed dependency has a done correction. Any `claim` written by this
-  version makes the board unreadable by the earlier runtime.
+  Owner decisions of 13 November 2026: fresh-context agents on every attempt of a review's family
+  (claim and replay), a `definition_digest` on `derive` events that detects accidental edits,
+  and a strict review requeue and release refusal until every blamed dependency has a done
+  correction. `derive` refuses an unclaimable topology and a family with a claim lacking
+  `assignment`; an exhausted correction allows `<parent>-fix-<n+1>` for the same receipt;
+  `withdraw-derived` retires a queued correction. See the migration notes below.
 - **Roadmap operator requests** — advisory annex `requests.json` with `request-open`,
   `request-answer`, `request-withdraw` and `request-journal` commands, exposed in `view`
   (`operator_requests`), `status --format text` (`Waiting on:`) and `prompt`. Requests never
@@ -206,6 +208,21 @@ below) — both already present in this section.
   budget was raised. Now derived from `BUDGETS`.
 
 ---
+
+### Migration notes
+
+- **Roadmap boards and older runtimes.** A roadmap board becomes unreadable by a runtime from
+  before derived missions as soon as this version writes its first `claim`, even if `derive` is
+  never used: every new claim event carries `assignment`, which the older runtime refuses
+  (`state event: unknown field assignment`). A `derive` or `withdraw-derived` event, a
+  `withdrawn` task or `state.derived` has the same effect. Install the whole runtime closure
+  together and do not downgrade a board in use. Boards written by the older runtime keep reading.
+- **Legacy claims and derivation.** A claim event without `assignment` (older runtime) stays
+  valid outside any review family, but `derive` refuses a review whose family holds one; such a
+  board needs a revised roadmap to use corrections.
+- **Strict review release.** `release` of a review whose latest blocked receipt carries
+  `blames` is refused until every blamed dependency has a done correction, including after a
+  correction exhausts its budget: derive a new correction for the same receipt instead.
 
 ## [1.2.0] — 2026-06-03
 

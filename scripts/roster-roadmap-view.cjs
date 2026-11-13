@@ -106,12 +106,14 @@ function recovery(ctx, task) {
 }
 // FR-013: attempt n is the n-th claim; it ends at the next record (receipt result) or at a release
 // of the active assignment (released). Fields come from the claim event assignment, else null.
+// A Map keyed by mission id: a task named "constructor" or "toString" must not hit Object.prototype.
 function timelines(ctx) {
-  const lines = {}; let receiptIndex = 0;
+  const lines = new Map(); let receiptIndex = 0;
   for (const event of ctx.state.events) {
     const receipt = event.action === "record" ? ctx.state.receipts[receiptIndex++] : null;
     if (!["claim", "record", "release"].includes(event.action)) continue;
-    const list = lines[event.task_id] ||= [], last = list.at(-1), at = event.at || null;
+    if (!lines.has(event.task_id)) lines.set(event.task_id, []);
+    const list = lines.get(event.task_id), last = list.at(-1), at = event.at || null;
     if (event.action === "claim") {
       const a = event.assignment;
       list.push({ attempt: list.length + 1, attempt_id: a?.id ?? null, assignee: a?.assignee ?? null, runtime: a?.runtime ?? null,
@@ -125,7 +127,7 @@ function timelines(ctx) {
 }
 function lineage(ctx, task, lines) {
   return { kind: task.derived ? "derived" : "contract", derived: derivedBlock(ctx, task),
-    corrections: task.derived ? [] : derivedMissions(ctx).filter(d => d.derived.parent === task.id).map(d => d.id), timeline: lines[task.id] || [] };
+    corrections: task.derived ? [] : derivedMissions(ctx).filter(d => d.derived.parent === task.id).map(d => d.id), timeline: lines.get(task.id) ?? [] };
 }
 // FR-017: contract tasks and derived missions are counted separately.
 function completion(ctx, accepted) {
