@@ -2,7 +2,7 @@
 name: roster-roadmap
 description: "Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs."
 when_to_use: "Use for /roster-roadmap, a multi-intake roadmap, or resuming an existing roadmap board."
-version: 1.3.0
+version: 1.4.0
 domain: pipeline
 phase: null
 preamble: false
@@ -33,8 +33,8 @@ If absent, report a stale install and restore it with the trusted Roster sync co
 The installed core and its `roster-artifacts.cjs`, `roster-recovery.cjs`,
 `roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`,
 `roster-roadmap-requests-view.cjs`, `roster-roadmap-validate.cjs`, `roster-roadmap-history.cjs`,
-`roster-roadmap-missions.cjs` and `roster-roadmap-prompt.cjs` siblings must come from
-the same approved revision. Restore the complete trusted runtime/resource set on a
+`roster-roadmap-missions.cjs`, `roster-roadmap-prompt.cjs` and `roster-roadmap-derived.cjs`
+siblings must come from the same approved revision. Restore the complete trusted runtime/resource set on a
 missing or mismatched install; do not copy a lone core or fetch an ad hoc replacement.
 Read `.harness/roadmap/schema.md` for exact artifact/receipt shapes and use
 `.harness/roadmap/example.json` and `capabilities.json` as non-operative examples.
@@ -210,6 +210,21 @@ tool's `check` and explicit diagnosed `reframe` before another retry. Read
 source fingerprints and decision shape. Preserve failures, changed strategy and a
 discriminating check. A reframe is not GO, does not release a worker or refund attempts,
 and never replaces the existing two-strike finding rule or five-round review/QA caps.
+
+**Derived corrections.** When a review fails because of an implementation it depends on,
+never reopen the implementation. Record the review's blocked receipt with `blames` naming
+that direct dependency, then run `derive <board> --coordinator <id> --revision <n> --request
+<file>` with `{parent, cause, objective, topology, max_attempts}`. Pick the correction's
+runtime/model/role from the escalation ladder, never the failed reviewer's agent, with a budget
+no larger than the parent's. The tool assigns `<parent>-fix-<n>`; claim, verify and record it
+like any mission (it inherits the parent's scope and checks). The review stays frozen until its
+corrections are done, then requeues automatically; if every correction exhausts its budget,
+release or escalate the review normally. Derive a correction for every blamed dependency
+before recording any of them done: the review requeues once every correction derived so far is
+done, after which a further derive from that receipt is refused. Completion needs no correction
+queued or active.
+Owner decision D1 chose this; D2–D6 are deduced and to be confirmed on the PR. Labels are
+unauthenticated: the reviewer ban compares labels only. Shapes: `.harness/roadmap/schema.md`.
 
 Diagnose environment, context, spec and ordinary implementation failures before claiming
 a model-capacity shortfall. Red tests do not automatically promote the model; never repeat

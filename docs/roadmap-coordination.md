@@ -93,7 +93,8 @@ uses Node built-ins and works in CommonJS and ESM consumers without npm dependen
 Keep `roster-roadmap.cjs`, `roster-artifacts.cjs`, `roster-recovery.cjs`,
 `roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`,
 `roster-roadmap-requests-view.cjs`, `roster-roadmap-validate.cjs`, `roster-roadmap-history.cjs`,
-`roster-roadmap-missions.cjs` and `roster-roadmap-prompt.cjs` together in `.harness/bin/`
+`roster-roadmap-missions.cjs`, `roster-roadmap-prompt.cjs` and `roster-roadmap-derived.cjs`
+together in `.harness/bin/`
 from the same approved revision. Init/sync install the complete runtime closure and the
 matching policies, schemas and examples under `.harness/roadmap/`; copying a lone core
 file is insufficient. Repair the complete trusted installation on mismatch.
@@ -206,6 +207,24 @@ and record a diagnosed reframe with changed strategy, evidence and discriminatin
 before retrying. The [recovery guide](failure-recovery.md) describes exact source identities
 and commands. This preserves original failures and attempt budgets; it neither grants a
 retry nor replaces review's two-strike finding rule or review/QA five-round caps.
+
+### Correct an implementation after a failed review
+
+When a review fails because of an implementation it depends on, do not reopen the
+implementation. The reviewer's blocked receipt names it in `blames` (a direct dependency).
+Then run `derive BOARD --coordinator <id> --revision <n> --request <file>` with
+`{parent, cause, objective, topology, max_attempts}`: choose the correction's runtime, model
+and role from the escalation ladder, with a budget no larger than the parent's. The tool
+assigns `<parent>-fix-<n>`, which inherits the parent's scope and checks and runs as its own
+mission (its own claims, receipts and budget). It refuses a claim by the failed reviewer's
+label. The review stays blocked and cannot be released while its corrections are pending;
+when every correction of that receipt is done, the review is requeued automatically. If every
+correction exhausts its budget, release the review under the usual rules or escalate.
+`view` lists the correction after the contract tasks with its parent and cause and a timeline of
+every attempt. The roadmap completes only when every contract task is done and no correction is
+queued or active. Owner decision D1 chose this correction mission; D2 to D6 are deduced and to be
+confirmed on the PR (see the schema). Labels are unauthenticated assertions: the reviewer ban
+compares labels, it cannot prove two labels are different agents.
 
 The prompt and resources support continuation while a runtime is executing and
 resumption in a later invocation. They do not keep a killed process alive or promise

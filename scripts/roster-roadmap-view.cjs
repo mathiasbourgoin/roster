@@ -5,7 +5,8 @@ const path = require("node:path");
 const core = require("./roster-roadmap.cjs");
 const { readJSON, atomicWrite, safeAncestors } = core.io;
 const reqs = require("./roster-roadmap-requests-view.cjs");
-const { missions, missionById, contractTasks } = require("./roster-roadmap-missions.cjs");
+const { missions, missionById, contractTasks, derivedMissions } = require("./roster-roadmap-missions.cjs");
+const { derivedBlock } = require("./roster-roadmap-derived.cjs");
 const fail = message => { throw new Error(message); };
 const STATUSES = ["pending", "running", "pass", "fail", "unknown"];
 function object(value, label) {
@@ -103,6 +104,34 @@ function recovery(ctx, task) {
   } catch { return { status: "invalid", threshold: 3, reframe_needed: null, retry_allowed: false,
     retry_blockers: ["Recovery evidence is invalid; reconcile this mission."] }; }
 }
+// FR-013: attempt n is the n-th claim; it ends at the next record (receipt result) or at a release
+// of the active assignment (released). Fields come from the claim event assignment, else null.
+function timelines(ctx) {
+  const lines = {}; let receiptIndex = 0;
+  for (const event of ctx.state.events) {
+    const receipt = event.action === "record" ? ctx.state.receipts[receiptIndex++] : null;
+    if (!["claim", "record", "release"].includes(event.action)) continue;
+    const list = lines[event.task_id] ||= [], last = list.at(-1), at = event.at || null;
+    if (event.action === "claim") {
+      const a = event.assignment;
+      list.push({ attempt: list.length + 1, attempt_id: a?.id ?? null, assignee: a?.assignee ?? null, runtime: a?.runtime ?? null,
+        route: a?.route ?? null, model: a?.model ?? null, claimed_at: at, ended_at: null, outcome: "active" });
+    } else if (last?.outcome === "active") {
+      last.ended_at = at; last.outcome = receipt ? receipt.result : "released";
+      if (receipt) { last.attempt_id ??= receipt.attempt_id; last.assignee ??= receipt.assignee; }
+    }
+  }
+  return lines;
+}
+function lineage(ctx, task, lines) {
+  return { kind: task.derived ? "derived" : "contract", derived: derivedBlock(ctx, task),
+    corrections: task.derived ? [] : derivedMissions(ctx).filter(d => d.derived.parent === task.id).map(d => d.id), timeline: lines[task.id] || [] };
+}
+// FR-017: contract tasks and derived missions are counted separately.
+function completion(ctx, accepted) {
+  const done = list => list.filter(t => ctx.state.tasks[t.id]?.status === "done").length, derived = derivedMissions(ctx);
+  return { tasks_done: done(contractTasks(ctx)), tasks_total: contractTasks(ctx).length, derived_done: done(derived), derived_total: derived.length, global_accepted: accepted };
+}
 function snapshot(ctx, options = {}) {
   const base = core.viewSupport.status(ctx);
   const limit = options.events === undefined ? 10 : Number(options.events);
@@ -114,12 +143,12 @@ function snapshot(ctx, options = {}) {
   const all = missions(ctx);
   const selected = options.task ? all.filter(t => t.id === options.task) : all;
   if (options.task && selected.length !== 1) fail("unknown roadmap task");
-  const block = reqs.observe(ctx);
+  const block = reqs.observe(ctx), lines = timelines(ctx);
   const tasks = selected.map(task => {
     const current = Object.hasOwn(ctx.state.tasks, task.id) ? ctx.state.tasks[task.id] : { status: "draft", attempts: 0, assignment: null, reason: null };
     const latest = accepted ? [...ctx.state.receipts].reverse().find(r => r.task_id === task.id) || null : null;
     const live = contractReady ? observedProgress(ctx, task) : { status: "unavailable", sequence: null };
-    return { id: task.id, objective: task.objective || "", intake: task.intake || null,
+    return { id: task.id, ...lineage(ctx, task, lines), objective: task.objective || "", intake: task.intake || null,
       depends_on: task.depends_on || [], state: current.status, topology: task.topology || null,
       assignment: current.assignment, attempts: current.attempts, max_attempts: task.policy?.max_attempts ?? null,
       blocker: current.reason, progress: live, recovery: contractReady ? recovery(ctx, task) : null,
@@ -149,7 +178,7 @@ function snapshot(ctx, options = {}) {
         global_eta: [estimates.global_eta.status, estimates.global_eta.reasons] } }), generated_at: new Date().toISOString(),
     revision: ctx.state.revision, accepted, contract_ready: contractReady, contract_digest: core.hash(ctx.contract),
     goal: ctx.contract.goal || "", phase: action.status, counts: base.counts,
-    completion: { tasks_done: base.counts.done, tasks_total: contractTasks(ctx).length, global_accepted: global.accepted },
+    completion: completion(ctx, global.accepted),
     tasks, global, estimates, operator_requests: block,
     next_action: reqs.prefix(block) + (action.next_action || (action.task ? `Execute ${action.task.id} through its required gates.` : "Continue the active mission.")),
     recent_events: events, events_total: ctx.state.events.length, events_truncated: ctx.state.events.length > events.length,
@@ -161,7 +190,8 @@ function clean(value) { return String(value ?? "unknown").replace(/[\x00-\x1f\x7
 function format(view) {
   const minutes = value => Number(value.toFixed(1));
   const rows = [`Roadmap ${clean(view.board_id)} — ${view.phase.toUpperCase()}`, `Goal: ${clean(view.goal) || "not specified"}`,
-    `Tasks: ${view.completion.tasks_done}/${view.completion.tasks_total} done; ${view.counts.active} active; ${view.counts.blocked} blocked`,
+    `Tasks: ${view.completion.tasks_done}/${view.completion.tasks_total} done; ${view.counts.active} active; ${view.counts.blocked} blocked` +
+      (view.completion.derived_total ? `; corrections ${view.completion.derived_done}/${view.completion.derived_total} done` : ""),
     `Global outcome: ${view.global.accepted ? "accepted" : "not accepted; separate verification required"}`];
   const eta = view.estimates?.global_eta;
   rows.push(eta?.status === "complete" ? "ETA: completed; global outcome accepted" : eta?.finish_at ? `ETA (conditional): ${eta.finish_at.likely} [${eta.finish_at.optimistic} … ${eta.finish_at.pessimistic}]`
@@ -170,6 +200,8 @@ function format(view) {
   if (view.operator_requests) rows.splice(rows.findIndex(row => row.startsWith("Goal: ")) + 1, 0, ...reqs.textRows(view.operator_requests));
   for (const task of view.tasks) {
     rows.push("", `[${task.state}] ${clean(task.id)} — ${clean(task.objective)}`);
+    if (task.derived) rows.push(`  Derived correction of ${clean(task.derived.parent)}; cause: ${clean(task.derived.cause.task_id)} attempt ${clean(task.derived.cause.attempt_id)} by ${clean(task.derived.cause.assignee)}`);
+    if (task.corrections?.length) rows.push(`  Corrections: ${task.corrections.map(clean).join(", ")}`);
     if (task.assignment) rows.push(`  Assigned: ${clean(task.assignment.assignee)} (${clean(task.assignment.runtime)} / ${clean(task.topology?.model)} / ${clean(task.assignment.route)})`);
     rows.push(`  Attempts: ${task.attempts}/${task.max_attempts ?? "unknown"}; consecutive failures: ${task.recovery?.consecutive_failures ?? "unknown"}/3`);
     if (task.blocker) rows.push(`  Blocker: ${clean(task.blocker)}`);

@@ -60,6 +60,14 @@
         },
         "global_accepted": {
           "type": "boolean"
+        },
+        "derived_done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "derived_total": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
@@ -76,6 +84,171 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "contract",
+              "derived"
+            ]
+          },
+          "derived": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "parent": {
+                    "type": "string"
+                  },
+                  "cause": {
+                    "type": "object",
+                    "properties": {
+                      "task_id": {
+                        "type": "string"
+                      },
+                      "attempt_id": {
+                        "type": "string"
+                      },
+                      "assignee": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "task_id",
+                      "attempt_id",
+                      "assignee"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "created_at": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "parent",
+                  "cause",
+                  "created_at"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "corrections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "attempt": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "attempt_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "assignee": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "runtime": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "route": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "model": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "claimed_at": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ended_at": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "outcome": {
+                  "enum": [
+                    "active",
+                    "done",
+                    "blocked",
+                    "released"
+                  ]
+                }
+              },
+              "required": [
+                "attempt",
+                "attempt_id",
+                "assignee",
+                "runtime",
+                "route",
+                "model",
+                "claimed_at",
+                "ended_at",
+                "outcome"
+              ],
+              "additionalProperties": false
+            }
           },
           "objective": {
             "type": "string"

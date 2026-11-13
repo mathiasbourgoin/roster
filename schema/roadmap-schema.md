@@ -5,7 +5,8 @@ particular runtime. The executable validator is `scripts/roster-roadmap.cjs`. It
 copy is `.harness/bin/roster-roadmap.cjs`; its `roster-artifacts.cjs`, `roster-recovery.cjs`,
 `roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`,
 `roster-roadmap-requests-view.cjs`, `roster-roadmap-validate.cjs`, `roster-roadmap-history.cjs`,
-`roster-roadmap-missions.cjs` and `roster-roadmap-prompt.cjs` siblings form the installed
+`roster-roadmap-missions.cjs`, `roster-roadmap-prompt.cjs` and `roster-roadmap-derived.cjs`
+siblings form the installed
 runtime closure from the same approved revision. It requires only Node built-ins and
 remains usable in an ESM consumer. Commands coordinate artifacts; they never invoke an agent, shell,
 network service, or verification command.
@@ -159,6 +160,7 @@ accept BOARD --coordinator ID --revision N --decision FILE
 claim BOARD --coordinator ID --revision N --task TASK --assignee ID
 record BOARD --coordinator ID --revision N --receipt FILE
 release BOARD --coordinator ID --revision N --task TASK --reason TEXT --reconciled-by ID
+derive BOARD --coordinator ID --revision N --request FILE
 complete BOARD --coordinator ID --revision N --receipt FILE
 ```
 
@@ -290,6 +292,11 @@ cannot finish. An unrun check is omitted, never invented as passing. Unknown/dup
 failed checks hidden inside a done receipt, duplicate receipts and stale attempts refuse.
 Record appends the accepted receipt and updates task state in one atomic `state.json` write.
 
+A blocked receipt MAY carry `"blames": ["<dependency id>", ...]`: a nonempty, duplicate-free
+array of the task's direct `depends_on` entries naming the implementation(s) the failure is
+attributed to. `blames` on a `done` receipt, an empty or duplicated array, or an entry that is not a
+direct dependency refuses; a derived mission has no dependencies, so its receipts cannot blame.
+
 The separate global candidate is exactly:
 
 ```json
@@ -303,7 +310,84 @@ The separate global candidate is exactly:
 ```
 
 `state_revision` must equal the current revision before `complete`, binding the audit to
-the latest recorded execution state. All tasks must be done and every global check must
-pass. Completion freezes further execution-state mutations. This structural check does not independently
+the latest recorded execution state. Every contract task must be done, no derived correction
+mission may be `queued` or `active`, and every global check must pass. Completion freezes further execution-state mutations. This structural check does not independently
 establish the truth or freshness of the evidence strings: the responsible verifier must
 inspect the integrated result and actual outputs before submitting them.
+
+## Derived correction missions
+
+When a review mission fails because of an implementation it depends on, the coordinator records
+a derived correction mission in `state.json` instead of reopening the implementation.
+`roadmap.json` and the acceptance digest never change.
+
+Owner decision D1 (2026-11-13): a derived correction mission, no reopening. Points D2 to D6 are
+**deduced from D1 and the owner's escalation rule, to be confirmed on the PR**:
+D2 a derived mission has its own model, agent, receipts and attempt budget and is never claimed
+by the agent of the failed review; D3 it is created only from a blocked review receipt that blames
+the implementation it depends on; D4 the implementation stays `done` and is annotated; D5 the
+review is requeued automatically when its corrections are done; D6 `view` shows every derived
+mission and every attempt at its time.
+
+`derive` reads a request that is exactly:
+
+```json
+{ "parent": "impl", "cause": "review", "objective": "Fix the null check",
+  "topology": { "runtime": "codex", "role": "implementer", "persona": "Engineer", "model": "opus", "route": "sequential", "fallbacks": [] },
+  "max_attempts": 2 }
+```
+
+`objective` is nonempty text of at most 2000 characters; `topology` is validated like a contract
+topology (the workflow route is refused because a derived mission has no workflow);
+`max_attempts` is an integer from 1 to the parent's `policy.max_attempts`. The coordinator
+chooses the topology following its escalation ladder; the tool checks its shape, not the ladder.
+`derive` refuses unless the board is accepted and not complete, the coordinator is the designated
+one, `cause` is a contract task in `blocked` status whose latest receipt is blocked and blames
+`parent`, `parent` is a done contract task, the cause policy is `retry` with attempts left, the
+cause needs no recovery reframe (checked when the command runs, never during replay) and no
+derived mission exists yet for the same parent and cause receipt.
+
+The tool assigns the id `<parent>-fix-<n>` with the smallest `n >= 1` not used by any mission, or
+`fix-<n>` when that would exceed 80 characters. It stores the immutable definition in the optional
+map `state.derived`:
+
+```json
+"derived": { "impl-fix-1": { "parent": "impl", "cause": { "task_id": "review", "attempt_id": "<receipt attempt>", "assignee": "rev1" },
+  "objective": "Fix the null check", "topology": { "...": "..." }, "max_attempts": 2, "revision": 7 } }
+```
+
+`revision` is the revision of the single `derive` event, whose `task_id` is the derived id. Its
+runtime state lives in `state.tasks[<id>]` like any mission, starting `queued` with 0 attempts.
+The mission set is the contract tasks followed by derived missions in creation order. A derived
+mission inherits `intake`, `inputs`, `outputs`, `allowed_files`, `dod`, `success`, `checks` and
+the policy's `stop_if`, `recovery` and `failure` from its parent; it has `depends_on: []`, its own
+topology, `policy.on_failure: "retry"` with its own `max_attempts`, and workflow `none`. Claim,
+record, release, write-scope overlap, capacity, progress reports, recovery inspection and
+operator-request binding treat it as a mission with its own budget.
+
+`claim` of a derived mission refuses the assignee of its cause receipt. A done receipt of a derived
+mission, when every derived mission of the same cause receipt is done and that receipt is still
+the cause's latest, moves the cause from `blocked` to `queued` with reason
+`corrections done: <ids in creation order>` in the same `record` event. While any correction of
+the cause's latest blocked receipt is `queued`, `active` or `blocked` with attempts left,
+`release` of the cause refuses; once every such correction is exhausted, the usual release
+rules apply again. Because the requeue waits only for the corrections derived so far, derive one
+correction per blamed dependency before any of them is recorded done; once the review is requeued,
+a further derive from that receipt refuses (the review is no longer blocked). Each derivation consumes a distinct blocked receipt of the review, so the
+review's own budget bounds derivations.
+
+New `claim` events carry an optional `assignment` = `{id, assignee, runtime, route, model}`
+copied from the assignment the claim created; no other event may carry it, and a claim of a
+derived mission must carry it (the legacy exemption covers contract tasks only). A receipt or an
+active assignment of a derived mission whose assignee equals its cause assignee is refused. Replay creates each
+derived mission at its `derive` event and re-checks the state-derivable preconditions, the id
+allocation and the cause receipt, verifies claim payloads against the topology, the following
+receipt and the active assignment, re-checks the cause-assignee ban on claims that carry a payload,
+replays the requeue and the release freeze, and refuses a definition without its event or the
+reverse. Boards without `derived` and claim events without `assignment` read exactly as before.
+Older tools refuse boards that use either field; install the runtime closure together.
+
+Completion means every contract task `done` and no derived mission `queued` or `active`
+(`next`, `complete`, the stored global receipt and completion history). Identity labels
+(`assignee`, coordinator, cause assignee) are unauthenticated local assertions: the assignee ban
+compares labels and cannot prove that two labels are different agents.

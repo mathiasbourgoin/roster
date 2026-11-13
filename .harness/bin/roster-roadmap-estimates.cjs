@@ -4,6 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const core = () => require("./roster-roadmap.cjs");
+const { openDerivedIds } = require("./roster-roadmap-missions.cjs");
 const AXES = ["optimistic", "likely", "pessimistic"];
 const LIMIT = 16 * 1024 * 1024;
 function fail(message) { throw new Error(`estimates: ${message}`); }
@@ -149,7 +150,8 @@ function simulate(ctx, tasks, axis) {
       if (state.tasks[task.id].status !== "queued" || core().canClaimBasic(simulated, task) || recoveryReason(ctx, task)) continue;
       state.tasks[task.id].status = "active"; running.set(task.id, time + values.get(task.id).remaining_minutes[axis]);
     }
-    if (Object.values(state.tasks).every(task => task.status === "done")) return { minutes: time, reasons: [] };
+    // Blocked (exhausted) derived missions are ignored; open ones never reach the simulation.
+    if (ctx.contract.tasks.every(task => state.tasks[task.id].status === "done")) return { minutes: time, reasons: [] };
     if (!running.size) return { minutes: null, reasons: ctx.contract.tasks.filter(task => state.tasks[task.id].status !== "done").map(task => `${task.id}: ${recoveryReason(ctx, task) || core().canClaimBasic(simulated, task) || "mission blocked"}`) };
     time = Math.min(...running.values());
   }
@@ -171,8 +173,11 @@ function forecast(ctx, options = {}) {
   const tasks = ctx.contract.tasks.map(task => taskEstimate(ctx, task, record, now));
   if (!ctx.state.acceptance) reasons.push("roadmap not accepted");
   for (const task of tasks) if (!task.remaining_minutes) reasons.push(`${task.id}: ${task.reasons.join("; ")}`);
+  const open = ctx.state.acceptance ? openDerivedIds(ctx) : [];
+  const derivedReason = open.length ? `derived correction mission(s) not done: ${open.join(", ")}` : null;
   let tasksEta;
   if (!ctx.state.acceptance) tasksEta = eta("unknown", null, now, reasons);
+  else if (derivedReason) tasksEta = eta("unknown", null, now, [derivedReason, ...reasons]);
   else if (tasks.every(task => task.status === "done")) tasksEta = eta("complete", Object.fromEntries(AXES.map(key => [key, 0])), now);
   else if (reasons.length) tasksEta = eta("unknown", null, now, reasons);
   else {
@@ -182,6 +187,7 @@ function forecast(ctx, options = {}) {
   }
   let globalEta;
   if (ctx.state.global_receipt) globalEta = eta("complete", Object.fromEntries(AXES.map(key => [key, 0])), now);
+  else if (derivedReason) globalEta = eta("unknown", null, now, [derivedReason]);
   else if (!record?.global_verification_minutes) globalEta = eta("unknown", null, now, ["global verification duration unknown"]);
   else if (!tasksEta.remaining_minutes) globalEta = eta("unknown", null, now, tasksEta.reasons);
   else globalEta = eta("conditional", Object.fromEntries(AXES.map(key => [key, tasksEta.remaining_minutes[key] + record.global_verification_minutes[key]])), now, tasksEta.reasons);
