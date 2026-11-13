@@ -8,13 +8,13 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const RUNTIMES = ["roster-roadmap.cjs", "roster-artifacts.cjs", "roster-recovery.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-usage.cjs"];
+const RUNTIMES = ["roster-roadmap.cjs", "roster-artifacts.cjs", "roster-recovery.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-roadmap-requests.cjs", "roster-roadmap-requests-view.cjs", "roster-usage.cjs"];
 const RESOURCES = {
   "schema.md": "schema/roadmap-schema.md", "example.json": "examples/roadmap/roadmap.json",
   "capabilities.json": "examples/roadmap/capabilities.json", "model-routing.md": "docs/model-routing.md",
   "recovery-schema.md": "schema/recovery-schema.md", "failure-recovery.md": "docs/failure-recovery.md",
   "usage-schema.md": "schema/usage-report-schema.md", "usage-reports.md": "docs/usage-reports.md",
-  "estimates-schema.md": "schema/roadmap-estimates-schema.md", "estimates.md": "docs/roadmap-estimates.md",
+  "estimates-schema.md": "schema/roadmap-estimates-schema.md", "requests-schema.md": "schema/roadmap-requests-schema.md", "estimates.md": "docs/roadmap-estimates.md",
   "view-schema.md": "schema/roadmap-view-schema.md", "view.schema.json": "schema/roadmap-view.schema.json",
 };
 function write(file, value) { fs.writeFileSync(file, JSON.stringify(value, null, 2) + "\n"); }

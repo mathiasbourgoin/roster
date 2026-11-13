@@ -22,6 +22,10 @@ below) — both already present in this section.
 
 ### Added
 
+- **Roadmap operator requests** — advisory annex `requests.json` with `request-open`,
+  `request-answer`, `request-withdraw` and `request-journal` commands, exposed in `view`
+  (`operator_requests`), `status --format text` (`Waiting on:`) and `prompt`. Requests never
+  block `claim`; answers never carry secrets.
 - **Manual usage reports** — `roster-usage.cjs report` aggregates existing local ccusage
   snapshots and normalized Codex/Claude/OpenCode/Pi observations. Missing or overlapping
   measurements remain unknown; reporting adds no hooks, reminders, messages or collectors.

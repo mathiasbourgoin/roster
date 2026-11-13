@@ -290,7 +290,8 @@ Skills to install:
 **Roadmap toolkit distribution:** install the complete matched runtime closure from
 one approved revision as `.harness/bin/`: `scripts/roster-roadmap.cjs`,
 `roster-artifacts.cjs`, `roster-recovery.cjs`, `roster-roadmap-view.cjs`,
-`roster-roadmap-estimates.cjs` and `roster-usage.cjs` (all in `scripts/`). Recovery
+`roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`, `roster-roadmap-requests-view.cjs`
+and `roster-usage.cjs` (all in `scripts/`). Recovery
 also supports implementation/review/QA retry checks; usage is explicit-invocation only.
 Prefer trusted checkout sync. For raw distribution use fail-on-HTTP-error retrieval to
 temporary files, refuse managed symlinks and replace only after successful retrieval;
@@ -310,6 +311,7 @@ Include these same-revision resources under `.harness/roadmap/`:
 | `docs/usage-reports.md` | `usage-reports.md` |
 | `schema/roadmap-estimates-schema.md` | `estimates-schema.md` |
 | `docs/roadmap-estimates.md` | `estimates.md` |
+| `schema/roadmap-requests-schema.md` | `requests-schema.md` |
 | `schema/roadmap-view-schema.md` | `view-schema.md` |
 | `schema/roadmap-view.schema.json` | `view.schema.json` |
 

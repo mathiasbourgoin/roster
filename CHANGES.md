@@ -8,6 +8,10 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
 
 ### Added
 
+- `/roster-roadmap` 1.3.0 records what the coordinator waits for from the human operator in the
+  advisory annex `requests.json` (`request-open`, `request-answer`, `request-withdraw`,
+  `request-journal`), shown in `view`, `status --format text` and `prompt`. Requests are
+  signals, never a refusal of `claim`; no secret may be stored in them.
 - `/roster-roadmap` 1.2.0 assists specification and coherence across multiple intakes,
   selects capability-based agent topology, and coordinates persistent execution without CWR.
 - The portable `roster-roadmap` toolkit maintains contracts, assignments, checked local

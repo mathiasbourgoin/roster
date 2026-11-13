@@ -2,7 +2,7 @@
 name: roster-roadmap
 description: "Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs."
 when_to_use: "Use for /roster-roadmap, a multi-intake roadmap, or resuming an existing roadmap board."
-version: 1.2.0
+version: 1.3.0
 domain: pipeline
 phase: null
 preamble: false
@@ -31,7 +31,8 @@ at `.harness/bin/roster-roadmap.cjs`, falling back to `scripts/roster-roadmap.cj
 Roster checkout. Invoke it with `node`; do not fetch or install an untrusted substitute.
 If absent, report a stale install and restore it with the trusted Roster sync command.
 The installed core and its `roster-artifacts.cjs`, `roster-recovery.cjs`,
-`roster-roadmap-view.cjs` and `roster-roadmap-estimates.cjs` siblings must come from
+`roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs` and
+`roster-roadmap-requests-view.cjs` siblings must come from
 the same approved revision. Restore the complete trusted runtime/resource set on a
 missing or mismatched install; do not copy a lone core or fetch an ad hoc replacement.
 Read `.harness/roadmap/schema.md` for exact artifact/receipt shapes and use
@@ -100,6 +101,17 @@ For active work use its real claim timestamp or an explicit remaining-range capt
 to the actual attempt ID and observation time. Missing/foreign timestamps, unresolved
 blockers or exhausted ranges produce unknown/conditional ETA, not an invented date.
 Preserve prior estimates and flag overruns for replanning; a deadline does not prove duration.
+
+**Operator requests.** When progress needs the human operator (a decision, a supply, an
+action, information), do not pause silently: open a request with
+`request-open <board> --coordinator <id> --revision <annex-revision> --request <file>`, bind it
+to the mission it concerns, and continue every other admissible mission. An open request is
+advisory; it never blocks `claim`. Relay the operator's answer with `request-answer`, or
+`request-withdraw` when it is moot; an answered request stays visible until its mission is
+done. Read `.harness/roadmap/requests-schema.md` (source: `schema/roadmap-requests-schema.md`)
+for shapes and due rules. **Never put a secret in a request or an answer**: confirm, or say
+where the thing is; a leaked secret must be treated as compromised and rotated. Pages and
+sessions read `view.operator_requests`; `status --format text` shows a `Waiting on:` block.
 
 Use task `intake` references to preserve the child Roster pipeline as authority.
 Roadmap acceptance is not an intake/spec/plan/review/QA verdict. Before execution,

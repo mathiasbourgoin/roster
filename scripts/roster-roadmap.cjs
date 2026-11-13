@@ -15,6 +15,8 @@ const COMMANDS = {
   init: ["id"], lint: [], status: ["format", "events", "task"], next: [], view: ["events", "task"],
   progress: ["task", "attempt", "assignee", "sequence", "update"],
   estimate: ["revision", "update"],
+  "request-open": ["coordinator", "revision", "request"], "request-answer": ["coordinator", "revision", "id", "answer"],
+  "request-withdraw": ["coordinator", "revision", "id", "withdrawal"], "request-journal": ["coordinator", "revision", "journal"],
   prompt: ["task", "max-chars"],
   accept: ["coordinator", "revision", "decision"],
   claim: ["coordinator", "revision", "task", "assignee"],
@@ -431,14 +433,15 @@ function prompt(ctx, options) {
       policy: task.policy, workflow: task.workflow, progress: taskProgress(ctx, task),
     } : null,
     next_action: options.task ? missionAction(ctx, task) : nextAction.next_action,
+    operator_requests: require("./roster-roadmap-requests-view.cjs").forPrompt(ctx, options.task),
     references: { contract: "roadmap.json", capabilities: "capabilities.json", state: "state.json", notes: "notes/", candidates: "receipts/" },
-    continuation: options.task ? "Perform only this bounded mission using its assigned identity and authorized native tools. Respect child Roster gates. Return a structured candidate receipt with actual checks and evidence to the coordinator, then stop at that bounded handoff. The coordinator alone records state and selects further work. Local completion leaves the global goal open. A stopped process requires explicit runtime-supported resume." : "Local task completion is not global completion. Use authorized native runtime tools; respect child Roster gates. Verify, record the structured receipt, refresh next/prompt and continue while authorized progress exists, including through the final global verification and acceptance. If blocked, work another admissible branch or apply a declared recovery. Stop only after the global outcome is accepted, an explicit owner pause, or a declared stop/no admissible authorized progress remains. An ended process needs explicit runtime-supported resume; this tool does not keep it alive.",
+    continuation: options.task ? "Perform only this bounded mission using its assigned identity and authorized native tools. Respect child Roster gates. Return a structured candidate receipt with actual checks and evidence to the coordinator, then stop at that bounded handoff. The coordinator alone records state and selects further work. Local completion leaves the global goal open. A stopped process requires explicit runtime-supported resume." : "Local task completion is not global completion. Use authorized native runtime tools; respect child Roster gates. Verify, record the structured receipt, refresh next/prompt and continue while authorized progress exists, including through the final global verification and acceptance. If blocked, work another admissible branch or apply a declared recovery. When progress needs the operator, open a request (request-open) instead of pausing silently and continue other admissible work; relay the answer with request-answer; never put secrets in requests. Stop only after the global outcome is accepted, an explicit owner pause, or a declared stop/no admissible authorized progress remains. An ended process needs explicit runtime-supported resume; this tool does not keep it alive.",
     assurance: "Identity labels, evidence references and reported writes are local assertions; no authentication, shell execution or filesystem sandbox is provided.",
   };
   const output = JSON.stringify(view, null, 2);
   const limit = options["max-chars"] === undefined ? 12000 : Number(options["max-chars"]);
   integer(limit, "--max-chars", 1, 1000000);
-  if (output.length > limit) fail(`mandatory context overflow: ${output.length} characters exceeds ${limit}; narrow the mission or explicitly increase the limit, never silently drop constraints`);
+  if (output.length > limit) fail(`mandatory context overflow: ${output.length} characters exceeds ${limit}; close or withdraw operator requests, narrow the mission with --task, or explicitly increase --max-chars; never silently drop constraints`);
   return { prompt: output, characters: output.length, max_chars: limit };
 }
 function missionAction(ctx, task) {
@@ -451,7 +454,7 @@ function missionAction(ctx, task) {
 function main(argv) {
   if (argv.length === 1 && ["--help", "help"].includes(argv[0])) return { usage: "roster-roadmap.cjs <command> <board-dir> [options]", commands: COMMANDS, assurance: "Artifact coordination only; no agent/check execution. Source reference: schema/roadmap-schema.md; installed reference: .harness/roadmap/schema.md." };
   const [command, boardArg, ...args] = argv;
-  if (!Object.hasOwn(COMMANDS, command) || !boardArg || boardArg.startsWith("--")) fail("usage: roster-roadmap.cjs <init|lint|accept|status|view|progress|estimate|next|prompt|claim|record|release|complete> <board-dir> [options]");
+  if (!Object.hasOwn(COMMANDS, command) || !boardArg || boardArg.startsWith("--")) fail("usage: roster-roadmap.cjs <init|lint|accept|status|view|progress|estimate|request-open|request-answer|request-withdraw|request-journal|next|prompt|claim|record|release|complete> <board-dir> [options]");
   const options = {};
   for (let i = 0; i < args.length; i += 2) {
     if (!args[i].startsWith("--") || args[i + 1] === undefined) fail("options require --name value pairs");
@@ -463,6 +466,7 @@ function main(argv) {
   if (command === "init") return init(board, options);
   if (command === "progress") return require("./roster-roadmap-view.cjs").update(board, options);
   if (command === "estimate") return require("./roster-roadmap-estimates.cjs").update(board, options);
+  if (command.startsWith("request-")) return require("./roster-roadmap-requests.cjs").command(board, command, options);
   if (["accept", "claim", "record", "release", "complete"].includes(command)) return mutate(board, command, options);
   const ctx = load(board, !["status", "view"].includes(command));
   if (command === "lint") return { valid: true, contract_digest: hash(ctx.contract), capability_digest: hash(ctx.capabilities), note: "Structural coherence only; semantic contradictions still require agent review." };

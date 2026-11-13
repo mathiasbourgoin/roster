@@ -143,7 +143,7 @@ test("reconciled roadmap retry remains separate from diagnosed reframe", t => {
 test("portable CJS CLI works in an installed ESM consumer with its runtime closure", t => {
   const f = fixture(t), install = path.join(f.root, "installed"); fs.mkdirSync(install);
   write(path.join(install, "package.json"), { type: "module" });
-  for (const name of ["roster-recovery.cjs", "roster-roadmap.cjs", "roster-artifacts.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-usage.cjs"]) fs.copyFileSync(path.join(__dirname, name), path.join(install, name));
+  for (const name of ["roster-recovery.cjs", "roster-roadmap.cjs", "roster-artifacts.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-roadmap-requests.cjs", "roster-roadmap-requests-view.cjs", "roster-usage.cjs"]) fs.copyFileSync(path.join(__dirname, name), path.join(install, name));
   append(f, "review", "NO-GO");
   assert.equal(ok(["status", ...f.args], path.join(install, "roster-recovery.cjs")).consecutive_failures, 1);
 });
