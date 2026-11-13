@@ -227,20 +227,87 @@ describe("sync-harness extension-ownership guard", () => {
     assert.doesNotMatch(checked.stderr, /stale projection/);
   });
 
-  it("check still detects an ownership-safe stale flat projection", async () => {
+  // Flat files in overwrite-only directories have no provenance record. An extra
+  // local agent is ambiguous, not an ownership-safe stale managed projection.
+  it("check reports an unattributed local flat file without recommending removal", async () => {
     const root = await makeFixture();
     const manifestPath = path.join(root, ".harness/harness.json");
     const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
-    manifest.runtimes.find((runtime) => runtime.name === "opencode").enabled = true;
+    for (const runtime of manifest.runtimes) runtime.enabled = true;
     await fs.writeFile(manifestPath, JSON.stringify(manifest));
     const synced = await runSync(root);
     assert.equal(synced.code, 0, synced.stderr);
-    await write(path.join(root, ".opencode/agents/stale-agent.md"), "# Stale projection\n");
+    const localFiles = [".claude/agents/local-agent.md", ".claude/rules/local-rule.md", ".opencode/agents/local-agent.md"];
+    for (const file of localFiles) await write(path.join(root, file), "# Project-owned content\n");
 
     const checked = await runCheck(root);
     assert.notEqual(checked.code, 0);
+    assert.match(checked.stderr, /unattributed extra file/);
+    assert.doesNotMatch(checked.stderr, /To clean up:|rm -f/);
+    for (const file of localFiles) {
+      assert.ok(checked.stderr.includes(file), checked.stderr);
+      assert.equal(await fs.readFile(path.join(root, file), "utf8"), "# Project-owned content\n");
+    }
+  });
+
+  it("keeps removed-source failures conservative in every overwrite-only flat directory", async () => {
+    const root = await makeFixture();
+    const manifestPath = path.join(root, ".harness/harness.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+    for (const runtime of manifest.runtimes) runtime.enabled = true;
+    await fs.writeFile(manifestPath, JSON.stringify(manifest));
+    const sources = [".harness/agents/retired-agent.md", ".harness/rules/retired-rule.md"];
+    for (const source of sources) await write(path.join(root, source), "---\nname: retired\ndescription: Previously generated\n---\n# Retired\n");
+    const synced = await runSync(root); assert.equal(synced.code, 0, synced.stderr);
+    const targets = [".claude/agents/retired-agent.md", ".claude/rules/retired-rule.md", ".opencode/agents/retired-agent.md"];
+    const before = await Promise.all(targets.map(file => fs.readFile(path.join(root, file), "utf8")));
+    for (const source of sources) await fs.unlink(path.join(root, source));
+    const checked = await runCheck(root);
+    assert.notEqual(checked.code, 0);
+    assert.match(checked.stderr, /unattributed extra file/);
+    assert.match(checked.stderr, /local content or projections of removed sources/);
+    assert.doesNotMatch(checked.stderr, /To clean up:|rm -f/);
+    assert.equal((await runSync(root)).code, 0);
+    for (const [index, file] of targets.entries()) {
+      assert.ok(checked.stderr.includes(file), checked.stderr);
+      assert.equal(await fs.readFile(path.join(root, file), "utf8"), before[index]);
+    }
+  });
+
+  it("retains stale managed command failures alongside unattributed local agents", async () => {
+    const root = await makeFixture();
+    const manifestPath = path.join(root, ".harness/harness.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+    manifest.runtimes.find(runtime => runtime.name === "claude-code").enabled = true;
+    await fs.writeFile(manifestPath, JSON.stringify(manifest));
+    assert.equal((await runSync(root)).code, 0);
+    await write(path.join(root, ".claude/agents/local-agent.md"), "# Keep local\n");
+    await fs.unlink(path.join(root, `.harness/skills/${SKILL_NAME}.md`));
+    manifest.layers.skills = []; await fs.writeFile(manifestPath, JSON.stringify(manifest));
+    await write(path.join(root, ".claude/harness.json"), JSON.stringify(manifest));
+    const checked = await runCheck(root);
+    assert.notEqual(checked.code, 0);
     assert.match(checked.stderr, /stale projection/);
-    assert.match(checked.stderr, /\.opencode\/agents\/stale-agent\.md/);
+    assert.match(checked.stderr, /\.claude\/commands\/guard-skill\.md/);
+    assert.match(checked.stderr, /unattributed extra file/);
+    for (const line of checked.stderr.split("\n").filter(line => /To clean up:/.test(line))) {
+      assert.doesNotMatch(line, /local-agent\.md/);
+    }
+  });
+
+  it("still fails missing or hand-edited generated flat agents", async () => {
+    const root = await makeFixture();
+    const manifestPath = path.join(root, ".harness/harness.json");
+    const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+    manifest.runtimes.find(runtime => runtime.name === "opencode").enabled = true;
+    await fs.writeFile(manifestPath, JSON.stringify(manifest));
+    await write(path.join(root, ".harness/agents/current-agent.md"), "---\nname: current-agent\ndescription: Current\n---\n# Current\n");
+    assert.equal((await runSync(root)).code, 0);
+    const target = path.join(root, ".opencode/agents/current-agent.md");
+    await fs.appendFile(target, "Edited generated output\n");
+    const edited = await runCheck(root); assert.notEqual(edited.code, 0); assert.match(edited.stderr, /drifts from/);
+    await fs.unlink(target);
+    const missing = await runCheck(root); assert.notEqual(missing.code, 0); assert.match(missing.stderr, /drifts from/);
   });
 
   it("projects native skill siblings as resources, never standalone skills", async () => {

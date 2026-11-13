@@ -137,14 +137,13 @@ fi
 # copy). HOME/CODEX_HOME are redirected into the sandbox so absolute (~) entrypoints
 # never touch the real tree. Drift = a projection that is stale or was hand-edited.
 #
-# Limitation: detection is one-directional (generated→real), so a file that exists
-# only in the real tree is ignored (it may be legitimately unmanaged, e.g.
-# .claude/patterns). This catches stale, hand-edited, and missing projections, but NOT
-# files that should have been REMOVED — a deleted source's lingering projection, or a
-# runtime turned off while its projections stay committed. A normal `sync` cleans those for the
-# MARKER-PRUNED dirs (Codex `.agents/skills`, `.codex/agents`) — but NOT for the overwrite-only
-# dirs (`.claude/agents`, `.claude/rules`, `.opencode/agents`), which preserve user files and so
-# leave a removed source's projection behind until it is deleted by hand.
+# Limitation: generated→real comparison catches missing and hand-edited projections.
+# Extra Markdown files are also reported, except nested skill companion resources.
+# Flat extras in overwrite-only .claude/agents, .claude/rules and .opencode/agents have
+# no provenance: they may be local content or projections of removed sources. Keep the
+# check nonzero for this ambiguity, but never recommend removal. Other extra content
+# and runtimes that produce no sandbox directory are outside this comparison.
+# Normal sync preserves overwrite-only extras; marker-pruned dirs reconcile their own files.
 if [ "$CHECK" -eq 1 ]; then
     need_cmd diff
     _CK_TMP="$(mktemp -d)"
@@ -178,12 +177,12 @@ if [ "$CHECK" -eq 1 ]; then
         _all_diff="$( { LC_ALL=C diff -rq -x 'settings.local.json' -x '.roster-version' -x '.git' "$_gen" "$_real" 2>&1 || true; } )"
         _out=""
         _stale=""
+        _unattributed=""
         if [ -n "$_all_diff" ]; then
             _out="$(printf '%s\n' "$_all_diff" | { grep -v -- "Only in $_real" || true; })"
-            # Stale projection detection: files that exist in the real tree but NOT in the generated
-            # tree are lingering projections from deleted or renamed sources. Report them with a
-            # cleanup command so they can be removed deliberately. Only flat runtime projections
-            # are ownership-safe here. Nested skill directories may contain required companion
+            # Classify real-only Markdown separately from generated-file drift. Flat files in
+            # overwrite-only dirs have no ownership record, so absence from regeneration is
+            # not proof that a source was deleted. Nested skill directories may contain companion
             # docs installed by a campaign/extension, so an absent regenerated companion is never
             # evidence that it is stale (and must never produce an `rm` recommendation).
             _stale="$(printf '%s\n' "$_all_diff" \
@@ -196,6 +195,14 @@ if [ "$CHECK" -eq 1 ]; then
                         if (!companion) print
                     }
                   ')"
+            _unattributed="$(printf '%s\n' "$_stale" | awk -F/ -v runtime="$_rel" '
+                NF == 2 && ((runtime == ".claude" && ($1 == "agents" || $1 == "rules")) ||
+                            (runtime == ".opencode" && $1 == "agents")) { print }
+            ')"
+            _stale="$(printf '%s\n' "$_stale" | awk -F/ -v runtime="$_rel" '
+                !(NF == 2 && ((runtime == ".claude" && ($1 == "agents" || $1 == "rules")) ||
+                              (runtime == ".opencode" && $1 == "agents"))) && NF { print }
+            ')"
         fi
         if [ -n "$_out" ]; then
             echo "✗ harness-sync: $_rel drifts from .harness source:" >&2
@@ -208,12 +215,21 @@ if [ "$CHECK" -eq 1 ]; then
             echo "  To clean up: $(printf '%s\n' "$_stale" | sed "s|^|${_real}/|" | tr '\n' ' ' | xargs echo rm -f)" >&2
             _drift=1
         fi
+        if [ -n "$_unattributed" ]; then
+            echo "✗ harness-sync: unattributed extra file(s) in $_rel (local content or projections of removed sources):" >&2
+            printf '%s\n' "$_unattributed" | sed "s|^|    ${_rel}/|" >&2
+            echo "  These overwrite-only directories preserve user files; ownership is unknown." >&2
+            echo "  Review ownership and canonical sources; no removal is recommended." >&2
+            echo "  The check remains nonzero until the discrepancy is reconciled." >&2
+            _drift=1
+        fi
     done
 
     if [ "$_drift" -eq 1 ]; then
         echo "" >&2
         echo "Projections are out of sync with .harness/. Edit the source under .harness/" >&2
         echo "(never hand-edit a projected file), then run ./scripts/sync-harness.sh and commit." >&2
+        echo "For unattributed extras, reconcile ownership first; sync preserves those files." >&2
         exit 1
     fi
 
