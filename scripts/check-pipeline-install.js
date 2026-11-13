@@ -210,7 +210,7 @@ if (fs.existsSync(installSh)) {
 }
 
 // ── Check 6: deterministic pipeline gate scripts are on disk and wired ──────
-// FR-041: scripts/check-review-convergence.js MUST be registered in the
+// FR-041: scripts/check-review-convergence.cjs MUST be registered in the
 // pipeline install path, mirroring scripts/check-scope-diff.sh. Neither gate
 // script currently has a dedicated consumer-repo distribution/copy step
 // (install.sh only fetches the recruiter; recruiter/init-harness do not
@@ -236,14 +236,14 @@ const GATE_SCRIPT_TAG = "gate-script:";
 const GATE_SCRIPTS = [
   { script: "scripts/check-scope-diff.sh", referencedIn: ["skills/pipeline/roster-review.md"] },
   {
-    script: "scripts/check-review-convergence.js",
+    script: "scripts/check-review-convergence.cjs",
     // Two mandated call sites (spec FR-024): roster-review invokes it in full
     // mode at every verdict; roster-run invokes it in --static mode on the
     // resume edge before the verdict-table route-back. Both must reference it.
     referencedIn: ["skills/pipeline/roster-review.md", "skills/pipeline/roster-run.md"],
   },
-  { script: "scripts/xruntime-review.js", referencedIn: ["skills/pipeline/roster-review.md"] },
-  { script: "scripts/review-normalize.js", referencedIn: ["skills/pipeline/roster-review.md"] },
+  { script: "scripts/xruntime-review.cjs", referencedIn: ["skills/pipeline/roster-review.md"] },
+  { script: "scripts/review-normalize.cjs", referencedIn: ["skills/pipeline/roster-review.md"] },
 ];
 for (const { script, referencedIn } of GATE_SCRIPTS) {
   const scriptPath = path.resolve(root, script);

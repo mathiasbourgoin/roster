@@ -1,6 +1,6 @@
 base=c232d0d01c3ca54905031f830de3ffb28ed6a30e
 ---
-agents/skills/roster-doctor/SKILL.md
+.agents/skills/roster-doctor/SKILL.md
 .agents/skills/roster-qa/SKILL.md
 .agents/skills/roster-review/SKILL.md
 .agents/skills/roster-run/SKILL.md
@@ -52,3 +52,4 @@ scripts/review-normalize.cjs
 scripts/xruntime-review.cjs
 specs/consumer-script-scope.md
 briefs/
+scripts/check-pipeline-install.js
