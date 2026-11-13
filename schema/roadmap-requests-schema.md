@@ -22,9 +22,12 @@ never a refusal of `claim`.
   its date, until the mission it is bound to is done (display rule D4). An unbound request
   stays visible. A withdrawn request is a closed request, shown the same way.
 - Strings may not contain C0 control characters (only `\n` and `\t` are allowed in `text`,
-  `answer.text` and `reason`), C1, DEL, bidirectional controls or invisible format characters
-  (U+200B-U+200F, U+2028, U+2029, U+202A-U+202E, U+2060-U+2069, U+FEFF). They are refused at
-  write time and cleaned again when rendered as text.
+  `answer.text` and `reason`), C1, DEL, any Unicode format character (general category Cf:
+  bidirectional controls, zero-width characters, U+FEFF, U+061C, U+00AD, tag characters
+  U+E0000-U+E007F...) or U+2028/U+2029. They are refused at write time. One shared rule
+  (`cleanText` in `roster-roadmap-requests.cjs`) also cleans them when rendered: hand-written
+  characters of this kind keep the annex valid and are removed from the text view and the
+  `prompt` strings.
 
 ## File
 
@@ -55,10 +58,15 @@ never a refusal of `claim`.
   (`withdrawal = {reason, by, at}`); both are terminal.
 - `supersedes` is `null` or names an existing closed request that no other request supersedes.
   The view derives `superseded_by`.
-- Limits: at most 500 requests in total and 100 open at once. `journal` is `null` or inert text
+- Limits: at most 500 requests in total and 100 open at once, and `request-open` is refused when the
+  open requests would serialize (with their derived view fields at their longest) to more than
+  512 KiB of UTF-8; length limits count UTF-16 units, so this keeps multibyte text from
+  overflowing the view. Answer, withdraw and journal writes are never refused by this
+  budget, so an oversize hand-edited annex can still be reduced. `journal` is `null` or inert text
   of at most 1000 characters; the tool never opens or resolves it.
 - The annex is **invalid** when it is a symlink, larger than 16 MiB, malformed, belongs to
-  another `board_id`, or `revision != history.length`. Reads then report
+  another `board_id`, `revision != history.length`, or breaks a count or length limit above
+(hand-written control or format characters do not make it invalid). Reads then report
   `operator_requests.status = "invalid"`; every request command refuses until the file is
   repaired explicitly and manually.
 
@@ -98,4 +106,7 @@ is expected to answer or withdraw it. Closed requests have `due: null`.
 ## Observation
 
 `view.operator_requests` and `status --format text` (`Waiting on:` block right after `Goal:`)
-and `prompt` expose the annex; see `view-schema.md`.
+and `prompt` expose the annex; see `view-schema.md`. `prompt` derives its items from every
+stored request, never from the view's 512 KiB-truncated `items`: without `--task`, open
+requests and answered requests bound to a task that is not done; with `--task`, the open and
+answered requests bound to that task, whether or not it is done.

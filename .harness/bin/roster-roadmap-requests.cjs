@@ -8,16 +8,26 @@ const path = require("node:path");
 const core = () => require("./roster-roadmap.cjs");
 const ID = /^[a-zA-Z][a-zA-Z0-9_-]{0,79}$/;
 const INSTANT = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
-const FORMAT = "\\u200b-\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2060-\\u2069\\ufeff";
-const STRICT = new RegExp(`[\\x00-\\x1f\\x7f-\\x9f${FORMAT}]`);
-const MULTILINE = new RegExp(`[\\x00-\\x08\\x0b-\\x1f\\x7f-\\x9f${FORMAT}]`);
+// One character rule shared by write-time refusal and render-time cleaning (FR-003, FR-018):
+// C0, DEL and C1 controls, every Unicode format character (Cf) and the line/paragraph separators.
+const CONTROL = "\\x00-\\x1f\\x7f-\\x9f", FORMAT = "\\p{Cf}\\u2028\\u2029";
+const STRICT = new RegExp(`[${CONTROL}${FORMAT}]`, "u");
+const MULTILINE = new RegExp(`[\\x00-\\x08\\x0b-\\x1f\\x7f-\\x9f${FORMAT}]`, "u");
+const CONTROL_ALL = new RegExp(`[${CONTROL}]`, "gu"), FORMAT_ALL = new RegExp(`[${FORMAT}]`, "gu");
+const cleanText = value => String(value ?? "").replace(CONTROL_ALL, " ").replace(FORMAT_ALL, "");
 const MULTILINE_KEYS = ["text", "reason"];
 const KINDS = ["decision", "supply", "action", "information"];
 const NEEDS = ["blocking", "before-task", "later"];
 const STATUSES = ["open", "answered", "withdrawn"];
 const ACTIONS = ["open", "answer", "withdraw", "journal"];
 const REQUEST_KEYS = ["id", "to", "kind", "text", "task_id", "need", "refs", "created_at", "created_by", "status", "supersedes", "answer", "withdrawal"];
-const MAX_REQUESTS = 500, MAX_OPEN = 100;
+const MAX_REQUESTS = 500, MAX_OPEN = 100, OPEN_BUDGET = 512 * 1024;
+// Size of one item in the view block; open requests are measured with their derived view
+// fields at their longest values, so a write accepted here never truncates the view's open items.
+const itemBytes = item => Buffer.byteLength(JSON.stringify(item), "utf8") + 1;
+const OPEN_DECORATION = { due: "unscheduled", task_state: "unknown", closed_at: null, superseded_by: null };
+const isOpen = request => request.status === "open";
+const openBytes = list => list.filter(isOpen).reduce((sum, request) => sum + itemBytes({ ...request, ...OPEN_DECORATION }), 0);
 const fail = message => { throw new Error(`requests: ${message}`); };
 
 function object(value, label) { if (!value || typeof value !== "object" || Array.isArray(value)) fail(`${label} must be an object`); }
@@ -94,7 +104,9 @@ function validateAnnex(annex, ctx) {
   if (!Array.isArray(annex.requests) || !Array.isArray(annex.history)) fail("requests and history must be arrays");
   if (!Number.isSafeInteger(annex.revision) || annex.revision !== annex.history.length) fail("revision must equal the history length");
   if (annex.journal !== null) str(annex.journal, "journal", 1000);
+  if (annex.requests.length > MAX_REQUESTS) fail(`at most ${MAX_REQUESTS} requests per board`);
   annex.requests.forEach(validateRequest); validateLinks(annex.requests);
+  if (annex.requests.filter(isOpen).length > MAX_OPEN) fail(`at most ${MAX_OPEN} open requests`);
   annex.history.forEach((entry, i) => {
     exact(entry, ["revision", "action", "request_id", "coordinator", "at"], `history ${i}`);
     if (entry.revision !== i + 1) fail("history revisions must be contiguous");
@@ -103,6 +115,9 @@ function validateAnnex(annex, ctx) {
     ident(entry.coordinator, `history ${i}.coordinator`); instant(entry.at, `history ${i}.at`);
   });
 }
+// Annex and file-system refusals are plain Errors (or carry a system code); anything else
+// (TypeError, RangeError...) is a programming error and must not pass for an invalid annex.
+const dataError = error => error instanceof Error && (error.constructor === Error || typeof error.code === "string");
 function annexFile(ctx) { return path.join(ctx.board, "requests.json"); }
 function readAnnex(ctx) {
   const file = annexFile(ctx);
@@ -115,7 +130,10 @@ function readAnnex(ctx) {
     const annex = core().io.readJSON(file);
     validateAnnex(annex, ctx);
     return { status: "valid", reason: null, annex };
-  } catch (error) { return { status: "invalid", reason: error.message, annex: null }; }
+  } catch (error) {
+    if (!dataError(error)) throw error;
+    return { status: "invalid", reason: error.message, annex: null };
+  }
 }
 
 function opOpen(ctx, annex, input, meta) {
@@ -128,7 +146,7 @@ function opOpen(ctx, annex, input, meta) {
   const tasks = Array.isArray(ctx.contract.tasks) ? ctx.contract.tasks : [];
   if (request.task_id !== null && !tasks.some(task => task.id === request.task_id)) fail(`unknown task ${request.task_id}`);
   if (annex.requests.length >= MAX_REQUESTS) fail(`at most ${MAX_REQUESTS} requests per board`);
-  if (annex.requests.filter(other => other.status === "open").length >= MAX_OPEN) fail(`at most ${MAX_OPEN} open requests; answer or withdraw some first`);
+  if (annex.requests.filter(isOpen).length >= MAX_OPEN) fail(`at most ${MAX_OPEN} open requests; answer or withdraw some first`);
   if (request.supersedes !== null) {
     const target = annex.requests.find(other => other.id === request.supersedes);
     if (!target) fail(`cannot supersede unknown request ${request.supersedes}`);
@@ -197,6 +215,7 @@ function commit(root, name, options, revision) {
   annex.history.push({ revision: annex.history.length + 1, action: done.action, request_id: done.request_id, coordinator: options.coordinator, at });
   annex.revision = annex.history.length;
   validateAnnex(annex, ctx);
+  if (name === "request-open" && openBytes(annex.requests) > OPEN_BUDGET) fail(`open requests would exceed ${OPEN_BUDGET} bytes of UTF-8; shorten them, or answer or withdraw some first`);
   core().io.atomicWrite(annexFile(ctx), annex);
   return { requests_revision: annex.revision, action: done.action, request_id: done.request_id, written: true };
 }
@@ -207,4 +226,4 @@ function command(board, name, options) {
   return locked(root, () => commit(root, name, options, revision));
 }
 
-module.exports = { command, readAnnex };
+module.exports = { command, readAnnex, cleanText, itemBytes, OPEN_BUDGET };

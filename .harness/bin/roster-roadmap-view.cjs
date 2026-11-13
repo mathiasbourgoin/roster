@@ -166,7 +166,7 @@ function format(view) {
   rows.push(eta?.status === "complete" ? "ETA: completed; global outcome accepted" : eta?.finish_at ? `ETA (conditional): ${eta.finish_at.likely} [${eta.finish_at.optimistic} … ${eta.finish_at.pessimistic}]`
     : `ETA: unknown${eta?.reasons?.length ? " — " + eta.reasons.map(clean).join("; ") : " — planner estimates needed"}`);
   if (!eta?.finish_at && view.estimates?.tasks_eta?.finish_at) rows.push(`Tasks-only ETA (conditional): ${view.estimates.tasks_eta.finish_at.likely}`);
-  if (view.operator_requests) rows.splice(2, 0, ...reqs.textRows(view.operator_requests));
+  if (view.operator_requests) rows.splice(rows.findIndex(row => row.startsWith("Goal: ")) + 1, 0, ...reqs.textRows(view.operator_requests));
   for (const task of view.tasks) {
     rows.push("", `[${task.state}] ${clean(task.id)} — ${clean(task.objective)}`);
     if (task.assignment) rows.push(`  Assigned: ${clean(task.assignment.assignee)} (${clean(task.assignment.runtime)} / ${clean(task.topology?.model)} / ${clean(task.assignment.route)})`);

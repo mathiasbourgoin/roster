@@ -85,18 +85,24 @@ in `requests-schema.md` (source: `schema/roadmap-requests-schema.md`). The block
 `--task` does not filter it.
 
 - `status` is `absent` (no file, revision 0), `valid` or `invalid`. An invalid annex (corrupt,
-  symlinked, foreign board, bad revision) never makes `view`, `status` or `prompt` fail:
-  `reason` says why and every request command refuses until the file is repaired by hand.
+  symlinked, foreign board, bad revision, over a count or length limit) never makes `view`,
+  `status` or `prompt` fail:
+  `reason` says why and every request command refuses until the file is repaired by hand. A
+  programming error while building the block also renders as `invalid`, with a reason
+  starting `internal error:`, so it is not mistaken for a damaged file.
 - `counts = {open, now, later, unscheduled, answered, withdrawn, archived}`; `open` is the sum
   of the three due buckets, `answered` and `withdrawn` are file totals, `archived` counts
-  closed requests absent from `items`.
+  closed requests bound to a done task (FR-015); closed items dropped only to fit the size
+  budget are not archived and are signalled by `truncated: true`.
 - `items` lists every open request first, ordered by due (`now`, `later`, `unscheduled`), then
   `created_at`, `id`; then closed requests by `closed_at` descending. Closed requests bound to
   a done task are archived (an answered request stays visible until its mission is done; an
   unbound one stays). Each item is the stored record plus `due`, `task_state` (`unknown` when
   the task left a draft contract, `draft` on drafts), `closed_at` and `superseded_by`. If the
   block exceeds 512 KiB, closed items are dropped oldest first and `truncated` is `true`; open
-  items are never dropped and counts stay exact.
+  items are never dropped while they fit (writes keep them within the budget). Only a
+  hand-edited annex can carry more open items than fit: the leading open items that fit are
+  kept, `truncated` is `true` and counts stay exact.
 - `journal` is an inert reference to the project logbook; the tool never opens it.
 - When valid with requests due now, `next_action` starts with
   `Waiting on <label> (<n>)[, ...]: <total> request(s) due now.`; `version` includes the annex
