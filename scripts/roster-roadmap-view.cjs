@@ -5,6 +5,7 @@ const path = require("node:path");
 const core = require("./roster-roadmap.cjs");
 const { readJSON, atomicWrite, safeAncestors } = core.io;
 const reqs = require("./roster-roadmap-requests-view.cjs");
+const { missions, missionById, contractTasks } = require("./roster-roadmap-missions.cjs");
 const fail = message => { throw new Error(message); };
 const STATUSES = ["pending", "running", "pass", "fail", "unknown"];
 function object(value, label) {
@@ -21,7 +22,7 @@ function sequence(value) {
   if (!Number.isSafeInteger(value) || value < 0) fail("invalid progress sequence");
 }
 function taskFor(ctx, id) {
-  const task = ctx.contract.tasks.find(t => t.id === id);
+  const task = missionById(ctx, id);
   if (!task) fail("unknown roadmap task");
   return task;
 }
@@ -110,7 +111,7 @@ function snapshot(ctx, options = {}) {
   try { core.validateContract(ctx.contract); } catch { contractReady = false; }
   const accepted = base.acceptance_current && Boolean(ctx.state.acceptance);
   const action = accepted ? core.viewSupport.next(ctx) : { status: "draft", next_action: "Finish the draft contract and obtain explicit acceptance before execution." };
-  const all = Array.isArray(ctx.contract.tasks) ? ctx.contract.tasks : [];
+  const all = missions(ctx);
   const selected = options.task ? all.filter(t => t.id === options.task) : all;
   if (options.task && selected.length !== 1) fail("unknown roadmap task");
   const block = reqs.observe(ctx);
@@ -148,7 +149,7 @@ function snapshot(ctx, options = {}) {
         global_eta: [estimates.global_eta.status, estimates.global_eta.reasons] } }), generated_at: new Date().toISOString(),
     revision: ctx.state.revision, accepted, contract_ready: contractReady, contract_digest: core.hash(ctx.contract),
     goal: ctx.contract.goal || "", phase: action.status, counts: base.counts,
-    completion: { tasks_done: base.counts.done, tasks_total: all.length, global_accepted: global.accepted },
+    completion: { tasks_done: base.counts.done, tasks_total: contractTasks(ctx).length, global_accepted: global.accepted },
     tasks, global, estimates, operator_requests: block,
     next_action: reqs.prefix(block) + (action.next_action || (action.task ? `Execute ${action.task.id} through its required gates.` : "Continue the active mission.")),
     recent_events: events, events_total: ctx.state.events.length, events_truncated: ctx.state.events.length > events.length,

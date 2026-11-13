@@ -31,8 +31,9 @@ at `.harness/bin/roster-roadmap.cjs`, falling back to `scripts/roster-roadmap.cj
 Roster checkout. Invoke it with `node`; do not fetch or install an untrusted substitute.
 If absent, report a stale install and restore it with the trusted Roster sync command.
 The installed core and its `roster-artifacts.cjs`, `roster-recovery.cjs`,
-`roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs` and
-`roster-roadmap-requests-view.cjs` siblings must come from
+`roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`,
+`roster-roadmap-requests-view.cjs`, `roster-roadmap-validate.cjs`, `roster-roadmap-history.cjs`,
+`roster-roadmap-missions.cjs` and `roster-roadmap-prompt.cjs` siblings must come from
 the same approved revision. Restore the complete trusted runtime/resource set on a
 missing or mismatched install; do not copy a lone core or fetch an ad hoc replacement.
 Read `.harness/roadmap/schema.md` for exact artifact/receipt shapes and use

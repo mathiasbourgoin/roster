@@ -3,8 +3,9 @@
 Use this contract to coordinate several Roster intakes without binding execution to a
 particular runtime. The executable validator is `scripts/roster-roadmap.cjs`. Its installed
 copy is `.harness/bin/roster-roadmap.cjs`; its `roster-artifacts.cjs`, `roster-recovery.cjs`,
-`roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs` and
-`roster-roadmap-requests-view.cjs` siblings form the installed
+`roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`,
+`roster-roadmap-requests-view.cjs`, `roster-roadmap-validate.cjs`, `roster-roadmap-history.cjs`,
+`roster-roadmap-missions.cjs` and `roster-roadmap-prompt.cjs` siblings form the installed
 runtime closure from the same approved revision. It requires only Node built-ins and
 remains usable in an ESM consumer. Commands coordinate artifacts; they never invoke an agent, shell,
 network service, or verification command.

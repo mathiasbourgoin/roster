@@ -4,6 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const core = require("./roster-roadmap.cjs");
+const { missionById } = require("./roster-roadmap-missions.cjs");
 const { readJSON, atomicWrite, safeAncestors } = core.io;
 const THRESHOLD = 3;
 const PHASES = { question: ["COMPLETED"], research: ["COMPLETED"], intake: ["VALIDATED"], spec: ["VALIDATED", "SKIPPED", "BOUNCED"], plan: ["COMPLETED"], implement: ["COMPLETED", "PARTIAL"], review: ["GO", "NO-GO"], qa: ["GO", "NO-GO"], ship: ["COMPLETED", "BLOCKED"] };
@@ -31,7 +32,7 @@ function readArtifact(file) {
 }
 function boardSource(ctx, taskId) {
   if (!ctx.state.acceptance || ctx.state.acceptance.contract_digest !== core.hash(ctx.contract)) fail("recovery requires an accepted, unchanged roadmap");
-  const task = ctx.contract.tasks.find(t => t.id === taskId);
+  const task = missionById(ctx, taskId);
   if (!task) fail(`unknown task ${taskId}`);
   const identity = { kind: "board", source: path.resolve(ctx.board), board_id: ctx.state.board_id, contract_digest: ctx.state.acceptance.contract_digest, task_id: taskId };
   let receiptIndex = 0;
