@@ -1,0 +1,47 @@
+✖ native TypeScript consumer retains behavior after portable bundle install (909.120941ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 952.659659
+
+✖ failing tests:
+
+test at scripts/review-bundle-install.test.js:27:1
+✖ native TypeScript consumer retains behavior after portable bundle install (909.120941ms)
+  AssertionError [ERR_ASSERTION]: NATIVE_TYPESCRIPT_SEMANTICS_MUST_SURVIVE_INSTALL: (node:1614096) Warning: Failed to load the ES module: /tmp/review-bundle-native-typescript-consumer-yaKJAA/scripts/application.ts. Make sure to set "type": "module" in the nearest package.json file or use the .mjs extension.
+  (Use `node --trace-warnings ...` to show where the warning was created)
+  /tmp/review-bundle-native-typescript-consumer-yaKJAA/scripts/application.ts:1
+  export const answer         = 42; console.log(answer);
+  ^^^^^^
+  
+  SyntaxError: Unexpected token 'export'
+      at wrapSafe (node:internal/modules/cjs/loader:1900:18)
+      at Module._compile (node:internal/modules/cjs/loader:1942:20)
+      at Object..js (node:internal/modules/cjs/loader:2108:10)
+      at Module.load (node:internal/modules/cjs/loader:1690:32)
+      at Module._load (node:internal/modules/cjs/loader:1480:12)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+      at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+      at node:internal/main/run_main_module:33:47
+  
+  Node.js v26.13.0
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (/home/mathias/.cache/roster-consumer-scope-fix-20261113/scripts/review-bundle-install.test.js:40:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

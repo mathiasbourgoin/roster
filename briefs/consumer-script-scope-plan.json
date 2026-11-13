@@ -1,0 +1,28 @@
+{
+  "task": "consumer-script-scope",
+  "status": "VALIDATED",
+  "mode": "full",
+  "source": "c232d0d01c3ca54905031f830de3ffb28ed6a30e",
+  "sequence": [
+    "retain legacy source and generate exact portable counterparts",
+    "freeze both closure manifests and portable invocation references",
+    "real mixed-consumer install/upgrade/remove and legacy-drift controls",
+    "full local build/tests and independent review/QA before next PR"
+  ],
+  "planning_voices": [
+    "scope_analysis_voice1",
+    "scope_analysis_voice2"
+  ],
+  "approval": "Delegated lead approved generated counterparts before implementation; no provider probes or consumer scope rewrite.",
+  "scope": [
+    "scripts/review-bundle*",
+    "scripts/lib/bundle/*",
+    "scripts/**/*.cjs generated managed closure",
+    "scripts/xruntime-exec.sh",
+    "skills/pipeline/* active tool references",
+    "hooks/safety/block-adhoc-review.md",
+    "generated runtime projections",
+    "specs/consumer-script-scope.md",
+    "specs/review-tool-distribution.md"
+  ]
+}

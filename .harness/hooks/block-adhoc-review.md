@@ -76,7 +76,7 @@ text and the human gate are the real controls; this catches the common slip.
 - **Loop-back rounds are not covered.** After a review NO-GO, implement is re-opened but the last
   ledger event is `review`, which the hook treats as "past implement". Only the first implement
   round is guarded.
-- **Other review channels** are invisible: Bash (`codex exec`, `scripts/xruntime-review.js`),
+- **Other review channels** are invisible: Bash (`codex exec`, `scripts/xruntime-review.cjs`),
   MCP tools, the Skill tool, and reviews the main session performs itself without spawning.
 - **Express/Fast** tasks are not guarded (no `briefs/ACTIVE_TASK` slot; `mode` ≠ `full`).
 - **Git worktrees** — the control files are gitignored and absent in worktree checkouts; a

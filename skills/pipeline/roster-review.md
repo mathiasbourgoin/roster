@@ -38,8 +38,8 @@ You conduct a structured, fix-first review. Mechanical corrections are applied w
 **Golden rule:** every claim must cite the file and line. Never "probably" or "likely".
 
 Deterministic mechanics live in tools, not in this prose: `scripts/check-scope-diff.sh` (scope gate),
-`scripts/check-review-convergence.js` (ratchet + convergence gate), `scripts/xruntime-review.js`
-(cross-runtime probe/journal), `scripts/review-normalize.js` (finding validation/dedup), and
+`scripts/check-review-convergence.cjs` (ratchet + convergence gate), `scripts/xruntime-review.cjs`
+(cross-runtime probe/journal), `scripts/review-normalize.cjs` (finding validation/dedup), and
 `schema/review-json-schema.md` (the full `briefs/<task>-review.json` shape). This skill covers
 orchestration, judgment, and the human gate.
 
@@ -72,7 +72,7 @@ If escalation is needed: set `escalation_needed: true` and `escalation_reason`. 
 **Bundle preflight (F-4 — input-contract abort, not a verdict):**
 
 ```bash
-node scripts/review-bundle-verify.js
+node scripts/review-bundle-verify.cjs
 ```
 
 Run before reading input. On failure, write no verdict or ledger event. Print exactly: "stale-install:
@@ -154,7 +154,7 @@ human-ACCEPTED (documented blind spots, see the script).
 manifest was present, else `skipped`/`no-manifest` (Express Lite/Express/Fast append nothing, EC-6):
 
 ```bash
-[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event scope-gate --actor check-scope-diff.sh --outcome <ran|skipped> [--detail no-manifest] || echo "review-trace.js missing — stale install"
+[ -f scripts/lib/review/review-trace.cjs ] && node scripts/lib/review/review-trace.cjs --task <task-slug> --round <round> --cycle <cycle> --event scope-gate --actor check-scope-diff.sh --outcome <ran|skipped> [--detail no-manifest] || echo "review-trace.js missing — stale install"
 ```
 
 When spawning `reviewer`, state whether this gate ran; when it did, the agent emits no scope findings.
@@ -229,9 +229,9 @@ whether or not it actually ran. `actor` == its name:
 
 ```bash
 # ran:
-[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome ran || echo "review-trace.js missing — stale install"
+[ -f scripts/lib/review/review-trace.cjs ] && node scripts/lib/review/review-trace.cjs --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome ran || echo "review-trace.js missing — stale install"
 # selected but not run — the reason is mandatory:
-[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome skipped --detail "<why>" || echo "review-trace.js missing — stale install"
+[ -f scripts/lib/review/review-trace.cjs ] && node scripts/lib/review/review-trace.cjs --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome skipped --detail "<why>" || echo "review-trace.js missing — stale install"
 ```
 
 Only `outcome: ran` attests an entry in `specialists_run`. Claiming a specialist ran while its
@@ -258,7 +258,7 @@ diff + `briefs/<task>-review.json` to a scratch file and pass its path as `--pro
 positional — INV-6, a large diff can exceed a shell argv limit):
 
 ```bash
-[ -f scripts/xruntime-review.js ] && node scripts/xruntime-review.js codex --task <task-slug> --prompt-file <scratch-file> --round <round> --cycle <cycle> [--write] [--timeout <tunables.cross_runtime_probe_timeout>] || echo "xruntime-review.js missing — stale install"
+[ -f scripts/xruntime-review.cjs ] && node scripts/xruntime-review.cjs codex --task <task-slug> --prompt-file <scratch-file> --round <round> --cycle <cycle> [--write] [--timeout <tunables.cross_runtime_probe_timeout>] || echo "xruntime-review.cjs missing — stale install"
 ```
 
 Instruct it to return **only findings the primary missed**, in the standard finding schema with
@@ -327,7 +327,7 @@ Run the normalizer over every specialist's raw findings plus the prior cumulativ
 the LAST persisted `briefs/<task>-gate-report.json` if one exists (absent on round 1):
 
 ```bash
-[ -f scripts/review-normalize.js ] && node scripts/review-normalize.js <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> --cycle <cycle> --task <task-slug> --gate-report briefs/<task>-gate-report.json --prior briefs/<task>-review.json || echo "review-normalize.js missing — stale install"
+[ -f scripts/review-normalize.cjs ] && node scripts/review-normalize.cjs <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> --cycle <cycle> --task <task-slug> --gate-report briefs/<task>-gate-report.json --prior briefs/<task>-review.json || echo "review-normalize.cjs missing — stale install"
 ```
 
 It validates each new finding, canonically fingerprints it (plus `fid`, E-3), merges exact
@@ -352,7 +352,7 @@ failed` warning in the one-liner (§7). Append by hand only for a stale normaliz
 FR-166:
 
 ```bash
-[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event normalizer --actor review-normalize.js --outcome ran || echo "review-trace.js missing — stale install"
+[ -f scripts/lib/review/review-trace.cjs ] && node scripts/lib/review/review-trace.cjs --task <task-slug> --round <round> --cycle <cycle> --event normalizer --actor review-normalize.cjs --outcome ran || echo "review-trace.js missing — stale install"
 ```
 
 ### 5. Group ambiguities
@@ -407,7 +407,7 @@ cross-runtime probe, and `cycle` incremented. Never re-derive this by hand — s
 executable witness at draft composition:
 
 ```bash
-node scripts/lib/review/review-lifecycle.js --prior briefs/<task>-review.json
+node scripts/lib/review/review-lifecycle.cjs --prior briefs/<task>-review.json
 ```
 
 → `{round, cycle, fresh_cycle}` (absent prior file is legitimate input — a fresh task). A repaired
@@ -438,7 +438,7 @@ confidently wrong SHA. When null, `red_verified` stays null; flag it in the one-
 entry and any `cross_runtime` updates) and write it to a `.draft` suffix BEFORE invoking:
 
 ```bash
-node scripts/check-review-convergence.js briefs/<task>-review.json.draft --max-rounds <tunables.max_no_go_rounds> --strikes <tunables.novel_finding_strikes> --timeout 120
+node scripts/check-review-convergence.cjs briefs/<task>-review.json.draft --max-rounds <tunables.max_no_go_rounds> --strikes <tunables.novel_finding_strikes> --timeout 120
 ```
 
 This runs full mode: red/green verification for any check needing it, JSON report on stdout.

@@ -42,7 +42,7 @@ You run deterministic checks and produce a GO/NO-GO verdict. No code writing —
 ## Input Contract
 
 **Light bundle check (F-7 — presence only, doctor owns the full verify):**
-`[ -f scripts/xruntime-exec.sh ] && [ -f scripts/xruntime-review.js ]` (the wrapper is
+`[ -f scripts/xruntime-exec.sh ] && [ -f scripts/xruntime-review.cjs ]` (the wrapper is
 intentionally 0644, always invoked via `bash` — never test `-x`). If either is missing, stop with
 `stale-install`; QA cannot safely bypass the shared breaker. Roster-review's earlier preflight
 normally makes this impossible, but files can disappear between phases.
@@ -214,7 +214,7 @@ provider-free shared-breaker check first, using the same `--write` mode as the e
 invocation:
 
 ```bash
-node scripts/xruntime-review.js <runtime> --task <task-slug> --phase qa --check-availability --write
+node scripts/xruntime-review.cjs <runtime> --task <task-slug> --phase qa --check-availability --write
 ```
 
 `status: "skipped-degraded"` means review already proved this runtime version degraded under either
@@ -262,7 +262,7 @@ record every cause that applies, never just the first.
 **2. Derive round/cycle** by shelling out (never re-derive in prose, FR-261):
 
 ```bash
-node scripts/lib/review/review-lifecycle.js --prior briefs/<task>-qa-state.json
+node scripts/lib/review/review-lifecycle.cjs --prior briefs/<task>-qa-state.json
 ```
 
 → `{round, cycle, fresh_cycle}` (absent prior file is legitimate fresh-task input; a present-but-
@@ -276,7 +276,7 @@ forward the same way (C-2, inert — QA never reads or interprets it).
 - GO verdict → reset to `0` (cycle-final budget reset).
 - NO-GO verdict → prior `qa_no_go_round` (0 on a fresh cycle) **+ 1 iff** at least one recorded
   cause is qualifying (`gate-failure`, `spec-check-failure`, `code-intel-violation`,
-  `tui-failure` — see the `[NEEDS-HUMAN]` note in `scripts/lib/qa/qa-convergence-rules.js` for the
+  `tui-failure` — see the `[NEEDS-HUMAN]` note in `scripts/lib/qa/qa-convergence-rules.cjs` for the
   C-4 interpretation this rests on), else unchanged (`cross-runtime-discrepancy` /
   `code-intel-malformed` / `environment-failure` alone never increment it, FR-269/FR-270).
 
@@ -288,7 +288,7 @@ forward the same way (C-2, inert — QA never reads or interprets it).
 Write the composed state to `briefs/<task>-qa-state.json.draft`, then:
 
 ```bash
-node scripts/check-qa-convergence.js briefs/<task>-qa-state.json.draft --max-rounds <tunables.max_qa_rounds>
+node scripts/check-qa-convergence.cjs briefs/<task>-qa-state.json.draft --max-rounds <tunables.max_qa_rounds>
 ```
 
 - **Exit 0** — proceed to step 6.
@@ -418,7 +418,7 @@ route (FR-274).
 |---|---|
 | Automated gate fails (build, tests, lint) | Stop — return to `/roster-implement` with the exact error log |
 | Manual verification reveals a regression not caught by tests | Stop — return to `/roster-implement` |
-| `scripts/check-qa-convergence.js` exits 1 (`cause: "qa-round-cap"`) | STOP — human decision point (non-overridable): `/roster-spec`, `/roster-review`, or split/abandon. Never auto-route. |
+| `scripts/check-qa-convergence.cjs` exits 1 (`cause: "qa-round-cap"`) | STOP — human decision point (non-overridable): `/roster-spec`, `/roster-review`, or split/abandon. Never auto-route. |
 
 ## What Next
 
@@ -440,7 +440,7 @@ Append one entry at phase exit — when this skill finishes, not at session end.
 - Never GO if a gate fails
 - Never skip a gate — all in order
 - If a gate command is missing from the brief → note "not documented" and ask
-- Always gate the composed `qa-state.json.draft` with `scripts/check-qa-convergence.js` BEFORE
+- Always gate the composed `qa-state.json.draft` with `scripts/check-qa-convergence.cjs` BEFORE
   persisting `qa-state.json`, and persist `qa-state.json` BEFORE writing `qa.md` (C-5/FR-286) —
   never the reverse
 - The `qa-round-cap` escalation is never overridable — no override field is honored, by the skill

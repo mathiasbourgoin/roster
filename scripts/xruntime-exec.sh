@@ -105,7 +105,7 @@ in_repo() {
   return 2
 }
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-snapshot() { node "$SCRIPT_DIR/lib/git-tree-snapshot.js"; }
+snapshot() { node "$SCRIPT_DIR/lib/git-tree-snapshot.cjs"; }
 
 BEFORE=""
 in_repo

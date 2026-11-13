@@ -24,34 +24,128 @@ const REPO_ROOT = path.resolve(__dirname, "..");
 const INSTALLER = path.resolve(__dirname, "review-bundle-install.sh");
 const MANIFEST_REL = "scripts/review-bundle.manifest.json";
 
+test("native TypeScript consumer retains behavior after portable bundle install", (t) => {
+  const target = mkScratch("native-typescript-consumer");
+  t.after(() => fs.rmSync(target, {recursive: true, force: true}));
+  fs.writeFileSync(path.join(target, "package.json"), '{"private":true}\n');
+  fs.mkdirSync(path.join(target, "scripts"));
+  const application = path.join(target, "scripts/application.ts");
+  const source = 'export const answer: number = 42; console.log(answer);\n';
+  fs.writeFileSync(application, source);
+  const execute = () => spawnSync(process.execPath, ["--experimental-strip-types", application], {encoding:"utf8"});
+  assert.equal(execute().status, 0);
+  const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
+  assert.equal(installed.code, 0, installed.stderr);
+  const after = execute();
+  assert.equal(after.status, 0, `NATIVE_TYPESCRIPT_SEMANTICS_MUST_SURVIVE_INSTALL: ${after.stderr}`);
+  assert.equal(after.stdout.trim(), "42");
+  assert.equal(fs.readFileSync(application, "utf8"), source);
+  assert.equal(fs.existsSync(path.join(target, "scripts/package.json")), false);
+  const tools = spawnSync(process.execPath, ["--input-type=commonjs", "-e",
+    "for(const n of ['xruntime-review','review-normalize','check-review-convergence','check-qa-convergence']) require('./scripts/'+n+'.cjs')"],
+    {cwd:target,encoding:"utf8"});
+  assert.equal(tools.status, 0, tools.stderr);
+});
+
+for (const mode of ["inherited-esm", "explicit-commonjs"]) {
+  test(`${mode} native TypeScript and portable helpers execute unchanged`, (t) => {
+    const outer = mkScratch(mode);
+    t.after(() => fs.rmSync(outer, {recursive:true,force:true}));
+    if (mode === "inherited-esm") fs.writeFileSync(path.join(outer,"package.json"),'{"type":"module"}\n');
+    const target = path.join(outer,"consumer");
+    fs.mkdirSync(path.join(target,"scripts"),{recursive:true});
+    if (mode === "explicit-commonjs") fs.writeFileSync(path.join(target,"package.json"),'{"type":"commonjs"}\n');
+    const source = mode === "inherited-esm"
+      ? 'export const answer: number = 42; console.log(answer);\n'
+      : 'const answer: number = 42; module.exports = answer; console.log(answer);\n';
+    const script = path.join(target,"scripts/application.ts");
+    fs.writeFileSync(script,source);
+    const execute = () => spawnSync(process.execPath,["--experimental-strip-types",script],{encoding:"utf8"});
+    assert.equal(execute().status,0);
+    assert.equal(run(["install","--from-checkout",REPO_ROOT,"--target",target]).code,0);
+    assert.equal(execute().status,0);
+    assert.equal(execute().stdout.trim(),"42");
+    assert.equal(fs.readFileSync(script,"utf8"),source);
+    const loaded = spawnSync(process.execPath,["--input-type=commonjs","-e",
+      "for(const n of ['xruntime-review','review-normalize','check-review-convergence','check-qa-convergence','review-bundle-verify']) require('./scripts/'+n+'.cjs')"],
+      {cwd:target,encoding:"utf8"});
+    assert.equal(loaded.status,0,loaded.stderr);
+    assert.equal(run(["verify","--target",target]).code,0);
+    assert.equal(run(["upgrade","--from-checkout",REPO_ROOT,"--target",target]).code,0);
+    assert.equal(run(["remove","--target",target]).code,0);
+    assert.equal(execute().status,0);
+    assert.equal(fs.existsSync(path.join(target,"scripts/package.json")),false);
+  });
+}
+
+test("legacy scope-bearing source refuses unrelated native TypeScript before publishing", (t) => {
+  const source = mkScratch("legacy-scope-source"),target = mkScratch("legacy-scope-consumer");
+  t.after(() => {fs.rmSync(source,{recursive:true,force:true});fs.rmSync(target,{recursive:true,force:true});});
+  copyRepoTree(source);
+  const scope = '{"type":"commonjs"}\n';
+  fs.writeFileSync(path.join(source,"scripts/package.json"),scope);
+  const manifest = JSON.parse(fs.readFileSync(path.join(REPO_ROOT,MANIFEST_REL)));
+  manifest.files.push({path:"scripts/package.json",sha256:crypto.createHash("sha256").update(scope).digest("hex"),shared:true});
+  fs.writeFileSync(path.join(source,MANIFEST_REL),JSON.stringify(manifest));
+  fs.mkdirSync(path.join(target,"scripts"));
+  const script = path.join(target,"scripts/application.ts");
+  fs.writeFileSync(script,'export const answer: number = 42; console.log(answer);\n');
+  for (const extra of [[],["--force"]]) {
+    const result = run(["install","--from-checkout",source,"--target",target,...extra]);
+    assert.notEqual(result.code,0);
+    assert.match(result.stderr,/unrelated consumer script/);
+    assert.equal(fs.existsSync(path.join(target,"scripts/package.json")),false);
+    assert.equal(fs.existsSync(path.join(target,MANIFEST_REL)),false);
+    assert.equal(spawnSync(process.execPath,["--experimental-strip-types",script],{encoding:"utf8"}).status,0);
+  }
+});
+
+test("modified legacy helper blocks first portable activation instead of discarding behavior", (t) => {
+  const target=mkScratch("modified-legacy-helper");
+  t.after(()=>fs.rmSync(target,{recursive:true,force:true}));
+  assert.equal(run(["install","--from-checkout",REPO_ROOT,"--target",target]).code,0);
+  const legacy=readManifest(target);
+  for(const f of legacy.files.filter(f=>f.path.endsWith(".cjs")))fs.unlinkSync(path.join(target,f.path));
+  legacy.files=legacy.files.filter(f=>!f.path.endsWith(".cjs"));
+  fs.writeFileSync(path.join(target,MANIFEST_REL),JSON.stringify(legacy));
+  const helper=path.join(target,"scripts/review-normalize.js");
+  fs.appendFileSync(helper,'\nmodule.exports.consumer_custom = true;\n');
+  const before=fs.readFileSync(helper);
+  const refused=run(["upgrade","--from-checkout",REPO_ROOT,"--target",target]);
+  assert.notEqual(refused.code,0);
+  assert.match(refused.stderr,/pre-existing file/);
+  assert(fs.readFileSync(helper).equals(before));
+  assert.equal(fs.existsSync(path.join(target,"scripts/review-normalize.cjs")),false);
+  assert.equal(readManifest(target).files.some(f=>f.path.endsWith(".cjs")),false);
+});
+
 test("installed review tools execute inside an ESM consumer without changing its root package", () => {
   const target = mkScratch("esm-consumer");
   const rootPackage = '{"type":"module"}\n';
   fs.writeFileSync(path.join(target, "package.json"), rootPackage);
   const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   assert.equal(installed.code, 0, installed.stderr);
-  const verified = spawnSync(process.execPath, ["scripts/review-bundle-verify.js"], {cwd: target, encoding: "utf8"});
+  const verified = spawnSync(process.execPath, ["scripts/review-bundle-verify.cjs"], {cwd: target, encoding: "utf8"});
   assert.equal(verified.status, 0, verified.stderr);
-  const loaded = spawnSync(process.execPath, ["--input-type=commonjs", "-e", "for (const file of ['xruntime-review','review-normalize','check-review-convergence']) require('./scripts/'+file+'.js')"], {cwd: target, encoding: "utf8"});
+  const loaded = spawnSync(process.execPath, ["--input-type=commonjs", "-e", "for (const file of ['xruntime-review','review-normalize','check-review-convergence']) require('./scripts/'+file+'.cjs')"], {cwd: target, encoding: "utf8"});
   assert.equal(loaded.status, 0, loaded.stderr);
   assert.equal(fs.readFileSync(path.join(target, "package.json"), "utf8"), rootPackage);
 });
 
-test("ESM consumer scripts retain their module semantics when bundle installation is refused", () => {
+test("ESM consumer scripts retain their module semantics during portable installation", () => {
   const target = mkScratch("esm-existing-script");
   fs.writeFileSync(path.join(target, "package.json"), '{"type":"module"}\n');
   fs.mkdirSync(path.join(target, "scripts"));
   const script = 'export const value = 42;\n';
   fs.writeFileSync(path.join(target, "scripts/user.js"), script);
   const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
-  assert.notEqual(installed.code, 0);
-  assert.match(installed.stderr, /unrelated consumer script/);
+  assert.equal(installed.code, 0, installed.stderr);
   assert.equal(fs.existsSync(path.join(target, "scripts/package.json")), false);
   assert.equal(fs.readFileSync(path.join(target, "scripts/user.js"), "utf8"), script);
 });
 
 for (const mode of ["inherited", "detected"]) {
-  test(`${mode} ESM consumer scripts retain semantics when installation is refused`, (t) => {
+  test(`${mode} ESM consumer scripts retain semantics during portable installation`, (t) => {
     const outer = mkScratch(`${mode}-esm`);
     t.after(() => fs.rmSync(outer, {recursive: true, force: true}));
     if (mode === "inherited") fs.writeFileSync(path.join(outer, "package.json"), '{"type":"module"}\n');
@@ -64,8 +158,7 @@ for (const mode of ["inherited", "detected"]) {
     assert.equal(execute().status, 0);
     for (const extra of [[], ["--force"]]) {
       const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target, ...extra]);
-      assert.notEqual(installed.code, 0);
-      assert.match(installed.stderr, /unrelated consumer script/);
+      assert.equal(installed.code, 0, installed.stderr);
     }
     assert.equal(fs.existsSync(path.join(target, "scripts/package.json")), false);
     assert.equal(fs.readFileSync(scriptPath, "utf8"), script);
@@ -110,7 +203,14 @@ for (const existingScope of [true, false]) {
     }
     const installed = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
     assert.equal(installed.code, 0, installed.stderr);
-    if (!existingScope) fs.writeFileSync(scriptPath, script);
+    if (!existingScope) {
+      // A legacy bundle-created scope is shared consumer state, never guessed away.
+      fs.writeFileSync(scopePath, scope);
+      const legacy = readManifest(target);
+      legacy.files.push({path:"scripts/package.json",sha256:crypto.createHash("sha256").update(scope).digest("hex"),shared:true});
+      fs.writeFileSync(path.join(target, MANIFEST_REL), JSON.stringify(legacy));
+      fs.writeFileSync(scriptPath, script);
+    }
     for (const mode of ["install", "upgrade"]) {
       const refreshed = run([mode, "--from-checkout", REPO_ROOT, "--target", target]);
       assert.equal(refreshed.code, 0, refreshed.stderr);
@@ -135,7 +235,7 @@ test("installed ESM consumer runs the QA convergence gate with its schema and de
   assert.equal(installed.code, 0, installed.stderr);
   const state = {task:"consumer-qa",status:"GO",round:0,cycle:0,qa_no_go_round:0,rounds_audit:[{round:0,date:"2026-10-14",verdict:"GO",causes:[],qualifying:false}]};
   const statePath = path.join(target, "qa-state.json");
-  const execute = () => spawnSync(process.execPath, ["scripts/check-qa-convergence.js", "qa-state.json"], {cwd:target,encoding:"utf8"});
+  const execute = () => spawnSync(process.execPath, ["scripts/check-qa-convergence.cjs", "qa-state.json"], {cwd:target,encoding:"utf8"});
   fs.writeFileSync(statePath, JSON.stringify(state));
   const passed = execute();
   assert.equal(passed.status, 0, passed.stderr);
@@ -219,12 +319,12 @@ test("closure smoke: each JS tool entry require()s without throwing", () => {
 
 // ── AC-01: staged install happy path (--from-checkout) ─────────────────────
 
-test("install --from-checkout: all 29 files land, shas match, manifest committed-shaped", () => {
+test("install --from-checkout: all 46 files land, shas match, manifest committed-shaped", () => {
   const target = mkScratch("install");
   const r = run(["install", "--from-checkout", REPO_ROOT, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
   const manifest = readManifest(target);
-  assert.equal(manifest.files.length, 29);
+  assert.equal(manifest.files.length, 46);
   for (const f of manifest.files) {
     assert.ok(fs.existsSync(path.join(target, f.path)), `${f.path} missing after install`);
   }
@@ -250,7 +350,7 @@ test("installed consumer verifies locally without owning the lifecycle installer
   const runbook = fs.readFileSync(path.join(target, "scripts/REVIEW-BUNDLE.md"), "utf8");
   const reviewSkill = fs.readFileSync(path.join(REPO_ROOT, "skills/pipeline/roster-review.md"), "utf8");
   for (const consumerInstruction of [runbook, reviewSkill]) {
-    assert.match(consumerInstruction, /node scripts\/review-bundle-verify\.js/);
+    assert.match(consumerInstruction, /node scripts\/review-bundle-verify\.cjs/);
     assert.doesNotMatch(consumerInstruction, /bash scripts\/review-bundle-install\.sh verify/);
   }
 });
@@ -296,7 +396,7 @@ test("install --from-raw (file:// mock RAW): mirrors --from-checkout", () => {
   const target = mkScratch("rawdst");
   const r = run(["install", "--from-raw", `file://${mockRoot}`, "--target", target]);
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(readManifest(target).files.length, 29);
+  assert.equal(readManifest(target).files.length, 46);
 });
 
 test("partial fetch: a source missing one bundle file aborts, target untouched, staging-only residue (FR-131/153)", () => {
