@@ -4,9 +4,11 @@
 set -euo pipefail
 
 INSTALL_SH="$(cd "$(dirname "$0")" && pwd)/install.sh"
-MOCK_ROOT="/tmp/roster-mock-raw"
-WORK_DIR="/tmp/roster-install-qa"
-FAKE_CODEX_HOME="/tmp/roster-fake-codex-home"
+ROSTER_INSTALL_TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/roster-install-qa.XXXXXX")"
+trap 'rm -rf "$ROSTER_INSTALL_TEST_ROOT"' EXIT
+MOCK_ROOT="$ROSTER_INSTALL_TEST_ROOT/mock-raw"
+WORK_DIR="$ROSTER_INSTALL_TEST_ROOT/projects"
+FAKE_CODEX_HOME="$ROSTER_INSTALL_TEST_ROOT/codex-home"
 PASS=0
 FAIL=0
 
@@ -20,17 +22,20 @@ section() { echo -e "\n${BOLD}── $* ──${RESET}"; }
 # single rendered SKILL.md that OpenCode, Codex, and Codex-global all install. A stale mock that
 # omits a fetched path makes the patched install fail (curl -f) — keep this in sync with install.sh.
 rm -rf "$MOCK_ROOT"
-mkdir -p "$MOCK_ROOT/recruiter" "$MOCK_ROOT/.claude/commands" "$MOCK_ROOT/.agents/skills/recruit"
+mkdir -p "$MOCK_ROOT/recruiter/ops" "$MOCK_ROOT/.claude/commands" "$MOCK_ROOT/.agents/skills/recruit"
 echo "# mock recruiter"       > "$MOCK_ROOT/recruiter/recruiter.md"          # → .claude/agents/recruiter.md
 echo "# mock recruit command" > "$MOCK_ROOT/.claude/commands/recruit.md"     # → .claude/commands/recruit.md
 echo "# mock recruit skill"   > "$MOCK_ROOT/.agents/skills/recruit/SKILL.md" # → opencode/codex SKILL.md
+for companion in version-check.sh update-mechanism.md runtime-paths.md; do
+  cp "$(dirname "$INSTALL_SH")/../recruiter/ops/$companion" "$MOCK_ROOT/recruiter/ops/$companion"
+done
 # VERSION served at the mock RAW root. The patched install lives in /tmp with no adjacent VERSION,
 # so it exercises the curl|bash path: resolve_version() must FETCH this and stamp it (not fall back).
 MOCK_VERSION="9.9.9-mock"
 echo "$MOCK_VERSION" > "$MOCK_ROOT/VERSION"                                   # → ${RAW}/VERSION
 
 # Patched install.sh: override RAW + always use fake CODEX_HOME
-PATCHED_SH="/tmp/install-patched.sh"
+PATCHED_SH="$ROSTER_INSTALL_TEST_ROOT/install-patched.sh"
 sed \
   -e "s|RAW=\"https://raw.githubusercontent.com/\${REPO}/\${BRANCH}\"|RAW=\"file://${MOCK_ROOT}\"|g" \
   -e "s|\${CODEX_HOME:-\$HOME/.codex}|${FAKE_CODEX_HOME}|g" \
@@ -89,6 +94,12 @@ grep -q "mock recruiter" "$dir/.claude/agents/recruiter.md" \
   && pass "claude content correct" || fail "claude content wrong"
 
 # ─────────────────────────────────────────────────────────────────────────────
+for companion in version-check.sh update-mechanism.md runtime-paths.md; do
+  cmp -s "$MOCK_ROOT/recruiter/ops/$companion" "$dir/.claude/agents/recruiter-ops/$companion" \
+    && pass "Claude companion $companion matches the selected source" \
+    || fail "Claude companion $companion missing or differs from selected source"
+done
+
 section "3. OpenCode only"
 # OpenCode installs the rendered SKILL.md via native skill discovery (.opencode/skills/recruit/),
 # NOT a Claude-style agent file — see install_opencode() in install.sh.

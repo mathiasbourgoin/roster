@@ -10,6 +10,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Stamp the `next` development line separately from the `main` 2.8.0 release candidate;
   this entry does not assert a stable release or create a tag.
 - Upgrade notes cover Express Lite, model-routing resources, local telemetry configuration
+  roadmap monitoring with duration/ETA revisions, explicit manual usage, three-failure recovery
   and preservation of consumer overrides. Product details are in root `CHANGES.md`.
 
 ---

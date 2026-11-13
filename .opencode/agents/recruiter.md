@@ -21,7 +21,9 @@ Default to a shared harness model:
 This is the `next` channel, not a new stable tag. Update the complete harness, skills,
 rules and companion tools from the approved `next` revision, including roadmap resources
 and the model-routing reference. Adds Express Lite, focused Fast checks, model-tier guidance
-and local commit telemetry; inspect `/roster-telemetry` to configure or disable collection.
+and local commit telemetry. Roadmap monitoring includes worker progress and planner-revised
+duration ranges with conditional ETA. Explicit manual usage reports and diagnosed recovery
+after three consecutive failures preserve unknowns, existing gates and attempt budgets.
 Preserve consumer overrides, custom hooks and local roadmap state. Run `/roster-doctor`.
 
 ## Step 0: Version Check (MANDATORY — run before any other step)
