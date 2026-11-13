@@ -217,6 +217,7 @@ As the coordinator, I want to record an inert reference to the project logbook, 
 - **CHECK-2** [AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-12]: `node --test scripts/roster-roadmap-requests-view.test.js` → exit 0.
 - **CHECK-3** [AC-13]: `npm run test:roadmap` → exit 0 (includes install closure test).
 - **CHECK-4** [AC-13]: `test $(wc -l < scripts/roster-roadmap.cjs) -le 500` → exit 0.
+- **CHECK-6** [AC-12]: `node scripts/checks/roadmap-requests-view-budget.js` → exit 0 (ratchet for review round 1 HIGH: valid multibyte writes never make `view` fail; red-verified against d3bc59e).
 - **CHECK-5** [AC-13]: `bash scripts/sync-harness.sh --check && node scripts/check-pipeline-install.js` → exit 0.
 
 ## Claims Metadata
@@ -265,6 +266,7 @@ As the coordinator, I want to record an inert reference to the project logbook, 
 {"record":"check","id":"CHECK-3","for":["AC-13"]}
 {"record":"check","id":"CHECK-4","for":["AC-13"]}
 {"record":"check","id":"CHECK-5","for":["AC-13"]}
+{"record":"check","id":"CHECK-6","for":["AC-12"]}
 ```
 
 ## Entities
