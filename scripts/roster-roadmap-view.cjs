@@ -132,7 +132,9 @@ function lineage(ctx, task, lines) {
 // FR-017: contract tasks and derived missions are counted separately.
 function completion(ctx, accepted) {
   const done = list => list.filter(t => ctx.state.tasks[t.id]?.status === "done").length, derived = derivedMissions(ctx);
-  return { tasks_done: done(contractTasks(ctx)), tasks_total: contractTasks(ctx).length, derived_done: done(derived), derived_total: derived.length, global_accepted: accepted };
+  const count = status => derived.filter(t => ctx.state.tasks[t.id]?.status === status).length;
+  return { tasks_done: done(contractTasks(ctx)), tasks_total: contractTasks(ctx).length, derived_done: done(derived), derived_total: derived.length,
+    derived_active: count("active"), derived_blocked: count("blocked"), global_accepted: accepted };
 }
 function snapshot(ctx, options = {}) {
   const base = core.viewSupport.status(ctx);
@@ -189,11 +191,23 @@ function snapshot(ctx, options = {}) {
   return result;
 }
 function clean(value) { return String(value ?? "unknown").replace(/[\x00-\x1f\x7f]/g, " "); }
+// Contract tasks and corrections are counted apart: view.counts covers every mission.
+function tasksRow(completion, counts) {
+  const active = completion.derived_active ?? 0, blocked = completion.derived_blocked ?? 0;
+  const row = `Tasks: ${completion.tasks_done}/${completion.tasks_total} done; ${counts.active - active} active; ${counts.blocked - blocked} blocked`;
+  return completion.derived_total ? `${row}. Corrections: ${completion.derived_done}/${completion.derived_total} done; ${active} active; ${blocked} blocked` : row;
+}
+const REASON_LABELS = { withdrawn: "Withdrawn", queued: "Requeued" };
+// Attempt chronology of a correction and of any mission that failed or was retried (its review).
+function attemptRows(task) {
+  const timeline = task.timeline || [];
+  if (!task.derived && timeline.length < 2 && !timeline.some(entry => entry.outcome === "blocked")) return [];
+  return timeline.map(entry => `  Attempt ${entry.attempt}: ${clean(entry.assignee)}, ${entry.outcome}, ${clean(entry.claimed_at)} to ${entry.outcome === "active" ? "now" : clean(entry.ended_at)}`);
+}
 function format(view) {
   const minutes = value => Number(value.toFixed(1));
   const rows = [`Roadmap ${clean(view.board_id)} — ${view.phase.toUpperCase()}`, `Goal: ${clean(view.goal) || "not specified"}`,
-    `Tasks: ${view.completion.tasks_done}/${view.completion.tasks_total} done; ${view.counts.active} active; ${view.counts.blocked} blocked` +
-      (view.completion.derived_total ? `; corrections ${view.completion.derived_done}/${view.completion.derived_total} done` : ""),
+    tasksRow(view.completion, view.counts),
     `Global outcome: ${view.global.accepted ? "accepted" : "not accepted; separate verification required"}`];
   const eta = view.estimates?.global_eta;
   rows.push(eta?.status === "complete" ? "ETA: completed; global outcome accepted" : eta?.finish_at ? `ETA (conditional): ${eta.finish_at.likely} [${eta.finish_at.optimistic} … ${eta.finish_at.pessimistic}]`
@@ -206,7 +220,8 @@ function format(view) {
     if (task.corrections?.length) rows.push(`  Corrections: ${task.corrections.map(clean).join(", ")}`);
     if (task.assignment) rows.push(`  Assigned: ${clean(task.assignment.assignee)} (${clean(task.assignment.runtime)} / ${clean(task.topology?.model)} / ${clean(task.assignment.route)})`);
     rows.push(`  Attempts: ${task.attempts}/${task.max_attempts ?? "unknown"}; consecutive failures: ${task.recovery?.consecutive_failures ?? "unknown"}/3`);
-    if (task.blocker) rows.push(`  Blocker: ${clean(task.blocker)}`);
+    rows.push(...attemptRows(task));
+    if (task.blocker) rows.push(`  ${REASON_LABELS[task.state] || "Blocker"}: ${clean(task.blocker)}`);
     const duration = task.estimate?.remaining_minutes;
     if (duration) rows.push(`  Estimated remaining: ${minutes(duration.likely)} min [${minutes(duration.optimistic)} … ${minutes(duration.pessimistic)}] (planner estimate)`);
     if (task.estimate?.reestimate_needed) rows.push("  Estimate: planner revision required");

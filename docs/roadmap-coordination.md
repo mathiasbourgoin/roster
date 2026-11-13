@@ -222,39 +222,68 @@ claim right now (runtime unavailable, or route unauthorized with no permitted fa
 Owner decisions (Mathias, 13 November 2026):
 
 - **Fresh context over the review's family.** The family of a review is the review, every
-  dependency any of its receipts blames, and every correction of those dependencies from that
-  review. Every correction attempt needs an agent that never appeared on that family, and so
-  does **the review's next attempt after a correction**: `claim` and history replay refuse an
-  assignee already seen there (the implementers, the failed reviewer, every earlier fixer).
-  Roster compares declared identifiers: give each attempt the identifier of a newly launched
-  agent.
+  dependency any of its receipts blames, every dependency of the review that has a correction,
+  and every correction of those dependencies, whichever review caused it. Every correction
+  attempt needs an agent that never appeared on the family of its cause, and so does **the next
+  attempt of any task one of whose dependencies has a correction**: `claim` and history replay
+  refuse an assignee already seen there (the implementers, the failed reviewer, every earlier
+  fixer). Roster cannot tell a review from another dependent task, so the rule covers every
+  dependent task: the author of `impl-fix-1` cannot claim a second review `qa` that depends on
+  `impl`, even if `qa` never blamed `impl`. A task none of whose dependencies has a correction
+  is on no family. Roster compares declared identifiers: give each attempt the identifier of a
+  newly launched agent.
 - **Strict re-queue.** The review stays blocked, and `release` of it is refused, until every
   dependency its latest blocked receipt blames has a done correction from that receipt. There is
   no exception for an exhausted correction. `status` gives the review a `next_action` naming the
   step: derive a correction for a dependency, finish a pending one, or, when a correction
   exhausted its budget, derive a new one (`<parent>-fix-<n+1>`, fresh budget capped by the
-  parent's) from the same receipt or request a revised-roadmap decision.
+  parent's) from the same receipt or request a revised-roadmap decision. It lists the exhausted
+  and withdrawn corrections of the dependency, for example
+  `(impl-fix-1 exhausted, impl-fix-2 withdrawn)`. When `derive` would be refused (the review's
+  policy is not `retry`, its budget is exhausted, it needs a recovery reframe, the limit below is
+  reached, or an older claim hides an identity), `next_action` and the `release` refusal say
+  `no correction can be derived for <dependency>: <reason and way forward>` instead of advising
+  `derive`.
+- **Bounded corrections.** For one review receipt and one blamed dependency, `derive` refuses
+  once the corrections that were not withdrawn number the parent's `max_attempts`; then request
+  a revised-roadmap decision. Withdrawn corrections never ran and do not count. So each receipt
+  and dependency get at most parent `max_attempts` corrections of at most parent `max_attempts`
+  attempts each, and the review's own budget bounds its receipts.
 - **Digest.** The `derive` event records a SHA-256 digest of the definition and reads refuse a
   definition edited afterwards. The digest is unkeyed and lives in `state.json`: it catches an
   accidental or naive edit, not someone who rewrites the file and recomputes it. The same limit
   applies to adding `blames` to a stored receipt or removing a `derive` event with everything
   after it.
 
-If a queued correction cannot be claimed (its runtime or route became unavailable), retire it
-with `withdraw-derived BOARD --coordinator <id> --revision <n> --task <fix id> --withdrawal
-<file>`, where the file is `{"reason": "..."}`; the same receipt can then derive a new correction.
+If a queued correction that was never claimed cannot be claimed (its runtime or route became
+unavailable), retire it with `withdraw-derived BOARD --coordinator <id> --revision <n> --task
+<fix id> --withdrawal <file>`, where the file is `{"reason": "..."}`; the same receipt can then
+derive a new correction. A correction that already started cannot be withdrawn: it ends by its
+receipts and its budget, after which a new derivation is possible. If a started, queued
+correction becomes unclaimable, restore a claimable route in `capabilities.json` or request a
+revised-roadmap decision.
+
+Last attempt of a correction: an active correction on its last attempt can be neither released
+(budget) nor withdrawn (started). For derived missions only, `record` therefore accepts a
+`blocked` receipt even when `capabilities.json` changed during the assignment (a `done` receipt
+is still refused; contract tasks are unchanged). If the agent is gone, the coordinator records
+the blocked receipt under the attempt id and assignee of the assignment; the mission's
+`next_action` says so.
 
 Older claims: a claim written by the runtime before this feature has no `assignment`. It stays
-valid for a contract task outside any review family, so old boards keep reading, but `derive`
-refuses a review whose family holds such a claim, because that attempt's agent cannot be
-compared. Revise the board instead.
+valid for a contract task outside any review family, so old boards keep reading. It does not
+block `derive` when its attempt ended with a receipt, because the receipt names the agent: a
+board started with an older runtime and continued with this one can derive. `derive` refuses
+only when a member of the review's family has such a claim whose attempt was released without a
+receipt, because that attempt's agent is unknown. Revise the board instead.
 
 Compatibility: a board becomes unreadable by an older runtime as soon as this version writes its
 first `claim`, even if `derive` is never used, because every new claim event carries
 `assignment`. Install the runtime closure together and do not downgrade a board in use.
 
 `view` lists the correction after the contract tasks with its parent and cause and a timeline of
-every attempt. The roadmap completes only when every contract task is done and no correction is
+every attempt; `status --format text` counts contract tasks and corrections apart and prints one
+`Attempt n:` line per attempt of a correction or of a failed or retried mission. The roadmap completes only when every contract task is done and no correction is
 queued or active. Owner decision D1 chose this correction mission; D2 to D6 are deduced and to be
 confirmed on the PR (see the schema). Labels are unauthenticated assertions: the reviewer ban
 compares labels, it cannot prove two labels are different agents.

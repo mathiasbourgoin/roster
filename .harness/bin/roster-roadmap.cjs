@@ -113,12 +113,13 @@ function next(ctx) {
 }
 function taskProgress(ctx, task) {
   const current = ctx.state.tasks[task.id], exhausted = !["active", "done", "withdrawn"].includes(current.status) && current.attempts >= task.policy.max_attempts;
-  const advice = derived.releaseAdvice(task.id, ctx.state.tasks, ctx.state.receipts, derived.entries(ctx));
+  const advice = derived.liveAdvice(ctx, task.id), lastAttempt = derived.lastAttemptAdvice(task, current);
   let nextAction;
   if (exhausted) nextAction = "Attempt budget exhausted: preserve failure evidence and request an explicit revised-roadmap decision before further attempts.";
   else if (advice) nextAction = `Release is refused until every blamed dependency has a done correction: ${advice}.`;
   else if (current.status === "withdrawn") nextAction = "Withdrawn correction: kept for history; no further attempt.";
   else if (current.status === "blocked") nextAction = task.policy.on_failure === "retry" ? "Inspect the failure and apply declared recovery, then explicitly reconcile before requeueing." : "Retry is not authorized by policy; request the blocking decision.";
+  else if (lastAttempt) nextAction = lastAttempt;
   else if (current.status === "active") nextAction = "Continue the owned attempt or explicitly reconcile inspected interrupted work.";
   else if (current.status === "done") nextAction = "Keep the accepted receipt and continue toward the global outcome.";
   else nextAction = canClaim(ctx, task) || "Claim the mission using the current revision.";
@@ -170,7 +171,7 @@ function transitionRecord(ctx, options) {
   const task = validateTaskReceipt(ctx, receipt), current = ctx.state.tasks[task.id], assignment = current.assignment;
   if (current.status !== "active" || !assignment) fail("receipt task has no active assignment");
   if (receipt.attempt_id !== assignment.id || receipt.assignee !== assignment.assignee || receipt.contract_digest !== assignment.contract_digest) fail("receipt assignment, assignee or contract mismatch");
-  if (assignment.capabilities_digest !== hash(ctx.capabilities)) fail("capabilities changed during assignment; reconcile before accepting results");
+  if (assignment.capabilities_digest !== hash(ctx.capabilities) && !derived.acceptsStaleCapabilities(task, receipt)) fail("capabilities changed during assignment; reconcile before accepting results");
   if (ctx.state.receipts.some(r => r.attempt_id === receipt.attempt_id)) fail("attempt receipt already recorded");
   ctx.state.receipts.push(receipt); current.status = receipt.result; current.assignment = null;
   current.reason = receipt.result === "blocked" ? receipt.summary : null;
@@ -183,7 +184,7 @@ function transitionRelease(ctx, options) {
   if (!["active", "blocked"].includes(current.status)) fail("only active or blocked work can be reconciled");
   if (task.policy.on_failure !== "retry") fail("task policy does not authorize retry");
   if (current.attempts >= task.policy.max_attempts) fail("attempt budget exhausted; revise the roadmap explicitly");
-  const frozen = derived.releaseRefusal(task.id, ctx.state.tasks, ctx.state.receipts, derived.entries(ctx)); if (frozen) fail(`cannot release ${task.id}: ${frozen}`);
+  const frozen = derived.liveReleaseRefusal(ctx, task.id); if (frozen) fail(`cannot release ${task.id}: ${frozen}`);
   if (require("./roster-recovery.cjs").inspectBoard(ctx, task.id).reframe_needed) fail("three consecutive failures require a diagnosed reframe before requeueing");
   current.status = "queued"; current.assignment = null; current.reason = options.reason;
   return { task_id: task.id, reconciled: true, by: options["reconciled-by"], reason: options.reason };

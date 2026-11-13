@@ -332,8 +332,9 @@ mission and every attempt at its time.
 
 Four owner decisions (Mathias, 13 November 2026) sharpen D2 and D5 and are enforced:
 **fresh context** (« L'important c'est surtout d'utiliser un agent au contexte frais »), over the
-**family of the review**: no assignee may take a correction of a review, or the review's next
-attempt, after appearing on that review, on a mission it blames or on one of their corrections;
+**family of the review**: no assignee may take a correction of a review, or the next attempt of
+any task that depends on a corrected mission, after appearing on that task, on a dependency it
+blames or that has a correction, or on one of their corrections;
 **verified digest**: the `derive` event carries a digest of the definition, recomputed on replay
 (it detects accidental or naive edits only, see below); **strict re-queue**: a failed review
 returns to the queue only when every dependency its latest blocked receipt blames has a done
@@ -361,20 +362,37 @@ never during replay), and no correction for the same parent and cause receipt is
 (`queued`, `active`, or `blocked` with attempts left) or `done`. When every earlier correction
 for that parent and receipt is exhausted (blocked at its budget) or withdrawn, `derive` creates
 `<parent>-fix-<n+1>` with a new budget, still capped by the parent's; the exhausted or withdrawn
-attempts stay in the history. `derive` also refuses, live and on replay, when an earlier claim
-event of a member of the review's family has no `assignment` (written by an older runtime, or the
-field removed): the fresh-context rule could not see that attempt's agent, so the board needs a
-revision instead.
+attempts stay in the history. That repetition is bounded: for one cause receipt and one parent,
+`derive` refuses, live and on replay, once the corrections that were not withdrawn number the
+parent's `policy.max_attempts` (a withdrawn correction never ran and does not count); the way
+forward is then a revised-roadmap decision. So one receipt and dependency get at most parent
+`max_attempts` corrections of at most parent `max_attempts` attempts each. `derive` also refuses,
+live and on replay, when a member of the review's family has a claim event without `assignment`
+(written by an older runtime, or the field removed) whose attempt was released without a receipt:
+the fresh-context rule cannot know that attempt's agent, so the board needs a revision instead.
+Such a claim whose attempt ended with a receipt does not block `derive`, because the receipt names
+the agent.
 
-`withdraw-derived` retires a correction that is still `queued` (for example one whose topology
-became unclaimable after derivation). Only the designated coordinator may run it, and the
-withdrawal file is exactly `{ "reason": "<nonempty, at most 2000 characters>" }`. The task
-state becomes `{ "status": "withdrawn", "reason": "<reason>" }` (attempts unchanged) and one
+`withdraw-derived` retires a correction that is still `queued` and was never claimed (`attempts`
+is 0), for example one whose topology became unclaimable right after derivation. Only the
+designated coordinator may run it, and the withdrawal file is exactly
+`{ "reason": "<nonempty, at most 2000 characters>" }`. The task
+state becomes `{ "status": "withdrawn", "reason": "<reason>" }` (attempts stay 0) and one
 `withdraw-derived` event is appended with `task_id` and `reason`. A withdrawn correction is
 terminal: it cannot be claimed or released, it does not block completion, and it settles its
 parent and receipt so the same receipt can derive again. `withdrawn` is valid only for a derived
 mission; replay refuses it anywhere else, and refuses a `withdraw-derived` event on a contract
-task or on a correction that was not `queued`.
+task or on a correction that was not `queued` or was already claimed. A correction that started
+ends by its receipts and its budget (exhaustion), after which a new derivation is possible. If a
+started, queued correction becomes unclaimable, restore a claimable route in `capabilities.json`
+or request a revised-roadmap decision.
+
+Last attempt after a capabilities change: for a derived mission only, `record` accepts a
+`blocked` receipt even when `capabilities.json` changed during the assignment (a `done` receipt
+is still refused, and contract tasks are unchanged). This is the exit for an active correction on
+its last attempt, which can be neither released (budget) nor withdrawn (started): if its agent is
+gone, the coordinator records the blocked receipt under the attempt id and assignee of the
+assignment. The `next_action` of such a mission says so.
 
 The tool assigns the id `<parent>-fix-<n>` with the smallest `n >= 1` not used by any mission, or
 `fix-<n>` when that would exceed 80 characters. It stores the immutable definition in the optional
@@ -403,28 +421,33 @@ record, release, write-scope overlap, capacity, progress reports, recovery inspe
 operator-request binding treat it as a mission with its own budget.
 
 The **family of a review** C is defined by the links the board records: C, every dependency named
-in the `blames` of any receipt of C, every derived mission whose `cause.task_id` is C (over every
-receipt of C, exhausted and withdrawn corrections included) and their parents. A derived mission
-is on the family of its cause; a review with at least one derived mission is on its own family; a
-contract task that no derived mission names as cause is on no family when claimed. So
-`impl-fix-2`, derived after a second failed review, is on the family of `impl-fix-1`, and
-`lib-fix-1` derived from the same review is on it too.
+in the `blames` of any receipt of C, every dependency of C that has a correction, and every
+correction of those dependencies, whichever review caused it (exhausted and withdrawn corrections
+included). A derived mission is on the family of its cause; a contract task one of whose
+dependencies has a correction is on its own family (Roster cannot tell a review from another
+dependent task, so the rule covers every dependent task); a contract task none of whose
+dependencies has a correction is on no family when claimed. So `impl-fix-2`, derived after a
+second failed review, is on the family of `impl-fix-1`, `lib-fix-1` derived from the same review
+is on it too, and the author of `impl-fix-1` cannot claim a second review `qa` that depends on
+`impl`, even if `qa` never blamed `impl`.
 
 `claim` of a mission on a family refuses any assignee already seen on that family: the
 `assignee` of a receipt, of a claim-event `assignment` or of an active assignment of any family
 member, including earlier attempts of the same derived mission. So a correction is never claimed
 by the implementer of its parent or of another blamed dependency, by the failed reviewer or by an
-earlier fixer of any dependency of that review, and **the review's next attempt after a correction
-also needs an agent new to the family**. Roster compares declared identifiers only: the
+earlier fixer of any dependency of that review, and **the next attempt of a task that depends on
+a corrected mission also needs an agent new to its family**. Roster compares declared identifiers only: the
 coordinator must give each attempt the identifier of a newly launched agent. Replay applies the
 same rule to every claim event against the history before it, and a claim of a mission on a family
 must carry its `assignment`.
 
 Legacy claims: a claim event without `assignment` (written by the runtime before derived
 missions) stays valid for a contract task that is on no family at that point, because older
-boards must keep reading. That exemption no longer reaches derivations: `derive` and its replay
-refuse when any earlier claim of a family member lacks `assignment`, since a released attempt
-without it leaves no identity to compare.
+boards must keep reading. When its attempt ended with a receipt, the receipt names the agent, so
+the identity is known and `derive` proceeds: a board started with an older runtime and continued
+with this one can derive. `derive` and its replay refuse only when a family member has a claim
+without `assignment` whose attempt was released without a receipt, since that attempt leaves no
+identity to compare; the way forward is then a revised board.
 
 A done receipt of a derived mission, when that mission's cause receipt is still the cause's latest
 and every dependency named in its `blames` has a done derived mission created from it, moves the
@@ -434,12 +457,20 @@ the `blames` of its latest blocked receipt has no done correction created from t
 never derived, `queued`, `active`, `blocked`, exhausted or withdrawn alike. There is no
 exception for an exhausted correction. The task's `next_action` names the step for each such
 dependency: `derive a correction for <dependency>`; finish the pending correction (release it if
-blocked with attempts left, withdraw it if queued and unclaimable); or, for an exhausted one,
-derive a new correction for the same receipt or request a revised-roadmap decision. A blocked
+blocked with attempts left, withdraw it if queued and never claimed); or, when no correction
+succeeded, derive a new correction for the same receipt or request a revised-roadmap decision.
+The text lists the exhausted and withdrawn corrections of that dependency, for example
+`(impl-fix-1 exhausted, impl-fix-2 withdrawn)`. On a live board `next_action` and the `release`
+refusal follow the real preconditions of `derive`: when a derivation would be refused (the
+review's policy is not `retry`, its budget is exhausted, it needs a recovery reframe, the limit
+on corrections per receipt and dependency is reached, or an identity is unknown because of a
+legacy claim) the text says `no correction can be derived for <dependency>: <reason and way
+forward>` instead of advising `derive`. A blocked
 receipt without `blames` keeps the usual release rules. Derive one correction per blamed
 dependency, in any order, while the review is blocked; once the review is requeued, a further
 derive from that receipt refuses (the review is no longer blocked). The review's own budget bounds
-its blocked receipts, and each parent's budget bounds every correction.
+its blocked receipts, each parent's budget bounds every correction, and the parent's
+`max_attempts` bounds the corrections derived for one receipt and dependency.
 
 New `claim` events carry an optional `assignment` = `{id, assignee, runtime, route, model}`
 copied from the assignment the claim created; no other event may carry it, and a claim of a

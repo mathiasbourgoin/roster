@@ -118,8 +118,8 @@ test("AC-4/EC-3 OD-3 strict: the review release is refused while its correction 
   unchanged(f, () => release(f, "review"), /finish correction impl-fix-1 of impl/);
   record(f, receipt(f, "impl-fix-1", "blocked"));
   assert.equal(state(f).tasks.review.status, "blocked");
-  unchanged(f, () => release(f, "review"), /correction impl-fix-1 of impl is exhausted: derive a new correction for impl/);
-  assert.match(core.main(["status", f.board]).tasks.find(x => x.id === "review").next_action, /impl-fix-1 of impl is exhausted: derive a new correction for impl/);
+  unchanged(f, () => release(f, "review"), /no correction of impl succeeded \(impl-fix-1 exhausted\): derive a new correction for impl/);
+  assert.match(core.main(["status", f.board]).tasks.find(x => x.id === "review").next_action, /no correction of impl succeeded \(impl-fix-1 exhausted\): derive a new correction for impl/);
 });
 
 test("EC-1 two blamed dependencies: one derive per parent and the review requeues when both are done", t => {
@@ -273,7 +273,7 @@ test("FR-007 OD-3: an exhausted correction keeps the review blocked until a new 
   finish(f, "impl-fix-1", "blocked", "fixer");
   assert.equal(finish(f, "lib-fix-1", "done", "fixer2").requeued, undefined);
   assert.equal(state(f).tasks.review.status, "blocked");
-  unchanged(f, () => release(f, "review"), /correction impl-fix-1 of impl is exhausted: derive a new correction for impl from the same receipt/); // OD-3 strict
+  unchanged(f, () => release(f, "review"), /no correction of impl succeeded \(impl-fix-1 exhausted\): derive a new correction for impl from the same receipt/); // OD-3 strict
   assert.equal(derive(f).task_id, "impl-fix-2"); // B-exhaustion: same receipt, new budget
   assert.equal(finish(f, "impl-fix-2", "done", "fixer3").requeued, "review");
   assert.deepEqual(state(f).tasks.review, { status: "queued", attempts: 1, assignment: null, reason: "corrections done: lib-fix-1, impl-fix-2" });
@@ -300,13 +300,32 @@ test("FR-020 owner decision 1: claim refuses every assignee already seen on the 
   assert.equal(state(f).tasks.review.assignment.assignee, "rev2");
 });
 
-test("FR-020 owner decision 1: a chain is one parent and one review; another review starts with no chain", t => {
-  const f = setup(t, [task("impl"), task("review", ["impl"]), task("audit", ["impl"])]);
+test("FR-020 review family: a second review of a corrected dependency refuses the author of its correction", t => {
+  const f = setup(t, [task("impl"), task("review", ["impl"]), task("qa", ["impl"])]);
   finish(f, "impl", "done", "dev");
   finish(f, "review", "blocked", "rev1", { blames: ["impl"] }); derive(f);
-  finish(f, "audit", "done", "fixer"); // audit is not on the impl/review chain until it derives
-  unchanged(f, () => claim(f, "impl-fix-1", "dev"), /assignee dev already appeared on the correction chain of impl-fix-1/);
-  claim(f, "impl-fix-1", "fixer"); // the audit agent never appeared on this chain
+  finish(f, "impl-fix-1", "done", "fixer");
+  // qa never blamed impl, but impl has a correction: its author would validate its own work.
+  unchanged(f, () => claim(f, "qa", "fixer"), /assignee fixer already appeared on the correction chain of qa \(review family: qa, impl, impl-fix-1\)/);
+  unchanged(f, () => claim(f, "qa", "dev"), /assignee dev already appeared on the correction chain of qa/);
+  finish(f, "qa", "done", "qa1");
+  tampered(f, s => {
+    s.events.find(e => e.action === "claim" && e.task_id === "qa").assignment.assignee = "fixer";
+    s.receipts.find(r => r.task_id === "qa").assignee = "fixer";
+  }, /illegal claim history for qa: assignee fixer already appeared on the correction chain/);
+});
+
+test("FR-020 review family: a correction caused by another review is on the family", t => {
+  const f = setup(t, [task("impl"), task("review", ["impl"]), task("qa", ["impl"])]);
+  finish(f, "impl", "done", "dev");
+  finish(f, "review", "blocked", "rev1", { blames: ["impl"] }); derive(f);
+  finish(f, "impl-fix-1", "done", "fixer");
+  finish(f, "qa", "blocked", "qa1", { blames: ["impl"] });
+  assert.equal(derive(f, { cause: "qa" }).task_id, "impl-fix-2");
+  unchanged(f, () => claim(f, "impl-fix-2", "fixer"), /assignee fixer already appeared on the correction chain of impl-fix-2 \(review family: qa, impl, impl-fix-1, impl-fix-2\)/);
+  assert.equal(finish(f, "impl-fix-2", "done", "fixer2").requeued, "qa");
+  // The first review now has two corrections of impl on its family, whichever review caused them.
+  unchanged(f, () => claim(f, "review", "fixer2"), /assignee fixer2 already appeared on the correction chain of review/);
 });
 
 for (const [label, change, pattern] of [

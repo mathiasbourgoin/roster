@@ -219,17 +219,30 @@ runtime/model/role from the escalation ladder, with a budget no larger than the 
 assigns `<parent>-fix-<n>`; claim, verify and record it like any mission (it inherits the
 parent's scope and checks). `derive` refuses a topology no route can claim now. Fresh context
 (owner decision, 13 November 2026): launch a new agent for every attempt on the review's family
-(the review, every dependency it blames and all their corrections); `claim` and replay refuse an
-assignee already seen there, so never reuse an implementer, the failed reviewer or any earlier
-fixer, and the review's next attempt after a correction needs a new agent too. Strict re-queue
+(the review, every dependency it blames or that has a correction, and all their corrections,
+whichever review caused them); `claim` and replay refuse an assignee already seen there, so never
+reuse an implementer, the failed reviewer or any earlier fixer. The rule covers every task one of
+whose dependencies has a correction: its next attempt needs a new agent too, so the author of
+`impl-fix-1` cannot claim a second review `qa` of `impl`, even if `qa` never blamed it. Strict re-queue
 (owner decision): `release` of the review is refused until every dependency its latest blocked
 receipt blames has a done correction, with no exception for an exhausted one; it then requeues
 automatically. Follow its `next_action`: derive one correction per blamed dependency, in any
 order; if one exhausts its budget, derive `<parent>-fix-<n+1>` from the same receipt or request a
-revised-roadmap decision. Retire a queued correction that cannot be claimed with
+revised-roadmap decision. `derive` refuses once the corrections that were not withdrawn, for one
+receipt and dependency, number the parent's `max_attempts`: request a revised-roadmap decision.
+When `next_action` or the `release` refusal says `no correction can be derived for <dependency>:
+<reason>`, follow the way forward it names instead of running `derive`. Retire a queued
+correction that was never claimed and cannot be claimed with
 `withdraw-derived <board> --coordinator <id> --revision <n> --task <fix> --withdrawal <file>`
-(`{"reason": "..."}`). `derive` refuses a review whose family holds a claim without `assignment`
-(written by an older runtime): revise the board. The `derive` event carries a digest of the
+(`{"reason": "..."}`). A started correction cannot be withdrawn: it ends by its receipts and
+budget; if it is queued and unclaimable, restore a claimable route in `capabilities.json` or
+request a revised-roadmap decision. An active correction on its last attempt can be neither
+released nor withdrawn: continue it, or, if its agent is gone, record a `blocked` receipt under
+the attempt id and assignee of the assignment (for a correction, `record` accepts a `blocked`
+receipt, never a `done` one, after `capabilities.json` changed). `derive` refuses a review whose
+family holds a claim without `assignment` (written by an older runtime) whose attempt was
+released without a receipt: revise the board; such a claim that ended with a receipt does not
+block `derive`. The `derive` event carries a digest of the
 definition that catches accidental edits, not a deliberate rewrite of `state.json`; never edit
 `state.derived` by hand. A board is unreadable by an older runtime after this version's first
 `claim`, even without `derive`. Completion needs no correction queued or active.
