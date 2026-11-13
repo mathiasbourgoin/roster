@@ -1,0 +1,16 @@
+npm notice run roster@1.2.0 check:catalog-sync
+npm notice run npm run build:ts && node dist/scripts/check-catalog-sync.js
+npm notice run roster@1.2.0 build:ts
+npm notice run tsc -p tsconfig.json
+✓ catalog-sync: AGENTS.md and docs/agents.md match 27 agents, 42 skills, 8 rules
+✓ pipeline-install: recruiter install-list matches 22 skill(s) on disk.
+✓ pipeline-install: 8 roster-managed Codex agent TOML(s) carry name/description/developer_instructions.
+✓ pipeline-install: plugin marketplace + plugin manifests are valid.
+✓ pipeline-install: durable-state LEDGER_SCHEMA is identical in roster-run + roster-doctor.
+✓ pipeline-install: install.sh installs the rendered recruit skill/command (name: recruit).
+✓ pipeline-install: 4 pipeline gate script(s) present and referenced.
+✓ pipeline-install: review bundle manifest matches disk (46 file(s), no closure escape).
+✓ pipeline-install: schema/review-finding.schema.json present and require()'d by its consumer(s).
+✓ harness-sync: all runtime projections match the .harness source.
+✓ skill-manifest: layers.skills is current (45 skills).
+✓ review-bundle-manifest: manifest is current.
