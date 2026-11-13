@@ -53,14 +53,14 @@ function validateState(state) {
 }
 function replayClaim(ctx, task, current, event, replay, history) {
   if (current.status !== "queued" || current.attempts >= task.policy.max_attempts) fail(`illegal claim history for ${task.id}`);
-  if (task.depends_on.some(id => replay[id].status !== "done")) fail(`claim history has unmet dependencies for ${task.id}`);
+  if (task.depends_on.some(id => replay[id].status !== "done") || derived.frozenDependencies(task, replay, history.known).length) fail(`claim history has unmet dependencies for ${task.id}`);
   derived.checkClaimPayload(ctx, task, event, history);
   current.attempts++; current.status = "active"; current.reason = null; current.payload = event.assignment || null;
 }
-function replayRecord(ctx, task, current, replay, history) {
+function replayRecord(ctx, task, current, event, replay, history) {
   const receipt = ctx.state.receipts[history.receiptIndex.value++];
   if (current.status !== "active" || !receipt || receipt.task_id !== task.id || !["done", "blocked"].includes(receipt.result)) fail(`receipt/event history mismatch for ${task.id}`);
-  derived.checkReceiptPayload(task, current.payload, receipt);
+  derived.checkReceiptPayload(ctx, task, current.payload, receipt, event, history, replay);
   current.status = receipt.result; current.reason = receipt.result === "blocked" ? receipt.summary : null; current.payload = null;
   derived.applyRequeue(task, receipt, replay, ctx.state.receipts.slice(0, history.receiptIndex.value), history.known);
 }
@@ -79,7 +79,7 @@ function replayTaskEvent(ctx, event, replay, receiptIndex, known = []) {
   const task = core().taskById(ctx, event.task_id), current = replay[task.id];
   if (!current) fail(`history references ${task.id} before its derive event`);
   if (event.action === "claim") replayClaim(ctx, task, current, event, replay, history);
-  else if (event.action === "record") replayRecord(ctx, task, current, replay, history);
+  else if (event.action === "record") replayRecord(ctx, task, current, event, replay, history);
   else if (event.action === "release") replayRelease(ctx, task, current, event, replay, history);
   else fail(`invalid task history action ${event.action}`);
 }

@@ -113,9 +113,9 @@ test("AC-4/EC-3 OD-3 strict: the review release is refused while its correction 
   const f = blockedReview(t);
   unchanged(f, () => release(f, "review"), /derive a correction for impl/);
   derive(f, { max_attempts: 1 });
-  unchanged(f, () => release(f, "review"), /finish correction impl-fix-1 of impl/);
+  unchanged(f, () => release(f, "review"), /claim correction impl-fix-1 of impl with a newly launched agent/);
   claim(f, "impl-fix-1", "fixer");
-  unchanged(f, () => release(f, "review"), /finish correction impl-fix-1 of impl/);
+  unchanged(f, () => release(f, "review"), /finish the active attempt of correction impl-fix-1 of impl/);
   record(f, receipt(f, "impl-fix-1", "blocked"));
   assert.equal(state(f).tasks.review.status, "blocked");
   unchanged(f, () => release(f, "review"), /no correction of impl succeeded \(impl-fix-1 exhausted\): derive a new correction for impl/);
@@ -130,7 +130,7 @@ test("EC-1 two blamed dependencies: one derive per parent and the review requeue
   assert.equal(derive(f, { parent: "lib" }).task_id, "lib-fix-1");
   finish(f, "impl-fix-1", "done", "fixer");
   assert.equal(state(f).tasks.review.status, "blocked");
-  unchanged(f, () => release(f, "review"), /finish correction lib-fix-1 of lib/);
+  unchanged(f, () => release(f, "review"), /claim correction lib-fix-1 of lib with a newly launched agent/);
   unchanged(f, () => claim(f, "lib-fix-1", "fixer"), /already appeared on the correction chain/); // OD-4: family of the review
   finish(f, "lib-fix-1", "done", "fixer2");
   assert.equal(state(f).tasks.review.reason, "corrections done: impl-fix-1, lib-fix-1");
@@ -142,7 +142,7 @@ test("EC-2 a second blocked review derives impl-fix-2 and the requeue gate uses 
   finish(f, "review", "blocked", "rev2", { blames: ["impl"] });
   assert.equal(derive(f).task_id, "impl-fix-2");
   assert.equal(state(f).derived["impl-fix-2"].cause.assignee, "rev2");
-  unchanged(f, () => release(f, "review"), /finish correction impl-fix-2 of impl/);
+  unchanged(f, () => release(f, "review"), /claim correction impl-fix-2 of impl with a newly launched agent/);
   for (const seen of ["dev", "rev1", "rev2", "fixer"]) unchanged(f, () => claim(f, "impl-fix-2", seen), new RegExp(`assignee ${seen} (already appeared on the correction chain|produced the failed cause receipt)`)); // FR-020: whole family
   claim(f, "impl-fix-2", "fixer2");
   record(f, receipt(f, "impl-fix-2", "done"));
@@ -187,7 +187,7 @@ test("AC-5 a release of the review hidden in history while corrections were pend
   value.revision++; value.events.push({ revision: value.revision, action: "release", coordinator: "lead", task_id: "review", reason: "Sneak", reconciled_by: "lead", at: new Date().toISOString() });
   value.tasks.review = { status: "queued", attempts: 1, assignment: null, reason: "Sneak" };
   write(f.stateFile, value);
-  assert.throws(() => core.main(["status", f.board]), /illegal release history for review: blamed dependencies lack a done correction: finish correction impl-fix-1 of impl/);
+  assert.throws(() => core.main(["status", f.board]), /illegal release history for review: blamed dependencies lack a done correction: claim correction impl-fix-1 of impl with a newly launched agent/);
 });
 
 test("AC-5 replay reproduces derived missions and the review requeue; active payload must match", t => {
@@ -322,7 +322,7 @@ test("FR-020 review family: a correction caused by another review is on the fami
   finish(f, "impl-fix-1", "done", "fixer");
   finish(f, "qa", "blocked", "qa1", { blames: ["impl"] });
   assert.equal(derive(f, { cause: "qa" }).task_id, "impl-fix-2");
-  unchanged(f, () => claim(f, "impl-fix-2", "fixer"), /assignee fixer already appeared on the correction chain of impl-fix-2 \(review family: qa, impl, impl-fix-1, impl-fix-2\)/);
+  unchanged(f, () => claim(f, "impl-fix-2", "fixer"), /assignee fixer already appeared on the correction chain of impl-fix-2 \(review family: qa, impl, impl-fix-1, impl-fix-2, review\)/);
   assert.equal(finish(f, "impl-fix-2", "done", "fixer2").requeued, "qa");
   // The first review now has two corrections of impl on its family, whichever review caused them.
   unchanged(f, () => claim(f, "review", "fixer2"), /assignee fixer2 already appeared on the correction chain of review/);

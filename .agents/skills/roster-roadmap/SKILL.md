@@ -223,13 +223,34 @@ parent's scope and checks). `derive` refuses a topology no route can claim now. 
 whichever review caused them); `claim` and replay refuse an assignee already seen there, so never
 reuse an implementer, the failed reviewer or any earlier fixer. The rule covers every task one of
 whose dependencies has a correction: its next attempt needs a new agent too, so the author of
-`impl-fix-1` cannot claim a second review `qa` of `impl`, even if `qa` never blamed it. Strict re-queue
+`impl-fix-1` cannot claim a second review `qa` of `impl`, even if `qa` never blamed it. For the
+claim of a correction the family also holds every contract task that depends on its parent: an
+agent that holds or held an attempt of `qa` cannot claim a correction of `impl` caused by
+`review`. The rule is checked again when a `done` receipt is recorded, against every other attempt
+of the family; when refused, record a `blocked` receipt or release the attempt and claim with a
+newly launched agent. Frozen until the correction (owner decision OD-5, 13 November 2026): while a
+correction is open (queued, active, or blocked with attempts left; not exhausted or withdrawn),
+its parent counts as unmet for every task that depends on it. `claim` refuses such a task with
+`waiting for dependencies: <dep> (open correction <fix>)` and `next` and `prompt` do not offer it;
+one that is already active cannot record `done` until the correction is done (a `blocked` receipt
+stays allowed). Replay applies the same checks. The freeze starts at `derive`, not at the blaming
+receipt, so derive promptly; an attempt of a dependent started before the correction may record
+`done` after it, if its agent is fresh; an exhausted correction does not freeze dependents.
+Strict re-queue
 (owner decision): `release` of the review is refused until every dependency its latest blocked
 receipt blames has a done correction, with no exception for an exhausted one; it then requeues
 automatically. Follow its `next_action`: derive one correction per blamed dependency, in any
-order; if one exhausts its budget, derive `<parent>-fix-<n+1>` from the same receipt or request a
-revised-roadmap decision. `derive` refuses once the corrections that were not withdrawn, for one
-receipt and dependency, number the parent's `max_attempts`: request a revised-roadmap decision.
+order; for a pending correction it names the one gesture the tool accepts in its state (claim it
+with a newly launched agent, or withdraw it if never claimed and unclaimable; finish its active
+attempt and record the receipt; release it if blocked with attempts left, after a
+`roster-recovery reframe` when it failed three times in a row; restore a claimable route); if one
+exhausts its budget, derive `<parent>-fix-<n+1>` from the same receipt or request a
+revised-roadmap decision (the `next_action` of the exhausted correction points back to the
+review's). `derive` refuses once the corrections that were not withdrawn, for one
+receipt and dependency, number the parent's `max_attempts`, and likewise once the withdrawn ones
+number it (a separate, equal cap: at most 2 x parent `max_attempts` corrections per receipt and
+dependency, and with a parent `max_attempts` of 1 a single withdrawal ends derivation for that
+receipt): request a revised-roadmap decision.
 When `next_action` or the `release` refusal says `no correction can be derived for <dependency>:
 <reason>`, follow the way forward it names instead of running `derive`. Retire a queued
 correction that was never claimed and cannot be claimed with
@@ -239,15 +260,21 @@ budget; if it is queued and unclaimable, restore a claimable route in `capabilit
 request a revised-roadmap decision. An active correction on its last attempt can be neither
 released nor withdrawn: continue it, or, if its agent is gone, record a `blocked` receipt under
 the attempt id and assignee of the assignment (for a correction, `record` accepts a `blocked`
-receipt, never a `done` one, after `capabilities.json` changed). `derive` refuses a review whose
-family holds a claim without `assignment` (written by an older runtime) whose attempt was
+receipt, never a `done` one, after `capabilities.json` changed). That exception is for
+corrections only: a contract review on its last attempt whose `capabilities.json` changed and
+whose agent is gone has one exit, restoring `capabilities.json` to its content at the claim.
+`derive` refuses a correction whose
+family (the dependents of its parent included) holds a claim without `assignment` (written by an
+older runtime) whose attempt was
 released without a receipt: revise the board; such a claim that ended with a receipt does not
-block `derive`. The `derive` event carries a digest of the
+block `derive`, and that attempt is then known only by its receipt's `assignee`. The `derive`
+event carries a digest of the
 definition that catches accidental edits, not a deliberate rewrite of `state.json`; never edit
 `state.derived` by hand. A board is unreadable by an older runtime after this version's first
 `claim`, even without `derive`. Completion needs no correction queued or active.
 Owner decision D1 chose this; D2–D6 are deduced and to be confirmed on the PR. Labels are
-unauthenticated: the rules compare declared identifiers only. Shapes: `.harness/roadmap/schema.md`.
+unauthenticated: the rules compare declared identifiers only, exactly and case included (`Fixer`
+and `fixer` are two agents for the tool). Shapes: `.harness/roadmap/schema.md`.
 
 Diagnose environment, context, spec and ordinary implementation failures before claiming
 a model-capacity shortfall. Red tests do not automatically promote the model; never repeat
