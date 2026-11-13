@@ -174,10 +174,39 @@ if [ "$CHECK" -eq 1 ]; then
             _drift=1
             continue
         fi
-        _all_diff="$( { LC_ALL=C diff -rq -x 'settings.local.json' -x '.roster-version' -x '.git' "$_gen" "$_real" 2>&1 || true; } )"
+        _all_diff=""
         _out=""
         _stale=""
         _unattributed=""
+        # Enumerate overwrite-only flat entries directly: diff quotes names containing
+        # spaces/control characters, so its human-readable lines are not a path protocol.
+        _flat_dirs=""
+        _linked_flat=0
+        case "$_rel" in
+            .claude) _flat_dirs="agents rules" ;;
+            .opencode) _flat_dirs="agents" ;;
+        esac
+        for _flat in $_flat_dirs; do
+            if [ -L "$_real/$_flat" ]; then
+                printf -v _unattributed '%s    %q (symlink directory; not inspected)\n' "$_unattributed" "$_rel/$_flat"
+                _linked_flat=1
+                continue
+            fi
+            # Explicit hidden-name patterns avoid changing the caller's glob options.
+            for _candidate in "$_real/$_flat"/*.md "$_real/$_flat"/.*.md "$_real/$_flat"/.md; do
+                # Include even dangling file links, without inspecting their targets.
+                [ -L "$_candidate" ] || [ -f "$_candidate" ] || continue
+                _name="${_candidate##*/}"
+                [ -e "$_gen/$_flat/$_name" ] || [ -L "$_gen/$_flat/$_name" ] || {
+                    printf -v _unattributed '%s    %q\n' "$_unattributed" "$_rel/$_flat/$_name"
+                }
+            done
+        done
+        # A linked overwrite-only directory is already blocking. Do not let recursive
+        # diff inspect its target; compare the runtime after that conflict is resolved.
+        if [ "$_linked_flat" -eq 0 ]; then
+            _all_diff="$( { LC_ALL=C diff -rq -x 'settings.local.json' -x '.roster-version' -x '.git' "$_gen" "$_real" 2>&1 || true; } )"
+        fi
         if [ -n "$_all_diff" ]; then
             _out="$(printf '%s\n' "$_all_diff" | { grep -v -- "Only in $_real" || true; })"
             # Classify real-only Markdown separately from generated-file drift. Flat files in
@@ -185,24 +214,28 @@ if [ "$CHECK" -eq 1 ]; then
             # not proof that a source was deleted. Nested skill directories may contain companion
             # docs installed by a campaign/extension, so an absent regenerated companion is never
             # evidence that it is stale (and must never produce an `rm` recommendation).
+            # Parse only literal, unquoted prefixes here. Unrecognized diff formatting
+            # cannot establish a cleanup path. Flat overwrite-only entries above never
+            # enter this legacy managed-stale category, even with root metacharacters.
             _stale="$(printf '%s\n' "$_all_diff" \
-                | { grep -- "Only in $_real" || true; } \
-                | sed "s|Only in ${_real}/\(.*\): \(.*\)|\1/\2|" \
-                | awk -F/ -v runtime="$_rel" '
+                | awk -F/ -v runtime="$_rel" -v real="$_real" '
+                    {
+                        prefix = "Only in " real "/"
+                        if (index($0, prefix) != 1) next
+                        relative = substr($0, length(prefix) + 1)
+                        separator = index(relative, ": ")
+                        if (!separator) next
+                        $0 = substr(relative, 1, separator - 1) "/" substr(relative, separator + 2)
+                    }
                     /\.md$/ {
                         companion = ((runtime == ".agents" || runtime == ".opencode") &&
                                      $1 == "skills" && NF == 3 && $3 != "SKILL.md")
-                        if (!companion) print
+                        unattributed = (NF == 2 &&
+                            ((runtime == ".claude" && ($1 == "agents" || $1 == "rules")) ||
+                             (runtime == ".opencode" && $1 == "agents")))
+                        if (!companion && !unattributed) print
                     }
                   ')"
-            _unattributed="$(printf '%s\n' "$_stale" | awk -F/ -v runtime="$_rel" '
-                NF == 2 && ((runtime == ".claude" && ($1 == "agents" || $1 == "rules")) ||
-                            (runtime == ".opencode" && $1 == "agents")) { print }
-            ')"
-            _stale="$(printf '%s\n' "$_stale" | awk -F/ -v runtime="$_rel" '
-                !(NF == 2 && ((runtime == ".claude" && ($1 == "agents" || $1 == "rules")) ||
-                              (runtime == ".opencode" && $1 == "agents"))) && NF { print }
-            ')"
         fi
         if [ -n "$_out" ]; then
             echo "✗ harness-sync: $_rel drifts from .harness source:" >&2
@@ -217,7 +250,7 @@ if [ "$CHECK" -eq 1 ]; then
         fi
         if [ -n "$_unattributed" ]; then
             echo "✗ harness-sync: unattributed extra file(s) in $_rel (local content or projections of removed sources):" >&2
-            printf '%s\n' "$_unattributed" | sed "s|^|    ${_rel}/|" >&2
+            printf '%s' "$_unattributed" >&2
             echo "  These overwrite-only directories preserve user files; ownership is unknown." >&2
             echo "  Review ownership and canonical sources; no removal is recommended." >&2
             echo "  The check remains nonzero until the discrepancy is reconciled." >&2
