@@ -13,6 +13,7 @@ function missionView(ctx, task) {
     dod: task.dod, success: task.success, checks: task.checks, topology: task.topology,
     selected_route: current.assignment?.route || support.routeFor(ctx, task), assignment: current.assignment,
     policy: task.policy, workflow: task.workflow, progress: support.taskProgress(ctx, task),
+    ...(task.derived ? { derived: require("./roster-roadmap-derived.cjs").derivedBlock(ctx, task) } : {}),
   };
 }
 function prompt(ctx, options) {

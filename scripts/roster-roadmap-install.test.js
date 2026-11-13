@@ -8,7 +8,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const RUNTIMES = ["roster-roadmap.cjs", "roster-artifacts.cjs", "roster-recovery.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-roadmap-requests.cjs", "roster-roadmap-requests-view.cjs", "roster-roadmap-validate.cjs", "roster-roadmap-history.cjs", "roster-roadmap-missions.cjs", "roster-roadmap-prompt.cjs", "roster-usage.cjs"];
+const RUNTIMES = ["roster-roadmap.cjs", "roster-artifacts.cjs", "roster-recovery.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-roadmap-requests.cjs", "roster-roadmap-requests-view.cjs", "roster-roadmap-validate.cjs", "roster-roadmap-history.cjs", "roster-roadmap-missions.cjs", "roster-roadmap-prompt.cjs", "roster-roadmap-derived.cjs", "roster-usage.cjs"];
 const RESOURCES = {
   "schema.md": "schema/roadmap-schema.md", "example.json": "examples/roadmap/roadmap.json",
   "capabilities.json": "examples/roadmap/capabilities.json", "model-routing.md": "docs/model-routing.md",

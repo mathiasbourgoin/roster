@@ -11,7 +11,8 @@ const {
   validateContract, validateCapabilities, validateDecision, checkResults, hash,
 } = require("./roster-roadmap-validate.cjs");
 const { validateState, verifyHistory } = require("./roster-roadmap-history.cjs");
-const { missions, missionById } = require("./roster-roadmap-missions.cjs");
+const { missions, missionById, completionReady } = require("./roster-roadmap-missions.cjs");
+const derived = require("./roster-roadmap-derived.cjs");
 const COMMANDS = {
   init: ["id"], lint: [], status: ["format", "events", "task"], next: [], view: ["events", "task"],
   progress: ["task", "attempt", "assignee", "sequence", "update"],
@@ -22,6 +23,7 @@ const COMMANDS = {
   accept: ["coordinator", "revision", "decision"],
   claim: ["coordinator", "revision", "task", "assignee"],
   record: ["coordinator", "revision", "receipt"],
+  derive: ["coordinator", "revision", "request"],
   release: ["coordinator", "revision", "task", "reason", "reconciled-by"],
   complete: ["coordinator", "revision", "receipt"],
 };
@@ -38,6 +40,7 @@ function load(board, strict = true) {
 function requireAccepted(ctx) {
   if (!ctx.state.acceptance) fail("roadmap not accepted; complete the draft and record an explicit decision");
   if (ctx.state.acceptance.contract_digest !== hash(ctx.contract)) fail("accepted contract changed; create a revised board and obtain an explicit decision");
+  derived.validateDefinitions(ctx);
   const expected = missions(ctx).map(t => t.id).sort().join("\n"), actual = Object.keys(ctx.state.tasks).sort().join("\n");
   if (actual !== expected) fail("state task set differs from accepted contract");
   verifyHistory(ctx);
@@ -45,6 +48,7 @@ function requireAccepted(ctx) {
     const current = ctx.state.tasks[task.id];
     if (current.attempts > task.policy.max_attempts) fail(`attempt budget corrupted for ${task.id}`);
     if (current.assignment && (current.assignment.contract_digest !== ctx.state.acceptance.contract_digest || current.assignment.runtime !== task.topology.runtime || ![task.topology.route, ...task.topology.fallbacks].includes(current.assignment.route))) fail(`assignment contract/topology mismatch for ${task.id}`);
+    if (current.assignment && derived.claimRefusal(task, current.assignment.assignee)) fail(`assignment of ${task.id} refused: ${derived.claimRefusal(task, current.assignment.assignee)}`);
     if (current.status === "done" && !ctx.state.receipts.some(r => r.task_id === task.id && r.result === "done" && r.contract_digest === ctx.state.acceptance.contract_digest)) fail(`done task ${task.id} has no receipt`);
   }
   const attempts = new Set();
@@ -56,7 +60,7 @@ function requireAccepted(ctx) {
     const receipt = ctx.state.global_receipt;
     keys(receipt, ["contract_digest", "state_revision", "summary", "evidence", "checks"], "stored global receipt");
     if (receipt.contract_digest !== ctx.state.acceptance.contract_digest || receipt.state_revision !== ctx.state.revision - 1) fail("stored global receipt is stale or mismatched");
-    if (!ctx.contract.tasks.every(t => ctx.state.tasks[t.id].status === "done")) fail("stored global receipt has unfinished tasks");
+    if (!completionReady(ctx)) fail("stored global receipt has unfinished tasks");
     text(receipt.summary, "stored global summary"); strings(receipt.evidence, "stored global evidence", true);
     checkResults(receipt.checks, ctx.contract.global_checks, true);
   }
@@ -103,13 +107,15 @@ function next(ctx) {
   const task = missions(ctx).find(t => !canClaim(ctx, t));
   if (task) return { status: "ready", task, route: routeFor(ctx, task), active, next_action: `Claim ${task.id}, execute using authorized native tools, verify and record its receipt, then continue.` };
   if (active.length) return { status: "active", active, next_action: "Continue or collect the active missions. Reconcile interrupted work explicitly before reassignment." };
-  if (ctx.contract.tasks.every(t => ctx.state.tasks[t.id].status === "done")) return { status: "global-verification-needed", next_action: "Verify the original global success criteria on the integrated result, record a fresh global receipt, then complete." };
+  if (completionReady(ctx)) return { status: "global-verification-needed", next_action: "Verify the original global success criteria on the integrated result, record a fresh global receipt, then complete." };
   return { status: "blocked", blocked: missions(ctx).filter(t => ctx.state.tasks[t.id].status !== "done").map(t => taskProgress(ctx, t)), next_action: "Inspect attempt budgets and preserved failure evidence. Apply only specified recovery/retry policies; exhausted budgets require an explicit roadmap revision/decision. Escalate a precise blocking decision if no authorized progress remains." };
 }
 function taskProgress(ctx, task) {
   const current = ctx.state.tasks[task.id], exhausted = !["active", "done"].includes(current.status) && current.attempts >= task.policy.max_attempts;
+  const frozen = current.status === "blocked" ? derived.releaseRefusal(task.id, ctx.state.tasks, ctx.state.receipts, derived.entries(ctx)) : null;
   let nextAction;
   if (exhausted) nextAction = "Attempt budget exhausted: preserve failure evidence and request an explicit revised-roadmap decision before further attempts.";
+  else if (frozen) nextAction = `Wait for the derived correction missions: ${frozen}.`;
   else if (current.status === "blocked") nextAction = task.policy.on_failure === "retry" ? "Inspect the failure and apply declared recovery, then explicitly reconcile before requeueing." : "Retry is not authorized by policy; request the blocking decision.";
   else if (current.status === "active") nextAction = "Continue the owned attempt or explicitly reconcile inspected interrupted work.";
   else if (current.status === "done") nextAction = "Keep the accepted receipt and continue toward the global outcome.";
@@ -129,7 +135,7 @@ function taskById(ctx, id) {
   if (!task) fail(`unknown task ${id}`); return task;
 }
 function validateTaskReceipt(ctx, receipt) {
-  keys(receipt, ["task_id", "attempt_id", "assignee", "contract_digest", "result", "summary", "evidence", "changed_files", "checks"], "receipt");
+  keys(receipt, ["task_id", "attempt_id", "assignee", "contract_digest", "result", "summary", "evidence", "changed_files", "checks", "blames"], "receipt");
   const task = taskById(ctx, receipt.task_id);
   text(receipt.attempt_id, "receipt.attempt_id"); identifier(receipt.assignee, "receipt.assignee");
   if (receipt.contract_digest !== ctx.state.acceptance.contract_digest) fail("receipt contract mismatch");
@@ -139,7 +145,7 @@ function validateTaskReceipt(ctx, receipt) {
     relative(file, "changed file", false);
     if (!task.allowed_files.some(scope => scope === file || scope.endsWith("/") && file.startsWith(scope))) fail(`reported write outside allowed_files: ${file}`);
   }
-  checkResults(receipt.checks, task.checks, receipt.result === "done"); return task;
+  checkResults(receipt.checks, task.checks, receipt.result === "done"); derived.validateReceiptLinks(receipt, task); return task;
 }
 function transitionAccept(ctx, options) {
   const { state, contract } = ctx;
@@ -152,7 +158,7 @@ function transitionAccept(ctx, options) {
 }
 function transitionClaim(ctx, options) {
   const task = taskById(ctx, required(options, "task")); identifier(options.assignee, "--assignee");
-  const reason = canClaim(ctx, task); if (reason) fail(`cannot claim ${task.id}: ${reason}`);
+  const reason = canClaim(ctx, task) || derived.claimRefusal(task, options.assignee); if (reason) fail(`cannot claim ${task.id}: ${reason}`);
   const current = ctx.state.tasks[task.id]; current.status = "active"; current.attempts++; current.reason = null;
   current.assignment = { id: crypto.randomUUID(), assignee: options.assignee, contract_digest: hash(ctx.contract), capabilities_digest: hash(ctx.capabilities), route: routeFor(ctx, task), runtime: task.topology.runtime };
   return { task_id: task.id, assignment: current.assignment };
@@ -166,7 +172,8 @@ function transitionRecord(ctx, options) {
   if (ctx.state.receipts.some(r => r.attempt_id === receipt.attempt_id)) fail("attempt receipt already recorded");
   ctx.state.receipts.push(receipt); current.status = receipt.result; current.assignment = null;
   current.reason = receipt.result === "blocked" ? receipt.summary : null;
-  return { task_id: task.id, result: receipt.result, continue: true };
+  const requeued = derived.applyRequeue(task, receipt, ctx.state.tasks, ctx.state.receipts, derived.entries(ctx));
+  return { task_id: task.id, result: receipt.result, ...(requeued ? { requeued } : {}), continue: true };
 }
 function transitionRelease(ctx, options) {
   const task = taskById(ctx, required(options, "task")), current = ctx.state.tasks[task.id];
@@ -174,13 +181,14 @@ function transitionRelease(ctx, options) {
   if (!["active", "blocked"].includes(current.status)) fail("only active or blocked work can be reconciled");
   if (task.policy.on_failure !== "retry") fail("task policy does not authorize retry");
   if (current.attempts >= task.policy.max_attempts) fail("attempt budget exhausted; revise the roadmap explicitly");
+  const frozen = derived.releaseRefusal(task.id, ctx.state.tasks, ctx.state.receipts, derived.entries(ctx)); if (frozen) fail(`cannot release ${task.id}: ${frozen}`);
   if (require("./roster-recovery.cjs").inspectBoard(ctx, task.id).reframe_needed) fail("three consecutive failures require a diagnosed reframe before requeueing");
   current.status = "queued"; current.assignment = null; current.reason = options.reason;
   return { task_id: task.id, reconciled: true, by: options["reconciled-by"], reason: options.reason };
 }
 function transitionComplete(ctx, options) {
   const { state, contract } = ctx;
-  if (!contract.tasks.every(t => state.tasks[t.id].status === "done")) fail("global completion requires every task done");
+  if (!completionReady(ctx)) fail("global completion requires every contract task done and no derived mission queued or active");
   const receipt = readJSON(required(options, "receipt"));
   keys(receipt, ["contract_digest", "state_revision", "summary", "evidence", "checks"], "global receipt");
   if (receipt.contract_digest !== hash(contract)) fail("global receipt contract mismatch");
@@ -189,11 +197,13 @@ function transitionComplete(ctx, options) {
   checkResults(receipt.checks, contract.global_checks, true); state.global_receipt = receipt;
   return { complete: true, summary: receipt.summary };
 }
-const TRANSITIONS = { accept: transitionAccept, claim: transitionClaim, record: transitionRecord, release: transitionRelease, complete: transitionComplete };
+const TRANSITIONS = { accept: transitionAccept, claim: transitionClaim, record: transitionRecord, release: transitionRelease, complete: transitionComplete, derive: derived.transitionDerive };
 function persistTransition(ctx, command, options, result) {
   const { state, board } = ctx;
   state.revision++;
-  state.events.push({ revision: state.revision, action: command, coordinator: options.coordinator, task_id: options.task || result?.task_id || null, reason: options.reason || null, reconciled_by: options["reconciled-by"] || null, at: new Date().toISOString() });
+  const event = { revision: state.revision, action: command, coordinator: options.coordinator, task_id: options.task || result?.task_id || null, reason: options.reason || null, reconciled_by: options["reconciled-by"] || null, at: new Date().toISOString() };
+  if (command === "claim") event.assignment = derived.claimPayload(result.assignment, taskById(ctx, result.task_id));
+  state.events.push(event);
   validateState(state); requireAccepted(ctx); atomicWrite(path.join(board, "state.json"), state);
   return { ...result, revision: state.revision };
 }
@@ -231,7 +241,7 @@ function init(board, options) {
 function main(argv) {
   if (argv.length === 1 && ["--help", "help"].includes(argv[0])) return { usage: "roster-roadmap.cjs <command> <board-dir> [options]", commands: COMMANDS, assurance: "Artifact coordination only; no agent/check execution. Source reference: schema/roadmap-schema.md; installed reference: .harness/roadmap/schema.md." };
   const [command, boardArg, ...args] = argv;
-  if (!Object.hasOwn(COMMANDS, command) || !boardArg || boardArg.startsWith("--")) fail("usage: roster-roadmap.cjs <init|lint|accept|status|view|progress|estimate|request-open|request-answer|request-withdraw|request-journal|next|prompt|claim|record|release|complete> <board-dir> [options]");
+  if (!Object.hasOwn(COMMANDS, command) || !boardArg || boardArg.startsWith("--")) fail("usage: roster-roadmap.cjs <init|lint|accept|status|view|progress|estimate|request-open|request-answer|request-withdraw|request-journal|next|prompt|claim|record|release|derive|complete> <board-dir> [options]");
   const options = {};
   for (let i = 0; i < args.length; i += 2) {
     if (!args[i].startsWith("--") || args[i + 1] === undefined) fail("options require --name value pairs");
@@ -244,7 +254,7 @@ function main(argv) {
   if (command === "progress") return require("./roster-roadmap-view.cjs").update(board, options);
   if (command === "estimate") return require("./roster-roadmap-estimates.cjs").update(board, options);
   if (command.startsWith("request-")) return require("./roster-roadmap-requests.cjs").command(board, command, options);
-  if (["accept", "claim", "record", "release", "complete"].includes(command)) return mutate(board, command, options);
+  if (["accept", "claim", "record", "release", "derive", "complete"].includes(command)) return mutate(board, command, options);
   const ctx = load(board, !["status", "view"].includes(command));
   if (command === "lint") return { valid: true, contract_digest: hash(ctx.contract), capability_digest: hash(ctx.capabilities), note: "Structural coherence only; semantic contradictions still require agent review." };
   if (command === "view") return require("./roster-roadmap-view.cjs").snapshot(ctx, options);

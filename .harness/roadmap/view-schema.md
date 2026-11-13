@@ -112,3 +112,31 @@ in `requests-schema.md` (source: `schema/roadmap-requests-schema.md`). The block
   `Waiting on: requests annex invalid — <reason>`. Strings are cleaned of control,
   bidirectional and invisible characters; render them as inert text. Labels are
   unauthenticated assertions; answers must never carry secrets.
+
+## Derived missions and attempt timeline
+
+`tasks` lists the contract tasks, then derived correction missions in creation order (see
+`schema.md`, "Derived correction missions"). Every item carries the fields below; the schema
+declares them without requiring them, so earlier saved views still validate.
+
+- `kind` is `contract` or `derived`.
+- `derived` is `{parent, cause: {task_id, attempt_id, assignee}, created_at}` for a derived
+  mission (`created_at` is the `derive` event time or `null`) and `null` for a contract task.
+- `corrections` lists the derived mission IDs created for a contract task; it is `[]` on a
+  derived mission. A corrected implementation stays `done`.
+- `timeline` lists one entry per attempt in claim order:
+  `{attempt, attempt_id, assignee, runtime, route, model, claimed_at, ended_at, outcome}`.
+  Attempt `n` is the mission's `n`-th claim. It ends at the next record (`outcome` is the
+  receipt result, `done` or `blocked`) or at a release of the active assignment (`released`);
+  a later release of a blocked mission is not an attempt. An open attempt is `active` with
+  `ended_at: null`. `attempt_id`, `assignee`, `runtime`, `route` and `model` come from the claim
+  event's optional `assignment` (the receipt supplies `attempt_id` and `assignee` when the claim
+  event has none); a released attempt takes its `attempt_id` from the claim event, else `null`.
+  Times are the events' `at`, else `null`; never infer them.
+
+`completion.tasks_done/tasks_total` count contract tasks only; `completion.derived_done` and
+`derived_total` count derived missions. `counts` covers every mission. While a derived mission
+is `queued` or `active`, `estimates.tasks_eta` and `global_eta` are `unknown` with a reason
+naming it; estimates files never hold derived IDs. `status --format text` prints each derived
+mission with its parent and cause, a `Corrections:` row on the corrected task and a
+`corrections done/total` count on the `Tasks:` line. View `schema_version` stays 1.

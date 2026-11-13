@@ -46,7 +46,7 @@
     "test:review-bundle": "node --test scripts/review-bundle-install.test.js",
     "test:claims": "node scripts/claims-reconcile-check.js all",
     "check:cost-shape": "npm run build:ts && node dist/scripts/check-cost-shape.js",
-    "test:roadmap": "node --test scripts/roster-roadmap.test.js scripts/roster-roadmap-view.test.js scripts/roster-roadmap-estimates.test.js scripts/roster-roadmap-requests.test.js scripts/roster-roadmap-requests-view.test.js scripts/roster-roadmap-install.test.js",
+    "test:roadmap": "node --test scripts/roster-roadmap.test.js scripts/roster-roadmap-view.test.js scripts/roster-roadmap-estimates.test.js scripts/roster-roadmap-requests.test.js scripts/roster-roadmap-requests-view.test.js scripts/roster-roadmap-install.test.js scripts/roster-roadmap-derived.test.js scripts/roster-roadmap-derived-view.test.js",
     "test:usage": "node --test scripts/roster-usage.test.js",
     "test:recovery": "node --test scripts/roster-recovery.test.js"
   },

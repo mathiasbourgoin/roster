@@ -8,6 +8,13 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
 
 ### Added
 
+- `/roster-roadmap` 1.4.0 records derived correction missions: a blocked review receipt may
+  blame a direct dependency (`blames`), and `derive` creates `<parent>-fix-<n>` in
+  `state.derived` with its own topology, claims, receipts and budget. The implementation stays
+  `done`; the failed reviewer cannot claim the correction; the review is frozen, then requeued
+  automatically when its corrections are done. Replay verifies derive events and the new
+  optional claim-event `assignment`; `view` adds `kind`, `derived`, `corrections` and a per-attempt
+  `timeline`. Owner decision D1; D2–D6 deduced, to be confirmed. Labels stay unauthenticated.
 - `/roster-roadmap` 1.3.0 records what the coordinator waits for from the human operator in the
   advisory annex `requests.json` (`request-open`, `request-answer`, `request-withdraw`,
   `request-journal`), shown in `view`, `status --format text` and `prompt`. Requests are
