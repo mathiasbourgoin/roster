@@ -56,6 +56,9 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
 
 ### Fixed
 
+- **Safe projection diagnostics**: unexplained flat agent/rule files remain blocking,
+  but are identified as local content or old projections without removal commands.
+  Spaces, punctuation and symlink entries remain visible; managed drift checks are preserved.
 - **Channel-aware update checks**: follow the installed stable/next marker, recognize
   development suffixes on next and retain the selected channel during upgrade/changelog
   retrieval. Explicit branch pins are not silently switched to a release channel.
