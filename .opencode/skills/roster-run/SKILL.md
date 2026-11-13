@@ -368,7 +368,7 @@ on both the fresh-detection path and the Step 3 resume edge — invoke the mecha
 verification and persisted results at verdict time):
 
 ```bash
-node scripts/check-review-convergence.js briefs/<task>-review.json --static
+node scripts/check-review-convergence.cjs briefs/<task>-review.json --static
 ```
 
 - Exit 0 → apply the table below normally.
@@ -401,7 +401,7 @@ either `qa` row above — on both fresh detection and Step 3 resume — invoke t
 `--static` mode exists for it; unlike the review gate, it has no red/green machinery to skip):
 
 ```bash
-node scripts/check-qa-convergence.js briefs/<task>-qa-state.json --max-rounds <tunables.max_qa_rounds>
+node scripts/check-qa-convergence.cjs briefs/<task>-qa-state.json --max-rounds <tunables.max_qa_rounds>
 ```
 
 - Exit 0 → apply the `qa` rows normally.
@@ -411,7 +411,7 @@ node scripts/check-qa-convergence.js briefs/<task>-qa-state.json --max-rounds <t
 
 **Superseded residual (FR-032, see specs/pipeline-loop-convergence.md's amendment):** the
 review-GO → QA-NO-GO → implement loop is now bounded by `specs/qa-loop-bounding.md` —
-`scripts/check-qa-convergence.js` + the round state above. The review-side gate still MUST NOT
+`scripts/check-qa-convergence.cjs` + the round state above. The review-side gate still MUST NOT
 attempt to bound the QA loop; that is out of its scope by design.
 
 **Exception — critical E0 path (single authoritative statement):** on `review` GO, if

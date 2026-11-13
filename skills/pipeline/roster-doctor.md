@@ -74,7 +74,7 @@ Report each as ✓ / ✗ / absent. `gh` absent is a warning (only `/roster-ship`
 **Review-tool bundle (detailed report; the gate itself lives in Section 2 — F-3).**
 
 ```bash
-[ -f scripts/review-bundle-verify.js ] && node scripts/review-bundle-verify.js || echo "review bundle: portable verifier absent or reported problems (see Section 2)"
+[ -f scripts/review-bundle-verify.cjs ] && node scripts/review-bundle-verify.cjs || echo "review bundle: portable verifier absent or reported problems (see Section 2)"
 ```
 
 Print the verifier's summary or exact integrity errors. FR-157/158: if `git ls-files` shows any of
@@ -244,7 +244,7 @@ disagreement between the two is a drift warning, and the stricter (max) requirem
 ```bash
 req=$(grep -h '^requires_review_bundle:' .claude/commands/roster-review.md .agents/skills/roster-review/SKILL.md 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' | sort -Vr | head -1)
 if [ -n "$req" ]; then
-  if [ -f scripts/review-bundle-verify.js ]; then node scripts/review-bundle-verify.js; ok=$?
+  if [ -f scripts/review-bundle-verify.cjs ]; then node scripts/review-bundle-verify.cjs; ok=$?
   else ok=1
   fi
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 && \

@@ -12,7 +12,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const { buildManifest, computeBundlePaths, sha256 } = require("./review-bundle-manifest");
+const { buildManifest, computeBundlePaths, portableArtifacts, checkPortableArtifacts, sha256 } = require("./review-bundle-manifest");
 const {
   checkFilesPresentAndSha,
   checkClosureEscape,
@@ -24,18 +24,17 @@ const ROOT = path.resolve(__dirname, "..");
 
 // ── Generator: closure shape (FR-124) ───────────────────────────────────────
 
-test("generator: closure includes review and QA gates, portable verifier, module scope and contract docs", () => {
+test("generator: closure includes legacy and portable tools without a consumer module scope", () => {
   const manifest = buildManifest(null);
-  assert.equal(manifest.files.length, 29);
+  assert.equal(manifest.files.length, 46);
   const wrapper = manifest.files.find((f) => f.path === "scripts/xruntime-exec.sh");
   assert.ok(wrapper, "wrapper must be in the closure");
   assert.equal(wrapper.shared, true);
   const snapshot = manifest.files.find((f) => f.path === "scripts/lib/git-tree-snapshot.js");
   assert.ok(snapshot);
   assert.equal(snapshot.shared, true);
-  const moduleScope = manifest.files.find((f) => f.path === "scripts/package.json");
-  assert.ok(moduleScope, "the CommonJS package boundary must be in the bundle");
-  assert.equal(moduleScope.shared, true);
+  assert.equal(manifest.files.some((f) => f.path === "scripts/package.json"), false);
+  assert.equal(manifest.files.filter((f) => f.path.endsWith(".cjs")).length, 18);
   const doc = manifest.files.find((f) => f.path === "scripts/REVIEW-BUNDLE.md");
   assert.ok(doc, "the consumer doc must be in the manifest");
   assert.equal(doc.kind, "doc");
@@ -49,6 +48,38 @@ test("generator: closure includes review and QA gates, portable verifier, module
   assert.ok(!manifest.files.some((f) => f.path === "scripts/review-bundle.manifest.json"), "manifest must never self-list");
   assert.equal(manifest.schema_version, "1.0");
   assert.equal(manifest.bundle_version, "1.0.0"); // default when no existing manifest supplied
+});
+
+test("portable copies are fresh and alter only known managed relative requires", () => {
+  assert.deepEqual(checkPortableArtifacts(ROOT), []);
+  for (const f of portableArtifacts(ROOT)) {
+    assert.ok(f.path.endsWith(".cjs"));
+    const source = fs.readFileSync(path.join(ROOT, f.source), "utf8");
+    assert.equal(f.content.replace(/require\((["'])(\.[^"']+)\.cjs\1\)/g, (_, q, p) => `require(${q}${p}${q})`),
+      source.replace(/require\((["'])(\.[^"']+)\.js\1\)/g, (_, q, p) => `require(${q}${p}${q})`));
+  }
+});
+
+test("portable dependency escape is checked independently of the legacy closure", () => {
+  const manifest = buildManifest(null);
+  manifest.files = manifest.files.filter((f) => f.path !== "scripts/lib/review/review-lifecycle.cjs");
+  assert.match(checkClosureEscape(ROOT, manifest).join("\n"), /review-lifecycle\.cjs/);
+});
+
+test("portable freshness rejects a modified or missing generated counterpart", (t) => {
+  const target=fs.mkdtempSync(path.join(os.tmpdir(),"portable-freshness-"));
+  t.after(()=>fs.rmSync(target,{recursive:true,force:true}));
+  for(const f of buildManifest(null).files){
+    const output=path.join(target,f.path);
+    fs.mkdirSync(path.dirname(output),{recursive:true});
+    fs.copyFileSync(path.join(ROOT,f.path),output);
+  }
+  assert.deepEqual(checkPortableArtifacts(target),[]);
+  const relative="scripts/review-normalize.cjs",file=path.join(target,relative);
+  fs.appendFileSync(file,"\n// unexpected generated edit\n");
+  assert.deepEqual(checkPortableArtifacts(target),[relative]);
+  fs.unlinkSync(file);
+  assert.deepEqual(checkPortableArtifacts(target),[relative]);
 });
 
 test("generator: preserves bundle_version/channel/source_ref from an existing manifest", () => {

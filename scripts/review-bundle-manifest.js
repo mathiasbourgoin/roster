@@ -20,7 +20,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { computeClosure } = require("./lib/bundle/review-bundle-closure");
+const { computeClosure, resolveModule } = require("./lib/bundle/review-bundle-closure");
 
 const ROOT = path.resolve(__dirname, "..");
 const MANIFEST_PATH = path.resolve(ROOT, "scripts", "review-bundle.manifest.json");
@@ -39,10 +39,8 @@ const DOC_REL = "scripts/REVIEW-BUNDLE.md";
 // Consumer-local integrity check. Lifecycle ownership remains external in
 // review-bundle-install.sh; only this zero-dependency verifier ships in the bundle.
 const VERIFIER_REL = "scripts/review-bundle-verify.js";
-// Installed .js tools retain CommonJS semantics under a consumer's ESM root.
-// Shared with consumer scripts: retain the boundary when the bundle is removed.
-// Collision protection and SHA verification still apply normally.
-const MODULE_SCOPE_REL = "scripts/package.json";
+// Keep canonical/legacy .js paths; portable copies have explicit module semantics
+// without adding a package boundary over an unrelated consumer scripts directory.
 const CONTRACT_DOCS = ["schema/review-json-schema.md", "schema/qa-state-schema.md"];
 // The finding schema is installed into consumer repos and may be auto-discovered by
 // their repo-wide schema gate. Ship one positive and one negative fixture alongside
@@ -77,6 +75,45 @@ function computeBundlePaths(root) {
   return [...relPaths].sort();
 }
 
+/** Pure generated copies: rewrite only literal relative requires whose resolved
+ * target belongs to this managed JS closure. Data paths and builtins stay exact. */
+function portableArtifacts(root) {
+  const sources = computeBundlePaths(root).filter((rel) => rel.endsWith(".js"));
+  if (fs.existsSync(path.resolve(root, VERIFIER_REL))) sources.push(VERIFIER_REL);
+  const managed = new Map(sources.map((rel) => [path.resolve(root, rel), rel.replace(/\.js$/, ".cjs")]));
+  return sources.map((source) => {
+    const abs = path.resolve(root, source);
+    const content = fs.readFileSync(abs, "utf8").replace(
+      /(\brequire\(\s*)(["'])(\.[^"']+)\2(\s*\))/g,
+      (all, prefix, quote, request, suffix) => {
+        const target = managed.get(resolveModule(path.dirname(abs), request.split("/")));
+        if (!target) return all;
+        let relative = path.relative(path.dirname(source), target).split(path.sep).join("/");
+        if (!relative.startsWith(".")) relative = "./" + relative;
+        return prefix + quote + relative + quote + suffix;
+      }
+    );
+    return { source, path: managed.get(abs), content };
+  });
+}
+
+function checkPortableArtifacts(root) {
+  return portableArtifacts(root).filter((f) => {
+    const file = path.resolve(root, f.path);
+    return !fs.existsSync(file) || fs.readFileSync(file, "utf8") !== f.content;
+  }).map((f) => f.path);
+}
+
+function writePortableArtifacts(root) {
+  for (const f of portableArtifacts(root)) {
+    const file = path.resolve(root, f.path);
+    if (!fs.existsSync(file) || fs.readFileSync(file, "utf8") !== f.content) {
+      fs.writeFileSync(file, f.content);
+      fs.chmodSync(file, fs.statSync(path.resolve(root, f.source)).mode & 0o777);
+    }
+  }
+}
+
 /** Build the manifest object against `root` (defaults to this checkout). `existing` (if
  *  provided) supplies bundle_version/channel/source_ref continuity — the generator never
  *  invents a version bump on its own (FR-128 is a human act). */
@@ -94,7 +131,12 @@ function buildManifest(existing, root) {
   if (fs.existsSync(path.resolve(root, VERIFIER_REL))) {
     files.push({ path: VERIFIER_REL, sha256: sha256(path.resolve(root, VERIFIER_REL)), kind: "verifier" });
   }
-  files.push({ path: MODULE_SCOPE_REL, sha256: sha256(path.resolve(root, MODULE_SCOPE_REL)), kind: "config", shared: true });
+  for (const f of portableArtifacts(root)) {
+    const entry = {path: f.path, sha256: crypto.createHash("sha256").update(f.content).digest("hex")};
+    if (f.source === SNAPSHOT_REL) entry.shared = true;
+    if (f.source === VERIFIER_REL) entry.kind = "verifier";
+    files.push(entry);
+  }
   for (const rel of CONTRACT_DOCS) {
     files.push({ path: rel, sha256: sha256(path.resolve(root, rel)), kind: "doc" });
   }
@@ -140,6 +182,11 @@ function main() {
   }
 
   if (check) {
+    const stalePortable = checkPortableArtifacts(root);
+    if (stalePortable.length) {
+      console.error(`✗ review-bundle portable copies stale: ${stalePortable.join(", ")} — run node scripts/review-bundle-manifest.js`);
+      process.exit(1);
+    }
     const onDisk = existing ? JSON.stringify(existing, null, 2) + "\n" : null;
     if (onDisk !== serialized) {
       console.error("✗ review-bundle-manifest: scripts/review-bundle.manifest.json is stale — run `node scripts/review-bundle-manifest.js` to regenerate.");
@@ -149,10 +196,11 @@ function main() {
     return;
   }
 
+  writePortableArtifacts(root);
   fs.writeFileSync(manifestPath, serialized);
   console.log(`✓ review-bundle-manifest: wrote ${manifest.files.length} file(s) to ${path.relative(root, manifestPath)}.`);
 }
 
 if (require.main === module) main();
 
-module.exports = { buildManifest, computeBundlePaths, sha256, MANIFEST_PATH, DATA_CONTRACT_FIXTURES };
+module.exports = { buildManifest, computeBundlePaths, portableArtifacts, checkPortableArtifacts, sha256, MANIFEST_PATH, DATA_CONTRACT_FIXTURES };
