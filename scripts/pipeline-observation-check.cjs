@@ -22,7 +22,7 @@ function fixture(fn) {
 }
 function typed(fn, code) { assert.throws(fn, error => error.code === code, `expected ${code}`); }
 function command(args, cli = CLI, cwd = ROOT) {
-  const result = spawnSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8", timeout: 30000 });
+  const result = spawnSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8", timeout: 30000, maxBuffer: 4 * 1024 * 1024 });
   if (result.error) throw result.error;
   return result;
 }
@@ -140,6 +140,10 @@ function contract() {
     write("alpha-state.json", ledger()); const a = observer.show(root, "alpha"), b = observer.show(root, "alpha");
     validate(a); validate(observer.list(root)); validate(observer.capabilities()); assert.equal(a.version, b.version); assert.equal(a.schema.digest, sha(schemaBytes));
     fixture((otherRoot, otherWrite) => { otherWrite("alpha-state.json", ledger()); const other = observer.show(otherRoot, "alpha"); assert.equal(other.data.components.ledger.digest, a.data.components.ledger.digest); assert.equal(other.version, a.version); assert.notEqual(other.root, a.root); });
+    const unicode = '😀"\\\n'.repeat(401);
+    write("alpha-review.json", { status: "GO", findings: [{ description: unicode }] });
+    const projected = observer.show(root, "alpha").data.components.review;
+    assert.equal(projected.value.findings.items[0].description, unicode.slice(0, 2000)); assert.equal(projected.truncated, true);
     assert.equal(a.data.components.ledger.digest, sha(fs.readFileSync(path.join(root, "briefs/alpha-state.json"))));
     write("alpha-review.json", { status: "GO" }); assert.notEqual(observer.show(root, "alpha").version, a.version);
     for (const method of [() => observer.list(root, { schema_version: 2 }), () => observer.show(root, "alpha", { schema_version: 2 }), () => observer.capabilities({ schema_version: 2 })]) typed(method, "unsupported-version");
@@ -161,6 +165,35 @@ function contract() {
   const cap = 2 * 1024 * 1024; const overhead = Buffer.byteLength(JSON.stringify({ text: "" }));
   const exact = observer.serialize({ text: "x".repeat(cap - overhead) }); assert.equal(Buffer.byteLength(exact), cap);
   typed(() => observer.serialize({ text: "x".repeat(cap - overhead + 1) }), "output-limit");
+  ordinaryEnvelopeBoundary(observer, cap);
+}
+function ordinaryEnvelopeBoundary(observer, cap) {
+  fixture((root, write) => {
+    write("alpha-state.json", ledger("alpha", Array.from({ length: 201 }, () => event())));
+    const findings = Array.from({ length: 100 }, () => ({ severity: "s".repeat(1800), path: "p".repeat(1800), description: "d".repeat(1800), status: "s".repeat(1800), specialist: "r".repeat(1800), line: 1 }));
+    function reports(budget) {
+      for (const suffix of ["review.json", "qa-state.json"]) {
+        const cross_runtime = {};
+        for (let index = 0; index < 30; index++) {
+          const item = {};
+          for (const field of ["status", "reason", "config_digest"]) { const count = Math.min(2000, budget); item[field] = "x".repeat(count); budget -= count; }
+          cross_runtime[`r${index}`] = item;
+        }
+        write(`alpha-${suffix}`, { status: "GO", round: 1, cycle: 1, rounds_audit: [], findings, cross_runtime });
+      }
+      assert.equal(budget, 0, "fixture must fit within bounded scalar capacity");
+    }
+    reports(0); const base = Buffer.byteLength(observer.serialize(observer.show(root, "alpha", { history_limit: 200 })));
+    const fill = cap - base; assert.ok(fill > 0 && fill < 360000);
+    reports(fill);
+    const exact = command(["show", "--root", root, "--task", "alpha", "--history-limit", "200"]);
+    assert.equal(exact.status, 0, exact.stderr); assert.equal(Buffer.byteLength(exact.stdout), cap); assert.equal(exact.stderr, "");
+    const value = JSON.parse(exact.stdout); assert.equal(value.data.history.items.length, 200); assert.ok(value.data.history.next_cursor);
+    reports(fill + 1);
+    typed(() => observer.show(root, "alpha", { history_limit: 200 }), "output-limit");
+    const overflow = command(["show", "--root", root, "--task", "alpha", "--history-limit", "200"]);
+    assert.equal(overflow.status, 2); assert.equal(overflow.stdout, ""); assert.equal(JSON.parse(overflow.stderr).error.code, "output-limit");
+  });
 }
 const CLOSURE = {
   "bin/roster-pipeline.cjs": "scripts/roster-pipeline.cjs",
