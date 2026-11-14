@@ -139,6 +139,10 @@ Module calls throw typed errors with `code`. `serialize(value)` applies the exac
 
 ## Qualification
 
+The acceptance suite uses Git, Bash 4+, `jq` and the POSIX `mkfifo` utility, including a
+deterministic final-component FIFO replacement check. These are test tools; the observation
+runtime itself still uses only Node and its shipped local companions/resources.
+
 `npm run test:pipeline` runs four acceptance categories, also available directly as `node scripts/pipeline-observation-check.cjs catalog|detail|contract|install` with one category per invocation. The direct runner uses 0 for passing assertions, 1 for an assertion failure and 2 for setup/execution error. Twelve spec check labels link to those four category executions; they are not twelve independent runs. The full `npm test` includes this suite.
 
 The categories cover router/jq validity parity, scan/cursor/read/output boundaries, truthful current reports and unknown identities, instrumented absence of observation writes/subprocesses, schema/fingerprint behavior, and actual installed ESM/no-node_modules closure with missing, stale and linked members. Qualification results belong in the task's review/QA artifacts; this usage reference makes no claim that unrecorded checks passed.

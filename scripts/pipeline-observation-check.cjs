@@ -89,6 +89,24 @@ function parity(observer) {
 function detail() {
   const observer = api(); parity(observer);
   fixture((root, write) => {
+    write("alpha-state.json", ledger());
+    // Swap after lstat but before open: opening a FIFO must not block before fstat.
+    const probe = `const fs=require('node:fs'),cp=require('node:child_process');
+      const source=process.argv[1],root=process.argv[2],target=root+'/briefs/alpha-state.json',open=fs.openSync;
+      let swapped=false;
+      fs.openSync=function(file,...args){if(file===target&&!swapped){swapped=true;fs.unlinkSync(target);cp.execFileSync('mkfifo',[target]);}return open.call(this,file,...args);};
+      process.stdout.write(JSON.stringify(require(source).show(root,'alpha')));`;
+    const observed = spawnSync(process.execPath, ["-e", probe, CLI, root], {
+      encoding: "utf8", timeout: 5000, maxBuffer: 4 * 1024 * 1024,
+    });
+    assert.notEqual(observed.error?.code, "ETIMEDOUT", "FIFO replacement must not block observation");
+    if (observed.error) throw observed.error;
+    assert.equal(observed.status, 0, observed.stderr);
+    const value = JSON.parse(observed.stdout).data.components.ledger;
+    assert.equal(value.availability, "invalid"); assert.equal(value.reason, "unsafe");
+    assert.equal(value.digest, null);
+  });
+  fixture((root, write) => {
     write("alpha-state.json", ledger("alpha", [{ phase: "implement", outcome: ["COMPLETED"] }]));
     const value = observer.show(root, "alpha");
     assert.equal(value.data.components.ledger.availability, "valid", "router accepts an outcome subarray");

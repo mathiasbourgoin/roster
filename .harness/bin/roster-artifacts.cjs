@@ -29,7 +29,8 @@ function readBytes(file) {
     const stat = fs.lstatSync(file);
     if (!stat.isFile()) reject("unsafe", `expected regular file ${file}`);
     if (stat.size > MAX_JSON_BYTES) reject("oversized", `oversized JSON file ${file}`);
-    fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+    // A final-component swap to a FIFO must not block before descriptor validation.
+    fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0) | (fs.constants.O_NONBLOCK || 0));
     const opened = fs.fstatSync(fd);
     if (!opened.isFile()) reject("unsafe", `expected regular file ${file}`);
     if (opened.size > MAX_JSON_BYTES) reject("oversized", `oversized JSON file ${file}`);
