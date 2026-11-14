@@ -22,6 +22,9 @@ below) — both already present in this section.
 
 ### Added
 
+- Opt-in Roster commit credit through `roster-telemetry` 1.1.0: append or require the
+  canonical `Developed-with` trailer independently of metrics collection. Default off;
+  management, installed Git lifecycle tests, backward-compatible configuration and updates.
 - **Roadmap derived correction missions** — receipt `blames`, the `derive` command and event,
   optional `state.derived` and claim-event `assignment`, the automatic review requeue and release
   freeze, verified replay, and view `kind`/`derived`/`corrections`/`timeline` with

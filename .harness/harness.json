@@ -549,7 +549,7 @@
       {
         "name": "roster-telemetry",
         "source": "roster",
-        "version": "1.0.1",
+        "version": "1.1.0",
         "domain": "workflow",
         "phase": null,
         "tunables": {
@@ -559,7 +559,8 @@
           "tokens": true,
           "agents": true,
           "mode": true,
-          "formal": true
+          "formal": true,
+          "attribution": "off"
         }
       },
       {

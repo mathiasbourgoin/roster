@@ -155,7 +155,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | improvement-loop-planner | 1.2.2 | Synthesizes KB, code, test, and CI signals into candidate bounded improvement loops |
 | roster-config | 1.1.0 | Interactive editor for tunables exposed by installed roster agents |
 | roster-usage | 1.0.0 | Use only when the user explicitly requests a local usage report or invokes /roster-usage |
-| roster-telemetry | 1.0.1 | Configure local commit telemetry, inspect hook activation and versions, disable collection or update the installed runtime |
+| roster-telemetry | 1.1.0 | Configure local commit telemetry and optional Roster attribution, inspect activation and versions, disable collection or update the runtime |
 | team | 1.0.3 | Build, review, or run the installed agent team via one dispatch skill |
 | tdd-workflow | 1.0.2 | Drives a strict red-green-refactor TDD cycle with coverage verification |
 | chamallaw-shadow | 1.3.1 | Records a non-authoritative Chamallaw decision signal beside Roster intake without changing routing. Use when comparing a configured local decision contract to roster.intake |

@@ -324,3 +324,181 @@ for (const policy of ['advisory', 'strict']) {
     assert.ok(schema.properties.mode.enum.includes('express-lite'));
   });
 }
+
+const CREDIT = 'Developed-with: Roster <https://github.com/mathiasbourgoin/roster>';
+function attribution(root, mode = 'append', enabled = false) {
+  return ok(root, 'configure', '--enabled', String(enabled), '--attribution', mode);
+}
+function creditCount(message) { return message.split('\n').filter(line => line === CREDIT).length; }
+test('attribution defaults off and can run without collection or a report', t => {
+  const root = repo(t); ok(root, 'install');
+  assert.equal(ok(root, 'status').config.attribution, undefined);
+  stage(root); git(root, 'commit', '-qm', 'chore: ordinary');
+  assert.equal(creditCount(git(root, 'log', '-1', '--format=%B')), 0);
+  const state = attribution(root);
+  assert.equal(state.active, true); assert.equal(state.collection_active, false);
+  assert.equal(state.attribution_active, true); assert.equal(state.config.enabled, false);
+  fs.mkdirSync(path.join(root, '.harness/.local'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.harness/.local/commit-intent.json'), 'not json');
+  stage(root, 'two'); git(root, 'commit', '-qm', 'feat: credited');
+  const message = git(root, 'log', '-1', '--format=%B');
+  assert.equal(creditCount(message), 1); assert.doesNotMatch(message, /Harness-/);
+  assert.equal(fs.existsSync(path.join(root, '.harness/.local/commit-report.json')), false);
+  const disabled = attribution(root, 'off');
+  assert.equal(disabled.active, false); assert.equal(disabled.config.attribution, undefined);
+  stage(root, 'three'); git(root, 'commit', '-qm', 'chore: fully disabled');
+  assert.equal(creditCount(git(root, 'log', '-1', '--format=%B')), 0);
+});
+test('attribution append preserves authored content and is idempotent across amends', t => {
+  const root = repo(t); attribution(root);
+  const file = path.join(root, '.git/attribution-message');
+  const original = 'feat: credit\n\nGenerated with another assistant.\n\n' +
+    'Developed-with: Another tool\nCo-authored-by: Person <person@example.invalid>\nHarness-Task: authored\n';
+  fs.writeFileSync(file, original); stage(root); git(root, 'commit', '-qF', file);
+  const message = git(root, 'log', '-1', '--format=%B');
+  assert.ok(message.startsWith(original)); assert.equal(creditCount(message), 1);
+  git(root, 'commit', '--amend', '--no-edit', '-q');
+  assert.equal(git(root, 'log', '-1', '--format=%B'), message);
+  fs.writeFileSync(file, `feat: existing\n\n${CREDIT}\nSigned-off-by: Person\n`);
+  const before = fs.readFileSync(file, 'utf8');
+  assert.equal(cli(root, 'validate', file).status, 0);
+  assert.equal(fs.readFileSync(file, 'utf8'), before);
+  fs.writeFileSync(file, before.replace('Developed-with:', 'developed-WITH:'));
+  const caseVariant = fs.readFileSync(file, 'utf8');
+  assert.equal(cli(root, 'validate', file).status, 0);
+  assert.equal(fs.readFileSync(file, 'utf8'), caseVariant);
+});
+test('attribution append creates a real footer rather than counting a body example', t => {
+  const root = repo(t); attribution(root); stage(root);
+  git(root, 'commit', '-qm', `feat: example\n\nExample:\n${CREDIT}\nThis is body prose.\n\nSigned-off-by: Person`);
+  const message = git(root, 'log', '-1', '--format=%B');
+  assert.equal(creditCount(message), 2);
+  assert.match(message, /Signed-off-by: Person\nDeveloped-with:/);
+});
+test('attribution require validates the final exact native footer only', t => {
+  const root = repo(t); attribution(root, 'require'); stage(root);
+  const cases = [
+    'feat: absent',
+    CREDIT,
+    `feat: body\n\nExample:\n${CREDIT}\nThis is only documentation.\n\nSigned-off-by: Person`,
+    `feat: comment\n\n# ${CREDIT}`,
+    `feat: folded\n\n${CREDIT}\n continuation`,
+    'feat: other\n\nDeveloped-with: Another tool',
+  ];
+  for (const message of cases) {
+    const r = run('git', ['commit', '-qm', message], root);
+    assert.notEqual(r.status, 0, message); assert.ok(r.stderr.includes(CREDIT), r.stderr);
+  }
+  git(root, 'commit', '-qm', `feat: required\n\n${CREDIT}`);
+  assert.equal(creditCount(git(root, 'log', '-1', '--format=%B')), 1);
+});
+test('attribution require allows an editor to add credit after preparation', t => {
+  const root = repo(t); attribution(root, 'require'); stage(root);
+  const editor = path.join(root, '.git/credit-editor.sh');
+  fs.writeFileSync(editor, `#!/bin/sh\nprintf '%s\\n\\n%s\\n' 'feat: editor credit' '${CREDIT}' > "$1"\n`, { mode: 0o755 });
+  const result = run('git', ['commit', '-q'], root, { GIT_EDITOR: editor });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(creditCount(git(root, 'log', '-1', '--format=%B')), 1);
+});
+test('attribution coexists with strict metadata and advisory absence/fallback', t => {
+  for (const policy of ['strict', 'advisory']) {
+    const root = repo(t); attribution(root, 'append', true); ok(root, 'configure', '--policy', policy);
+    stage(root); report(root); git(root, 'commit', '-qm', `feat: ${policy}`);
+    const message = git(root, 'log', '-1', '--format=%B');
+    assert.equal(creditCount(message), 1); assert.match(message, /Harness-Task: test/);
+    stage(root, 'two'); fs.unlinkSync(path.join(root, '.harness/.local/commit-report.json'));
+    const result = run('git', ['commit', '-qm', 'feat: missing report'], root);
+    if (policy === 'strict') assert.notEqual(result.status, 0);
+    else { assert.equal(result.status, 0, result.stderr); assert.equal(creditCount(git(root, 'log', '-1', '--format=%B')), 1); }
+  }
+});
+test('attribution survives supported separators, comments and scissors', t => {
+  for (const enabled of [false, true]) {
+    const root = repo(t); attribution(root, 'append', enabled);
+    git(root, 'config', 'trailer.separators', ':=');
+    git(root, 'config', 'core.commentChar', ';');
+    stage(root); if (enabled) report(root);
+    const file = path.join(root, '.git/scissors-credit');
+    fs.writeFileSync(file, 'feat: scissors credit\n\nBody.\n\n; ------------------------ >8 ------------------------\n; discarded comment\n');
+    git(root, 'commit', '-q', '--cleanup=scissors', '--edit', '-F', file);
+    const message = git(root, 'log', '-1', '--format=%B');
+    assert.equal(creditCount(message), 1); assert.doesNotMatch(message, /discarded/);
+  }
+});
+test('attribution require rejects comment and discarded-scissors copies', t => {
+  const root = repo(t); attribution(root, 'require'); stage(root);
+  const file = path.join(root, '.git/scissors-credit');
+  for (const suffix of [`# ${CREDIT}`, CREDIT]) {
+    fs.writeFileSync(file, `feat: no actual credit\n\n# ------------------------ >8 ------------------------\n${suffix}\n`);
+    const result = run('git', ['commit', '-q', '--cleanup=scissors', '--edit', '-F', file], root);
+    assert.notEqual(result.status, 0); assert.match(result.stderr, /attribution|scissors/i);
+  }
+});
+test('attribution refuses incompatible encodings without changing Git configuration', t => {
+  for (const [key, value] of [['trailer.separators', '='], ['core.commentChar', 'D']]) {
+    const root = repo(t); attribution(root); git(root, 'config', key, value); stage(root);
+    const result = run('git', ['commit', '-qm', 'feat: incompatible'], root);
+    assert.notEqual(result.status, 0); assert.match(result.stderr, /attribution|Developed-with/i);
+    assert.equal(git(root, 'config', '--get', key), value);
+    assert.equal(ok(root, 'status').attribution_encoding_available, false);
+  }
+});
+test('attribution configuration is validated without partial writes', t => {
+  const root = repo(t); ok(root, 'install');
+  const configFile = path.join(root, '.harness/telemetry.json');
+  const before = fs.readFileSync(configFile, 'utf8');
+  assert.notEqual(cli(root, 'configure', '--enabled', 'false', '--attribution', 'other').status, 0);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), before);
+  for (const value of [null, false, [], {}, { mode: 'other' }, { mode: 'append', value: 'other' }]) {
+    fs.writeFileSync(configFile, JSON.stringify({ ...JSON.parse(before), attribution: value }));
+    assert.notEqual(cli(root, 'status').status, 0, JSON.stringify(value));
+  }
+});
+test('attribution-only install/update preserves collection disable and supports ESM consumers', t => {
+  const root = repo(t); fs.writeFileSync(path.join(root, 'package.json'), '{"type":"module"}\n');
+  attribution(root); ok(root, 'update');
+  assert.equal(ok(root, 'status').attribution_active, true);
+  assert.equal(ok(root, 'status').config.enabled, false);
+  stage(root); git(root, 'commit', '-qm', 'feat: esm credit');
+  assert.equal(creditCount(git(root, 'log', '-1', '--format=%B')), 1);
+  assert.equal(fs.existsSync(path.join(root, '.harness/bin/package.json')), false);
+});
+test('attribution-enabled missing runtime refuses commits even with collection disabled', t => {
+  const root = repo(t); attribution(root); stage(root);
+  fs.unlinkSync(path.join(root, '.harness/bin/roster-telemetry.cjs'));
+  const result = run('git', ['commit', '-qm', 'feat: missing runtime'], root);
+  assert.notEqual(result.status, 0); assert.match(result.stderr, /runtime missing/);
+});
+test('attribution-only append does not turn empty messages into credit-only commits', t => {
+  const root = repo(t); attribution(root); stage(root);
+  assert.notEqual(run('git', ['commit', '-qm', ''], root).status, 0);
+  const comment = run('git', ['commit', '-qm', '# ambiguous comment-only subject'], root);
+  assert.notEqual(comment.status, 0); assert.match(comment.stderr, /Attribution requires a non-comment/);
+});
+test('attribution update recognizes exact prior owned wrappers', t => {
+  const root = repo(t); attribution(root);
+  for (const name of ['prepare-commit-msg', 'commit-msg']) {
+    const file = path.join(root, '.harness/git-hooks', name);
+    const current = fs.readFileSync(file, 'utf8');
+    const previous = current.replace('c.enabled===false&&!Object.hasOwn(c,"attribution")?0:1', 'c.enabled===false?0:1');
+    assert.notEqual(previous, current);
+    fs.writeFileSync(file, previous);
+  }
+  assert.equal(ok(root, 'status').active, false);
+  ok(root, 'update'); assert.equal(ok(root, 'status').attribution_active, true);
+  stage(root); git(root, 'commit', '-qm', 'feat: upgraded credit');
+  assert.equal(creditCount(git(root, 'log', '-1', '--format=%B')), 1);
+});
+test('attribution-only setup isolates worktrees and refuses custom hooks before configuration writes', t => {
+  const root = repo(t); attribution(root); stage(root); git(root, 'commit', '-qm', 'chore: base credit');
+  const sibling = linked(t, root); attribution(sibling, 'require');
+  assert.equal(ok(root, 'status').config.attribution.mode, 'append');
+  assert.equal(ok(sibling, 'status').config.attribution.mode, 'require');
+  assert.equal(git(root, 'config', '--get', 'core.hooksPath'), path.join(root, '.harness/git-hooks'));
+  assert.equal(git(sibling, 'config', '--get', 'core.hooksPath'), path.join(sibling, '.harness/git-hooks'));
+  const custom = repo(t);
+  fs.writeFileSync(path.join(custom, '.git/hooks/commit-msg'), '#!/bin/sh\nexit 42\n', { mode: 0o755 });
+  assert.notEqual(cli(custom, 'configure', '--enabled', 'false', '--attribution', 'append').status, 0);
+  assert.equal(fs.existsSync(path.join(custom, '.harness/telemetry.json')), false);
+  assert.equal(fs.readFileSync(path.join(custom, '.git/hooks/commit-msg'), 'utf8'), '#!/bin/sh\nexit 42\n');
+});

@@ -5,11 +5,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
-const VERSION = '1.0.2';
+const VERSION = '1.1.0';
 const RUNTIME = '.harness/bin/roster-telemetry.cjs';
 const DEFAULTS = { schema_version: 1, enabled: true, policy: 'advisory', fields: { elapsed_seconds: true, tokens: true, agents: true, mode: true, formal: true } };
 const OWNED_FIELD = /^Harness-(?:Telemetry-Version|Version|Task|Elapsed-Seconds|Input-Tokens|Output-Tokens|Agents|Mode|Formal|Metrics-Source)$/i;
 const NAMES = ['prepare-commit-msg', 'commit-msg', 'reference-transaction'];
+const ATTRIBUTION_KEY = 'Developed-with';
+const ATTRIBUTION_VALUE = 'Roster <https://github.com/mathiasbourgoin/roster>';
+const ATTRIBUTION_LINE = `${ATTRIBUTION_KEY}: ${ATTRIBUTION_VALUE}`;
+const hooksEnabled = c => c.enabled || Boolean(c.attribution);
 const safe = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(value);
 function fail(message) { throw new Error(message); }
 function git(root, ...args) { return execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
@@ -26,7 +30,9 @@ function save(file, value) {
 function config(root) {
   const file = path.join(root, '.harness/telemetry.json');
   const c = fs.lstatSync(file, { throwIfNoEntry: false }) ? read(file) : structuredClone(DEFAULTS);
-  if (!c || c.schema_version !== 1 || typeof c.enabled !== 'boolean' || !['advisory', 'strict'].includes(c.policy) || !c.fields || Object.keys(c).sort().join() !== 'enabled,fields,policy,schema_version' || Object.keys(c.fields).sort().join() !== Object.keys(DEFAULTS.fields).sort().join() || Object.values(c.fields).some(v => typeof v !== 'boolean')) fail('Invalid telemetry configuration; repair explicitly, not by resetting preferences');
+  const keys = c && Object.keys(c).filter(key => key !== 'attribution').sort().join();
+  if (!c || c.schema_version !== 1 || typeof c.enabled !== 'boolean' || !['advisory', 'strict'].includes(c.policy) || !c.fields || keys !== 'enabled,fields,policy,schema_version' || Object.keys(c.fields).sort().join() !== Object.keys(DEFAULTS.fields).sort().join() || Object.values(c.fields).some(v => typeof v !== 'boolean') ||
+    (Object.hasOwn(c, 'attribution') && (!c.attribution || Array.isArray(c.attribution) || Object.keys(c.attribution).join() !== 'mode' || !['append', 'require'].includes(c.attribution.mode)))) fail('Invalid telemetry configuration; repair explicitly, not by resetting preferences');
   return c;
 }
 function hookBytes(name) {
@@ -34,7 +40,7 @@ function hookBytes(name) {
   const preflight = name === 'reference-transaction' ? `root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0\n[ -f "$root/${RUNTIME}" ] || exit 0` : `root=$(git rev-parse --show-toplevel)
 if [ ! -f "$root/${RUNTIME}" ]; then
   if [ -f "$root/.harness/telemetry.json" ]; then
-    node -e 'const c=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));process.exit(c.enabled===false?0:1)' "$root/.harness/telemetry.json" && exit 0
+    node -e 'const c=JSON.parse(require("node:fs").readFileSync(process.argv[1],"utf8"));process.exit(c.enabled===false&&!Object.hasOwn(c,"attribution")?0:1)' "$root/.harness/telemetry.json" && exit 0
   elif [ -z "$(git ls-files -- ${RUNTIME} .harness/telemetry.json)" ] && ! git cat-file -e HEAD:${RUNTIME} 2>/dev/null && ! git cat-file -e HEAD:.harness/telemetry.json 2>/dev/null; then
     exit 0
   fi
@@ -45,6 +51,9 @@ fi`;
 }
 function managedHook(name, text) {
   if (text === hookBytes(name)) return true;
+  // Exact prior wrapper bytes are owned too; never recognize arbitrary edited hooks by marker.
+  const previous = hookBytes(name).replace('c.enabled===false&&!Object.hasOwn(c,"attribution")?0:1', 'c.enabled===false?0:1');
+  if (text === previous) return true;
   const action = { 'prepare-commit-msg': 'prepare', 'commit-msg': 'validate', 'reference-transaction': 'transaction' }[name];
   const preflight = name === 'reference-transaction' ? `root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0\n[ -f "$root/${RUNTIME}" ] || exit 0` : 'root=$(git rev-parse --show-toplevel)';
   const old = `#!/bin/sh\n# roster-telemetry managed v1\nset -eu\n${preflight}\nexec node "$root/${RUNTIME}" ${action} "$@" --root "$root"\n`;
@@ -61,7 +70,13 @@ function status(root) {
   try { preflight(root); probe = spawnSync(process.execPath, [path.join(root, RUNTIME), 'version'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); } catch { /* Unsafe installations remain inactive. */ }
   const installedVersion = probe.status === 0 ? probe.stdout.trim() : null;
   const conflict = encodingConflict(root, '', commentMarker(root), c);
-  return { encoding_available: !conflict, encoding_conflict: conflict, version: VERSION, installed_version: installedVersion, config: c, hooks_path: configured, active: c.enabled && configured !== null && path.resolve(root, configured) === target && hooksOk && installedVersion === VERSION };
+  const attributionConflict = c.attribution ? attributionEncodingConflict(root, '', commentMarker(root)) : null;
+  const installed = configured !== null && path.resolve(root, configured) === target && hooksOk && installedVersion === VERSION;
+  return { encoding_available: !conflict, encoding_conflict: conflict,
+    attribution_encoding_available: !attributionConflict, attribution_encoding_conflict: attributionConflict,
+    version: VERSION, installed_version: installedVersion, config: c, hooks_path: configured,
+    active: hooksEnabled(c) && installed, collection_active: c.enabled && installed,
+    attribution_active: Boolean(c.attribution) && installed };
 }
 // The selected root is intentionally resolved; managed descendants never are.
 function resolveRoot(file) {
@@ -165,7 +180,7 @@ function install(root) {
   preflight(root);
   adminPreflight(root);
   const c = config(root);
-  if (!c.enabled) return status(root);
+  if (!hooksEnabled(c)) return status(root);
   const target = checkInstallation(root);
   fs.mkdirSync(path.join(root, '.harness/bin'), { recursive: true });
   const runtime = path.join(root, RUNTIME);
@@ -260,6 +275,48 @@ function replaceTrailers(message, expected, comment, root) {
 }
 function trailerParse(root, message) {
   return execFileSync('git', ['-C', root, 'interpret-trailers', '--parse'], { input: message, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+}
+function attributionPresent(root, message, comment) {
+  const parts = messageParts(message, comment, root);
+  const raw = parts.lines.slice(parts.start, parts.end);
+  const exact = raw.some((line, i) => {
+    if (line.startsWith(comment) || /^[ \t]/.test(line)) return false;
+    const match = trailerMatch(line, parts.separators);
+    return match && match[1].toLowerCase() === ATTRIBUTION_KEY.toLowerCase() &&
+      match[2] === ATTRIBUTION_VALUE && !/^[ \t]+\S/.test(raw[i + 1] || '');
+  });
+  return exact && trailerParse(root, message).split('\n').some(line => {
+    const match = line.match(/^([^:]+):[ \t]*(.*)$/);
+    return match && match[1].toLowerCase() === ATTRIBUTION_KEY.toLowerCase() && match[2] === ATTRIBUTION_VALUE;
+  });
+}
+function attributionEncodingConflict(root, message, comment) {
+  if (ATTRIBUTION_KEY.startsWith(comment)) return 'comment marker collides with Developed-with; select a compatible core.commentChar/commentString';
+  const marker = `${comment} ------------------------ >8 ------------------------`;
+  const lines = message.split(/\r?\n/), cut = lines.indexOf(marker);
+  if (cut >= 0 && lines.slice(cut + 1).some(line => line.trim() && !line.startsWith(comment))) return 'ambiguous scissors tail; remove non-comment text after the scissors marker';
+  try { if (attributionPresent(root, `subject\n\n${ATTRIBUTION_LINE}\n`, comment)) return null; }
+  catch { /* Reject aliases and settings that cannot preserve the canonical credit. */ }
+  return 'trailer configuration cannot round-trip Developed-with; select compatible trailer settings';
+}
+function applyAttribution(root, c, file) {
+  const message = fs.readFileSync(file, 'utf8'), comment = commentMarker(root, message);
+  const conflict = attributionEncodingConflict(root, message, comment);
+  if (conflict) fail(`Attribution encoding conflict: ${conflict}`);
+  if (attributionPresent(root, message, comment)) return;
+  if (c.attribution.mode === 'require') fail(`Attribution required in the final trailer block: ${ATTRIBUTION_LINE}`);
+  // Never invent a credit-only subject. Cleanup overrides are not exposed to hooks,
+  // so refuse an ambiguous comment-only buffer instead of silently omitting credit.
+  if (!message.split(/\r?\n/).some(line => line.trim() && !line.startsWith(comment)))
+    fail('Attribution requires a non-comment commit subject before the final trailer block');
+  const parts = messageParts(message, comment, root);
+  let prefix = parts.raw.slice(0, parts.end).join('');
+  const suffix = parts.raw.slice(parts.end).join('');
+  if (prefix && !prefix.endsWith('\n')) prefix += '\n';
+  if (parts.start === parts.end) prefix += '\n';
+  const output = prefix + ATTRIBUTION_LINE + '\n' + suffix;
+  if (!attributionPresent(root, output, comment)) fail(`Cannot encode attribution in the final trailer block: ${ATTRIBUTION_LINE}`);
+  fs.writeFileSync(file, output);
 }
 function encodingConflict(root, message, comment, c = DEFAULTS) {
   if ('Harness-'.startsWith(comment)) return 'comment marker collides with Harness- trailers; select a compatible core.commentChar/commentString';
@@ -373,8 +430,14 @@ function fallback(root, c, message, file, comment, error, intent, cleanup = fals
 }
 function hook(root, action, file, source) {
   const c = config(root);
-  if (!c.enabled) return;
+  if (!hooksEnabled(c)) return;
   if (!file) fail('Commit message path required');
+  if (c.enabled) telemetryHook(root, c, action, file, source);
+  // A metric-free project does not inspect telemetry reports or preparation receipts.
+  // Run after advisory fallback as well, and only after the editor has finished.
+  if (action === 'validate' && c.attribution) applyAttribution(root, c, file);
+}
+function telemetryHook(root, c, action, file, source) {
   guardPath(intentPath(root));
   const [message, intent] = editorInput(fs.readFileSync(file, 'utf8'), action === 'validate' ? currentIntent(root) : null);
   const comment = commentMarker(root, message);
@@ -449,14 +512,17 @@ function configure(root, args) {
     if (key === 'policy') {
       if (!['strict', 'advisory'].includes(value)) fail('Invalid policy');
       c.policy = value;
+    } else if (key === 'attribution') {
+      if (!['off', 'append', 'require'].includes(value)) fail('Invalid attribution mode; expected off, append or require');
+      if (value === 'off') delete c.attribution; else c.attribution = { mode: value };
     } else {
       if (!['true', 'false'].includes(value) || (key !== 'enabled' && !Object.hasOwn(DEFAULTS.fields, key))) fail(`Invalid setting ${key}`);
       if (key === 'enabled') c.enabled = value === 'true'; else c.fields[key] = value === 'true';
     }
   }
-  if (c.enabled) checkInstallation(root);
+  if (hooksEnabled(c)) checkInstallation(root);
   save(path.join(root, '.harness/telemetry.json'), c);
-  return c.enabled ? install(root) : status(root);
+  return hooksEnabled(c) ? install(root) : status(root);
 }
 function report(root, task) {
   guardPath(path.join(root, '.harness/.local/commit-report.json'));

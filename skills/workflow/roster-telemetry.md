@@ -1,8 +1,8 @@
 ---
 name: roster-telemetry
-description: Configure local commit telemetry, inspect hook activation and versions, disable collection or update the installed runtime.
-when_to_use: "Use to configure or disable commit metrics, participant names, Roster mode and formal verification metadata. Trigger: '/roster-telemetry'."
-version: 1.0.1
+description: Configure local commit telemetry and optional Roster attribution, inspect activation and versions, disable collection or update the runtime.
+when_to_use: "Use to configure commit metrics or Roster credit, inspect activation, disable collection or update. Trigger: '/roster-telemetry'."
+version: 1.1.0
 domain: workflow
 preamble: true
 friction_log: true
@@ -15,6 +15,7 @@ tunables:
   agents: true
   mode: true
   formal: true
+  attribution: off
 artifacts:
   reads:
     - .harness/harness.json
@@ -25,7 +26,7 @@ artifacts:
 
 # Roster Telemetry
 
-Manage local commit metadata. No network transmission, package installation, global Git
+Manage local commit metadata and optional Roster credit. No network transmission, package installation, global Git
 configuration or provider authentication. Runtime version, skill version, harness version
 and report/config schema versions are distinct.
 
@@ -42,7 +43,8 @@ If unavailable, report the missing distribution and stop; do not download or inv
 ### 2. Interface
 
 Run `status` and present effective activation, installed/available runtime versions, skill
-version (frontmatter), current policy and collection fields. Native runtime UI is optional:
+version (frontmatter), current policy, collection fields and attribution mode. Display
+collection and attribution activation separately; active credit does not imply active collection. Native runtime UI is optional:
 use a multi-select/checklist for fields, boolean controls if supported, or a numbered text
 menu with explicit current values. Never claim plain text is an interactive toggle.
 
@@ -52,26 +54,41 @@ Offer:
    formal specification/verification status (all enabled initially).
 3. Advisory (default) or strict policy. Explain strict blocks commits when enabled time/token
    measurements are missing; advisory allows commits with explicit warnings and no fake values.
-4. Update from a trusted local Roster runtime. Show installed and available versions first.
-5. Show status / leave unchanged.
+4. Optional Roster attribution: off (default), append, or require. Append adds the canonical
+   credit only if absent from the final trailer block; require refuses its absence. Credit is
+   independent of metrics and works with collection disabled and no report.
+5. Update from a trusted local Roster runtime. Show installed and available versions first.
+6. Show status / leave unchanged.
 
 Apply the user's selection using `configure` with `--enabled true|false`,
 `--policy advisory|strict`, `--elapsed_seconds true|false`, `--tokens true|false`,
-`--agents true|false`, `--mode true|false`, `--formal true|false`. Example:
+`--agents true|false`, `--mode true|false`, `--formal true|false`, and
+`--attribution off|append|require`. Example:
 
 ```bash
 node .harness/bin/roster-telemetry.cjs configure --tokens false --agents true
+node .harness/bin/roster-telemetry.cjs configure --enabled false --attribution append
 node .harness/bin/roster-telemetry.cjs status
 ```
 
-`configure --enabled false` leaves owned wrappers in place as no-ops, preserves all unrelated
-hooks and is respected by init/doctor. Re-enabling installs/repairs owned wrappers. Custom
+`configure --enabled false` disables collection and leaves attribution enabled if configured.
+With attribution also off, owned wrappers are no-ops. Both preferences persist across init/doctor.
+Enabling either feature installs/repairs owned wrappers. Custom
 hooks/config conflicts require manual integration, never replacement. `update` must be run
 using the newer trusted runtime (running an old installed runtime cannot discover a release).
 Check effective `active`, not just file presence, after enable/update. Separately display
 `encoding_available` / `encoding_conflict`: active wrappers do not guarantee a usable footer.
 Managed filesystem aliases (including dangling links and hard links) are refused before writes;
 `--force` does not permit following them into unrelated files.
+
+The fixed attribution line is
+`Developed-with: Roster <https://github.com/mathiasbourgoin/roster>`.
+Only the mode is configurable. An exact credit in the actual final trailer block satisfies
+append/require; body examples, comments, folded values and discarded scissors text do not.
+Existing other-tool credits, co-authors and "Generated with …" text are preserved.
+Append is idempotent across amends and inserts before comment/scissors suffixes. Require
+checks after the editor completes. An unsupported credit encoding refuses explicitly even
+when metrics policy is advisory; it never silently changes Git settings.
 
 ### 3. Commit report
 
@@ -96,7 +113,7 @@ who can read the commit. Disabling a field does not rewrite historical commits. 
 bypassable (`--no-verify` skips commit-msg, not prepare-commit-msg; hooksPath overrides can skip
 all three). `reference-transaction` checks prepared final metadata and amendment identity before
 a matching prepared commit updates HEAD. Its local receipt is bound to the preparing Git process;
-abandoned receipts cannot block unrelated resets, and disabled mode ignores even malformed ones.
+abandoned receipts cannot block unrelated resets, and disabled collection ignores even malformed ones.
 Missing advisory measurements remain nonblocking, but neither policy publishes final metadata
 known to contradict a valid preparation. Actual footer ownership is case-insensitive; canonical
 owned fields appear once, while commit-body examples and unrelated trailers remain untouched.
