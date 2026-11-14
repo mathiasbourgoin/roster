@@ -502,3 +502,73 @@ test('attribution-only setup isolates worktrees and refuses custom hooks before 
   assert.equal(fs.existsSync(path.join(custom, '.harness/telemetry.json')), false);
   assert.equal(fs.readFileSync(path.join(custom, '.git/hooks/commit-msg'), 'utf8'), '#!/bin/sh\nexit 42\n');
 });
+test('attribution refuses existing credit whose only subject disappears during cleanup', t => {
+  for (const mode of ['append', 'require']) {
+    const root = repo(t); attribution(root, mode); stage(root);
+    git(root, 'commit', '-qm', `feat: valid subject\n\n${CREDIT}`);
+    const before = git(root, 'rev-parse', 'HEAD');
+    assert.ok(git(root, 'log', '-1', '--format=%(trailers:only)').includes(CREDIT));
+    stage(root, 'two');
+    const file = path.join(root, '.git/comment-subject-message');
+    const editor = path.join(root, '.git/comment-subject-editor.sh');
+    fs.writeFileSync(file, `# only a comment\n\n${CREDIT}\n`);
+    fs.writeFileSync(editor, `#!/bin/sh\nprintf '%s\\n\\n%s\\n' '# only a comment' '${CREDIT}' > "$1"\n`, { mode: 0o755 });
+    const cases = [
+      [['commit', '-qm', `# only a comment\n\n${CREDIT}`, '--cleanup=strip'], {}],
+      [['commit', '-q', '--cleanup=strip', '-F', file], {}],
+      [['commit', '-q', '--cleanup=strip'], { GIT_EDITOR: editor }],
+    ];
+    for (const [args, env] of cases) {
+      const result = run('git', args, root, env);
+      assert.notEqual(result.status, 0, `${mode}: ${args.join(' ')}`);
+      assert.match(result.stderr, /Attribution requires a non-comment commit subject/);
+      assert.equal(git(root, 'rev-parse', 'HEAD'), before);
+    }
+  }
+});
+test('explicit disabled update refreshes an installed runtime without activating or rewriting policy/hooks', t => {
+  const root = repo(t); ok(root, 'install'); ok(root, 'configure', '--enabled', 'false');
+  const runtime = path.join(root, '.harness/bin/roster-telemetry.cjs');
+  // A complete installed runtime with an older version exercises the copy boundary;
+  // qualification also runs the preserved genuine 1.0.2 consumer independently.
+  fs.writeFileSync(runtime, fs.readFileSync(runtime, 'utf8').replace("const VERSION = '1.1.0'", "const VERSION = '1.0.2'"));
+  const installed = (...args) => run(process.execPath, [runtime, ...args, '--root', root], root);
+  assert.equal(installed('version').stdout.trim(), '1.0.2');
+  const configFile = path.join(root, '.harness/telemetry.json');
+  const configBefore = fs.readFileSync(configFile, 'utf8');
+  const hookPaths = ['prepare-commit-msg', 'commit-msg', 'reference-transaction'].map(name => path.join(root, '.harness/git-hooks', name));
+  const hooksBefore = hookPaths.map(file => fs.readFileSync(file, 'utf8'));
+  const gitBefore = git(root, 'config', '--local', '--list');
+  const pathBefore = git(root, 'config', '--get', 'core.hooksPath');
+  ok(root, 'install');
+  assert.equal(installed('version').stdout.trim(), '1.0.2', 'ordinary install respects the complete disable');
+  const updated = ok(root, 'update');
+  assert.equal(updated.installed_version, '1.1.0'); assert.equal(updated.active, false);
+  assert.equal(updated.collection_active, false); assert.equal(updated.attribution_active, false);
+  assert.equal(fs.readFileSync(configFile, 'utf8'), configBefore);
+  assert.deepEqual(hookPaths.map(file => fs.readFileSync(file, 'utf8')), hooksBefore);
+  assert.equal(git(root, 'config', '--local', '--list'), gitBefore);
+  assert.equal(git(root, 'config', '--get', 'core.hooksPath'), pathBefore);
+  const enabled = installed('configure', '--attribution', 'append');
+  assert.equal(enabled.status, 0, enabled.stderr);
+  assert.equal(JSON.parse(enabled.stdout).config.enabled, false);
+  stage(root); git(root, 'commit', '-qm', 'feat: updated runtime credit');
+  assert.equal(creditCount(git(root, 'log', '-1', '--format=%B')), 1);
+});
+test('disabled update neither creates an absent installation nor interferes with custom hooks', t => {
+  const absent = repo(t); ok(absent, 'configure', '--enabled', 'false');
+  ok(absent, 'update');
+  assert.equal(fs.existsSync(path.join(absent, '.harness/bin/roster-telemetry.cjs')), false);
+  assert.equal(fs.existsSync(path.join(absent, '.harness/git-hooks')), false);
+  const root = repo(t); ok(root, 'install'); ok(root, 'configure', '--enabled', 'false');
+  const runtime = path.join(root, '.harness/bin/roster-telemetry.cjs');
+  fs.writeFileSync(runtime, fs.readFileSync(runtime, 'utf8').replace("const VERSION = '1.1.0'", "const VERSION = '1.0.2'"));
+  const directory = path.join(root, 'custom-hooks'); fs.mkdirSync(directory);
+  const customHook = path.join(directory, 'commit-msg');
+  const text = '#!/bin/sh\nexit 42\n'; fs.writeFileSync(customHook, text, { mode: 0o755 });
+  git(root, 'config', '--worktree', 'core.hooksPath', directory);
+  const updated = ok(root, 'update');
+  assert.equal(updated.installed_version, '1.1.0'); assert.equal(updated.active, false);
+  assert.equal(git(root, 'config', '--get', 'core.hooksPath'), directory);
+  assert.equal(fs.readFileSync(customHook, 'utf8'), text);
+});

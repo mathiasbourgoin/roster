@@ -176,11 +176,21 @@ function checkInstallation(root) {
   }
   return target;
 }
-function install(root) {
+function install(root, update = false) {
   preflight(root);
   adminPreflight(root);
   const c = config(root);
-  if (!hooksEnabled(c)) return status(root);
+  if (!hooksEnabled(c)) {
+    // Explicit trusted updates refresh an existing runtime, even when all features
+    // are disabled. Do not install hooks, rewrite preferences or activate anything.
+    const runtime = path.join(root, RUNTIME);
+    if (update && fs.existsSync(runtime) && path.resolve(__filename) !== runtime) {
+      if (!fs.existsSync(path.join(root, '.harness/harness.json'))) fail('Missing .harness/harness.json');
+      if (fs.realpathSync(git(root, 'rev-parse', '--show-toplevel')) !== root) fail('--root must be the Git worktree root');
+      fs.copyFileSync(__filename, runtime);
+    }
+    return status(root);
+  }
   const target = checkInstallation(root);
   fs.mkdirSync(path.join(root, '.harness/bin'), { recursive: true });
   const runtime = path.join(root, RUNTIME);
@@ -303,13 +313,13 @@ function applyAttribution(root, c, file) {
   const message = fs.readFileSync(file, 'utf8'), comment = commentMarker(root, message);
   const conflict = attributionEncodingConflict(root, message, comment);
   if (conflict) fail(`Attribution encoding conflict: ${conflict}`);
+  const parts = messageParts(message, comment, root);
+  // The credit itself is not a subject. Check the prefix even when an exact
+  // credit is already present: Git strip cleanup may discard every prefix line.
+  if (!parts.lines.slice(0, parts.start).some(line => line.trim() && !line.startsWith(comment)))
+    fail(`Attribution requires a non-comment commit subject before the final trailer block; expected footer: ${ATTRIBUTION_LINE}`);
   if (attributionPresent(root, message, comment)) return;
   if (c.attribution.mode === 'require') fail(`Attribution required in the final trailer block: ${ATTRIBUTION_LINE}`);
-  // Never invent a credit-only subject. Cleanup overrides are not exposed to hooks,
-  // so refuse an ambiguous comment-only buffer instead of silently omitting credit.
-  if (!message.split(/\r?\n/).some(line => line.trim() && !line.startsWith(comment)))
-    fail('Attribution requires a non-comment commit subject before the final trailer block');
-  const parts = messageParts(message, comment, root);
   let prefix = parts.raw.slice(0, parts.end).join('');
   const suffix = parts.raw.slice(parts.end).join('');
   if (prefix && !prefix.endsWith('\n')) prefix += '\n';
@@ -545,7 +555,7 @@ function main(argv) {
   if (action === 'prepare' || action === 'validate') { hook(root, action, args[0], args[1]); return; }
   if (action === 'transaction') { transaction(root, args[0]); return; }
   let result;
-  if (action === 'install' || action === 'update') result = install(root);
+  if (action === 'install' || action === 'update') result = install(root, action === 'update');
   else if (action === 'status') result = status(root);
   else if (action === 'configure') result = configure(root, args);
   else if (action === 'report' && args.length === 1) result = report(root, args[0]);
