@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://roster.dev/schema/pipeline-observation/v1",
+  "$id": "https://github.com/mathiasbourgoin/roster/schema/pipeline-observation/v1",
   "title": "Pipeline observation version 1",
   "description": "Read-only persisted evidence. Strings <=2000 UTF16 units; summary arrays <=100; catalog pages <=100; history pages <=200; serialized output <=2097152 UTF8 bytes. Canonical conditional required fields and numeric bounds are enforced by the observer and acceptance checks. This schema uses the portable zero-dependency interpreter subset; $id is identity metadata.",
   "type": "object",
@@ -189,7 +189,10 @@
                             "type": "string"
                           },
                           "outcome": {
-                            "type": "string"
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "additionalProperties": false
@@ -264,7 +267,7 @@
                                 "severity",
                                 "path",
                                 "line",
-                                "description",
+                                "summary",
                                 "status",
                                 "specialist"
                               ],
@@ -293,7 +296,7 @@
                                     "null"
                                   ]
                                 },
-                                "description": {
+                                "summary": {
                                   "type": [
                                     "string",
                                     "number",
@@ -614,7 +617,10 @@
                     "type": "string"
                   },
                   "outcome": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -734,7 +740,10 @@
                           "type": "string"
                         },
                         "outcome": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "additionalProperties": false
@@ -809,7 +818,7 @@
                               "severity",
                               "path",
                               "line",
-                              "description",
+                              "summary",
                               "status",
                               "specialist"
                             ],
@@ -838,7 +847,7 @@
                                   "null"
                                 ]
                               },
-                              "description": {
+                              "summary": {
                                 "type": [
                                   "string",
                                   "number",
@@ -1206,7 +1215,10 @@
                           "type": "string"
                         },
                         "outcome": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "additionalProperties": false
@@ -1281,7 +1293,7 @@
                               "severity",
                               "path",
                               "line",
-                              "description",
+                              "summary",
                               "status",
                               "specialist"
                             ],
@@ -1310,7 +1322,7 @@
                                   "null"
                                 ]
                               },
-                              "description": {
+                              "summary": {
                                 "type": [
                                   "string",
                                   "number",
@@ -1678,7 +1690,10 @@
                           "type": "string"
                         },
                         "outcome": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "additionalProperties": false
@@ -1753,7 +1768,7 @@
                               "severity",
                               "path",
                               "line",
-                              "description",
+                              "summary",
                               "status",
                               "specialist"
                             ],
@@ -1782,7 +1797,7 @@
                                   "null"
                                 ]
                               },
-                              "description": {
+                              "summary": {
                                 "type": [
                                   "string",
                                   "number",
@@ -2150,7 +2165,10 @@
                           "type": "string"
                         },
                         "outcome": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "additionalProperties": false
@@ -2225,7 +2243,7 @@
                               "severity",
                               "path",
                               "line",
-                              "description",
+                              "summary",
                               "status",
                               "specialist"
                             ],
@@ -2254,7 +2272,7 @@
                                   "null"
                                 ]
                               },
-                              "description": {
+                              "summary": {
                                 "type": [
                                   "string",
                                   "number",
@@ -2622,7 +2640,10 @@
                           "type": "string"
                         },
                         "outcome": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "additionalProperties": false
@@ -2697,7 +2718,7 @@
                               "severity",
                               "path",
                               "line",
-                              "description",
+                              "summary",
                               "status",
                               "specialist"
                             ],
@@ -2726,7 +2747,7 @@
                                   "null"
                                 ]
                               },
-                              "description": {
+                              "summary": {
                                 "type": [
                                   "string",
                                   "number",
@@ -3094,7 +3115,10 @@
                           "type": "string"
                         },
                         "outcome": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "additionalProperties": false
@@ -3169,7 +3193,7 @@
                               "severity",
                               "path",
                               "line",
-                              "description",
+                              "summary",
                               "status",
                               "specialist"
                             ],
@@ -3198,7 +3222,7 @@
                                   "null"
                                 ]
                               },
-                              "description": {
+                              "summary": {
                                 "type": [
                                   "string",
                                   "number",
@@ -3566,7 +3590,10 @@
                           "type": "string"
                         },
                         "outcome": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "additionalProperties": false
@@ -3641,7 +3668,7 @@
                               "severity",
                               "path",
                               "line",
-                              "description",
+                              "summary",
                               "status",
                               "specialist"
                             ],
@@ -3670,7 +3697,7 @@
                                   "null"
                                 ]
                               },
-                              "description": {
+                              "summary": {
                                 "type": [
                                   "string",
                                   "number",
@@ -4038,7 +4065,10 @@
                           "type": "string"
                         },
                         "outcome": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "additionalProperties": false
@@ -4113,7 +4143,7 @@
                               "severity",
                               "path",
                               "line",
-                              "description",
+                              "summary",
                               "status",
                               "specialist"
                             ],
@@ -4142,7 +4172,7 @@
                                   "null"
                                 ]
                               },
-                              "description": {
+                              "summary": {
                                 "type": [
                                   "string",
                                   "number",
@@ -4510,7 +4540,10 @@
                           "type": "string"
                         },
                         "outcome": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "additionalProperties": false
@@ -4585,7 +4618,7 @@
                               "severity",
                               "path",
                               "line",
-                              "description",
+                              "summary",
                               "status",
                               "specialist"
                             ],
@@ -4614,7 +4647,7 @@
                                   "null"
                                 ]
                               },
-                              "description": {
+                              "summary": {
                                 "type": [
                                   "string",
                                   "number",
@@ -4952,7 +4985,10 @@
                     "type": "string"
                   },
                   "outcome": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "reason": {
                     "type": [
@@ -5055,7 +5091,10 @@
               "type": "string"
             },
             "outcome": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false

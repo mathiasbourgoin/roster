@@ -76,6 +76,10 @@ function parity(observer) {
   for (const value of [null, false, 0, [], {}, { ...ledger(), events: [] }, { ...ledger(), task: "beta" }]) samples.push(value);
   for (const mode of ["express-lite", "express", "fast", "full", "constructor", null, 7]) for (const phase of ["implement", "spec", "ship", "bogus"]) samples.push({ ...ledger(), mode, current_phase: phase, events: [event(phase, phase === "spec" ? "VALIDATED" : "COMPLETED")] });
   for (const alteration of [{ by: 7, at: false }, { reason: false }, { reason: "" }, { phase: null }, { outcome: "BLOCKED" }, { outcome: "PARTIAL" }]) samples.push(ledger("alpha", [{ ...event(), ...alteration }]));
+  for (const outcome of [["COMPLETED"], ["PARTIAL"], ["COMPLETED", "PARTIAL"],
+    ["PARTIAL", "COMPLETED"], [], ["COMPLETED", null], {}, null, 7]) {
+    samples.push(ledger("alpha", [{ phase: "implement", outcome }]));
+  }
   for (const sample of samples) {
     const jq = spawnSync("jq", ["-e", "--arg", "t", "alpha", predicate], { input: JSON.stringify(sample), encoding: "utf8", timeout: 5000 });
     if (jq.error) throw jq.error;
@@ -84,6 +88,34 @@ function parity(observer) {
 }
 function detail() {
   const observer = api(); parity(observer);
+  fixture((root, write) => {
+    write("alpha-state.json", ledger("alpha", [{ phase: "implement", outcome: ["COMPLETED"] }]));
+    const value = observer.show(root, "alpha");
+    assert.equal(value.data.components.ledger.availability, "valid", "router accepts an outcome subarray");
+    assert.equal(value.data.latest_completed.outcome, null, "non-scalar display outcome remains unknown");
+    assert.equal(value.data.components.ledger.value.latest_completed.outcome, null);
+    assert.equal(value.data.history.items[0].outcome, null);
+    assert.equal(observer.list(root).data.items[0].latest_completed.outcome, null);
+    const { $id, ...assertions } = JSON.parse(fs.readFileSync(path.join(ROOT, "schema/pipeline-observation.schema.json")));
+    const checked = require("./lib/review/finding-schema.cjs").compile(assertions).validate(value);
+    assert.equal(checked.valid, true, checked.errors.join("\n"));
+  });
+  fixture((root, write) => {
+    const finding = { severity: "MEDIUM", confidence: 100, path: "src/example.js", line: 4,
+      category: "correctness", summary: "Canonical operator-visible explanation",
+      evidence: "Observed failing example", fix: "Correct the example",
+      fingerprint: "canonical-example", specialist: "reviewer" };
+    const canonical = require("./lib/review/finding-schema.cjs").compile(
+      JSON.parse(fs.readFileSync(path.join(ROOT, "schema/review-finding.schema.json"))));
+    assert.equal(canonical.validate(finding).valid, true, "fixture must use the canonical finding contract");
+    write("alpha-review.json", { task: "alpha", status: "NO-GO", findings: [finding] });
+    const result = observer.show(root, "alpha");
+    assert.equal(result.data.components.review.availability, "valid");
+    assert.equal(result.data.components.review.value.findings.items[0].summary, finding.summary);
+    const { $id, ...assertions } = JSON.parse(fs.readFileSync(path.join(ROOT, "schema/pipeline-observation.schema.json")));
+    const checked = require("./lib/review/finding-schema.cjs").compile(assertions).validate(result);
+    assert.equal(checked.valid, true, checked.errors.join("\n"));
+  });
   fixture((root, write) => {
     const events = Array.from({ length: 201 }, (_, n) => n % 2 ? event("review", "NO-GO") : event());
     events[0] = { ...event(), by: 9, at: "invalid", reason: "r".repeat(2001) }; events[1].by = "skill";
@@ -101,12 +133,12 @@ function detail() {
     write("alpha-state.json", ledger()); typed(() => observer.show(root, "alpha", { history_cursor: lateCursor }), "stale-cursor");
     for (const history_limit of [0, -1, 1.1, 201, "1"]) typed(() => observer.show(root, "alpha", { history_limit }), "invalid-request");
     for (const task of ["../escape", "Alpha", "a".repeat(121), "", "a/b"]) typed(() => observer.show(root, task), "invalid-request");
-    write("alpha-review.json", { task: "alpha", status: "GO", round: 1, cycle: 1, findings: Array.from({ length: 101 }, () => ({ severity: "LOW", path: "file", line: 1, description: "d".repeat(2001), arbitrary: { forbidden: "nested" } })) });
+    write("alpha-review.json", { task: "alpha", status: "GO", round: 1, cycle: 1, findings: Array.from({ length: 101 }, () => ({ severity: "LOW", path: "file", line: 1, summary: "d".repeat(2001), arbitrary: { forbidden: "nested" } })) });
     write("alpha-qa-state.json", { status: "GO", round: 1, cycle: 1, rounds_audit: [] }); write("alpha-qa.md", "**Status: NO-GO**");
     write("alpha-manifest.txt", "base=revision\n---\n/outside/never-read\n../never-read\n"); write("alpha-intake.md", "**Status: VALIDATED**\n" + "x".repeat(2100));
     result = observer.show(root, "alpha"); const components = result.data.components;
     assert.equal(components.review.availability, "valid"); assert.equal(components.review.value.findings.total, 101); assert.equal(components.review.value.findings.items.length, 100);
-    assert.equal(components.review.value.findings.truncated, true); assert.equal(components.review.value.findings.items[0].description.length, 2000);
+    assert.equal(components.review.value.findings.truncated, true); assert.equal(components.review.value.findings.items[0].summary.length, 2000);
     assert.ok(!("arbitrary" in components.review.value.findings.items[0])); assert.equal(components.qa_state.value.qa_no_go_round, null);
     assert.equal(result.data.verdict_disagreement, true); assert.equal(components.intake.truncated, true);
     assert.ok(components.manifest.value.items.includes("/outside/never-read"));
@@ -128,22 +160,40 @@ function detail() {
 }
 function contract() {
   const observer = api(); const { compile } = require("./lib/review/finding-schema.cjs");
+  const schemaId = "https://github.com/mathiasbourgoin/roster/schema/pipeline-observation/v1";
   const executable = spawnSync(CLI, ["capabilities"], { encoding: "utf8", timeout: 10000 });
   assert.equal(executable.error, undefined, "registered CLI must be executable directly"); assert.equal(executable.status, 0, executable.stderr);
   assert.equal(JSON.parse(executable.stdout).kind, "pipeline-capabilities");
   const schemaBytes = fs.readFileSync(path.join(ROOT, "schema/pipeline-observation.schema.json"));
   // $id identifies this self-contained schema; it is not an assertion or reference.
-  const { $id, ...assertions } = JSON.parse(schemaBytes); assert.ok($id.startsWith("https://"));
+  const { $id, ...assertions } = JSON.parse(schemaBytes); assert.equal($id, schemaId);
   const validator = compile(assertions);
-  const validate = value => { const report = validator.validate(value); assert.equal(report.valid, true, report.errors.join("\n")); };
+  const validate = value => { const report = validator.validate(value); assert.equal(report.valid, true, report.errors.join("\n")); if (value.schema) assert.equal(value.schema.id, schemaId); };
+  fixture(root => {
+    for (const [target, source] of Object.entries(CLOSURE)) {
+      const destination = path.join(root, ".harness", target);
+      fs.mkdirSync(path.dirname(destination), { recursive: true });
+      fs.copyFileSync(path.join(ROOT, source), destination);
+    }
+    const installed = path.join(root, ".harness/bin/roster-pipeline.cjs");
+    const current = command(["capabilities"], installed, root);
+    assert.equal(current.status, 0, current.stderr); validate(JSON.parse(current.stdout));
+    const schemaFile = path.join(root, ".harness/roadmap/pipeline-observation.schema.json");
+    const experimental = JSON.parse(fs.readFileSync(schemaFile));
+    experimental.$id = "https://roster.dev/schema/pipeline-observation/v1";
+    fs.writeFileSync(schemaFile, JSON.stringify(experimental));
+    const stale = command(["capabilities"], installed, root);
+    assert.equal(stale.status, 2); assert.equal(stale.stdout, "");
+    assert.equal(JSON.parse(stale.stderr).error.code, "runtime-resource");
+  });
   fixture((root, write) => {
     write("alpha-state.json", ledger()); const a = observer.show(root, "alpha"), b = observer.show(root, "alpha");
     validate(a); validate(observer.list(root)); validate(observer.capabilities()); assert.equal(a.version, b.version); assert.equal(a.schema.digest, sha(schemaBytes));
     fixture((otherRoot, otherWrite) => { otherWrite("alpha-state.json", ledger()); const other = observer.show(otherRoot, "alpha"); assert.equal(other.data.components.ledger.digest, a.data.components.ledger.digest); assert.equal(other.version, a.version); assert.notEqual(other.root, a.root); });
     const unicode = '😀"\\\n'.repeat(401);
-    write("alpha-review.json", { status: "GO", findings: [{ description: unicode }] });
+    write("alpha-review.json", { status: "GO", findings: [{ summary: unicode }] });
     const projected = observer.show(root, "alpha").data.components.review;
-    assert.equal(projected.value.findings.items[0].description, unicode.slice(0, 2000)); assert.equal(projected.truncated, true);
+    assert.equal(projected.value.findings.items[0].summary, unicode.slice(0, 2000)); assert.equal(projected.truncated, true);
     assert.equal(a.data.components.ledger.digest, sha(fs.readFileSync(path.join(root, "briefs/alpha-state.json"))));
     write("alpha-review.json", { status: "GO" }); assert.notEqual(observer.show(root, "alpha").version, a.version);
     for (const method of [() => observer.list(root, { schema_version: 2 }), () => observer.show(root, "alpha", { schema_version: 2 }), () => observer.capabilities({ schema_version: 2 })]) typed(method, "unsupported-version");
@@ -170,7 +220,7 @@ function contract() {
 function ordinaryEnvelopeBoundary(observer, cap) {
   fixture((root, write) => {
     write("alpha-state.json", ledger("alpha", Array.from({ length: 201 }, () => event())));
-    const findings = Array.from({ length: 100 }, () => ({ severity: "s".repeat(1800), path: "p".repeat(1800), description: "d".repeat(1800), status: "s".repeat(1800), specialist: "r".repeat(1800), line: 1 }));
+    const findings = Array.from({ length: 100 }, () => ({ severity: "s".repeat(1800), path: "p".repeat(1800), summary: "d".repeat(1800), status: "s".repeat(1800), specialist: "r".repeat(1800), line: 1 }));
     function reports(budget) {
       for (const suffix of ["review.json", "qa-state.json"]) {
         const cross_runtime = {};

@@ -7,7 +7,7 @@ const crypto = require("node:crypto");
 const LIMITS = Object.freeze({source_bytes:16777216, output_bytes:2097152, scan_entries:10000,
   string_units:2000, summary_items:100, catalog_default:25, catalog_max:100,
   history_default:50, history_max:200, cursor_units:4096});
-const SCHEMA_ID = "https://roster.dev/schema/pipeline-observation/v1";
+const SCHEMA_ID = "https://github.com/mathiasbourgoin/roster/schema/pipeline-observation/v1";
 const TASK = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SHA = /^[a-f0-9]{64}$/;
 const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -132,7 +132,7 @@ function ledger(root, task) {
     latest_completed:latest(read.value),history_total:read.value.events.length};
   return read;
 }
-function latest(value) { const event = value.events.at(-1); return {phase:event.phase,outcome:event.outcome}; }
+function latest(value) { const event = value.events.at(-1); return {phase:event.phase,outcome:typeof event.outcome === "string" ? event.outcome : null}; }
 function scalar(value, state) {
   if (typeof value === "string") { if (value.length > 2000) state.truncated = true; return value.slice(0,2000); }
   if (typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value))) return value;
@@ -175,7 +175,7 @@ function reviewValid(value,task) {
 }
 function reportProjection(value,state,qa=false) {
   const result = fields(value,["status","round","cycle","date"],state);
-  result.findings = arraySummary(value.findings,(item,s) => fields(item,["severity","path","line","description","status","specialist"],s),state);
+  result.findings = arraySummary(value.findings,(item,s) => fields(item,["severity","path","line","summary","status","specialist"],s),state);
   result.rounds_audit = arraySummary(value.rounds_audit,(item,s) => ({...fields(item,["round","date","verdict","qualifying"],s),causes:joined(item.causes,s)}),state);
   result.summary = object(value.summary) ? fields(value.summary,["critical","high","medium","low","auto_fixed"],state) : null;
   result.no_go_reason = object(value.no_go_reason) ? {...fields(value.no_go_reason,["type","cause"],state),failed_acs:joined(value.no_go_reason.failed_acs,state)} : null;
@@ -216,7 +216,7 @@ function history(value,offset,limit,root,digest) {
     const state = {truncated:false}, reason = scalar(event.reason,state);
     const actorUsable = typeof event.by === "string" && event.by.length > 0;
     const timeUsable = typeof event.at === "string" && event.at.length <= 2000 && Number.isFinite(Date.parse(event.at));
-    return {id:`event:${offset+index}`,source_index:offset+index,phase:event.phase,outcome:event.outcome,
+    return {id:`event:${offset+index}`,source_index:offset+index,phase:event.phase,outcome:typeof event.outcome === "string" ? event.outcome : null,
       reason,reason_truncated:state.truncated,
       actor:{availability:actorUsable ? "valid" : "unknown",value:actorUsable ? event.by.slice(0,2000) : null,truncated:actorUsable && event.by.length > 2000},
       time:{availability:timeUsable ? "valid" : "unknown",value:timeUsable ? event.at : null}};

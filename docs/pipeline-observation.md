@@ -2,13 +2,60 @@
 
 The local `roster-pipeline` reader lists and inspects persisted task evidence as versioned JSON. It reads artifacts without running a phase, gate, hook, provider or Git command, and writes no observation state.
 
+## Obtain the qualified source
+
+Use Node.js 22 or later. Git is needed to obtain the source; reading observations afterward
+needs only Node and the shipped local files. The commands below select an immutable qualified
+revision from the public repository, rather than a moving `next` checkout. Set
+`ROSTER_SOURCE_REVISION` to the full commit recorded in the public installation receipt on
+[issue #111](https://github.com/mathiasbourgoin/roster/issues/111). That receipt identifies the
+qualified delivered revision and its checks; an unpublished local candidate is not availability.
+
+```sh
+: "${ROSTER_SOURCE_REVISION:?Set the full published commit from the installation receipt}"
+git clone --no-checkout https://github.com/mathiasbourgoin/roster.git roster-observer-source
+git -C roster-observer-source fetch --no-tags origin "$ROSTER_SOURCE_REVISION"
+git -C roster-observer-source checkout --detach "$ROSTER_SOURCE_REVISION"
+git -C roster-observer-source rev-parse --verify HEAD
+node roster-observer-source/scripts/roster-pipeline.cjs capabilities
+node roster-observer-source/scripts/roster-pipeline.cjs list --root /path/to/project --limit 25
+node roster-observer-source/scripts/roster-pipeline.cjs show --root /path/to/project --task example-task
+```
+
+Check that `rev-parse` prints the selected revision and `capabilities` returns
+`kind: "pipeline-capabilities"` with the schema identity documented below. Keep the source
+directory intact: the entry point loads its ledger validator, bounded I/O helper, schema
+validator, and schema/coverage resources from that checkout. Copying only the executable is
+not an installation. No `npm install`, global package or harness activation is required for
+this source invocation. The source acquisition commands write their new checkout; the reader
+itself does not write the observed project.
+
+## Run from a source or installed harness
+
+Inside the source checkout:
+
 ```sh
 node scripts/roster-pipeline.cjs list --root /path/to/project --limit 25
 node scripts/roster-pipeline.cjs show --root /path/to/project --task example-task --history-limit 50
 node scripts/roster-pipeline.cjs capabilities
 ```
 
-After harness sync, the same entry point is `.harness/bin/roster-pipeline.cjs`. The installed reader and its resources are self-contained; no `node_modules` or development-checkout fallback is needed. Sync distributes files without activating Git hooks. `sync-harness.sh <project> --check` checks the complete installed closure, including members unused by an individual request.
+For a project that already has a Roster harness, its normal approved sync from the selected
+source revision distributes the reader and its complete resource set. This optional sync
+also requires Bash 4 or later and `jq`:
+
+```sh
+bash roster-observer-source/scripts/sync-harness.sh /path/to/project
+node /path/to/project/.harness/bin/roster-pipeline.cjs list --root /path/to/project
+bash roster-observer-source/scripts/sync-harness.sh /path/to/project --check
+```
+
+Sync updates the project's managed harness files and runtime projections; it is separate from
+read-only observation and is not required for the direct source invocation. It does not activate
+Git hooks. The installed reader is self-contained, with no `node_modules` or development-checkout
+fallback. `--check` verifies the complete installed closure, including members unused by an
+individual request. Obtain the full selected source revision to repair missing or stale members;
+do not mix files from different revisions.
 
 ## What the evidence means
 
@@ -52,9 +99,35 @@ const validLedger = observer.validateLedger(candidate, "example-task");
 
 Module option names use underscores; CLI flags use hyphens. `validateLedger` is a pure source-ledger predicate with router/doctor semantics. Display suitability of actor/time fields does not strengthen canonical validity, and the stricter recovery validator is not substituted.
 
+The current router's `jq index` predicate also accepts a nonempty contiguous array of legal
+outcomes. The observer preserves that validity decision. Such a non-scalar outcome is shown
+as `null` (unknown) in history and latest-completed summaries, rather than being converted
+into an invented scalar result. This does not change the router or any stored ledger bytes.
+
 Success envelopes carry integer `schema_version:1`, `kind`, UTC `generated_at`, schema identity/digest, separate root identity, stable `version`, coverage and command data. Source SHA-256 values hash consumed bytes, including malformed content; refused, absent and unreadable files have null digest. Aggregate version hashes fixed-order source/state/reason/digest tuples plus normalized request identity, including resource identity, excluding generation time. It detects change, not authentication, permission, acceptance or an atomic snapshot.
 
 The shipped draft-07 [JSON Schema](../schema/pipeline-observation.schema.json) and [coverage catalog](../schema/pipeline-coverage.json) are versioned resources. Envelope version, JSON Schema dialect/identity and content fingerprints are separate concepts. The schema uses the existing zero-dependency assertion subset; typed properties and version are checked, while command-specific conditional-required relationships are additionally enforced by runtime construction and acceptance tests. The self-contained schema's root `$id` is identity metadata removed only for that subset interpreter; no assertion keyword is silently ignored. Compatible additive interface changes require a documented minor release; incompatible changes require a new envelope version.
+
+The first public version 1 schema identity is
+`https://github.com/mathiasbourgoin/roster/schema/pipeline-observation/v1`.
+It is an opaque identifier in the maintainer's repository namespace, not a schema download
+endpoint. Load the schema shipped at the pinned source revision; the reader does not resolve
+the identity URL or fetch remote schema resources.
+
+### Transition from the unpublished experimental interface
+
+Experimental local snapshots used `https://roster.dev/schema/pipeline-observation/v1` before
+public qualification. Control of that domain was not established for this interface. The first
+public v1 uses the repository identity above; it does not promise a redirect or automatic
+acceptance of the experimental identity. Source and installed schema companions must agree
+with the runtime's identity, or the runtime reports `runtime-resource`.
+
+Experimental consumers must update exact schema-identity checks. They must also read the
+canonical finding message from `findings.items[].summary`, replacing the experimental
+`description` spelling. Update the complete runtime/resource set together, discard cached
+observations and content versions, and start fresh pagination when adopting this first public
+v1. The identity change affects schema and aggregate content digests; it does not change the
+underlying task ledger bytes or establish a new historical attempt.
 
 CLI source-invalidity observations still return stdout JSON and exit0. Invalid requests, invalid/stale cursors, unsupported requested versions, missing/malformed runtime resources and output overflow produce bounded stderr JSON and exit2:
 

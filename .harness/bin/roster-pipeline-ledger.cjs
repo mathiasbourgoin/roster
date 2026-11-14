@@ -12,12 +12,19 @@ const VOCABULARY = {
   question: ["COMPLETED"], research: ["COMPLETED"], plan: ["COMPLETED"], implement: ["COMPLETED", "PARTIAL"],
 };
 const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
+// jq index accepts a contiguous subarray as well as a scalar element. Preserve
+// that existing router contract; display code separately handles non-scalar data.
+function outcomeMatches(legal, outcome) {
+  if (!Array.isArray(outcome)) return legal.includes(outcome);
+  return outcome.length > 0 && legal.some((_, start) => start + outcome.length <= legal.length &&
+    Array.from(outcome).every((item, offset) => legal[start + offset] === item));
+}
 function validateLedger(value, expectedTask) {
   return Boolean(object(value) && value.task === expectedTask && typeof value.mode === "string" &&
     Object.hasOwn(SEQUENCES, value.mode) && typeof value.current_phase === "string" &&
     Array.isArray(value.events) && value.events.length > 0 &&
     value.events.every(event => object(event) && typeof event.phase === "string" &&
-      Object.hasOwn(VOCABULARY, event.phase) && VOCABULARY[event.phase].includes(event.outcome) &&
+      Object.hasOwn(VOCABULARY, event.phase) && outcomeMatches(VOCABULARY[event.phase], event.outcome) &&
       (!Object.hasOwn(event, "reason") || typeof event.reason === "string")) &&
     value.events.at(-1).phase === value.current_phase && SEQUENCES[value.mode].includes(value.current_phase));
 }
