@@ -1,7 +1,7 @@
 # Local commit telemetry
 
-Roster telemetry runtime **1.0.2** and `/roster-telemetry` skill **1.0.1** add optional,
-agent-reported commit trailers. Nothing is transmitted to a telemetry service. Committing
+Roster telemetry runtime **1.1.0** and `/roster-telemetry` skill **1.1.0** add optional,
+agent-reported commit trailers and opt-in Roster credit. Nothing is transmitted to a telemetry service. Committing
 and pushing makes the enabled metadata visible to repository readers.
 
 ## Installation and configuration
@@ -23,6 +23,8 @@ node scripts/roster-telemetry.js install --root /path/to/project
 node .harness/bin/roster-telemetry.cjs status
 node .harness/bin/roster-telemetry.cjs configure --enabled false
 node .harness/bin/roster-telemetry.cjs configure --enabled true --policy advisory --tokens false
+# Credit Roster without collecting metrics:
+node .harness/bin/roster-telemetry.cjs configure --enabled false --attribution append
 # Update using the trusted NEWER local source, not an old installed copy:
 node /path/to/roster/scripts/roster-telemetry.js update --root /path/to/project
 ```
@@ -35,9 +37,45 @@ status checks hooksPath, wrapper bytes, execute permissions and runtime version.
 `encoding_available` / `encoding_conflict` fields separately describe whether the current Git
 configuration can represent the footer; physical `active` hooks are not proof of usable encoding.
 
-`configure --enabled false` makes wrappers no-ops; it does not remove unrelated hooks or erase
+`configure --enabled false` disables metrics collection; configured attribution remains active.
+With attribution also off, wrappers are no-ops. Disabling does not remove unrelated hooks or erase
 historical commits. There is no attempt to chain arbitrary hooks automatically. Integration with
 Husky or another hooksPath owner requires a reviewed manual dispatch arrangement.
+
+## Optional Roster attribution
+
+Attribution is **off by default**, independently of collection and its advisory/strict policy.
+Old schema-version 1 configurations remain valid. Enable it with
+`configure --attribution append` or `configure --attribution require`; disable it with
+`configure --attribution off`. Enabling credit does not enable metrics and needs no commit report.
+The optional configuration is:
+
+```json
+"attribution": { "mode": "append" }
+```
+
+Append ensures the fixed line
+`Developed-with: Roster <https://github.com/mathiasbourgoin/roster>` appears in the final trailer
+block. Require checks that exact credit after the editor finishes and refuses if absent, naming
+the expected line. The key matches case-insensitively; the value must match exactly. A body
+example, comment, folded value or discarded scissors suffix does not satisfy the requirement.
+Existing credits for other tools are preserved and do not count as Roster attribution. Already
+present exact credit stays unchanged; repeated amends do not add duplicates. This feature
+neither adds nor refuses co-author lines or "Generated with …" text. An empty or comment-only
+final buffer is refused rather than generating a credit-only message; the initial editor
+template remains editable.
+
+The credit coexists with `Harness-*` fields, before trailing comments/scissors. Normal scissors
+with a comment-only suffix and compatible custom trailer separators are supported. Explicit
+attribution refuses an encoding that cannot preserve and round-trip its credit, including
+incompatible comment markers/separators. It does so even when metrics are advisory, without
+changing Git settings. The existing conservative limits around ambiguous cleanup overrides
+still apply. Attribution is a local convention and can be bypassed with Git hook overrides.
+
+Status distinguishes collection and attribution activation. Updating from the trusted source
+preserves both preferences. Existing consumers need a runtime update and explicit enablement
+in each maintainer's worktree; merely updating a shared configuration does not activate hooks
+in a new clone. No runtime-specific agent integration is needed.
 
 ## Report format (schema version 1)
 
@@ -97,13 +135,13 @@ semantics of any neighboring consumer script. Layouts with shared core.bare:true
 that require config migration are refused before modification; migrate them explicitly first.
 Inherited owned hooks become harmless on a branch with no tracked telemetry runtime or policy.
 A missing runtime still required by the index/HEAD or enabled local policy remains an actionable
-error; explicit disable remains a no-op. Exact older owned wrappers can be repaired automatically,
+error; disabling both collection and attribution remains a no-op. Exact older owned wrappers can be repaired automatically,
 while modified/custom wrappers are never silently adopted.
 
 Example trailers:
 
 ```text
-Harness-Telemetry-Version: 1.0.2
+Harness-Telemetry-Version: 1.1.0
 Harness-Version: 1.0.0
 Harness-Task: commit-telemetry
 Harness-Metrics-Source: agent-reported-cumulative

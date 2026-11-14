@@ -8,6 +8,11 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
 
 ### Added
 
+- Optional Roster commit attribution: `/roster-telemetry` and runtime 1.1.0 support
+  `--attribution off|append|require` for the canonical `Developed-with: Roster` trailer.
+  Default off; credit works without metrics collection or a report, preserves unrelated
+  credits/co-authors, and is idempotent across amends. Existing consumers must update their
+  runtime and explicitly enable attribution in each worktree.
 - `/roster-roadmap` 1.4.0 records derived correction missions: a blocked review receipt may
   blame a direct dependency (`blames`), and `derive` creates `<parent>-fix-<n>` in
   `state.derived` with its own topology, claims, receipts and budget. The implementation stays
