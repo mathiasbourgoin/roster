@@ -86,6 +86,50 @@ test("interpreter fails closed on an unsupported schema keyword (D-4)", () => {
   assert.throws(() => compile({ type: "object", minLength: 3 }), /unsupported schema keyword/);
 });
 
+test("compile rejects non-object schema nodes, including nested nodes", () => {
+  for (const node of [null, true, false, [], ["string"], "string", 0]) {
+    assert.throws(() => compile(node), /schema/i, `root ${JSON.stringify(node)}`);
+    assert.throws(() => compile({ properties: { field: node } }), /schema/i, `property ${JSON.stringify(node)}`);
+    assert.throws(() => compile({ items: node }), /schema/i, `items ${JSON.stringify(node)}`);
+  }
+});
+
+test("compile rejects malformed supported keyword values before validation", () => {
+  const malformed = [
+    { type: "unknown" }, { type: [] }, { type: ["string", "string"] },
+    { type: ["string", "unknown"] }, { type: ["string", null] }, { type: null }, { type: Array(1) },
+    { required: "field" }, { required: ["field", "field"] }, { required: [42] }, { required: Array(1) },
+    { properties: [] }, { properties: null }, { properties: "field" },
+    { items: [{ type: "string" }] }, { additionalProperties: {} },
+    { enum: [] }, { enum: "value" }, { enum: ["same", "same"] },
+    { enum: [0, -0] }, { enum: [NaN] }, { enum: [Infinity] },
+    { enum: [undefined] }, { enum: [{}] }, { enum: [[]] }, { enum: Array(1) },
+    { title: false }, { description: [] }, { $schema: 7 },
+    { properties: { nested: { type: "not-a-json-schema-type" } } },
+    { items: { properties: { nested: { required: false } } } },
+  ];
+  for (const schema of malformed) assert.throws(() => compile(schema), /schema/i, JSON.stringify(schema));
+});
+
+test("supported empty and primitive schema controls retain their behavior", () => {
+  const empty = compile({});
+  for (const value of [null, false, 0, "text", [], {}]) assert.strictEqual(empty.validate(value).valid, true);
+  const primitives = compile({ enum: [null, false, true, 0, "0"] });
+  for (const value of [null, false, true, 0, "0"]) assert.strictEqual(primitives.validate(value).valid, true);
+  assert.strictEqual(primitives.validate("other").valid, false);
+  const nullable = compile({ type: ["object", "null"], required: [], properties: {}, additionalProperties: true });
+  assert.strictEqual(nullable.validate({ extra: 1 }).valid, true); assert.strictEqual(nullable.validate(null).valid, true);
+  assert.doesNotThrow(() => compile({ items: {} }));
+  for (const name of ["review-finding.schema.json", "qa-state.schema.json", "review-trace.schema.json"])
+    assert.doesNotThrow(() => compile(require(path.resolve(__dirname, "..", "schema", name))), name);
+});
+
+test("additionalProperties false is enforced even without other object keywords", () => {
+  const validator = compile({ additionalProperties: false });
+  assert.strictEqual(validator.validate({}).valid, true);
+  assert.strictEqual(validator.validate({ unexpected: true }).valid, false);
+});
+
 test("additionalProperties: false rejects unknown keys when set", () => {
   const validator = compile({
     type: "object",

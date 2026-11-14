@@ -139,6 +139,13 @@ Module calls throw typed errors with `code`. `serialize(value)` applies the exac
 
 ## Qualification
 
+Runtime resources are checked against the interpreter's supported assertion grammar before
+being accepted. Invalid type names, malformed property/item schemas, required lists and
+unsupported assertion forms produce `runtime-resource`. The subset accepts object schemas,
+legal scalar type names/unions, primitive/null enums, string required lists, object properties,
+single-schema items and boolean `additionalProperties`. Boolean schema nodes, tuple items,
+structured enums and schema-valued `additionalProperties` are not silently accepted.
+
 The acceptance suite uses Git, Bash 4+, `jq` and the POSIX `mkfifo` utility, including a
 deterministic final-component FIFO replacement check. These are test tools; the observation
 runtime itself still uses only Node and its shipped local companions/resources.

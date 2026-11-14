@@ -26,6 +26,9 @@ below) — both already present in this section.
   persisted evidence without executing phases, hooks, gates, providers or Git. Includes
   canonical-ledger parity, current report summaries, explicit coverage and a complete local
   runtime/schema closure. Public acquisition uses a qualified immutable source revision.
+- Review-tool bundle 1.11.1 validates supported schema assertion parameters at compile time
+  and enforces standalone `additionalProperties: false`, with compiler and installed-observer
+  regressions. No new runtime dependency.
 - Opt-in Roster commit credit through `roster-telemetry` 1.1.0: append or require the
   canonical `Developed-with` trailer independently of metrics collection. Default off;
   management, installed Git lifecycle tests, backward-compatible configuration and updates.

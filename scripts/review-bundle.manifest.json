@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.11.0",
+  "bundle_version": "1.11.1",
   "channel": "next",
   "source_ref": "next",
   "files": [
@@ -39,7 +39,7 @@
     },
     {
       "path": "scripts/lib/review/finding-schema.js",
-      "sha256": "a992e3d1d8030043b647756351f2d4761302f81ee59d17deb769b36bf71e2c03"
+      "sha256": "27e76923c3ad36bc9b0448a9dbb38e31e11b378ac3b5a4427efe059bfad031e5"
     },
     {
       "path": "scripts/lib/review/normalize-rules.js",
@@ -123,7 +123,7 @@
     },
     {
       "path": "scripts/lib/review/finding-schema.cjs",
-      "sha256": "a992e3d1d8030043b647756351f2d4761302f81ee59d17deb769b36bf71e2c03"
+      "sha256": "27e76923c3ad36bc9b0448a9dbb38e31e11b378ac3b5a4427efe059bfad031e5"
     },
     {
       "path": "scripts/lib/review/normalize-rules.cjs",
