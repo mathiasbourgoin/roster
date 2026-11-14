@@ -22,6 +22,10 @@ below) — both already present in this section.
 
 ### Added
 
+- Version 1 standalone pipeline observation: `roster-pipeline` lists and inspects bounded
+  persisted evidence without executing phases, hooks, gates, providers or Git. Includes
+  canonical-ledger parity, current report summaries, explicit coverage and a complete local
+  runtime/schema closure. Public acquisition uses a qualified immutable source revision.
 - Opt-in Roster commit credit through `roster-telemetry` 1.1.0: append or require the
   canonical `Developed-with` trailer independently of metrics collection. Default off;
   management, installed Git lifecycle tests, backward-compatible configuration and updates.

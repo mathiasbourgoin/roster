@@ -12,6 +12,24 @@ version: 1.0.0
 
 Consumers can discover and inspect bounded persisted task evidence without executing or accepting a pipeline. This contract preserves canonical ledger validity and makes incomplete coverage explicit.
 
+## First public v1 identity and experimental transition
+
+The stable schema identity required by FR-011 is
+`https://github.com/mathiasbourgoin/roster/schema/pipeline-observation/v1`, an opaque identifier
+in the maintainer's repository namespace. It is not a schema retrieval endpoint: the runtime
+uses its shipped local resource and must not fetch that URL. Runtime `schema.id`, source `$id`
+and installed `$id` must agree. An experimental-id resource must yield `runtime-resource`
+rather than being silently accepted.
+
+Unpublished local snapshots used `https://roster.dev/schema/pipeline-observation/v1`; control
+of that domain was not established for this interface. This is an explicit transition before
+the first public v1, not a rename of an already published stable identity. Experimental
+consumers must update exact identity checks and the finding-message field from experimental
+`description` to canonical `summary`, update the complete runtime/resources together, discard
+cached observations/content versions and begin fresh pagination. No redirect or implicit
+compatibility with the experimental identity is promised. Identity changes affect schema and
+aggregate observation digests, not canonical ledger bytes or historical attempt identity.
+
 ## Clarifications
 
 ### Q1 — What does pagination promise if the directory changes?
@@ -23,6 +41,10 @@ Consumers can discover and inspect bounded persisted task evidence without execu
 **Answer:** Count every directory entry inspected, including unrelated names, against a 10,000-entry cap; do not first materialize or sort an unbounded directory listing. Detect exhaustion with at most one further entry. If the cap is exceeded, return an explicit incomplete/scan-limit result with no usable continuation cursor. Do not promise deterministic catalog coverage from an arbitrary filesystem enumeration prefix; the simplest permitted result contains no task items. A complete scan alone may sort eligible names and paginate them. Missing `briefs/`, unsafe directory access and scan-limit exhaustion remain distinguishable. Discovery recognizes only safe canonical `*-state.json` and `*-intake.md` names; it neither follows links nor browses arbitrary paths.
 
 ## Q3 — Which validator decides whether canonical phase history is valid?
+
+The existing `jq index` semantics include nonempty contiguous outcome subarrays. Preserve
+their canonical validity, while projecting a non-scalar outcome as null/unknown in history
+and latest-completed summaries. Do not change the router or infer a scalar from an array.
 
 **Answer:** Match the router's canonical predicate and its legal/illegal fixtures exactly for current ledgers; do not reuse recovery's stricter validity judgment. Additional keys and absent actor/time remain legal where the router permits them, nonempty history is required, and only the current phase must belong to the selected mode sequence. Do not impose ideal historical ordering. Malformed JSON, domain-invalid data, missing source and explicitly unsupported schema must have distinct observable states. Unknown extra fields do not by themselves mean an unsupported schema. Publish parity cases, including actorless events, additional keys, empty history and legal earlier phases outside the current mode sequence.
 
