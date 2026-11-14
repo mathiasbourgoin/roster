@@ -178,6 +178,7 @@ function detail() {
 }
 function contract() {
   const observer = api(); const { compile } = require("./lib/review/finding-schema.cjs");
+  malformedResourceAssertions();
   const schemaId = "https://github.com/mathiasbourgoin/roster/schema/pipeline-observation/v1";
   const executable = spawnSync(CLI, ["capabilities"], { encoding: "utf8", timeout: 10000 });
   assert.equal(executable.error, undefined, "registered CLI must be executable directly"); assert.equal(executable.status, 0, executable.stderr);
@@ -261,6 +262,40 @@ function ordinaryEnvelopeBoundary(observer, cap) {
     typed(() => observer.show(root, "alpha", { history_limit: 200 }), "output-limit");
     const overflow = command(["show", "--root", root, "--task", "alpha", "--history-limit", "200"]);
     assert.equal(overflow.status, 2); assert.equal(overflow.stdout, ""); assert.equal(JSON.parse(overflow.stderr).error.code, "output-limit");
+  });
+}
+function malformedResourceAssertions() {
+  const malformed = [
+    { type: "not-a-json-schema-type" }, { type: [] },
+    { type: "object", required: "field" }, { properties: [] },
+    { type: "array", items: [{ type: "string" }] },
+    { additionalProperties: { type: "string" } }, { enum: [{}] }, { title: 42 },
+  ];
+  fixture(root => {
+    for (const installed of [false, true]) {
+      const layout = path.join(root, installed ? "installed" : "source");
+      for (const [target, source] of Object.entries(CLOSURE)) {
+        const destination = path.join(layout, installed ? ".harness/" + target : source);
+        fs.mkdirSync(path.dirname(destination), { recursive: true }); fs.copyFileSync(path.join(ROOT, source), destination);
+      }
+      const cli = path.join(layout, installed ? ".harness/bin/roster-pipeline.cjs" : "scripts/roster-pipeline.cjs");
+      const valid = command(["capabilities"], cli, layout); assert.equal(valid.status, 0, valid.stderr);
+      assert.equal(JSON.parse(valid.stdout).kind, "pipeline-capabilities");
+      for (const name of ["pipeline-observation.schema.json", "qa-state.schema.json"]) {
+        const location = path.join(layout, installed ? ".harness/roadmap" : "schema", name);
+        const original = fs.readFileSync(location), schema = JSON.parse(original);
+        const field = name.startsWith("pipeline-") ? "schema_version" : "round";
+        for (const assertion of malformed) {
+          const changed = structuredClone(schema); changed.properties[field] = assertion;
+          fs.writeFileSync(location, JSON.stringify(changed));
+          const invalid = command(["capabilities"], cli, layout);
+          assert.equal(invalid.status, 2, `${installed ? "installed" : "source"} ${name}: ${JSON.stringify(assertion)}`);
+          assert.equal(invalid.stdout, ""); assert.equal(JSON.parse(invalid.stderr).error.code, "runtime-resource");
+        }
+        fs.writeFileSync(location, original);
+        assert.equal(command(["capabilities"], cli, layout).status, 0, `restored ${name}`);
+      }
+    }
   });
 }
 const CLOSURE = {

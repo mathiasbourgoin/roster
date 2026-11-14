@@ -19,6 +19,10 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
   canonical ledger validity and never infers live execution, session/attempt identity or
   historical report completeness. See [pipeline observation](docs/pipeline-observation.md).
 
+- Review-tool bundle 1.11.1 rejects malformed assertion parameters in its existing
+  zero-dependency schema interpreter. Valid supported schemas retain their behavior;
+  boolean `additionalProperties: false` is enforced even without other object keywords.
+
 - `/roster-roadmap` 1.4.0 records derived correction missions: a blocked review receipt may
   blame a direct dependency (`blames`), and `derive` creates `<parent>-fix-<n>` in
   `state.derived` with its own topology, claims, receipts and budget. The implementation stays
