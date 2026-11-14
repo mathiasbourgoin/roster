@@ -13,6 +13,12 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
   Default off; credit works without metrics collection or a report, preserves unrelated
   credits/co-authors, and is idempotent across amends. Existing consumers must update their
   runtime and explicitly enable attribution in each worktree.
+- `roster-pipeline` provides a version 1 read-only JSON catalog and detail view for standalone
+  pipeline tasks, with bounded source/history/report projections, content fingerprints,
+  explicit unsupported coverage, and a self-contained installed ESM runtime. It preserves
+  canonical ledger validity and never infers live execution, session/attempt identity or
+  historical report completeness. See [pipeline observation](docs/pipeline-observation.md).
+
 - `/roster-roadmap` 1.4.0 records derived correction missions: a blocked review receipt may
   blame a direct dependency (`blames`), and `derive` creates `<parent>-fix-<n>` in
   `state.derived` with its own topology, claims, receipts and budget. The implementation stays

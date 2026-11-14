@@ -333,6 +333,21 @@ if (!fs.existsSync(schemaPath)) {
   }
 }
 
+// Standalone observation ships a complete dependency-free installed closure.
+const observerResources = [
+  "scripts/roster-pipeline.cjs", "scripts/roster-pipeline-ledger.cjs",
+  "scripts/roster-artifacts.cjs", "scripts/lib/review/finding-schema.cjs",
+  "schema/pipeline-observation.schema.json", "schema/pipeline-coverage.json", "schema/qa-state.schema.json",
+];
+for (const resource of observerResources) {
+  if (!fs.existsSync(path.resolve(root, resource))) errors.push(`pipeline-observation: required source missing: ${resource}`);
+}
+const observerPackage = JSON.parse(fs.readFileSync(path.resolve(root, "package.json"), "utf8"));
+if (observerPackage.bin?.["roster-pipeline"] !== "scripts/roster-pipeline.cjs" || !observerPackage.scripts?.test?.includes("test:pipeline")) {
+  errors.push("pipeline-observation: supported CLI or acceptance suite is not registered");
+}
+if (!errors.some(error => error.startsWith("pipeline-observation:"))) console.log("✓ pipeline-install: standalone observation CLI, acceptance suite and source closure registered.");
+
 if (errors.length) {
   console.error(`\n✗ pipeline-install: ${errors.length} issue(s):`);
   for (const e of errors) console.error(`    - ${e}`);

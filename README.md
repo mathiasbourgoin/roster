@@ -248,4 +248,5 @@ To add or update components:
 → **[Skill hooks DSL and tutorial](docs/hooks.md)**  
 → **[Roster extensions](docs/extensions.md)** — local extension packs, install registry, converge checks  
 → **[Claims reconciliation](docs/claims-reconciliation.md)** — stable spec identities, deterministic KB projections, and offline behavior
+→ **[Pipeline observation](docs/pipeline-observation.md)** — versioned read-only task catalog and detail, bounded evidence and explicit coverage
 → **[Changelog](CHANGES.md)**
