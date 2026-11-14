@@ -73,7 +73,9 @@ changing Git settings. The existing conservative limits around ambiguous cleanup
 still apply. Attribution is a local convention and can be bypassed with Git hook overrides.
 
 Status distinguishes collection and attribution activation. Updating from the trusted source
-preserves both preferences. Existing consumers need a runtime update and explicit enablement
+preserves both preferences. An explicit update refreshes an existing installed runtime even
+when both features are off, while preserving configuration, wrappers and inactive hooks.
+It does not create or activate a fully disabled installation. Existing consumers need a runtime update and explicit enablement
 in each maintainer's worktree; merely updating a shared configuration does not activate hooks
 in a new clone. No runtime-specific agent integration is needed.
 
