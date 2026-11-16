@@ -153,3 +153,225 @@ runtime itself still uses only Node and its shipped local companions/resources.
 `npm run test:pipeline` runs four acceptance categories, also available directly as `node scripts/pipeline-observation-check.cjs catalog|detail|contract|install` with one category per invocation. The direct runner uses 0 for passing assertions, 1 for an assertion failure and 2 for setup/execution error. Twelve spec check labels link to those four category executions; they are not twelve independent runs. The full `npm test` includes this suite.
 
 The categories cover router/jq validity parity, scan/cursor/read/output boundaries, truthful current reports and unknown identities, instrumented absence of observation writes/subprocesses, schema/fingerprint behavior, and actual installed ESM/no-node_modules closure with missing, stale and linked members. Qualification results belong in the task's review/QA artifacts; this usage reference makes no claim that unrecorded checks passed.
+
+## Read complete canonical artifacts
+
+The additive `artifact-*` operations let an integration discover finite canonical task documents
+and configured project-agent definitions, then reconstruct their complete UTF-8 bodies. They
+have a separate schema from the summaries above. Check `artifact-capabilities` at the selected
+immutable revision: a receipt for an earlier summary-only revision does not establish this
+capability. Missing Node/executable, an old producer without the command, and incompatible
+producer versions are acquisition failures the caller must distinguish; an absent process
+cannot emit producer JSON.
+
+```sh
+node scripts/roster-pipeline.cjs artifact-capabilities
+node scripts/roster-pipeline.cjs artifact-list --root /path/to/project --scope task --task example-task
+node scripts/roster-pipeline.cjs artifact-list --root /path/to/project --scope project
+```
+
+The synchronous module exports are:
+
+```js
+const observer = require("./scripts/roster-pipeline.cjs");
+const capabilities = observer.artifactCapabilities();
+const catalog = observer.artifactList({
+  root: projectRoot, scope: "task", task: "example-task", limit: 25, cursor: null
+});
+const page = observer.artifactRead({
+  root: projectRoot, scope: "task", task: "example-task",
+  ref: catalog.data.items[0].body.ref, pageBytes: 65536, cursor: null
+});
+```
+
+Supply the admitted root, scope and exact task independently of received references. A task
+list without `task` is a root catalog grant; reading still requires a concrete independently
+selected task. Project operations forbid a task. A reference is a pathless description of
+current bytes, not a credential or evidence of previous listing. A currently eligible reference
+constructed with the correct digest is readable without a list receipt.
+
+Each success has exactly `schema_version`, `kind`, `schema`, `source` and `data`.
+`schema_version` is 1; `schema.id` is
+`https://github.com/mathiasbourgoin/roster/schema/artifact-observation/v1` and `schema.digest`
+is the raw schema SHA256. `source` is null for capabilities, otherwise `{id,scope,task}`.
+Kinds are `artifact-capabilities`, `artifact-list` and `artifact-page`. The exact field/type
+reference is [the artifact specification](../specs/public-artifact-reading.md#normative-contract)
+and [the offline schema](../schema/artifact-observation.schema.json).
+
+### Eligible resources and catalog meaning
+
+Task discovery scans `briefs/` and `specs/` together. Each safe task contributes all fourteen
+slots below, including absent bodies. The task ID/name grammar is the same safe ASCII grammar
+used above. Ordering is ASCII task ID, then this fixed kind order; a catalog page counts slots,
+not tasks. A filename can identify two canonical slots: `sample-qa-state.json` is both the
+QA state of `sample` and the ledger of `sample-qa`. Both identities remain independently bound.
+
+| Kind | Canonical resource for task T |
+|---|---|
+| spec | `specs/T.md` |
+| intake | `briefs/T-intake.md` |
+| spec-result | `briefs/T-spec.md` |
+| plan | `briefs/T-plan.md` |
+| plan-data | `briefs/T-plan.json` |
+| implementer-brief | `briefs/T-implementer.md` |
+| reviewer-brief | `briefs/T-reviewer.md` |
+| qa-scope | `briefs/T-qa-scope.md` |
+| implementation | `briefs/T-impl.md` |
+| review | `briefs/T-review.json` |
+| qa-state | `briefs/T-qa-state.json` |
+| qa | `briefs/T-qa.md` |
+| ledger | `briefs/T-state.json` |
+| manifest | `briefs/T-manifest.txt` |
+
+`spec` is the complete canonical specification; `spec-result` is the distinct phase-result
+brief. A summary or completion marker never substitutes for a full document. An exact task
+without any canonical filename is absent with unknown total. An existing empty directory
+catalog has known total zero; both directories missing means absent inventory. An unsafe
+required directory or exhausted combined scan budget aborts the operation without partial
+membership.
+
+Project inventory admits only a duplicate-free JSON object at `.harness/harness.json` with
+object `layers` and array `layers.agents`. Unique safe declaration names select only
+`.harness/agents/NAME.md`. Optional source, path, runtime and version metadata cannot select
+another file or grant execution. Every occurrence of a duplicate name is excluded; invalid
+entries retain their original array indices and exact excluded count. The intended definition
+total is null if exclusions leave membership unresolved. Missing definition bodies and invalid
+optional metadata retain known identities. Definitions sort by ASCII name.
+
+The manifest body is separate in `data.context.project_manifest`, never counted as a definition.
+Absent/invalid manifests have unknown definition totals; a valid empty agents array has known
+zero. A safe raw malformed manifest remains readable through its context item. Generated runtime
+extras, global agents, historical report bodies and arbitrary manifest targets are unsupported.
+Roadmap persisted observations and legacy phase history remain separately delegated. The
+versioned coverage entries distinguish these categories from a supported absent/invalid body.
+
+### Preserve bytes and detect stale continuations
+
+A valid `body` has `{availability:"valid",reason:null,sha256,total_bytes,ref}`. Empty files are
+valid. Every nonvalid body has null digest, length and reference; missing is absent/not-found,
+while unsafe, nonregular, symlinked, hardlinked, oversized or invalid-UTF8 sources are invalid.
+Individual catalog faults stay on that item. Root, required manifest/resource and operation
+budget faults abort the operation.
+
+`artifact-read --root ROOT --scope task --task T --ref REF` accepts optional `--page-bytes N`
+and `--cursor TOKEN`; project reads use `--scope project` without `--task`. Page data is exactly
+`{ref,sha256,total_bytes,range:{start,end},text,next_cursor,eof}` with half-open byte ranges.
+Reconstruct a full document only by joining contiguous ranges from zero through `total_bytes`
+under one reference/digest. `eof` alone does not establish possession of earlier bytes.
+
+Pages preserve BOM, CR/LF, NUL and Unicode spelling without normalization. Decoding is strict
+UTF-8; replacement decoding and binary fallback are unsupported. Each page ends at the largest
+complete codepoint boundary fitting the byte limit. Page size may change during continuation;
+a valid in-range forged offset is also allowed because cursors are not credentials. An empty
+supplied cursor is invalid; only omitted/null means absent. At EOF a requested terminal cursor
+returns an empty `N..N` page.
+
+References and cursors use canonical unpadded base64url JSON with sorted keys. Duplicate/extra
+keys, alternate ordering/escaping/numbers, whitespace, padding, invalid encoding, oversized
+inputs and unsupported versions refuse. Source identity hashes the resolved root, scope and
+task without Unicode normalization. Relative equivalent roots share identity; symlink roots
+and ancestors refuse. A reference cannot widen that binding.
+
+Each read rechecks current canonical eligibility and raw body digest. A missing/changed body
+or removed project name yields `stale_reference`. Project manifest byte edits stale list
+cursors while an unchanged still-eligible definition reference remains readable. List cursors
+bind ordered membership, presence/type classes, manifest digest, invalid indices and resource
+identity, rather than unrelated body contents. Content-only edits do not claim an atomic
+catalog revision. Descriptor/path/stat checks refuse detected mutation/replacement; they do
+not guarantee cross-file transactions or protection against undetectable hostile races.
+
+### Observe metadata without accepting its claims
+
+Metadata keeps nullable `declaration`, `definition` and `reported` groups separate, with
+availability, bounded issues and explicit truncation. Declaration values remain observable
+when the definition body is missing. Differing declaration/definition versions are attributed
+independently. A mismatching definition name becomes null with `name-mismatch`; canonical
+identity and safe body remain readable.
+
+Definitions require name, display name, description, model, domain/tags/compatibility arrays
+and complexity. Optional configuration fields are typed without defaults. Task reports expose
+only reported task/status/date and nonnegative safe-integer round/cycle. Foreign task identity
+or contradictory explicit status declarations null the affected field with an issue. A wrong-type
+frontmatter status stays null even when a later status marker is well typed. A plausible
+well-typed status is still only a reported string: no acceptance, count verification, permission,
+command or session identity follows. Every item has invariant
+`use:{availability:"unknown",reason:"not-observed",session:null}`.
+
+Markdown metadata comes only from the first leading `---` block after optional BOM, using LF
+or CRLF. Later blocks remain inert body text. The bundled maintained YAML AST reader rejects
+actual anchors, aliases, tags, plain merge syntax, duplicate decoded keys, non-string map keys
+and non-JSON/nonfinite values before conversion. Quoted/block literals containing `*` or `!`
+and quoted literal `"<<"` keys remain ordinary text. JSON resources additionally require complete
+strict JSON grammar; YAML superset syntax is not accepted as JSON. Escaped equivalent JSON
+keys are duplicates. Ill-formed decoded strings null the affected field; their unchanged ASCII
+escape bytes remain in the safe full body. Invalid syntax never salvages partial parsed
+fields or denies an independently safe inert body.
+
+### Bounds and fixed errors
+
+| Surface | Artifact namespace limit |
+|---|---|
+| Source / serialized response | 16MiB per body / 2MiB UTF-8 JSON |
+| Body page | 4..131072 bytes; default 65536 |
+| Catalog page | 1..100 slots; default 25 |
+| Discovery / physical consumption | 10000 combined directory entries / 32MiB per operation |
+| Reference / cursor | 4096 / 8192 bytes |
+| Frontmatter | 65536 input bytes |
+| Decoded input | Root depth 0; depth at most 32; at most 100000 values including root |
+| Project declarations | 10000 |
+| Metadata output | Depth 8; 1000 values; 64 map keys; 100 array items |
+| Metadata strings / displayed issues or invalid entries | 2000 scalar-aligned UTF-16 units / 100 |
+
+Output depth/node accounting includes the entire metadata object, its field groups and issues,
+with root depth zero. Clipped nested fields stay explicitly nullable with limit issues.
+
+Source/frontmatter byte bounds precede parsing. Depth/node limits are **postparse admission**,
+not a preparse CPU/heap sandbox. All parser exceptions, including stack errors, invalidate
+metadata while retaining an independently safe body. Bounded pathological fixtures are checked
+under process deadlines; those checks do not establish a universal latency or heap guarantee.
+Physical artifact/configuration reads count each consumption; reused buffers and runtime/schema
+resources do not. A maximum 16MiB manifest plus 16MiB definition is retrievable within 32MiB.
+Smaller pages cannot repair unsafe sources, required inventory faults or missing resources.
+
+Module failures synchronously throw the exported `ObservationError`. CLI failures write only
+closed `{schema_version:1,kind:"error",error:{code,message}}` to stderr, with empty stdout and
+exit 2. Messages are the fixed code with underscores replaced by spaces. Codes are
+`invalid_request`, `invalid_reference`, `invalid_cursor`, `stale_reference`, `stale_cursor`,
+`unsafe_source`, `oversized_source`, `invalid_utf8`, `runtime_resource`, `output_limit` and
+`read_failed`. Option/token shape checks precede independent binding checks, then resources/root/
+eligibility, safe consumption, reference digest and cursor freshness/range checks. A stale
+reference wins over a wrong cursor fingerprint. No output overflow emits partial JSON.
+
+### Portable resources and verification
+
+New operations lazily validate a finite fifteen-member runtime union. The legacy seven members
+remain sufficient for `list`, `show` and `capabilities`. Added members are the artifact reader,
+metadata adapter, bundled `yaml-2.9.1.cjs`, its ISC license/provenance, artifact schema, coverage
+and distribution manifest. Source-to-installed mappings are fixed in the implementation and
+[finite integrity descriptor](../scripts/artifact-observation.manifest.json); the descriptor
+does not authorize following arbitrary paths. It lists the fourteen other members, never a
+self-hash. Its closed structure and generated serialization are checked. Resource fingerprints
+include all fifteen sorted logical installed paths and raw SHA256s, including the manifest raw
+SHA256, and stay identical across source/installed layout. These hashes describe bytes; they
+do not authenticate their publisher or certify semantic truth.
+
+The existing official sync distributes these exact resources; `--check` detects missing,
+stale and symlinked projections. A relocated ESM consumer needs no `node_modules`. Parser builds
+use exact dev-only `yaml@2.9.1` and locked `esbuild@0.25.6`; no consumer package install is needed.
+Build settings and actual input/bundle/license hashes are in the shipped provenance. To rebuild
+or verify reproducibility after an authorized source change:
+
+```sh
+npm ci
+npm run build:artifact-parser
+npm run check:artifact-parser
+npm run test:pipeline
+node scripts/artifact-observation-check.cjs --all
+node scripts/artifact-observation-check.cjs --case AC-24
+```
+
+Every AC-1..38 selector runs independently: 0 means assertions pass, 1 means a contract assertion
+or validly set up producer crash/hang, and 2 or greater means setup is unavailable. The checks
+exercise the public module/CLI and real relocated closure, not a replacement reader. Local
+checks do not establish publication, CI success or downstream acceptance; consume a revision
+only after its actual qualification receipt is available.
