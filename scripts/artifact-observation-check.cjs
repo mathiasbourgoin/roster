@@ -894,7 +894,7 @@ cases[29] = () => fixture((root, api) => {
   }
   const resourcePairs = entries.map((e) => [e.logical, sha(fs.readFileSync(path.join(root, ".harness", e.logical)))]).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
   const fp = sha(canonical(resourcePairs));
-  const sid = source.source.id, tuples = source.data.items;
+  const sid = source.source.id;
   assert.ok(/^[a-f0-9]{64}$/.test(fp));
   const first = api.artifactRead({ root, scope: "task", task: "build-cache", ref, pageBytes: 4 });
   assert.equal(untoken(first.data.next_cursor).fingerprint, sha(canonical(["artifact-read/v1", sid, "task", "build-cache", "spec", "build-cache", sha(Buffer.from("relocated\u{1F600}body".repeat(300))), Buffer.byteLength("relocated\u{1F600}body".repeat(300)), fp])));
@@ -912,7 +912,8 @@ cases[29] = () => fixture((root, api) => {
   syncQualification(entries);
 });
 cases[30] = () => fixture((root, api) => {
-  const entries = install(root), entry = path.join(root, ".harness/bin/roster-pipeline.cjs");
+  install(root);
+  const entry = path.join(root, ".harness/bin/roster-pipeline.cjs");
   const missing = spawnSync(path.join(root, "missing-node"), [entry, "artifact-capabilities"]);
   assert.equal(missing.error.code, "ENOENT");
   const absent = spawnSync(process.execPath, [path.join(root, "missing-producer.cjs"), "artifact-capabilities"], { encoding: "utf8" });
