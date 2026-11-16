@@ -1,0 +1,89 @@
+{
+  "coverage_version": 1,
+  "entries": [
+    {
+      "id": "task-artifacts",
+      "availability": "supported",
+      "source": "Finite canonical artifact resources",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Bounded local UTF-8; no semantic truth or atomicity guarantee"
+    },
+    {
+      "id": "project-agent-definitions",
+      "availability": "supported",
+      "source": "Finite canonical artifact resources",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Bounded local UTF-8; no semantic truth or atomicity guarantee"
+    },
+    {
+      "id": "manifest-body",
+      "availability": "supported",
+      "source": "Finite canonical artifact resources",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Bounded local UTF-8; no semantic truth or atomicity guarantee"
+    },
+    {
+      "id": "metadata",
+      "availability": "supported",
+      "source": "Finite canonical artifact resources",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Bounded local UTF-8; no semantic truth or atomicity guarantee"
+    },
+    {
+      "id": "roadmap-persisted-observations",
+      "availability": "delegated",
+      "source": "Separate persisted observation API",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Separately attributed; not imported as full artifact content"
+    },
+    {
+      "id": "legacy-phase-history",
+      "availability": "delegated",
+      "source": "Separate persisted observation API",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Separately attributed; not imported as full artifact content"
+    },
+    {
+      "id": "arbitrary-manifest-targets",
+      "availability": "unsupported",
+      "source": "No eligible resource in this namespace",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Unsupported category; no inferred live state or session association"
+    },
+    {
+      "id": "historical-report-bodies",
+      "availability": "unsupported",
+      "source": "No eligible resource in this namespace",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Unsupported category; no inferred live state or session association"
+    },
+    {
+      "id": "generated-project-inventory",
+      "availability": "unsupported",
+      "source": "No eligible resource in this namespace",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Unsupported category; no inferred live state or session association"
+    },
+    {
+      "id": "global-project-inventory",
+      "availability": "unsupported",
+      "source": "No eligible resource in this namespace",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Unsupported category; no inferred live state or session association"
+    },
+    {
+      "id": "live-execution",
+      "availability": "unsupported",
+      "source": "No eligible resource in this namespace",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Unsupported category; no inferred live state or session association"
+    },
+    {
+      "id": "authenticated-session-joins",
+      "availability": "unsupported",
+      "source": "No eligible resource in this namespace",
+      "authority": "Untrusted read-only observation; no execution or permission grant",
+      "limitations": "Unsupported category; no inferred live state or session association"
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "manifest_version": 1,
+  "members": [
+    {
+      "logical": "bin/lib/review/finding-schema.cjs",
+      "source": "scripts/lib/review/finding-schema.cjs",
+      "sha256": "27e76923c3ad36bc9b0448a9dbb38e31e11b378ac3b5a4427efe059bfad031e5",
+      "bytes": 6511
+    },
+    {
+      "logical": "bin/roster-artifact-metadata.cjs",
+      "source": "scripts/roster-artifact-metadata.cjs",
+      "sha256": "684f08133de8d772cbf9ee0b141e52c3101dd70be706499b867572331f417c8f",
+      "bytes": 12513
+    },
+    {
+      "logical": "bin/roster-artifact-observation.cjs",
+      "source": "scripts/roster-artifact-observation.cjs",
+      "sha256": "0e7a828e03f076d6ce3c48e00f4aaf0725f3d4d8988ef6633c3ca2493c204b05",
+      "bytes": 22712
+    },
+    {
+      "logical": "bin/roster-artifacts.cjs",
+      "source": "scripts/roster-artifacts.cjs",
+      "sha256": "cf562994cdf7b2cf4d42f811167511a5303cc3367fa7c1257aa2661fbd560986",
+      "bytes": 4262
+    },
+    {
+      "logical": "bin/roster-pipeline-ledger.cjs",
+      "source": "scripts/roster-pipeline-ledger.cjs",
+      "sha256": "9cfbf37f955b171c47b61767ba273477483cccb454e47ddffed8be89cf4684f0",
+      "bytes": 1900
+    },
+    {
+      "logical": "bin/roster-pipeline.cjs",
+      "source": "scripts/roster-pipeline.cjs",
+      "sha256": "4fd9048eb7ba46b98d8a8219c8328a7650c11547e8b13398d08081078d7735f6",
+      "bytes": 21879
+    },
+    {
+      "logical": "bin/vendor/yaml-2.9.1.LICENSE",
+      "source": "scripts/vendor/yaml-2.9.1.LICENSE",
+      "sha256": "5bba27375d93e9119f76c1015f7672cf9ad5f70952296e0842fb2243d6376869",
+      "bytes": 738
+    },
+    {
+      "logical": "bin/vendor/yaml-2.9.1.cjs",
+      "source": "scripts/vendor/yaml-2.9.1.cjs",
+      "sha256": "192458a13d154fbed3472a26c876cd4957a1dda7fa4a543b5d4e7899dcdff819",
+      "bytes": 114697
+    },
+    {
+      "logical": "bin/vendor/yaml-2.9.1.provenance.json",
+      "source": "scripts/vendor/yaml-2.9.1.provenance.json",
+      "sha256": "4a72d30e1843438e104d55ef3d58e20a56571611ff1fa17e21a85893b939bd60",
+      "bytes": 13043
+    },
+    {
+      "logical": "roadmap/artifact-coverage.json",
+      "source": "schema/artifact-coverage.json",
+      "sha256": "b3884f93b99bee12c680f04039d288c617c70bed1689e7d3a3e1e7c993f0fba9",
+      "bytes": 3865
+    },
+    {
+      "logical": "roadmap/artifact-observation.schema.json",
+      "source": "schema/artifact-observation.schema.json",
+      "sha256": "9f387ff919be0af0de07d2f44084c3a99c5ceb818ae224c232e3aaf2d33d45bb",
+      "bytes": 38104
+    },
+    {
+      "logical": "roadmap/pipeline-coverage.json",
+      "source": "schema/pipeline-coverage.json",
+      "sha256": "a0aaa6c3480263057e8b0260fc68bad658401362ab3c2fa76f23f5e8255fa525",
+      "bytes": 6206
+    },
+    {
+      "logical": "roadmap/pipeline-observation.schema.json",
+      "source": "schema/pipeline-observation.schema.json",
+      "sha256": "d44d4a69da77ca60ad1171af586ae4f1b3b3bd667502189c99800df6adf79088",
+      "bytes": 178270
+    },
+    {
+      "logical": "roadmap/qa-state.schema.json",
+      "source": "schema/qa-state.schema.json",
+      "sha256": "d763c1f46a2f8ff466718714c3a937ae4314df7d0663ed1921861f6fb832a2da",
+      "bytes": 1921
+    }
+  ]
+}

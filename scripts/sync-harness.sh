@@ -63,6 +63,14 @@ ROADMAP_SOURCES=(
     "$SCRIPT_DIR/../schema/pipeline-observation.schema.json"
     "$SCRIPT_DIR/../schema/pipeline-coverage.json"
     "$SCRIPT_DIR/../schema/qa-state.schema.json"
+    "$SCRIPT_DIR/roster-artifact-observation.cjs"
+    "$SCRIPT_DIR/roster-artifact-metadata.cjs"
+    "$SCRIPT_DIR/vendor/yaml-2.9.1.cjs"
+    "$SCRIPT_DIR/vendor/yaml-2.9.1.LICENSE"
+    "$SCRIPT_DIR/vendor/yaml-2.9.1.provenance.json"
+    "$SCRIPT_DIR/../schema/artifact-observation.schema.json"
+    "$SCRIPT_DIR/../schema/artifact-coverage.json"
+    "$SCRIPT_DIR/artifact-observation.manifest.json"
     "$SCRIPT_DIR/../schema/roadmap-schema.md"
     "$SCRIPT_DIR/../examples/roadmap/roadmap.json"
     "$SCRIPT_DIR/../examples/roadmap/capabilities.json"
@@ -97,6 +105,14 @@ ROADMAP_TARGETS=(
     "$HARNESS_DIR/roadmap/pipeline-observation.schema.json"
     "$HARNESS_DIR/roadmap/pipeline-coverage.json"
     "$HARNESS_DIR/roadmap/qa-state.schema.json"
+    "$HARNESS_DIR/bin/roster-artifact-observation.cjs"
+    "$HARNESS_DIR/bin/roster-artifact-metadata.cjs"
+    "$HARNESS_DIR/bin/vendor/yaml-2.9.1.cjs"
+    "$HARNESS_DIR/bin/vendor/yaml-2.9.1.LICENSE"
+    "$HARNESS_DIR/bin/vendor/yaml-2.9.1.provenance.json"
+    "$HARNESS_DIR/roadmap/artifact-observation.schema.json"
+    "$HARNESS_DIR/roadmap/artifact-coverage.json"
+    "$HARNESS_DIR/roadmap/artifact-observation.manifest.json"
     "$HARNESS_DIR/roadmap/schema.md"
     "$HARNESS_DIR/roadmap/example.json"
     "$HARNESS_DIR/roadmap/capabilities.json"
@@ -112,13 +128,13 @@ ROADMAP_TARGETS=(
     "$HARNESS_DIR/roadmap/view.schema.json"
 )
 if [ -f "$ROADMAP_SOURCE" ]; then
-    for _roadmap_directory in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/bin/lib" "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/roadmap"; do
+    for _roadmap_directory in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/bin/lib" "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap"; do
         if [ ! -L "$_roadmap_directory" ] && [ -e "$_roadmap_directory" ] && [ ! -d "$_roadmap_directory" ]; then
             echo "roadmap: managed resource ancestor must be a directory: $_roadmap_directory" >&2
             exit 1
         fi
     done
-    for _roadmap_path in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/bin/lib" "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/roadmap" "${ROADMAP_TARGETS[@]}"; do
+    for _roadmap_path in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/bin/lib" "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap" "${ROADMAP_TARGETS[@]}"; do
         if [ -L "$_roadmap_path" ]; then
             echo "roadmap: refusing managed symlink: $_roadmap_path" >&2
             exit 1
@@ -976,7 +992,7 @@ install_skill_hook_runtime
 # Self-contained .cjs preserves consumer module semantics, including ESM projects.
 # Replace the directory entry atomically; never truncate a hard-link alias.
 if [ -f "$ROADMAP_SOURCE" ]; then
-    mkdir -p "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/roadmap"
+    mkdir -p "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap"
     for _roadmap_i in "${!ROADMAP_SOURCES[@]}"; do
         _roadmap_target="${ROADMAP_TARGETS[$_roadmap_i]}"
         _roadmap_tmp="$(mktemp "$(dirname "$_roadmap_target")/.roster-roadmap.XXXXXX")"

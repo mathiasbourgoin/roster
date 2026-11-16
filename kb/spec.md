@@ -4,7 +4,7 @@ status: derived
 schema-version: 2
 ---
 
-<!-- claims-projection {"freshness_digest":"e08c8f1bceddee850ea2f2e9296cfc2484b84721a671c179e8ee9ae1cc85ac24","model_digest":"d0e7d7a6b1fe2d6441ea967e703894fd85d506670fb2e8d6add55417352736e7","renderer_version":"1.2","selection_policy_version":"1.2"} -->
+<!-- claims-projection {"freshness_digest":"7659b50f1e7e2805a0bd9e11a660f87cb554264e728054517586233831cdf02c","model_digest":"90ad140e53c4d214f1628ea8e39a26f01c28404dc6a80c3f332a090dc393173c","renderer_version":"1.2","selection_policy_version":"1.2"} -->
 
 
 ## Requirements

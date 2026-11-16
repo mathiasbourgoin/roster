@@ -292,6 +292,7 @@ function capabilities(options={}) {
 function main(argv) {
   try {
     const [command,...args] = argv;
+    if (command?.startsWith("artifact-")) return artifactDispatch(command,args);
     if (!["list","show","capabilities"].includes(command)) fail("invalid-request", "Expected list, show or capabilities");
     const allowed = command === "list" ? ["root","limit","cursor","schema-version"] : command === "show" ? ["root","task","history-limit","history-cursor","schema-version"] : ["schema-version"];
     const parsed = {};
@@ -315,5 +316,10 @@ function main(argv) {
     process.stderr.write(JSON.stringify({schema_version:1,kind:"error",error:{code:known.code,message:known.message}})+"\n"); process.exitCode=2;
   }
 }
-module.exports = {list,show,capabilities,validateLedger,serialize,ObservationError};
+function artifactRuntime() { try { return require("./roster-artifact-observation.cjs"); } catch (error) { if (error instanceof ObservationError) throw error; throw new ObservationError("runtime_resource","runtime resource"); } }
+function artifactCapabilities(...args) { return artifactRuntime().artifactCapabilities(...args); }
+function artifactList(options) { return artifactRuntime().artifactList(options); }
+function artifactRead(options) { return artifactRuntime().artifactRead(options); }
+function artifactDispatch(command,args) { try { artifactRuntime().main(command,args); } catch(error) { const code=error instanceof ObservationError ? error.code : "runtime_resource";process.stderr.write(JSON.stringify({schema_version:1,kind:"error",error:{code,message:code.replaceAll("_"," ")}})+"\n");process.exitCode=2; } }
+module.exports = {list,show,capabilities,validateLedger,serialize,ObservationError,artifactCapabilities,artifactList,artifactRead};
 if (require.main === module) main(process.argv.slice(2));
