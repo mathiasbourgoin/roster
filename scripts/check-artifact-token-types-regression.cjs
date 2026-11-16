@@ -111,7 +111,7 @@ try {
   console.log("PASS: primitive token hashes, zero artifact bytes and valid controls");
 } catch (error) {
   console.error(error.stack);
-  process.exitCode = error instanceof assert.AssertionError || error?.code === "ERR_ASSERTION" ? 1 : 2;
+  process.exitCode = error instanceof assert.AssertionError ? 1 : 2;
 } finally {
   if (root) {
     try { fs.rmSync(root, {recursive: true, force: true}); }

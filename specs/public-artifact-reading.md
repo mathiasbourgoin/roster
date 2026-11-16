@@ -180,6 +180,8 @@ As a public API consumer, I want exact trusted scope, stable byte continuity and
 - **FR-067** [US-3]: Capability coverage MUST distinguish unsupported category, absent/invalid supported body and missing external capability. (US-3; C-34)
 - **FR-068** [US-3]: Output-limit failure MUST return a closed error rather than partial JSON or fabricated partial success. (US-3; C-22/C-24)
 
+- **FR-069** [US-3]: Artifact distribution qualification MUST keep the existing strict Git-derived leak gate for all nonexempt changed files. The generated YAML parser exceptions MUST be exactly `scripts/vendor/yaml-2.9.1.cjs` and `.harness/bin/vendor/yaml-2.9.1.cjs`, added to the existing exact-path policy only while their public pinned provenance, reproducibility and complete resource checks remain required. No directory/glob exemption, new `leak-ok`, scanner/CI bypass or changed parser byte is authorized by this requirement.
+
 ## Normative Contract
 
 
@@ -391,6 +393,10 @@ List fingerprint tuple presence is boolean and filetype is missing/file/symlink/
 - **AC-37** [US-1/US-2/US-3; C-34; FR-039/067]: Given coverage catalog plus absent/invalid supported body and missing external producer, when capability/acquisition observations are compared, then supported/delegated/unsupported Table C categories remain distinguishable from absent/invalid body and missing capability.
 - **AC-38** [US-1/US-3; C-35; FR-011–014/059]: Given foreign task, contradictory statuses, invalid round/cycle and plausible false well-typed claims, when metadata/full body are read, then affected fields null with issue, valid claims remain only reported, counts/acceptance/commands are not synthesized and raw text stays inert.
 
+- **AC-39** [US-3; FR-069]: Given the pinned reproducible parser distribution, explicitly labelled unchanged license digest and exact two generated-file policy entries, when the real Git-derived strict leak gate examines a disposable committed fixture with a proved exact nonempty diff, then the legitimate additions pass while a newly added secret-shaped value assembled at runtime beside a valid checksum in a nonexempt script still blocks the gate. The adjacent unlisted parser-like path likewise remains nonexempt. Extra/duplicate exemption entries and wildcard/directory exemptions fail the check.
+
+Existing FR-061/063 remain covered by their unchanged AC/check mappings, including CHECK-29/30/31. Parser reproducibility, complete fifteen-member resource tamper/missing/symlink checks and exact runtime15/two-ratchet hashes are separately required release guards. They must detect changed generated content despite the narrow leak exemption; CHECK-41 alone does not claim to prove their behavior. No existing claim edge changes.
+
 ## Edge Cases
 
 - EC-1 [US-1]: Only briefs/T-review.json exists.  Outcome follows the corresponding challenge and AC in Traceability.
@@ -412,7 +418,7 @@ List fingerprint tuple presence is boolean and filetype is missing/file/symlink/
 
 ## Runnable Checks
 
-These intended task-specific commands are not execution evidence. The verifier reuses the repository's standalone acceptance-runner pattern and exercises actual public interfaces in isolated fixtures. It must exist and distinguish setup from assertions before qualification. No check was executed or passed during specification. Required complete local gates are build:ts, test:pipeline, claims:check and npm test.
+These intended task-specific commands are not execution evidence. The verifier reuses the repository's standalone acceptance-runner pattern and exercises actual public interfaces in isolated fixtures. It must exist and distinguish setup from assertions before qualification. No check was executed or passed during specification. Required complete local gates are build:ts, test:pipeline, claims:check and npm test. Release qualification also requires check:artifact-parser, sync-harness.sh --check, test:review-bundle, populate-manifest-skills.js --check and the actual strict check-leak-diff.sh against the current integration base. Parser reproducibility and complete resource/hash guards remain independent of the narrow leak policy.
 
 - **CHECK-1** [AC-1]: `rtk proxy node scripts/artifact-observation-check.cjs --case AC-1` → 0 passes; 1 assertion failure; >=2 setup/runtime/resource error. (authentic-success-path)
 - **CHECK-2** [AC-2]: `rtk proxy node scripts/artifact-observation-check.cjs --case AC-2` → 0 passes; 1 assertion failure; >=2 setup/runtime/resource error. (authentic-success-path)
@@ -455,6 +461,8 @@ These intended task-specific commands are not execution evidence. The verifier r
 
 - **CHECK-39** [AC-11]: `rtk proxy node scripts/check-artifact-semver-regression.cjs` → 0 passes; 1 assertion failure; >=2 setup/runtime/resource error. New self-contained permanent SemVer ratchet; no arguments required.
 - **CHECK-40** [AC-18/AC-27]: `rtk proxy node scripts/check-artifact-token-types-regression.cjs` → 0 passes; 1 assertion failure; >=2 setup/runtime/resource error. New self-contained permanent token-type/zero-read ratchet; no arguments required.
+
+- **CHECK-41** [AC-39]: `rtk proxy node scripts/check-artifact-packaging-regression.cjs` → 0 assertions pass; 1 only an actual AssertionError/ERR_ASSERTION after valid setup; >=2 setup/runtime/resource errors. Self-contained real Git-diff packaging boundary, not a mock scanner or test-runner exit code. (authentic-success-path; fail-closed-path)
 
 ## Traceability
 
@@ -668,6 +676,9 @@ EC-15 does not require a discoverable filename to have existed previously. All p
 {"record":"check","id":"CHECK-38","for":["AC-38"]}
 {"record":"check","id":"CHECK-39","for":["AC-11"]}
 {"record":"check","id":"CHECK-40","for":["AC-18","AC-27"]}
+{"record":"requirement","id":"FR-069","lifecycle":"draft","external_sources":[],"depends_on":[]}
+{"record":"acceptance-criterion","id":"AC-39","for":["FR-069"]}
+{"record":"check","id":"CHECK-41","for":["AC-39"]}
 ```
 
 ## Entities

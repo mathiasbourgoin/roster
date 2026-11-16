@@ -4,7 +4,7 @@ status: derived
 schema-version: 2
 ---
 
-<!-- claims-projection {"freshness_digest":"9a9673b0d7bd9f87ae897f22764ab9314f3f6bd3f805896751ce9d0b8d36ddd2","model_digest":"b4529d620c2efff426ee9069001676cfd0cb55681b986730af0d39b84e4547e1","renderer_version":"1.2","selection_policy_version":"1.2"} -->
+<!-- claims-projection {"freshness_digest":"d212ab17f25a40b2dd3c02731a3b5f58dbecca0a128dcec8e33947a3b851f478","model_digest":"fa3e037ffef70621ba3295fb39d4fe028c32a8f3daa31a45855f9e3d68a2529a","renderer_version":"1.2","selection_policy_version":"1.2"} -->
 
 
 ## Invariants
