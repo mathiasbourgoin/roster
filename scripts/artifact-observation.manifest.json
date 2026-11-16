@@ -10,14 +10,14 @@
     {
       "logical": "bin/roster-artifact-metadata.cjs",
       "source": "scripts/roster-artifact-metadata.cjs",
-      "sha256": "684f08133de8d772cbf9ee0b141e52c3101dd70be706499b867572331f417c8f",
-      "bytes": 12513
+      "sha256": "688ade8da160a51e136325187ec943ed8182803bbb9c170db747d07852ac8d09",
+      "bytes": 13867
     },
     {
       "logical": "bin/roster-artifact-observation.cjs",
       "source": "scripts/roster-artifact-observation.cjs",
-      "sha256": "0e7a828e03f076d6ce3c48e00f4aaf0725f3d4d8988ef6633c3ca2493c204b05",
-      "bytes": 22712
+      "sha256": "332f90ebe04a606cbb5d268fb7e7049ca6648a76ffaca49f23ce365612aef6ae",
+      "bytes": 22788
     },
     {
       "logical": "bin/roster-artifacts.cjs",

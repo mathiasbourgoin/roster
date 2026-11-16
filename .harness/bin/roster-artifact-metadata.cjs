@@ -2,79 +2,72 @@
 const y = require("./vendor/yaml-2.9.1.cjs");
 const object = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 class MetadataFault extends Error {
-  constructor(reason) {
-    super(reason);
-    this.reason = reason;
+  constructor(reason) { super(reason); this.reason = reason; }
+}
+const reject = (reason) => { throw new MetadataFault(reason); };
+function rejectProperties(node) {
+  if (node && (y.isAlias(node) || node.anchor !== undefined || node.tag !== undefined)) reject("unsupported-yaml");
+}
+function admitScalar(node) {
+  const value = node.value;
+  if (value !== null && !["string", "boolean", "number"].includes(typeof value) || typeof value === "number" && !Number.isFinite(value)) reject("unsupported-yaml");
+}
+function admitMapping(node, depth, stack) {
+  const seen = new Set();
+  for (let index = node.items.length - 1; index >= 0; index--) {
+    const pair = node.items[index], key = pair.key;
+    rejectProperties(key);
+    if (!y.isScalar(key) || typeof key.value !== "string") reject("unsupported-yaml");
+    if (key.value === "<<" && key.type === "PLAIN") reject("unsupported-yaml");
+    if (seen.has(key.value)) reject("parse");
+    seen.add(key.value);
+    stack.push([pair.value, depth + 1]);
   }
 }
-const reject = (r) => {
-  throw new MetadataFault(r);
-};
+function admitContents(contents) {
+  const stack = [[contents, 0]];
+  let nodes = 0;
+  while (stack.length) {
+    const [node, depth] = stack.pop();
+    if (++nodes > 100000 || depth > 32) reject("limit");
+    rejectProperties(node);
+    if (node === null) continue;
+    if (y.isScalar(node)) admitScalar(node);
+    else if (y.isSeq(node)) {
+      for (let index = node.items.length - 1; index >= 0; index--) stack.push([node.items[index], depth + 1]);
+    } else if (y.isMap(node)) admitMapping(node, depth, stack);
+    else reject("unsupported-yaml");
+  }
+}
+function materializeContents(contents) {
+  let result;
+  const work = [[contents, value => { result = value; }]];
+  while (work.length) {
+    const [node, set] = work.pop();
+    if (node === null) { set(null); continue; }
+    if (y.isScalar(node)) { set(node.value); continue; }
+    if (y.isSeq(node)) {
+      const array = new Array(node.items.length);
+      set(array);
+      for (let index = node.items.length - 1; index >= 0; index--) work.push([node.items[index], value => { array[index] = value; }]);
+    } else {
+      const map = Object.create(null);
+      set(map);
+      for (const pair of node.items) work.push([pair.value, value => { map[pair.key.value] = value; }]);
+    }
+  }
+  return result;
+}
 function parse(text, json = false) {
   try {
-    let property = function(n) {
-      if (n && (y.isAlias(n) || n.anchor !== void 0 || n.tag !== void 0)) reject("unsupported-yaml");
-    };
-    if (json) JSON.parse(text);
-    const d = y.parseDocument(text, { version: "1.2", schema: "core", strict: true, uniqueKeys: true, stringKeys: false, merge: false, resolveKnownTags: false, customTags: [], keepSourceTokens: true, logLevel: "warn" });
-    if (d.errors.length) reject(d.errors.some((e) => e.code === "RESOURCE_EXHAUSTION") ? "limit" : "parse");
-    if (d.warnings.length || d.directives?.yaml?.explicit || /^%/m.test(text)) reject("unsupported-yaml");
-    const stack = [[d.contents, 0]];
-    let nodes = 0;
-    while (stack.length) {
-      const [n, depth] = stack.pop();
-      if (++nodes > 1e5 || depth > 32) reject("limit");
-      property(n);
-      if (n === null) continue;
-      if (y.isScalar(n)) {
-        const v = n.value;
-        if (v !== null && !["string", "boolean", "number"].includes(typeof v) || typeof v === "number" && !Number.isFinite(v)) reject("unsupported-yaml");
-      } else if (y.isSeq(n)) {
-        for (let i = n.items.length - 1; i >= 0; i--) stack.push([n.items[i], depth + 1]);
-      } else if (y.isMap(n)) {
-        const seen = /* @__PURE__ */ new Set();
-        for (let i = n.items.length - 1; i >= 0; i--) {
-          const p = n.items[i], k = p.key;
-          property(k);
-          if (!y.isScalar(k) || typeof k.value !== "string") reject("unsupported-yaml");
-          if (k.value === "<<" && k.type === "PLAIN") reject("unsupported-yaml");
-          if (seen.has(k.value)) reject("parse");
-          seen.add(k.value);
-          stack.push([p.value, depth + 1]);
-        }
-      } else reject("unsupported-yaml");
-    }
-    let result;
-    const work = [[d.contents, (v) => {
-      result = v;
-    }]];
-    while (work.length) {
-      const [n, set] = work.pop();
-      if (n === null) {
-        set(null);
-        continue;
-      }
-      if (y.isScalar(n)) {
-        set(n.value);
-        continue;
-      }
-      if (y.isSeq(n)) {
-        const a = new Array(n.items.length);
-        set(a);
-        for (let i = n.items.length - 1; i >= 0; i--) work.push([n.items[i], (v) => {
-          a[i] = v;
-        }]);
-      } else {
-        const o = /* @__PURE__ */ Object.create(null);
-        set(o);
-        for (const p of n.items) work.push([p.value, (v) => {
-          o[p.key.value] = v;
-        }]);
-      }
-    }
-    return { value: result, reason: null };
-  } catch (e) {
-    return { value: null, reason: e instanceof MetadataFault ? e.reason : e instanceof RangeError ? "limit" : "parse" };
+    if (json) JSON.parse(text); // Grammar only: duplicate-overwriting values are never authoritative.
+    const document = y.parseDocument(text, { version: "1.2", schema: "core", strict: true, uniqueKeys: true, stringKeys: false, merge: false, resolveKnownTags: false, customTags: [], keepSourceTokens: true, logLevel: "warn" });
+    if (document.errors.length) reject(document.errors.some(error => error.code === "RESOURCE_EXHAUSTION") ? "limit" : "parse");
+    if (document.warnings.length || document.directives?.yaml?.explicit || /^%/m.test(text)) reject("unsupported-yaml");
+    admitContents(document.contents); // Every decoded value is admitted before any ordinary-value conversion.
+    return {value: materializeContents(document.contents), reason: null};
+  } catch (error) {
+    return {value: null, reason: error instanceof MetadataFault ? error.reason : error instanceof RangeError ? "limit" : "parse"};
   }
 }
 function frontmatter(text) {
@@ -101,7 +94,14 @@ function wellFormed(s) {
   return true;
 }
 const strings = (x) => Array.isArray(x) && x.every((v) => typeof v === "string");
-const semver = (x) => typeof x === "string" && /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(x);
+function semver(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/.exec(value);
+  if (!match || match[0] !== value) return false;
+  const prerelease = match[4]?.split(".") || [];
+  const build = match[5]?.split(".") || [];
+  return prerelease.every(id => id.length > 0 && (!/^[0-9]+$/.test(id) || id === "0" || id[0] !== "0")) && build.every(id => id.length > 0);
+}
 const fields = { declaration: { name: "string", source: "string", version: "string", role: "string", tunables: "map" }, definition: { name: "string", display_name: "string", description: "string", model: "string", domain: "strings", tags: "strings", compatible_with: "strings", complexity: "complexity", version: "semver", author: "string", source: "url", pipeline_role: "pipeline", tunables: "map", requires: "requires", runtime_hints: "hints", entrypoints: "entrypoints", isolation: "isolation", overlay: "overlay", replaces: "strings" }, reported: { task: "string", status: "string", date: "string", round: "integer", cycle: "integer" } };
 const required = /* @__PURE__ */ new Set(["name", "display_name", "description", "model", "domain", "tags", "compatible_with", "complexity"]);
 function matches(v, type) {
@@ -140,159 +140,142 @@ function matches(v, type) {
       return false;
   }
 }
-function metadata({ text, format, kind, id, task, declaration }) {
-  const result = { availability: "unknown", fields: { declaration: null, definition: null, reported: null }, issues: { items: [], total: 0, truncated: false }, truncated: false };
-  let count = 0;
-  const issue = (field, reason) => {
-    result.issues.total++;
-    if (result.issues.items.length < 100) result.issues.items.push({ field, reason });
-    else result.issues.truncated = true;
-  };
-  function clip(v, field, depth = 3) {
-    if (++count > 1e3 || depth > 8 || depth === 8 && v !== null && typeof v === "object" && Object.keys(v).length > 0) {
-      issue(field, "limit");
-      result.truncated = true;
-      return null;
-    }
-    if (typeof v === "string") {
-      if (!wellFormed(v)) {
-        issue(field, "ill-formed-string");
-        return null;
-      }
-      if (v.length > 2e3) {
-        let end = 2e3;
-        if (v.charCodeAt(end - 1) >= 55296 && v.charCodeAt(end - 1) <= 56319) end--;
-        issue(field, "limit");
-        result.truncated = true;
-        return v.slice(0, end);
-      }
-      return v;
-    }
-    if (Array.isArray(v)) {
-      if (v.length > 100) {
-        issue(field, "limit");
-        result.truncated = true;
-      }
-      return v.slice(0, 100).map((x) => clip(x, field, depth + 1));
-    }
-    if (object(v)) {
-      const out = {}, entries = Object.entries(v);
-      if (entries.length > 64) {
-        issue(field, "limit");
-        result.truncated = true;
-      }
-      for (const [k, x] of entries.slice(0, 64)) {
-        if (!wellFormed(k)) {
-          issue(field, "ill-formed-string");
-          continue;
-        }
-        if (k.length > 2e3) {
-          issue(field, "limit");
-          result.truncated = true;
-          continue;
-        }
-        Object.defineProperty(out, k, { value: clip(x, field, depth + 1), enumerable: true, writable: true, configurable: true });
-      }
-      return out;
-    }
-    return v;
-  }
-  function group(name, value, requiredFields = false) {
-    const out = Object.fromEntries(Object.keys(fields[name]).map((k) => [k, null]));
-    result.fields[name] = out;
-    for (const [key, type] of Object.entries(fields[name])) {
-      if (!Object.hasOwn(value, key)) {
-        if (requiredFields && required.has(key)) issue(key, "missing");
-        continue;
-      }
-      if (!matches(value[key], type)) {
-        issue(key, "wrong-type");
-        continue;
-      }
-      out[key] = clip(value[key], key);
-    }
-    return out;
-  }
-  function measure(value) {
-    let nodes = 0, depth = 0;
-    const pending = [[value, 0]];
-    while (pending.length) {
-      const [v, d] = pending.pop();
-      nodes++;
-      depth = Math.max(depth, d);
-      if (v !== null && typeof v === "object") for (const child of Object.values(v)) pending.push([child, d + 1]);
-    }
-    return { nodes, depth };
-  }
-  function finish() {
-    for (; ; ) {
-      const size = measure(result);
-      if (size.nodes <= 1e3 && size.depth <= 8) break;
-      let selected = null;
-      for (const group2 of Object.values(result.fields)) if (group2) {
-        for (const [field, value] of Object.entries(group2)) if (value !== null && typeof value === "object") {
-          const n = measure(value).nodes;
-          if (!selected || n > selected.nodes) selected = { group: group2, field, nodes: n };
-        }
-      }
-      if (!selected) throw Error("metadata fixed shape exceeds output bounds");
-      selected.group[selected.field] = null;
-      issue(selected.field, "limit");
-      result.truncated = true;
-    }
-    if (result.issues.total) result.availability = "invalid";
-    return result;
-  }
-  let parsed = null;
-  if (kind === "agent-definition") {
-    result.availability = declaration ? "valid" : "unknown";
-    if (declaration) group("declaration", declaration);
-    if (typeof text !== "string") {
-      return finish();
-    }
-    result.availability = "valid";
-    parsed = frontmatter(text);
-    result.fields.definition = Object.fromEntries(Object.keys(fields.definition).map((k) => [k, null]));
-    if (parsed.reason) issue("definition", parsed.reason);
-    else {
-      const d = group("definition", parsed.value, true);
-      if (d.name !== null && d.name !== id) {
-        d.name = null;
-        issue("name", "name-mismatch");
-      }
-    }
-  } else if (kind !== "manifest" && kind !== "agent-manifest") {
-    result.availability = "valid";
-    parsed = format === "json" ? parse(text, true) : frontmatter(text);
-    result.fields.reported = Object.fromEntries(Object.keys(fields.reported).map((k) => [k, null]));
-    if (parsed.reason) issue("reported", parsed.reason);
-    else if (!object(parsed.value)) issue("reported", "wrong-type");
-    else {
-      const r = group("reported", parsed.value), aliases = ["task", "task_id"].filter((k) => Object.hasOwn(parsed.value, k)).map((k) => parsed.value[k]);
-      if (aliases.length) {
-        if (aliases.some((v) => typeof v !== "string")) {
-          r.task = null;
-          issue("task", "wrong-type");
-        } else if (new Set(aliases).size > 1) {
-          r.task = null;
-          issue("task", "contradictory");
-        } else if (aliases[0] !== task) {
-          r.task = null;
-          issue("task", "task-mismatch");
-        } else r.task = clip(aliases[0], "task");
-      }
-      if (format === "markdown") {
-        const statuses = [...text.matchAll(/^\*\*Status: (.*?)\*\*\r?$/gm)].map((m) => m[1]);
-        const hasFrontStatus = Object.hasOwn(parsed.value, "status");
-        const frontStatus = parsed.value.status;
-        if (typeof frontStatus === "string" && wellFormed(frontStatus)) statuses.push(frontStatus);
-        if (new Set(statuses).size > 1) {
-          r.status = null;
-          issue("status", "contradictory");
-        } else if (!hasFrontStatus && statuses.length) r.status = clip(statuses[0], "status");
-      }
-    }
-  }
-  return finish();
+function projectionState() {
+  return {count: 0, result: {availability: "unknown", fields: {declaration: null, definition: null, reported: null}, issues: {items: [], total: 0, truncated: false}, truncated: false}};
 }
-module.exports = { metadata, parse, frontmatter };
+function addIssue(state, field, reason) {
+  const issues = state.result.issues;
+  issues.total++;
+  if (issues.items.length < 100) issues.items.push({field, reason});
+  else issues.truncated = true;
+}
+function markLimit(state, field) {
+  addIssue(state, field, "limit");
+  state.result.truncated = true;
+  return null;
+}
+function clipString(state, value, field) {
+  if (!wellFormed(value)) { addIssue(state, field, "ill-formed-string"); return null; }
+  if (value.length <= 2000) return value;
+  let end = 2000;
+  if (value.charCodeAt(end - 1) >= 55296 && value.charCodeAt(end - 1) <= 56319) end--;
+  markLimit(state, field);
+  return value.slice(0, end);
+}
+function clipMap(state, value, field, depth) {
+  const output = {}, entries = Object.entries(value);
+  if (entries.length > 64) markLimit(state, field);
+  for (const [key, child] of entries.slice(0, 64)) {
+    if (!wellFormed(key)) { addIssue(state, field, "ill-formed-string"); continue; }
+    if (key.length > 2000) { markLimit(state, field); continue; }
+    Object.defineProperty(output, key, {value: clip(state, child, field, depth + 1), enumerable: true, writable: true, configurable: true});
+  }
+  return output;
+}
+function clip(state, value, field, depth = 3) {
+  if (++state.count > 1000 || depth > 8 || depth === 8 && value !== null && typeof value === "object" && Object.keys(value).length > 0) return markLimit(state, field);
+  if (typeof value === "string") return clipString(state, value, field);
+  if (Array.isArray(value)) {
+    if (value.length > 100) markLimit(state, field);
+    return value.slice(0, 100).map(child => clip(state, child, field, depth + 1));
+  }
+  return object(value) ? clipMap(state, value, field, depth) : value;
+}
+function blankGroup(name) {
+  return Object.fromEntries(Object.keys(fields[name]).map(key => [key, null]));
+}
+function projectGroup(state, name, source, requiredFields = false) {
+  const output = blankGroup(name);
+  state.result.fields[name] = output;
+  for (const [key, type] of Object.entries(fields[name])) {
+    if (!Object.hasOwn(source, key)) {
+      if (requiredFields && required.has(key)) addIssue(state, key, "missing");
+      continue;
+    }
+    if (!matches(source[key], type)) { addIssue(state, key, "wrong-type"); continue; }
+    output[key] = clip(state, source[key], key);
+  }
+  return output;
+}
+function measure(value) {
+  let nodes = 0, depth = 0;
+  const pending = [[value, 0]];
+  while (pending.length) {
+    const [child, level] = pending.pop();
+    nodes++;
+    depth = Math.max(depth, level);
+    if (child !== null && typeof child === "object") for (const value of Object.values(child)) pending.push([value, level + 1]);
+  }
+  return {nodes, depth};
+}
+function largestPayload(result) {
+  let selected = null;
+  for (const group of Object.values(result.fields)) if (group) {
+    for (const [field, value] of Object.entries(group)) if (value !== null && typeof value === "object") {
+      const nodes = measure(value).nodes;
+      if (!selected || nodes > selected.nodes) selected = {group, field, nodes};
+    }
+  }
+  return selected;
+}
+function finishProjection(state) {
+  const result = state.result;
+  for (;;) {
+    const size = measure(result);
+    if (size.nodes <= 1000 && size.depth <= 8) break;
+    const selected = largestPayload(result);
+    if (!selected) throw Error("metadata fixed shape exceeds output bounds");
+    selected.group[selected.field] = null;
+    markLimit(state, selected.field);
+  }
+  if (result.issues.total) result.availability = "invalid";
+  return result;
+}
+function projectDefinition(state, {text, id, declaration}) {
+  const result = state.result;
+  result.availability = declaration ? "valid" : "unknown";
+  if (declaration) projectGroup(state, "declaration", declaration);
+  if (typeof text !== "string") return;
+  result.availability = "valid";
+  const parsed = frontmatter(text);
+  result.fields.definition = blankGroup("definition");
+  if (parsed.reason) { addIssue(state, "definition", parsed.reason); return; }
+  const definition = projectGroup(state, "definition", parsed.value, true);
+  if (definition.name !== null && definition.name !== id) {
+    definition.name = null;
+    addIssue(state, "name", "name-mismatch");
+  }
+}
+function projectTaskAlias(state, reported, source, task) {
+  const aliases = ["task", "task_id"].filter(key => Object.hasOwn(source, key)).map(key => source[key]);
+  if (!aliases.length) return;
+  if (aliases.some(value => typeof value !== "string")) { reported.task = null; addIssue(state, "task", "wrong-type"); }
+  else if (new Set(aliases).size > 1) { reported.task = null; addIssue(state, "task", "contradictory"); }
+  else if (aliases[0] !== task) { reported.task = null; addIssue(state, "task", "task-mismatch"); }
+  else reported.task = clip(state, aliases[0], "task");
+}
+function projectStatus(state, reported, source, text) {
+  const statuses = [...text.matchAll(/^\*\*Status: (.*?)\*\*\r?$/gm)].map(match => match[1]);
+  const hasFrontStatus = Object.hasOwn(source, "status"), frontStatus = source.status;
+  if (typeof frontStatus === "string" && wellFormed(frontStatus)) statuses.push(frontStatus);
+  if (new Set(statuses).size > 1) { reported.status = null; addIssue(state, "status", "contradictory"); }
+  else if (!hasFrontStatus && statuses.length) reported.status = clip(state, statuses[0], "status");
+}
+function projectReported(state, {text, format, task}) {
+  const result = state.result;
+  result.availability = "valid";
+  const parsed = format === "json" ? parse(text, true) : frontmatter(text);
+  result.fields.reported = blankGroup("reported");
+  if (parsed.reason) { addIssue(state, "reported", parsed.reason); return; }
+  if (!object(parsed.value)) { addIssue(state, "reported", "wrong-type"); return; }
+  const reported = projectGroup(state, "reported", parsed.value);
+  projectTaskAlias(state, reported, parsed.value, task);
+  if (format === "markdown") projectStatus(state, reported, parsed.value, text);
+}
+function metadata(input) {
+  const state = projectionState();
+  if (input.kind === "agent-definition") projectDefinition(state, input);
+  else if (input.kind !== "manifest" && input.kind !== "agent-manifest") projectReported(state, input);
+  return finishProjection(state);
+}
+module.exports = {metadata, parse, frontmatter};

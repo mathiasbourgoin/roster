@@ -5,6 +5,7 @@ const io = require("./roster-artifacts.cjs");
 const { ObservationError } = require("./roster-pipeline.cjs");
 const ID = "https://github.com/mathiasbourgoin/roster/schema/artifact-observation/v1";
 const SHA = /^[a-f0-9]{64}$/;
+const shaString = value => typeof value === "string" && SHA.test(value);
 const object = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
 const safe = (x) => typeof x === "string" && x.length <= 120 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(x);
 const hash = (x) => crypto.createHash("sha256").update(x).digest("hex");
@@ -112,10 +113,10 @@ function parseToken(value, kind) {
       fail(code);
     }
     const expected = kind === "ref" ? ["v", "source_id", "scope", "task", "kind", "id", "sha256"] : ["v", "operation", "source_id", "fingerprint", "offset"];
-    if (!keys(x, expected) || x.v !== 1 || !SHA.test(x.source_id) || token(x) !== value) fail(code);
+    if (!keys(x, expected) || x.v !== 1 || !shaString(x.source_id) || token(x) !== value) fail(code);
     if (kind === "ref") {
-      if (!["task", "project"].includes(x.scope) || !(x.task === null || safe(x.task)) || !safe(x.id) || typeof x.kind !== "string" || !SHA.test(x.sha256)) fail(code);
-    } else if (!["artifact-list", "artifact-read"].includes(x.operation) || !SHA.test(x.fingerprint) || (!Number.isSafeInteger(x.offset) || x.offset < 0)) fail(code);
+      if (!["task", "project"].includes(x.scope) || !(x.task === null || safe(x.task)) || !safe(x.id) || typeof x.kind !== "string" || !shaString(x.sha256)) fail(code);
+    } else if (!["artifact-list", "artifact-read"].includes(x.operation) || !shaString(x.fingerprint) || (!Number.isSafeInteger(x.offset) || x.offset < 0)) fail(code);
     return x;
   } catch {
     fail(code);
