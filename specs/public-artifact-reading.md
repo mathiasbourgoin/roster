@@ -453,6 +453,9 @@ These intended task-specific commands are not execution evidence. The verifier r
 - **CHECK-37** [AC-37]: `rtk proxy node scripts/artifact-observation-check.cjs --case AC-37` → 0 passes; 1 assertion failure; >=2 setup/runtime/resource error.
 - **CHECK-38** [AC-38]: `rtk proxy node scripts/artifact-observation-check.cjs --case AC-38` → 0 passes; 1 assertion failure; >=2 setup/runtime/resource error.
 
+- **CHECK-39** [AC-11]: `rtk proxy node scripts/check-artifact-semver-regression.cjs` → 0 passes; 1 assertion failure; >=2 setup/runtime/resource error. New self-contained permanent SemVer ratchet; no arguments required.
+- **CHECK-40** [AC-18/AC-27]: `rtk proxy node scripts/check-artifact-token-types-regression.cjs` → 0 passes; 1 assertion failure; >=2 setup/runtime/resource error. New self-contained permanent token-type/zero-read ratchet; no arguments required.
+
 ## Traceability
 
 | Challenge | FR coverage | AC / exact check |
@@ -663,6 +666,8 @@ EC-15 does not require a discoverable filename to have existed previously. All p
 {"record":"check","id":"CHECK-36","for":["AC-36"]}
 {"record":"check","id":"CHECK-37","for":["AC-37"]}
 {"record":"check","id":"CHECK-38","for":["AC-38"]}
+{"record":"check","id":"CHECK-39","for":["AC-11"]}
+{"record":"check","id":"CHECK-40","for":["AC-18","AC-27"]}
 ```
 
 ## Entities

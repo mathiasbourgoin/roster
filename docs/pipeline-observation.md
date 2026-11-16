@@ -379,3 +379,13 @@ or validly set up producer crash/hang, and 2 or greater means setup is unavailab
 exercise the public module/CLI and real relocated closure, not a replacement reader. Local
 checks do not establish publication, CI success or downstream acceptance; consume a revision
 only after its actual qualification receipt is available.
+
+The permanent regression ratchets are separate self-contained files that review can replay
+without arguments over a pinned pre-fix Git archive. Both run in the published pipeline tests;
+they return 0/pass, 1/assertion failure and 2/other setup or runtime errors. Their fixture-only
+source override is cleared by pipeline CI. They do not expand the runtime resource closure.
+
+```sh
+node scripts/check-artifact-semver-regression.cjs
+node scripts/check-artifact-token-types-regression.cjs
+```
