@@ -290,6 +290,7 @@ cases[11] = () => fixture((root, api) => {
   assert.equal(Object.hasOwn(safe, "__proto__"), true);
   assert.equal(safe.__proto__.inert, "value");
   assert.equal({}.inert, void 0);
+  semverMetadataCases(root, api);
 });
 cases[13] = () => fixture((root, api) => {
   project(root, [{ name: "reviewer" }]);
@@ -398,6 +399,7 @@ cases[18] = () => fixture((root, api) => {
   assert.deepEqual(list(api, root, { cursor: null }), list(api, root));
   const cursor = api.artifactRead({ root, scope: "task", task: "build-cache", ref, pageBytes: 4 }).data.next_cursor, cur = untoken(cursor);
   for (const bad of [cursor + "=", token({ ...cur, extra: 1 }), token({ ...cur, v: 2 }), Buffer.from(canonical(cur).replace('"v":1', '"v":1,"v":1')).toString("base64url"), Buffer.from(JSON.stringify(cur, null, 1)).toString("base64url"), Buffer.from(JSON.stringify(Object.fromEntries(Object.entries(cur).reverse()))).toString("base64url"), Buffer.from(canonical(cur).replace('"offset":4', '"offset":4.0')).toString("base64url"), Buffer.from([255]).toString("base64url"), "a".repeat(8193)]) error(() => api.artifactRead({ root, scope: "task", task: "build-cache", ref, cursor: bad }), "invalid_cursor");
+  tokenHashTypeCases(root, api);
 });
 cases[19] = () => fixture((root, api) => {
   write(root, "specs/build-cache.md", "same bytes");
@@ -487,6 +489,7 @@ cases[27] = () => fixture((root, api) => {
   fs.unlinkSync(path.join(root, "specs/build-cache.md"));
   write(root, "specs/build-cache.md", "changed");
   error(() => api.artifactRead({ root, scope: "task", task: "build-cache", ref, cursor: token({ v: 1, operation: "artifact-read", source_id: untoken(ref).source_id, fingerprint: "0".repeat(64), offset: 0 }) }), "stale_reference");
+  tokenHashTypeCases(root, api, true);
 });
 cases[28] = () => fixture((root, api) => {
   assert.throws(() => api.artifactCapabilities({}), (e) => e instanceof api.ObservationError && e.code === "invalid_request");
@@ -973,6 +976,98 @@ cases[31] = () => fixture((root, api) => {
     }
   }
 });
+function observedArtifactCall(files, call) {
+  const original = fs.readSync;
+  let bytes = 0, value, failure;
+  try {
+    fs.readSync = function(fd, ...args) {
+      const file = fs.readlinkSync("/proc/self/fd/" + fd);
+      const count = original.call(fs, fd, ...args);
+      if (files.has(file)) bytes += count;
+      return count;
+    };
+    try { value = call(); } catch (error) { failure = error; }
+  } finally { fs.readSync = original; }
+  return {bytes, value, failure};
+}
+function refusedBeforeArtifacts(api, files, call, code) {
+  const observed = observedArtifactCall(files, call);
+  assert.ok(observed.failure instanceof api.ObservationError, code);
+  assert.equal(observed.failure.code, code);
+  assert.equal(observed.bytes, 0, "malformed token must consume zero artifact bytes");
+}
+function semverMetadataCases(root, api) {
+  project(root, [{name:"reviewer",version:"separate declaration"}]);
+  const valid = ["1.2.3", "0.0.0-0", "1.2.3-rc.0+build.01", "1.2.3+01", "1.2.3--", "1.2.3-01a", "123456789012345678901234567890.0.0", "1.2.3-123456789012345678901234567890"];
+  const invalid = ["1.2.3-01", "1.2.3-.", "1.2.3-a..b", "1.2.3+.", "01.2.3", "1.02.3", "1.2.03", "1.2.3-", "1.2.3+", "1.2.3-a.", "1.2.3+.a", "1.2.3+build..1", "1.2.3-rc_1", "1.2.3-β", "v1.2.3", "1.2.3\n", "1.2.3 ", [], {}, 123, true, null, "1.2.3+"+"a".repeat(2100)+"..bad"];
+  for (const version of [...invalid, ...valid]) {
+    const body = definition("reviewer", {version});
+    write(root, ".harness/agents/reviewer.md", body);
+    const item = aItem(api, root), admitted = valid.includes(version);
+    assert.equal(item.metadata.fields.definition.version, admitted ? version : null, "complete raw SemVer: "+JSON.stringify(version));
+    assert.equal(item.metadata.availability, admitted ? "valid" : "invalid");
+    assert.equal(item.metadata.issues.items.some(x=>x.field==="version"&&x.reason==="wrong-type"), !admitted);
+    assert.equal(item.metadata.fields.declaration.version, "separate declaration");
+    assert.equal(readAll(api, root, item, "project", null), body);
+  }
+  const version = "1.2.3+"+"a".repeat(2100);
+  write(root, ".harness/agents/reviewer.md", definition("reviewer", {version}));
+  const clipped = aItem(api, root).metadata;
+  assert.equal(clipped.fields.definition.version, version.slice(0,2000));
+  assert.equal(clipped.issues.items.some(x=>x.field==="version"&&x.reason==="wrong-type"), false);
+  assert.ok(clipped.issues.items.some(x=>x.field==="version"&&x.reason==="limit"));
+  write(root, ".harness/agents/reviewer.md", definition());
+  const absent = aItem(api, root).metadata;
+  assert.equal(absent.fields.definition.version, null);
+  assert.equal(absent.issues.items.some(x=>x.field==="version"), false);
+}
+function malformedHashValues(hash) {
+  return [[hash], [], [hash,hash], {}, {value:hash}, 42, 0, true, false, null];
+}
+function tokenHashTypeCases(root, api, precedence = false) {
+  write(root, "briefs/build-cache-intake.md", "INTAKE CONTROL");
+  const catalog = list(api, root, {limit:1}), ref = catalog.data.items[0].body.ref;
+  const request = {root,scope:"task",task:"build-cache",ref};
+  const readCursor = api.artifactRead({...request,pageBytes:4}).data.next_cursor;
+  const files = new Set([path.join(root,"specs/build-cache.md"),path.join(root,"briefs/build-cache-intake.md")]);
+  if (precedence) hashTypePrecedence(root, api, request, readCursor, catalog.data.next_cursor, files);
+  for (const key of ["source_id","sha256"]) for (const bad of malformedHashValues(untoken(ref)[key])) {
+    refusedBeforeArtifacts(api, files, ()=>api.artifactRead({...request,ref:token({...untoken(ref),[key]:bad})}), "invalid_reference");
+  }
+  for (const [operation,cursor] of [["read",readCursor],["list",catalog.data.next_cursor]]) {
+    assert.ok(cursor);
+    for (const key of ["source_id","fingerprint"]) for (const bad of malformedHashValues(untoken(cursor)[key])) {
+      const altered = token({...untoken(cursor),[key]:bad});
+      const call = operation==="read" ? ()=>api.artifactRead({...request,cursor:altered}) : ()=>list(api,root,{limit:1,cursor:altered});
+      refusedBeforeArtifacts(api, files, call, "invalid_cursor");
+    }
+    const admitted = observedArtifactCall(files, operation==="read" ? ()=>api.artifactRead({...request,cursor}) : ()=>list(api,root,{limit:1,cursor}));
+    assert.equal(admitted.failure, undefined);
+    assert.ok(admitted.bytes>0,"valid control must measure actual artifact descriptors");
+  }
+}
+function hashTypePrecedence(root, api, request, cursor, listCursor, files) {
+  const malformedRef = token({...untoken(request.ref),sha256:[untoken(request.ref).sha256]});
+  for (const key of ["source_id","fingerprint"]) {
+    const bad = token({...untoken(cursor),[key]:[untoken(cursor)[key]]});
+    refusedBeforeArtifacts(api,files,()=>api.artifactRead({...request,task:"foreign",cursor:bad}),"invalid_cursor");
+    refusedBeforeArtifacts(api,files,()=>api.artifactRead({...request,ref:malformedRef,cursor:bad}),"invalid_reference");
+  }
+  const file=path.join(root,"specs/build-cache.md"),saved=file+".control";
+  fs.renameSync(file,saved);fs.symlinkSync(saved,file);
+  try {
+    refusedBeforeArtifacts(api,files,()=>api.artifactRead({...request,ref:malformedRef}),"invalid_reference");
+    for(const key of ["source_id","fingerprint"])refusedBeforeArtifacts(api,files,()=>api.artifactRead({...request,cursor:token({...untoken(cursor),[key]:[untoken(cursor)[key]]})}),"invalid_cursor");
+    refusedBeforeArtifacts(api,files,()=>api.artifactRead(request),"unsafe_source");
+  } finally {fs.unlinkSync(file);fs.renameSync(saved,file);}
+  const wrongRef=token({...untoken(request.ref),sha256:"0".repeat(64)}),wrongCursor=token({...untoken(cursor),fingerprint:"0".repeat(64)});
+  refusedBeforeArtifacts(api,files,()=>api.artifactRead({...request,ref:token({...untoken(request.ref),source_id:"0".repeat(64)})}),"invalid_reference");
+  for(const [call,code] of [[()=>api.artifactRead({...request,ref:wrongRef,cursor:wrongCursor}),"stale_reference"],[()=>api.artifactRead({...request,cursor:wrongCursor}),"stale_cursor"],[()=>api.artifactRead({...request,cursor:token({...untoken(cursor),source_id:"0".repeat(64)})}),"stale_cursor"]]){
+    const observed=observedArtifactCall(files,call);assert.ok(observed.failure instanceof api.ObservationError);assert.equal(observed.failure.code,code);assert.ok(observed.bytes>0);
+  }
+  for(const key of ["source_id","fingerprint"])refusedBeforeArtifacts(api,files,()=>list(api,root,{limit:1,cursor:token({...untoken(listCursor),[key]:"0".repeat(64)})}),"stale_cursor");
+}
+
 function run(which) {
   const n = Number(String(which).replace(/^AC-/, ""));
   if (!Number.isInteger(n) || n < 1 || n > 38) throw new SetupError("unknown case");

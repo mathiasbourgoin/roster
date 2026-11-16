@@ -266,7 +266,9 @@ a valid in-range forged offset is also allowed because cursors are not credentia
 supplied cursor is invalid; only omitted/null means absent. At EOF a requested terminal cursor
 returns an empty `N..N` page.
 
-References and cursors use canonical unpadded base64url JSON with sorted keys. Duplicate/extra
+References and cursors use canonical unpadded base64url JSON with sorted keys. All SHA-valued
+members must be primitive lowercase 64-hex strings; arrays and other JSON types refuse before
+artifact bytes are consumed. Duplicate/extra
 keys, alternate ordering/escaping/numbers, whitespace, padding, invalid encoding, oversized
 inputs and unsupported versions refuse. Source identity hashes the resolved root, scope and
 task without Unicode normalization. Relative equivalent roots share identity; symlink roots
@@ -289,7 +291,9 @@ independently. A mismatching definition name becomes null with `name-mismatch`; 
 identity and safe body remain readable.
 
 Definitions require name, display name, description, model, domain/tags/compatibility arrays
-and complexity. Optional configuration fields are typed without defaults. Task reports expose
+and complexity. Optional configuration fields are typed without defaults. Definition versions use complete SemVer 2
+grammar before summary clipping, including nonempty identifiers and no leading zeros in numeric
+prerelease identifiers. Declaration versions remain separately attributed strings. Task reports expose
 only reported task/status/date and nonnegative safe-integer round/cycle. Foreign task identity
 or contradictory explicit status declarations null the affected field with an issue. A wrong-type
 frontmatter status stays null even when a later status marker is well typed. A plausible
