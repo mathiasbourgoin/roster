@@ -389,3 +389,11 @@ source override is cleared by pipeline CI. They do not expand the runtime resour
 node scripts/check-artifact-semver-regression.cjs
 node scripts/check-artifact-token-types-regression.cjs
 ```
+
+### Release packaging qualification
+
+The two pinned generated YAML distribution files are exact-path exceptions to the changed-file leak policy because the public parser includes an alphanumeric alphabet. The exception does not establish resource integrity: parser reproducibility, the complete fifteen-member installed closure and missing/tampered/symlink checks remain mandatory. Other changed files, including adjacent vendor paths, stay subject to the strict Git-derived scan. The public ISC license digest is explicitly labelled as a checksum; it is not a credential exemption.
+
+Run `node scripts/check-artifact-packaging-regression.cjs` directly and through `npm run test:pipeline`. Its real committed Git fixtures cover legitimate packaging, exact policy entries and a runtime-assembled secret-shaped value beside a valid checksum in a nonexempt file. Missing setup returns2; actual failed assertions return1. Existing SemVer/token checks and reader behavior remain unchanged.
+
+Before publication, run parser reproducibility, complete tests, claims projections, harness sync, `npm run test:review-bundle`, `node scripts/populate-manifest-skills.js --check` and `bash scripts/check-leak-diff.sh <actual-base-ref>` on the actual committed head. Establish the base and nonempty intended diff; a no-op scan is not qualification. Current-head hosted CI remains separately required.

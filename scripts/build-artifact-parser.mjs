@@ -12,7 +12,8 @@ if(JSON.parse(read("node_modules/yaml/package.json")).version!=="2.9.1" || JSON.
 const settings={bundle:true,platform:"node",format:"cjs",target:"node18",minify:true,legalComments:"inline"};
 const result=await build({...settings,absWorkingDir:root,entryPoints:["scripts/lib/artifact-yaml-entry.cjs"],write:false,metafile:true});
 const bundle=result.outputFiles[0].contents,license=read("node_modules/yaml/LICENSE");
-if(sha(license)!=="5bba27375d93e9119f76c1015f7672cf9ad5f70952296e0842fb2243d6376869")throw Error("license mismatch");
+const expectedLicenseSha256="5bba27375d93e9119f76c1015f7672cf9ad5f70952296e0842fb2243d6376869";
+if(sha(license)!==expectedLicenseSha256)throw Error("license mismatch");
 const provenance={schema_version:1,package:"yaml",version:"2.9.1",archive:"https://registry.npmjs.org/yaml/-/yaml-2.9.1.tgz",archive_sha256:"4ef6c54cf559b8a207b7b518378230805a1c84af239b14960e8c67c7d59de5d3",integrity:"sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==",license:{name:"ISC",sha256:sha(license),bytes:license.length},builder:{name:"esbuild",version:"0.25.6",settings},entry:{path:"scripts/lib/artifact-yaml-entry.cjs",sha256:sha(read("scripts/lib/artifact-yaml-entry.cjs"))},bundle:{sha256:sha(bundle),bytes:bundle.length},inputs:Object.fromEntries(Object.keys(result.metafile.inputs).sort().map(p=>[p,{sha256:sha(read(p)),bytes:read(p).length}]))};
 function output(p,data){const b=Buffer.from(data);if(check){if(!fs.existsSync(path.join(root,p))||!read(p).equals(b))throw Error(`stale generated resource: ${p}`);}else fs.writeFileSync(path.join(root,p),b);}
 output("scripts/vendor/yaml-2.9.1.cjs",bundle);
