@@ -1,5 +1,10 @@
 # Changes
 
+## Unreleased — next 3.1.0-dev
+
+Development channel only; no `v3.1.0-dev` release tag is created by this version stamp.
+`VERSION` identifies the channel's development line; it does not establish a stable release.
+
 ## v3.0.0 — Roadmaps, Express Lite, local telemetry and pipeline observation
 
 Released 2026-11-17 from `main`. This version also carries everything that was prepared as

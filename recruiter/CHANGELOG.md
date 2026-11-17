@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.1.0-dev] — unreleased next line
+
+- Stamp the `next` development line after the 3.0.0 release; this entry does not assert a
+  stable release or create a tag.
+
+---
+
 ## [3.0.0] — 2026-11-17
 
 - Stamp the recruiter, installer fallback, plugin and harness metadata as 3.0.0. The content
