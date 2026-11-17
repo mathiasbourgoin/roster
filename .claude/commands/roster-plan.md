@@ -2,7 +2,7 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.5.0
+version: 1.7.0
 domain: pipeline
 phase: plan
 preamble: true
@@ -91,7 +91,7 @@ context. Create the file if absent; preserve every prior `events` entry:
 ```json
 {
   "task": "<slug>",
-  "mode": "express|fast|full",
+  "mode": "express-lite|express|fast|full",
   "current_phase": "implement",
   "events": [
     { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
@@ -104,7 +104,7 @@ Rules for writing your event:
 - **`task` is the canonical slug**, derived once from the task description and reused identically
   by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
   `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
-  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  — `roster-implement` in Express Lite/Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
   every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
   ledger will not be found. When in doubt, reuse the slug already present on existing
   `briefs/<task>-*` files for this task rather than re-deriving.
@@ -135,7 +135,7 @@ Rules for writing your event:
 - **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
   A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
   repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
-- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- `mode` is the task's mode (`express-lite`/`express`/`fast`/`full`); set it on first write, leave it thereafter.
 - Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
   skill name (or `human-gate` for a gate decision).
 - Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
@@ -255,15 +255,40 @@ If KB is **absent**: skip silently.
 
 Read `briefs/<task>-intake.md` in full. Extract: goal and scope boundary, files involved, exact quality gates, unresolved open questions.
 
+Read `.harness/roadmap/model-routing.md` (source fallback `docs/model-routing.md`) once
+for this planning pass. Observe native model-selection controls and available candidates
+without exploring beyond the brief's scope. Plan the least costly available capable model
+per mission, using relative `economy`/`standard`/`strong` tiers; unknown cost/capability stays
+unknown. Explicit owner model choices, quality gates and independence requirements win.
+Use direct deterministic commands where possible and same-agent sequential work when
+delegation adds no value; required independent analyses/review must still remain independent.
+
+Estimate each bounded mission's optimistic/likely/pessimistic duration in minutes using
+the brief's scope, dependency/check burden and observed execution evidence. State the basis,
+assumptions and unknowns; an owner deadline is not duration evidence. For roadmap planning
+or a revisit, include all task ranges and a separate global-verification range (or unknown),
+revising only where evidence changes the estimate. Do not move an ETA merely because of a poll.
+Read `.harness/roadmap/estimates-schema.md` (source `schema/roadmap-estimates-schema.md`)
+for a planner `estimates.json` update. Bind it to the accepted contract digest, current execution
+revision and independent forecast revision, with writer, rationale, evidence and UTC capture.
+Active remaining estimates must name the actual attempt and capture time; otherwise elapsed
+time is unknown on legacy boards. Record uncertainty in the plan when evidence is unavailable;
+missing historical forecasts alone do not invalidate a brief. Forecast sidecars amend no
+accepted mission/model, receipt, plan-JSON schema, review gate or retry budget.
+
 ### 2. Dual-voice: two independent analyses
 
 Run **sequentially** two independent analyses.
 
 **Decomposition shape — prefer vertical slices.** Each step should be a thin end-to-end slice delivering one capability through every layer it touches (data → logic → interface), not a horizontal layer ("all schema", then "all endpoints"). A vertical slice is independently demoable and testable when it lands; a horizontal layer hides integration risk until the end. Both voices should flag a layered plan.
 
-#### Voice 1 — Claude sub-agent (fresh context)
+#### Voice 1 — Authorized available analysis agent (fresh context)
 
-Spawn a sub-agent with this exact prompt (do not inject conversation context):
+Use an authorized available fresh analysis agent, without assuming a vendor or an
+unsupported model control. Supply its compact routing decision and this prompt, without
+the conversation history. If fresh delegation is unavailable, record the limitation and
+resolve the required independence through the existing gate rather than call self-analysis
+an independent agent result:
 
 ```
 You are a software architect. You are given a task brief.
@@ -285,9 +310,12 @@ Produce:
 
 #### Voice 2 — Second model or adversarial fallback
 
-**If a second model (codex, o3, etc.) is available:** run the same analysis via that model.
+**If an authorized independent second model is available:** run the same analysis via that
+model, preserving explicit owner preferences and recording its actual selection control.
 
-**If not available:** spawn a second Claude sub-agent with this prompt:
+**If not available:** use an authorized fresh adversarial sub-agent with the prompt below.
+Keep the two analyses separate and identify a same-model fallback honestly; do not invent
+second-model availability. If this delegation is unavailable, surface the independence gap.
 
 ```
 You are a skeptical senior engineer asked to challenge an implementation plan.
@@ -363,6 +391,23 @@ Produce `briefs/<task>-plan.md`:
 
 <Step N must precede step M because ...>
 
+## Duration forecast
+
+| Mission | Optimistic / likely / pessimistic minutes, or unknown | Basis and evidence | Assumptions / dependencies |
+|---|---|---|---|
+| <mission> | <range or unknown> | <scope/check evidence> | <dispatch/capacity assumptions> |
+| Global verification (roadmap only) | <range or unknown> | <integrated check burden> | <separate from task DoD> |
+
+For a roadmap revisit: state what changed, preserve earlier forecast revisions and provide
+the separate accepted-contract-bound estimates update. Task ETA and global ETA remain
+conditional on dispatch/authorization/check outcomes; unresolved blockers stay visible.
+
+## Model routing
+
+| Mission / role | Runtime; requested model / tier | Native control and evidence | Selection reason; cost/uncertainty; costly exception | Actual model | Failure trigger; existing bounds; authorized fallback |
+|---|---|---|---|---|---|
+| <mission> | <runtime; available identifier or inherited/unknown; economy/standard/strong/unknown> | <supported control or unknown; observation and owner sources> | <capability justification; observed comparison or unknown; exception or none> | <runtime-reported identifier or unknown> | <diagnosed capacity trigger; attempt/time/cost limits; permitted alternative or none> |
+
 ## Identified risks
 
 | Risk | Probability | Impact | Mitigation |
@@ -385,6 +430,18 @@ Produce `briefs/<task>-plan.md`:
 **`briefs/<task>-reviewer.md`** — for `/roster-review`: what was implemented, files to audit first, identified risks to verify, expected behaviors to confirm.
 
 **`briefs/<task>-qa-scope.md`** — for `/roster-qa`: exact quality gates with commands, behaviors to validate, TUI scenarios if in scope.
+
+Every sub-brief must include a self-contained `## Model routing` section with only that
+mission's compact record from the plan table: request/tier/runtime control, evidence and
+reason, cost unknowns/costly exception, actual model or unknown, failure trigger, existing
+bounds and authorized fallback. Do not copy the full policy or another mission's analysis.
+Diagnose environment/context/spec issues and ordinary red tests before model escalation;
+do not repeat unchanged expensive attempts or relax gates/budgets. If an accepted roadmap
+is involved, a different `topology.model` requires its revised accepted board process,
+preserving history and consumed attempts; this table cannot silently reroute it.
+Include only the mission's duration/remaining range, evidence basis, assumptions and any
+attempt/time anchor in its sub-brief. Use the separate forecast sidecar for roadmap updates;
+unknown timing must not become a promise or cause a weaker completion criterion.
 
 ### 7. Human validation quiz
 

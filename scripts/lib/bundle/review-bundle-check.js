@@ -48,7 +48,9 @@ function checkFilesPresentAndSha(root, manifest) {
  *  facing scripts/REVIEW-BUNDLE.md) is never reachable via require() and is exempt from this
  *  equality; it is still sha-verified/installed/removed like any other file elsewhere. */
 function checkClosureEscape(root, manifest, toolEntries) {
-  const entries = (toolEntries || JS_TOOL_ENTRIES).map((p) => path.resolve(root, p));
+  const portable = JS_TOOL_ENTRIES.map((p) => p.replace(/\.js$/, ".cjs"))
+    .filter((p) => manifest.files.some((f) => f.path === p));
+  const entries = (toolEntries || [...JS_TOOL_ENTRIES, ...portable]).map((p) => path.resolve(root, p));
   const closure = computeClosure(entries);
   const codeFiles = manifest.files.filter((f) => f.kind !== "doc");
   const manifestSet = new Set(codeFiles.map((f) => path.resolve(root, f.path)));

@@ -43,10 +43,98 @@ need_cmd jq
 # Refuse managed roadmap aliases before --check copies links into its sandbox.
 # Source is optional for legacy standalone sync copies that do not ship the toolkit.
 ROADMAP_SOURCE="$SCRIPT_DIR/roster-roadmap.cjs"
-ROADMAP_SOURCES=("$ROADMAP_SOURCE" "$SCRIPT_DIR/../schema/roadmap-schema.md" "$SCRIPT_DIR/../examples/roadmap/roadmap.json" "$SCRIPT_DIR/../examples/roadmap/capabilities.json")
-ROADMAP_TARGETS=("$HARNESS_DIR/bin/roster-roadmap.cjs" "$HARNESS_DIR/roadmap/schema.md" "$HARNESS_DIR/roadmap/example.json" "$HARNESS_DIR/roadmap/capabilities.json")
+ROADMAP_SOURCES=(
+    "$ROADMAP_SOURCE"
+    "$SCRIPT_DIR/roster-artifacts.cjs"
+    "$SCRIPT_DIR/roster-recovery.cjs"
+    "$SCRIPT_DIR/roster-roadmap-view.cjs"
+    "$SCRIPT_DIR/roster-roadmap-estimates.cjs"
+    "$SCRIPT_DIR/roster-roadmap-requests.cjs"
+    "$SCRIPT_DIR/roster-roadmap-requests-view.cjs"
+    "$SCRIPT_DIR/roster-roadmap-validate.cjs"
+    "$SCRIPT_DIR/roster-roadmap-history.cjs"
+    "$SCRIPT_DIR/roster-roadmap-missions.cjs"
+    "$SCRIPT_DIR/roster-roadmap-prompt.cjs"
+    "$SCRIPT_DIR/roster-roadmap-derived.cjs"
+    "$SCRIPT_DIR/roster-usage.cjs"
+    "$SCRIPT_DIR/roster-pipeline.cjs"
+    "$SCRIPT_DIR/roster-pipeline-ledger.cjs"
+    "$SCRIPT_DIR/lib/review/finding-schema.cjs"
+    "$SCRIPT_DIR/../schema/pipeline-observation.schema.json"
+    "$SCRIPT_DIR/../schema/pipeline-coverage.json"
+    "$SCRIPT_DIR/../schema/qa-state.schema.json"
+    "$SCRIPT_DIR/roster-artifact-observation.cjs"
+    "$SCRIPT_DIR/roster-artifact-metadata.cjs"
+    "$SCRIPT_DIR/vendor/yaml-2.9.1.cjs"
+    "$SCRIPT_DIR/vendor/yaml-2.9.1.LICENSE"
+    "$SCRIPT_DIR/vendor/yaml-2.9.1.provenance.json"
+    "$SCRIPT_DIR/../schema/artifact-observation.schema.json"
+    "$SCRIPT_DIR/../schema/artifact-coverage.json"
+    "$SCRIPT_DIR/artifact-observation.manifest.json"
+    "$SCRIPT_DIR/../schema/roadmap-schema.md"
+    "$SCRIPT_DIR/../examples/roadmap/roadmap.json"
+    "$SCRIPT_DIR/../examples/roadmap/capabilities.json"
+    "$SCRIPT_DIR/../docs/model-routing.md"
+    "$SCRIPT_DIR/../schema/recovery-schema.md"
+    "$SCRIPT_DIR/../docs/failure-recovery.md"
+    "$SCRIPT_DIR/../schema/usage-report-schema.md"
+    "$SCRIPT_DIR/../docs/usage-reports.md"
+    "$SCRIPT_DIR/../schema/roadmap-estimates-schema.md"
+    "$SCRIPT_DIR/../schema/roadmap-requests-schema.md"
+    "$SCRIPT_DIR/../docs/roadmap-estimates.md"
+    "$SCRIPT_DIR/../schema/roadmap-view-schema.md"
+    "$SCRIPT_DIR/../schema/roadmap-view.schema.json"
+)
+ROADMAP_TARGETS=(
+    "$HARNESS_DIR/bin/roster-roadmap.cjs"
+    "$HARNESS_DIR/bin/roster-artifacts.cjs"
+    "$HARNESS_DIR/bin/roster-recovery.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-view.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-estimates.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-requests.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-requests-view.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-validate.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-history.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-missions.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-prompt.cjs"
+    "$HARNESS_DIR/bin/roster-roadmap-derived.cjs"
+    "$HARNESS_DIR/bin/roster-usage.cjs"
+    "$HARNESS_DIR/bin/roster-pipeline.cjs"
+    "$HARNESS_DIR/bin/roster-pipeline-ledger.cjs"
+    "$HARNESS_DIR/bin/lib/review/finding-schema.cjs"
+    "$HARNESS_DIR/roadmap/pipeline-observation.schema.json"
+    "$HARNESS_DIR/roadmap/pipeline-coverage.json"
+    "$HARNESS_DIR/roadmap/qa-state.schema.json"
+    "$HARNESS_DIR/bin/roster-artifact-observation.cjs"
+    "$HARNESS_DIR/bin/roster-artifact-metadata.cjs"
+    "$HARNESS_DIR/bin/vendor/yaml-2.9.1.cjs"
+    "$HARNESS_DIR/bin/vendor/yaml-2.9.1.LICENSE"
+    "$HARNESS_DIR/bin/vendor/yaml-2.9.1.provenance.json"
+    "$HARNESS_DIR/roadmap/artifact-observation.schema.json"
+    "$HARNESS_DIR/roadmap/artifact-coverage.json"
+    "$HARNESS_DIR/roadmap/artifact-observation.manifest.json"
+    "$HARNESS_DIR/roadmap/schema.md"
+    "$HARNESS_DIR/roadmap/example.json"
+    "$HARNESS_DIR/roadmap/capabilities.json"
+    "$HARNESS_DIR/roadmap/model-routing.md"
+    "$HARNESS_DIR/roadmap/recovery-schema.md"
+    "$HARNESS_DIR/roadmap/failure-recovery.md"
+    "$HARNESS_DIR/roadmap/usage-schema.md"
+    "$HARNESS_DIR/roadmap/usage-reports.md"
+    "$HARNESS_DIR/roadmap/estimates-schema.md"
+    "$HARNESS_DIR/roadmap/requests-schema.md"
+    "$HARNESS_DIR/roadmap/estimates.md"
+    "$HARNESS_DIR/roadmap/view-schema.md"
+    "$HARNESS_DIR/roadmap/view.schema.json"
+)
 if [ -f "$ROADMAP_SOURCE" ]; then
-    for _roadmap_path in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/roadmap" "${ROADMAP_TARGETS[@]}"; do
+    for _roadmap_directory in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/bin/lib" "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap"; do
+        if [ ! -L "$_roadmap_directory" ] && [ -e "$_roadmap_directory" ] && [ ! -d "$_roadmap_directory" ]; then
+            echo "roadmap: managed resource ancestor must be a directory: $_roadmap_directory" >&2
+            exit 1
+        fi
+    done
+    for _roadmap_path in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/bin/lib" "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap" "${ROADMAP_TARGETS[@]}"; do
         if [ -L "$_roadmap_path" ]; then
             echo "roadmap: refusing managed symlink: $_roadmap_path" >&2
             exit 1
@@ -64,6 +152,22 @@ if [ -f "$ROADMAP_SOURCE" ]; then
     done
 fi
 
+# Use the trusted source, never a consumer-installed runtime. Check the real
+# project before --check clones links, as well as before normal sync writes.
+# Standalone legacy sync copies without this optional companion do not distribute
+# telemetry (see the matching source-availability guard below).
+TELEMETRY_SOURCE="$SCRIPT_DIR/roster-telemetry.js"
+if [ -e "$TELEMETRY_SOURCE" ] || [ -L "$TELEMETRY_SOURCE" ]; then
+    need_cmd node
+    if [ ! -f "$TELEMETRY_SOURCE" ] || [ -L "$TELEMETRY_SOURCE" ]; then
+        echo "telemetry: trusted source runtime unavailable at $TELEMETRY_SOURCE; restore the local Roster source before syncing." >&2
+        exit 1
+    fi
+    if ! node "$TELEMETRY_SOURCE" preflight --root "$PROJECT_ROOT"; then
+        echo "telemetry: sync refused before writes; resolve the reported managed-path conflict and retry." >&2
+        exit 1
+    fi
+fi
 
 if [ ! -f "$MANIFEST" ]; then
     echo "Shared harness manifest not found at $MANIFEST" >&2
@@ -83,14 +187,13 @@ fi
 # copy). HOME/CODEX_HOME are redirected into the sandbox so absolute (~) entrypoints
 # never touch the real tree. Drift = a projection that is stale or was hand-edited.
 #
-# Limitation: detection is one-directional (generated→real), so a file that exists
-# only in the real tree is ignored (it may be legitimately unmanaged, e.g.
-# .claude/patterns). This catches stale, hand-edited, and missing projections, but NOT
-# files that should have been REMOVED — a deleted source's lingering projection, or a
-# runtime turned off while its projections stay committed. A normal `sync` cleans those for the
-# MARKER-PRUNED dirs (Codex `.agents/skills`, `.codex/agents`) — but NOT for the overwrite-only
-# dirs (`.claude/agents`, `.claude/rules`, `.opencode/agents`), which preserve user files and so
-# leave a removed source's projection behind until it is deleted by hand.
+# Limitation: generated→real comparison catches missing and hand-edited projections.
+# Extra Markdown files are also reported, except nested skill companion resources.
+# Flat extras in overwrite-only .claude/agents, .claude/rules and .opencode/agents have
+# no provenance: they may be local content or projections of removed sources. Keep the
+# check nonzero for this ambiguity, but never recommend removal. Other extra content
+# and runtimes that produce no sandbox directory are outside this comparison.
+# Normal sync preserves overwrite-only extras; marker-pruned dirs reconcile their own files.
 if [ "$CHECK" -eq 1 ]; then
     need_cmd diff
     _CK_TMP="$(mktemp -d)"
@@ -121,25 +224,66 @@ if [ "$CHECK" -eq 1 ]; then
             _drift=1
             continue
         fi
-        _all_diff="$( { LC_ALL=C diff -rq -x 'settings.local.json' -x '.roster-version' -x '.git' "$_gen" "$_real" 2>&1 || true; } )"
+        _all_diff=""
         _out=""
         _stale=""
+        _unattributed=""
+        # Enumerate overwrite-only flat entries directly: diff quotes names containing
+        # spaces/control characters, so its human-readable lines are not a path protocol.
+        _flat_dirs=""
+        _linked_flat=0
+        case "$_rel" in
+            .claude) _flat_dirs="agents rules" ;;
+            .opencode) _flat_dirs="agents" ;;
+        esac
+        for _flat in $_flat_dirs; do
+            if [ -L "$_real/$_flat" ]; then
+                printf -v _unattributed '%s    %q (symlink directory; not inspected)\n' "$_unattributed" "$_rel/$_flat"
+                _linked_flat=1
+                continue
+            fi
+            # Explicit hidden-name patterns avoid changing the caller's glob options.
+            for _candidate in "$_real/$_flat"/*.md "$_real/$_flat"/.*.md "$_real/$_flat"/.md; do
+                # Include even dangling file links, without inspecting their targets.
+                [ -L "$_candidate" ] || [ -f "$_candidate" ] || continue
+                _name="${_candidate##*/}"
+                [ -e "$_gen/$_flat/$_name" ] || [ -L "$_gen/$_flat/$_name" ] || {
+                    printf -v _unattributed '%s    %q\n' "$_unattributed" "$_rel/$_flat/$_name"
+                }
+            done
+        done
+        # A linked overwrite-only directory is already blocking. Do not let recursive
+        # diff inspect its target; compare the runtime after that conflict is resolved.
+        if [ "$_linked_flat" -eq 0 ]; then
+            _all_diff="$( { LC_ALL=C diff -rq -x 'settings.local.json' -x '.roster-version' -x '.git' "$_gen" "$_real" 2>&1 || true; } )"
+        fi
         if [ -n "$_all_diff" ]; then
             _out="$(printf '%s\n' "$_all_diff" | { grep -v -- "Only in $_real" || true; })"
-            # Stale projection detection: files that exist in the real tree but NOT in the generated
-            # tree are lingering projections from deleted or renamed sources. Report them with a
-            # cleanup command so they can be removed deliberately. Only flat runtime projections
-            # are ownership-safe here. Nested skill directories may contain required companion
+            # Classify real-only Markdown separately from generated-file drift. Flat files in
+            # overwrite-only dirs have no ownership record, so absence from regeneration is
+            # not proof that a source was deleted. Nested skill directories may contain companion
             # docs installed by a campaign/extension, so an absent regenerated companion is never
             # evidence that it is stale (and must never produce an `rm` recommendation).
+            # Parse only literal, unquoted prefixes here. Unrecognized diff formatting
+            # cannot establish a cleanup path. Flat overwrite-only entries above never
+            # enter this legacy managed-stale category, even with root metacharacters.
             _stale="$(printf '%s\n' "$_all_diff" \
-                | { grep -- "Only in $_real" || true; } \
-                | sed "s|Only in ${_real}/\(.*\): \(.*\)|\1/\2|" \
-                | awk -F/ -v runtime="$_rel" '
+                | awk -F/ -v runtime="$_rel" -v real="$_real" '
+                    {
+                        prefix = "Only in " real "/"
+                        if (index($0, prefix) != 1) next
+                        relative = substr($0, length(prefix) + 1)
+                        separator = index(relative, ": ")
+                        if (!separator) next
+                        $0 = substr(relative, 1, separator - 1) "/" substr(relative, separator + 2)
+                    }
                     /\.md$/ {
                         companion = ((runtime == ".agents" || runtime == ".opencode") &&
                                      $1 == "skills" && NF == 3 && $3 != "SKILL.md")
-                        if (!companion) print
+                        unattributed = (NF == 2 &&
+                            ((runtime == ".claude" && ($1 == "agents" || $1 == "rules")) ||
+                             (runtime == ".opencode" && $1 == "agents")))
+                        if (!companion && !unattributed) print
                     }
                   ')"
         fi
@@ -154,12 +298,21 @@ if [ "$CHECK" -eq 1 ]; then
             echo "  To clean up: $(printf '%s\n' "$_stale" | sed "s|^|${_real}/|" | tr '\n' ' ' | xargs echo rm -f)" >&2
             _drift=1
         fi
+        if [ -n "$_unattributed" ]; then
+            echo "✗ harness-sync: unattributed extra file(s) in $_rel (local content or projections of removed sources):" >&2
+            printf '%s' "$_unattributed" >&2
+            echo "  These overwrite-only directories preserve user files; ownership is unknown." >&2
+            echo "  Review ownership and canonical sources; no removal is recommended." >&2
+            echo "  The check remains nonzero until the discrepancy is reconciled." >&2
+            _drift=1
+        fi
     done
 
     if [ "$_drift" -eq 1 ]; then
         echo "" >&2
         echo "Projections are out of sync with .harness/. Edit the source under .harness/" >&2
         echo "(never hand-edit a projected file), then run ./scripts/sync-harness.sh and commit." >&2
+        echo "For unattributed extras, reconcile ownership first; sync preserves those files." >&2
         exit 1
     fi
 
@@ -222,6 +375,10 @@ if [ "$CHECK" -eq 1 ]; then
                 exit 1
             fi
         done
+    fi
+    if [ -f "$SCRIPT_DIR/roster-telemetry.js" ] && ! cmp -s "$SCRIPT_DIR/roster-telemetry.js" "$HARNESS_DIR/bin/roster-telemetry.cjs"; then
+        echo "✗ harness-sync: telemetry runtime is missing or stale; run bash scripts/sync-harness.sh" >&2
+        exit 1
     fi
 
     echo "✓ harness-sync: all runtime projections match the .harness source."
@@ -835,7 +992,7 @@ install_skill_hook_runtime
 # Self-contained .cjs preserves consumer module semantics, including ESM projects.
 # Replace the directory entry atomically; never truncate a hard-link alias.
 if [ -f "$ROADMAP_SOURCE" ]; then
-    mkdir -p "$HARNESS_DIR/bin" "$HARNESS_DIR/roadmap"
+    mkdir -p "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap"
     for _roadmap_i in "${!ROADMAP_SOURCES[@]}"; do
         _roadmap_target="${ROADMAP_TARGETS[$_roadmap_i]}"
         _roadmap_tmp="$(mktemp "$(dirname "$_roadmap_target")/.roster-roadmap.XXXXXX")"
@@ -847,6 +1004,16 @@ if [ -f "$ROADMAP_SOURCE" ]; then
     done
 fi
 
+# Distribute telemetry without activating Git hooks (sync/--check must not change Git config).
+# Actual activation belongs to init/doctor or an explicit telemetry command.
+_telemetry_source="$SCRIPT_DIR/roster-telemetry.js"
+_telemetry_target="$HARNESS_DIR/bin/roster-telemetry.cjs"
+if [ -f "$_telemetry_source" ]; then
+    mkdir -p "$HARNESS_DIR/bin"
+    if [ "$_telemetry_source" != "$_telemetry_target" ]; then
+        cp "$_telemetry_source" "$_telemetry_target"
+    fi
+fi
 install_claims_reconciler
 
 if runtime_enabled "claude-code"; then

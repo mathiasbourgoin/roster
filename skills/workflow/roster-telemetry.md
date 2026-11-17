@@ -1,0 +1,146 @@
+---
+name: roster-telemetry
+description: Configure local commit telemetry and optional Roster attribution, inspect activation and versions, disable collection or update the runtime.
+when_to_use: "Use to configure commit metrics or Roster credit, inspect activation, disable collection or update. Trigger: '/roster-telemetry'."
+version: 1.1.0
+domain: workflow
+preamble: true
+friction_log: true
+allowed_tools: [Read, Write, Bash, AskUserQuestion]
+tunables:
+  enabled: true
+  policy: advisory
+  elapsed_seconds: true
+  tokens: true
+  agents: true
+  mode: true
+  formal: true
+  attribution: off
+artifacts:
+  reads:
+    - .harness/harness.json
+    - .harness/telemetry.json
+  writes:
+    - .harness/telemetry.json
+---
+
+# Roster Telemetry
+
+Manage local commit metadata and optional Roster credit. No network transmission, package installation, global Git
+configuration or provider authentication. Runtime version, skill version, harness version
+and report/config schema versions are distinct.
+
+## Steps
+
+### 1. Runtime resolution
+
+Read `.harness/harness.json` first. Prefer `scripts/roster-telemetry.js` when this is a
+trusted Roster checkout; otherwise use `.harness/bin/roster-telemetry.cjs`. Invoke through
+`node`, with `--root <project-root>` if not running at the project root. If neither exists,
+locate a trusted local Roster checkout and run its runtime's `install --root <project-root>`.
+If unavailable, report the missing distribution and stop; do not download or invent a runtime.
+
+### 2. Interface
+
+Run `status` and present effective activation, installed/available runtime versions, skill
+version (frontmatter), current policy, collection fields and attribution mode. Display
+collection and attribution activation separately; active credit does not imply active collection. Native runtime UI is optional:
+use a multi-select/checklist for fields, boolean controls if supported, or a numbered text
+menu with explicit current values. Never claim plain text is an interactive toggle.
+
+Offer:
+1. Enable/disable collection (default enabled).
+2. Select fields: elapsed time, tokens, actual participating agents, express-lite/express/fast/full mode,
+   formal specification/verification status (all enabled initially).
+3. Advisory (default) or strict policy. Explain strict blocks commits when enabled time/token
+   measurements are missing; advisory allows commits with explicit warnings and no fake values.
+4. Optional Roster attribution: off (default), append, or require. Append adds the canonical
+   credit only if absent from the final trailer block; require refuses its absence. Credit is
+   independent of metrics and works with collection disabled and no report.
+5. Update from a trusted local Roster runtime. Show installed and available versions first.
+6. Show status / leave unchanged.
+
+Apply the user's selection using `configure` with `--enabled true|false`,
+`--policy advisory|strict`, `--elapsed_seconds true|false`, `--tokens true|false`,
+`--agents true|false`, `--mode true|false`, `--formal true|false`, and
+`--attribution off|append|require`. Example:
+
+```bash
+node .harness/bin/roster-telemetry.cjs configure --tokens false --agents true
+node .harness/bin/roster-telemetry.cjs configure --enabled false --attribution append
+node .harness/bin/roster-telemetry.cjs status
+```
+
+`configure --enabled false` disables collection and leaves attribution enabled if configured.
+With attribution also off, owned wrappers are no-ops. Both preferences persist across init/doctor.
+Enabling either feature installs/repairs owned wrappers. Custom
+hooks/config conflicts require manual integration, never replacement. `update` must be run
+using the newer trusted runtime (running an old installed runtime cannot discover a release).
+Check effective `active`, not just file presence, after enable/update. Separately display
+`encoding_available` / `encoding_conflict`: active wrappers do not guarantee a usable footer.
+Managed filesystem aliases (including dangling links and hard links) are refused before writes;
+`--force` does not permit following them into unrelated files.
+
+The fixed attribution line is
+`Developed-with: Roster <https://github.com/mathiasbourgoin/roster>`.
+Only the mode is configurable. An exact credit in the actual final trailer block satisfies
+append/require; body examples, comments, folded values and discarded scissors text do not.
+Existing other-tool credits, co-authors and "Generated with …" text are preserved.
+Append is idempotent across amends and inserts before comment/scissors suffixes. Require
+checks after the editor completes. An unsupported credit encoding refuses explicitly even
+when metrics policy is advisory; it never silently changes Git settings.
+
+### 3. Commit report
+
+After staging, use `report <task>` once to create `.harness/.local/commit-report.json` with
+explicit nulls; it never overwrites an existing report. Fill/update the JSON with actual evidence
+and refresh `staged_tree` using `git write-tree`. See `docs/telemetry.md` in Roster for the schema.
+Never scrape unrelated session data or include prompts, credentials, user names or raw transcripts.
+
+- Time/tokens: nonnegative cumulative task totals or null. Input includes cache reads/writes
+  without counting them twice. Do not infer tokens from character counts. Preserve the measurement
+  source in local evidence; trailers label all data agent-reported, not authenticated.
+- Agents: unique safe role names actually invoked (including the executing role when known),
+  not a planned team, model guesses or human identities; null if unknown.
+- Mode: actual ledger mode express-lite/express/fast/full, otherwise null.
+- Formal: status not-used/specified/verified/unavailable, backend null/rocq/quint. A saved spec is
+  not verification. Only report verified with a successful checker result tied to the candidate;
+  this remains an agent assertion, not a cryptographic attestation.
+- Amend and same-task follow-ups: cumulative totals, never deltas or adding previous totals twice.
+
+A local report is not uploaded by this feature; enabled available fields become public to anyone
+who can read the commit. Disabling a field does not rewrite historical commits. Git hooks are
+bypassable (`--no-verify` skips commit-msg, not prepare-commit-msg; hooksPath overrides can skip
+all three). `reference-transaction` checks prepared final metadata and amendment identity before
+a matching prepared commit updates HEAD. Its local receipt is bound to the preparing Git process;
+abandoned receipts cannot block unrelated resets, and disabled collection ignores even malformed ones.
+Missing advisory measurements remain nonblocking, but neither policy publishes final metadata
+known to contradict a valid preparation. Actual footer ownership is case-insensitive; canonical
+owned fields appear once, while commit-body examples and unrelated trailers remain untouched.
+
+For incompatible comment/trailer encodings or a scissors marker followed by non-comment supplied
+text, strict refuses explicitly; advisory warns and commits without generated telemetry. Do not
+change Git settings automatically. Hooks cannot portably infer every cleanup override. Ordinary
+scissors with comment-only suffixes and real subjects written into automatic templates remain
+supported. Disabling collection is not a promise to redact raw independently authored text. Bare-parent/core.worktree layouts requiring shared-config migration are refused
+without changing configuration. No local telemetry hook is a security or CI evidence gate.
+
+## When to Go Back
+
+On a hook conflict, missing trusted runtime or invalid existing configuration, stop the change
+and report exact remediation. Never reset preferences or overwrite custom hooks to get green.
+
+## What Next
+
+Return to the caller with the applied settings. Configuration alone does not trigger ship.
+
+## Friction Log
+
+Append an honest phase entry using the canonical template in `skills/shared/preamble-friction.md`
+(injected into the installed skill). Do not include
+sensitive measurement evidence in the friction log.
+
+## Output
+
+Summarize changed settings and effective activation. Report conflict/missing-runtime states
+explicitly. Do not perform commit/push operations for configuration alone.

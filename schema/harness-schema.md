@@ -10,6 +10,31 @@ Compatibility views may also be generated for specific runtimes, for example:
 
 - `.claude/harness.json`
 
+## Projection checks and local files
+
+`bash scripts/sync-harness.sh <project-root> --check` regenerates into a temporary
+directory and fails on missing or changed generated files. It does not modify the
+project's projections. Nested skill companion resources remain outside stale-file
+classification because installed extensions may require them.
+
+Flat Markdown extras in `.claude/agents`, `.claude/rules` and `.opencode/agents`
+are **unattributed**: these overwrite-only directories may contain project-owned
+content or projections of removed sources, and no file provenance distinguishes
+the two. The check reports both possibilities, recommends no removal, and remains
+nonzero until the discrepancy is reconciled. Ordinary sync preserves these extras.
+Inspect ownership and canonical sources before deciding how to reconcile them;
+an intentionally local file does not automatically become a managed projection.
+The flat-entry check reads directory entries directly, including hidden names and
+symlinks without inspecting their targets. Spaces, colons and control characters
+in filenames do not evade it; diagnostics escape filenames using Bash `%q` so a
+newline in a name stays on one display line. A symlinked flat directory is reported
+without enumerating its target.
+
+This conservative check may fail for legitimate local extras. It preserves
+removed-source detection without claiming those files are safe to delete.
+Managed command drift and existing extension/marker ownership guards remain
+independent; this rule does not exempt entire runtime directories or adopt files.
+
 ## Top-Level Fields
 
 ```yaml

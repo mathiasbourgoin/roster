@@ -2,7 +2,7 @@
 name: roster-spec
 description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
 when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
-version: 2.5.0
+version: 2.5.1
 domain: pipeline
 phase: spec
 preamble: true
@@ -95,7 +95,7 @@ context. Create the file if absent; preserve every prior `events` entry:
 ```json
 {
   "task": "<slug>",
-  "mode": "express|fast|full",
+  "mode": "express-lite|express|fast|full",
   "current_phase": "implement",
   "events": [
     { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
@@ -108,7 +108,7 @@ Rules for writing your event:
 - **`task` is the canonical slug**, derived once from the task description and reused identically
   by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
   `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
-  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  — `roster-implement` in Express Lite/Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
   every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
   ledger will not be found. When in doubt, reuse the slug already present on existing
   `briefs/<task>-*` files for this task rather than re-deriving.
@@ -139,7 +139,7 @@ Rules for writing your event:
 - **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
   A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
   repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
-- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- `mode` is the task's mode (`express-lite`/`express`/`fast`/`full`); set it on first write, leave it thereafter.
 - Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
   skill name (or `human-gate` for a gate decision).
 - Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
@@ -293,7 +293,7 @@ One `CHECK-N` MAY carry both annotations when it genuinely covers both roles (EC
 unreachable in CI), write **`**Authentic path: not feasible — <reason>**`** instead of the pair.
 Enforcement is **prose-and-human, accepted level** (FR-084) — these checks need not be
 gate-executable and MUST NOT be auto-linked as ratchet red-run checks (§5.5 of roster-review.md)
-unless self-contained; do not expect `scripts/check-review-convergence.js` to verify this
+unless self-contained; do not expect `scripts/check-review-convergence.cjs` to verify this
 requirement mechanically. Step 9 below explicitly surfaces the marker for human acknowledgment.
 
 **Existing spec file (EC-3, FR-006, FR-085):** if `specs/<task-slug>.md` already exists, **extend**
@@ -309,7 +309,7 @@ write a spec file.
 ordinary) spec MUST honor 0 = check passes, 1 = assertion fired, ≥2 = error — a plain
 self-contained script (e.g. `node <check>.js`), never relying on a test runner's own exit codes
 (`node --test`/jest exit 1 for both an assertion failure and a load error). This convention is
-distinct from the gate script's own exit convention (`scripts/check-review-convergence.js`, where
+distinct from the gate script's own exit convention (`scripts/check-review-convergence.cjs`, where
 2 = degraded input, not error).
 
 Skip Steps 1–8 (Research/Clarification/Story/Challenge/Formalizer/Cross-Spec/Write) for the

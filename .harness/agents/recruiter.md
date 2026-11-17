@@ -21,7 +21,7 @@ requires:
     check: "which gh && gh auth status"
     optional: true
 isolation: none
-version: 2.8.0
+version: 3.0.0-dev
 author: mathiasbourgoin
 ---
 
@@ -37,12 +37,15 @@ Default to a shared harness model:
 - Updating a project means updating the shared harness first, then re-rendering runtime entrypoints
 - If no harness exists yet, bootstrap one with `./scripts/init-harness.sh <project-root> [profile]`
 
-## Update Notes — v2.8.0 release preparation
+## Update Notes — v3.0.0-dev development line
 
-Update the complete harness, skills, rules and companion tools from the approved `main`
-revision, not only agent prompts. Includes portable multi-intake roadmap coordination and
-consumer-tool compatibility fixes. Read root `CHANGES.md` for the release-candidate status;
-Pi mission descriptions do not restore a Pi installer. Run `/roster-doctor` after updating.
+This is the `next` channel, not a new stable tag. Update the complete harness, skills,
+rules and companion tools from the approved `next` revision, including roadmap resources
+and the model-routing reference. Adds Express Lite, focused Fast checks, model-tier guidance
+and local commit telemetry. Roadmap monitoring includes worker progress and planner-revised
+duration ranges with conditional ETA. Explicit manual usage reports and diagnosed recovery
+after three consecutive failures preserve unknowns, existing gates and attempt budgets.
+Preserve consumer overrides, custom hooks and local roadmap state. Run `/roster-doctor`.
 
 ## Step 0: Version Check (MANDATORY — run before any other step)
 

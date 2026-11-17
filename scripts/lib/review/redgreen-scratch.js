@@ -22,7 +22,7 @@
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const crypto = require("crypto");
+const { snapshotTree } = require("../git-tree-snapshot");
 const { execFileSync } = require("child_process");
 
 function isFullSha(s) {
@@ -168,14 +168,6 @@ function extractPreFixTree(repoRoot, preFixSha, checkRelPath, checkAbsPath) {
 // Runs the red half: the check executed inside the scratch (pre-fix) tree.
 function runRedPhase(scratchCheckPath, scratchDir, repoRoot, timeoutMs) {
   return runNode(scratchCheckPath, scratchDir, repoRoot, timeoutMs);
-}
-
-// FIX-B (RGC-3): whole-tree snapshot, the xruntime-exec.sh idiom
-// (`git status --porcelain -uall | sha256sum`). Read-only — never
-// add/commit/stash/checkout/worktree.
-function snapshotTree(repoRoot) {
-  const status = execFileSync("git", ["status", "--porcelain", "-uall"], { cwd: repoRoot, stdio: "pipe" });
-  return crypto.createHash("sha256").update(status).digest("hex");
 }
 
 // Runs the green half: the check executed against the current (real) tree.

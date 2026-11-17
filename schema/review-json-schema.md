@@ -35,7 +35,8 @@ ingests it, and the envelope around the findings arrays.
   "rounds_audit": ["<see below>"],
   "cross_runtime": { "<runtime>": { "status": "healthy|degraded|skipped-human", "reason": null, "config_digest": "string", "round": 1 } },
   "streak_override": null,
-  "mode": "express|fast|full",
+  "mode": "express-lite|express|fast|full",
+  "assurance": "local|independent|null — required as local for Express Lite",
   "escalation_needed": false,
   "escalation_reason": null,
   "normalized_by": "string — normalizer_version, when scripts/review-normalize.js ran (FR-108)"

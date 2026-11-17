@@ -10,3 +10,7 @@ scripts/review-bundle.manifest.json
 # .harness/bin/run-hook.js is an esbuild-generated minified bundle (embeds js-yaml);
 # high-entropy by construction — same machine-generated-artifact class as package-lock.json.
 .harness/bin/run-hook.js
+# These pinned, reproducibly generated YAML files contain a public alphanumeric alphabet.
+# Parser reproducibility and complete resource integrity remain required release guards.
+scripts/vendor/yaml-2.9.1.cjs
+.harness/bin/vendor/yaml-2.9.1.cjs

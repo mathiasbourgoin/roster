@@ -62,7 +62,9 @@ per-run overwrite.
 }
 ```
 
-`causes` is drawn from: `gate-failure` (step 2 quality-gate failure),
+`causes` is drawn from: `gate-failure` (step 2 quality-gate product failure),
+`environment-failure` (step 2 could not exercise the product because a prerequisite or setup
+failed),
 `spec-check-failure` (step 3 spec runnable-check FAIL), `code-intel-violation`
 (step 3.5 exit 1), `code-intel-malformed` (step 3.5 exit 2), `tui-failure`
 (step 4), `cross-runtime-discrepancy` (step 4.5). A round with mixed causes

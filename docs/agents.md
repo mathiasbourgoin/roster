@@ -13,7 +13,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | tech-lead | 1.9.1 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
-| recruiter | 2.8.0 | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
+| recruiter | 3.0.0-dev | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
 | governor | 2.1.2 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
 | kb-agent | 2.5.0 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
@@ -21,7 +21,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | skill-creator | 1.4.0 | opus | Designs reusable workflow skills from repeated patterns, with search-first and safety checks |
 | architect | 1.6.0 | sonnet | Code quality and architecture guardian focused on structural regressions, duplication, and maintainability risks |
 | context-manager | 1.3.0 | haiku | Maintains concise shared context for multi-agent execution to reduce drift and duplication |
-| planner | 1.2.0 | opus | Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent |
+| planner | 1.4.0 | opus | Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent |
 | pr-workflow | 1.2.0 | sonnet | Owns the project PR/git workflow — conventional commits, rebase merge, pre-push validation, and review rounds |
 | agents-md-guardian | 1.0.0 | sonnet | Reviews AGENTS.md / CLAUDE.md changes against a parameterizable checklist (size budget, required sections, forbidden inline patterns, doc links) |
 
@@ -78,7 +78,7 @@ These agents are domain-specific overlays for particular hardware/projects. Inst
 
 ---
 
-## Skills (40)
+## Skills (42)
 
 Skills are slash-command workflows that run in the main context and produce contractual artifacts that chain across pipeline phases.
 
@@ -123,6 +123,8 @@ Skills are slash-command workflows that run in the main context and produce cont
 | `improvement-loop-planner` | management | Propose bounded improvement loops from KB, tests, issues, CI, and code signals |
 | `improvement-loop` | workflow | Execute a bounded verification-first improvement loop |
 | `roster-config` | workflow | Discover and set tunables across installed agents |
+| `roster-usage` | workflow | Explicit local usage reports with provenance and unknown coverage |
+| `roster-telemetry` | workflow | Configure local commit metrics, participants, pipeline/formal context and hook updates |
 | `team` | workflow | Manage the installed agent team — `build` (apply proposal), `review` (audit gaps), `run <task>` (execute pipeline) |
 | `chamallaw-shadow` | workflow | Evaluate a configured local decision contract against roster.intake without changing routing |
 | `chamallaw-feedback` | workflow | Submit independently observed Roster decision evidence after the outcome is known |
@@ -147,7 +149,7 @@ Skills are slash-command workflows that run in the main context and produce cont
 
 ---
 
-## Rules (7)
+## Rules (8)
 
 | Rule | Category | Scope |
 |------|----------|-------|
@@ -155,9 +157,16 @@ Skills are slash-command workflows that run in the main context and produce cont
 | escalation | safety | global |
 | code-quality | style | global |
 | context-budget | workflow | global |
+| commit-telemetry | workflow | global |
 | human-validation | governance | global |
 | diagnostic-interview | governance | global |
 | rtk-compat | common | global |
+
+## Git commit telemetry
+
+Init and full doctor silently activate local, worktree-specific telemetry hooks unless disabled.
+Custom hooks are never overwritten. `/roster-telemetry` controls fields and policy; see
+[local telemetry](telemetry.md). These Git hooks are distinct from the tool hooks below.
 
 ## Hooks (5)
 

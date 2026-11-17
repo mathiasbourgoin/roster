@@ -1,0 +1,159 @@
+{
+  "coverage_version": 1,
+  "entries": [
+    {
+      "id": "task-catalog",
+      "availability": "supported",
+      "authority": "Persisted current pipeline evidence",
+      "source": "briefs/",
+      "limitations": "Canonical task names; bounded complete scans only."
+    },
+    {
+      "id": "intake",
+      "availability": "supported",
+      "authority": "Persisted current pipeline evidence",
+      "source": "briefs/<task>-*",
+      "limitations": "Current bounded Markdown preview."
+    },
+    {
+      "id": "phase-history",
+      "availability": "supported",
+      "authority": "Persisted current pipeline evidence",
+      "source": "briefs/<task>-*",
+      "limitations": "Canonical append positions; actors are recorded skill labels only."
+    },
+    {
+      "id": "review",
+      "availability": "supported",
+      "authority": "Persisted current pipeline evidence",
+      "source": "briefs/<task>-*",
+      "limitations": "Current report only; no event association."
+    },
+    {
+      "id": "qa",
+      "availability": "supported",
+      "authority": "Persisted current pipeline evidence",
+      "source": "briefs/<task>-*",
+      "limitations": "Current QA JSON and Markdown only; no gate execution."
+    },
+    {
+      "id": "reports",
+      "availability": "supported",
+      "authority": "Persisted current pipeline evidence",
+      "source": "briefs/<task>-*",
+      "limitations": "Current supported report summaries only."
+    },
+    {
+      "id": "checks",
+      "availability": "unsupported",
+      "authority": "No standalone accepted-check source",
+      "source": "none",
+      "limitations": "Report findings and failed-AC labels are current inert summaries; no check execution, results or acceptance is inferred."
+    },
+    {
+      "id": "artifacts",
+      "availability": "supported",
+      "authority": "Persisted current pipeline evidence",
+      "source": "briefs/<task>-*",
+      "limitations": "Declared manifest metadata only; targets are never read."
+    },
+    {
+      "id": "spec",
+      "availability": "supported",
+      "authority": "Persisted current pipeline evidence",
+      "source": "briefs/<task>-*",
+      "limitations": "Current bounded Markdown preview."
+    },
+    {
+      "id": "kb",
+      "availability": "unsupported",
+      "authority": "No supported KB observation reader",
+      "source": "kb/",
+      "limitations": "KB contents remain repository documents; this interface does not parse or certify them."
+    },
+    {
+      "id": "roadmap",
+      "availability": "delegated",
+      "authority": "Separate supported roadmap observation API",
+      "source": "roster-roadmap.cjs view / roster-roadmap-view.cjs",
+      "limitations": "Roadmap API authority remains separate; standalone evidence does not imply accepted execution."
+    },
+    {
+      "id": "estimates",
+      "availability": "delegated",
+      "authority": "Separate supported roadmap observation API",
+      "source": "roster-roadmap.cjs view / roster-roadmap-view.cjs",
+      "limitations": "Roadmap API authority remains separate; standalone evidence does not imply accepted execution."
+    },
+    {
+      "id": "operator-requests",
+      "availability": "delegated",
+      "authority": "Separate supported roadmap observation API",
+      "source": "roster-roadmap.cjs view / roster-roadmap-view.cjs",
+      "limitations": "Roadmap API authority remains separate; standalone evidence does not imply accepted execution."
+    },
+    {
+      "id": "receipts",
+      "availability": "delegated",
+      "authority": "Separate supported roadmap observation API",
+      "source": "roster-roadmap.cjs view / roster-roadmap-view.cjs",
+      "limitations": "Roadmap API authority remains separate; standalone evidence does not imply accepted execution."
+    },
+    {
+      "id": "topology",
+      "availability": "delegated",
+      "authority": "Separate supported roadmap observation API",
+      "source": "roster-roadmap.cjs view / roster-roadmap-view.cjs",
+      "limitations": "Roadmap API authority remains separate; standalone evidence does not imply accepted execution."
+    },
+    {
+      "id": "worktrees",
+      "availability": "unsupported",
+      "authority": "No canonical worktree observation source",
+      "source": "none",
+      "limitations": "Neither standalone artifacts nor the supported roadmap view establish current worktree identity or state."
+    },
+    {
+      "id": "models",
+      "availability": "delegated",
+      "authority": "Separate supported roadmap observation API",
+      "source": "roster-roadmap.cjs view / roster-roadmap-view.cjs",
+      "limitations": "Roadmap API authority remains separate; standalone evidence does not imply accepted execution."
+    },
+    {
+      "id": "live-execution",
+      "availability": "unsupported",
+      "authority": "No canonical standalone source",
+      "source": "none",
+      "limitations": "Not available from persisted standalone pipeline artifacts; no identity, activity, archive or acceptance is inferred."
+    },
+    {
+      "id": "session",
+      "availability": "unsupported",
+      "authority": "No canonical standalone source",
+      "source": "none",
+      "limitations": "Not available from persisted standalone pipeline artifacts; no identity, activity, archive or acceptance is inferred."
+    },
+    {
+      "id": "attempt",
+      "availability": "unsupported",
+      "authority": "No canonical standalone source",
+      "source": "none",
+      "limitations": "Not available from persisted standalone pipeline artifacts; no identity, activity, archive or acceptance is inferred."
+    },
+    {
+      "id": "full-report-history",
+      "availability": "unsupported",
+      "authority": "No canonical standalone source",
+      "source": "none",
+      "limitations": "Not available from persisted standalone pipeline artifacts; no identity, activity, archive or acceptance is inferred."
+    },
+    {
+      "id": "standalone-acceptance",
+      "availability": "unsupported",
+      "authority": "No canonical standalone source",
+      "source": "none",
+      "limitations": "Not available from persisted standalone pipeline artifacts; no identity, activity, archive or acceptance is inferred."
+    }
+  ]
+}

@@ -2,9 +2,10 @@
 
 ## What this is
 
-Roster has no token/cost accounting today. This integration wires
+Roster's existing integration with
 [`ccusage`](https://github.com/ryoppippi/ccusage) — a local, offline reader of the JSONL
-transcripts Claude Code, Codex, and OpenCode already write — into three advisory touchpoints:
+transcripts Claude Code, Codex, and OpenCode already write — provides advisory token/cost
+snapshots through three touchpoints:
 
 1. `roster-doctor`'s `full`-mode report — an optional cross-runtime cost section (silent skip if
    `ccusage` is not resolvable; never auto-installed).
@@ -18,6 +19,19 @@ disambiguate concurrent sessions in the same time window (FR-163).
 
 Full requirements: `briefs/ccusage-metrics-spec.md` (FR-159…FR-170). Design rationale and open
 questions: `briefs/ccusage-metrics-intake.md`, `roster/ccusage-metrics/research.md`.
+
+## Manual aggregate reporting (2026-11-12)
+
+The separate `roster-usage.cjs report` command reads already available ccusage snapshots
+and optional normalized observations for Codex, Claude, OpenCode or Pi. It prints category
+aggregates without scanning transcripts or activating collectors. Invoke it manually from
+`scripts/roster-usage.cjs` in this checkout or `.harness/bin/roster-usage.cjs` in a consumer;
+follow [the usage report procedure](usage-reports.md) for inputs and coverage rules.
+
+Reporting adds no hooks, reminders, messages or recurring tasks. Missing measurements remain
+unknown, overlapping scopes are not added into an exact total, and imported costs are not
+repriced. These aggregate reports remain advisory and do not alter the existing verdict
+independence or approximate ccusage attribution rules above.
 
 ## Duplication ruling (recorded verbatim, per FR-169)
 

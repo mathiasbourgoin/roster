@@ -107,6 +107,19 @@ detect_project_metadata() {
       }'
 }
 
+# Check with the trusted source runtime before any mkdir/copy can follow a
+# managed alias. --force permits replacement, not writes outside this boundary.
+need_cmd node
+TELEMETRY_SOURCE="$REPO_ROOT/scripts/roster-telemetry.js"
+if [ ! -f "$TELEMETRY_SOURCE" ] || [ -L "$TELEMETRY_SOURCE" ]; then
+    echo "telemetry: trusted source runtime unavailable at $TELEMETRY_SOURCE; restore the local Roster source before initializing." >&2
+    exit 1
+fi
+if ! node "$TELEMETRY_SOURCE" preflight --root "$PROJECT_ROOT"; then
+    echo "telemetry: initialization refused before writes; resolve the reported managed-path conflict and retry." >&2
+    exit 1
+fi
+
 # The exists-check must precede any mkdir, or a fresh target trips over the
 # directories this very run just created.
 if [ -d "$HARNESS_DIR" ] && [ "$FORCE" != "--force" ]; then
@@ -165,6 +178,7 @@ CORE_RULES=(
     "rules/safety/escalation.md"
     "rules/common/code-quality.md"
     "rules/governance/human-validation.md"
+    "rules/workflow/commit-telemetry.md"
 )
 
 CORE_HOOKS=(
@@ -180,6 +194,8 @@ DEVELOPER_HOOKS=(
 
 CORE_SKILLS=(
     "skills/pipeline/roster-roadmap.md"
+    "skills/workflow/roster-usage.md"
+    "skills/workflow/roster-telemetry.md"
 )
 
 DEVELOPER_SKILLS=(
@@ -355,6 +371,15 @@ jq -n \
   }' > "$MANIFEST"
 
 "$REPO_ROOT/scripts/sync-harness.sh" "$PROJECT_ROOT"
+
+# Silent, project-local telemetry setup. Never replace unrelated Git hooks/config.
+# Non-Git targets or conflicts remain usable, but must not be reported as activated.
+if command -v node >/dev/null 2>&1 && git -C "$PROJECT_ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
+    node "$REPO_ROOT/scripts/roster-telemetry.js" install --root "$PROJECT_ROOT" >/dev/null \
+        || echo "telemetry: WARN — hooks inactive/conflicting; run /roster-telemetry for remediation." >&2
+else
+    echo "telemetry: WARN — Node or Git checkout unavailable; hooks not activated." >&2
+fi
 
 # Review-tool bundle (F-1): install from this dev checkout, warn-on-drift (FR-132 — the
 # checkout is truth here; a mismatch against ITS OWN committed manifest is a warning, never an

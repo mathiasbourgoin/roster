@@ -210,7 +210,7 @@ if (fs.existsSync(installSh)) {
 }
 
 // ── Check 6: deterministic pipeline gate scripts are on disk and wired ──────
-// FR-041: scripts/check-review-convergence.js MUST be registered in the
+// FR-041: scripts/check-review-convergence.cjs MUST be registered in the
 // pipeline install path, mirroring scripts/check-scope-diff.sh. Neither gate
 // script currently has a dedicated consumer-repo distribution/copy step
 // (install.sh only fetches the recruiter; recruiter/init-harness do not
@@ -236,14 +236,14 @@ const GATE_SCRIPT_TAG = "gate-script:";
 const GATE_SCRIPTS = [
   { script: "scripts/check-scope-diff.sh", referencedIn: ["skills/pipeline/roster-review.md"] },
   {
-    script: "scripts/check-review-convergence.js",
+    script: "scripts/check-review-convergence.cjs",
     // Two mandated call sites (spec FR-024): roster-review invokes it in full
     // mode at every verdict; roster-run invokes it in --static mode on the
     // resume edge before the verdict-table route-back. Both must reference it.
     referencedIn: ["skills/pipeline/roster-review.md", "skills/pipeline/roster-run.md"],
   },
-  { script: "scripts/xruntime-review.js", referencedIn: ["skills/pipeline/roster-review.md"] },
-  { script: "scripts/review-normalize.js", referencedIn: ["skills/pipeline/roster-review.md"] },
+  { script: "scripts/xruntime-review.cjs", referencedIn: ["skills/pipeline/roster-review.md"] },
+  { script: "scripts/review-normalize.cjs", referencedIn: ["skills/pipeline/roster-review.md"] },
 ];
 for (const { script, referencedIn } of GATE_SCRIPTS) {
   const scriptPath = path.resolve(root, script);
@@ -332,6 +332,21 @@ if (!fs.existsSync(schemaPath)) {
     console.log(`✓ pipeline-install: ${FINDING_SCHEMA} present and require()'d by its consumer(s).`);
   }
 }
+
+// Standalone observation ships a complete dependency-free installed closure.
+const observerResources = [
+  "scripts/roster-pipeline.cjs", "scripts/roster-pipeline-ledger.cjs",
+  "scripts/roster-artifacts.cjs", "scripts/lib/review/finding-schema.cjs",
+  "schema/pipeline-observation.schema.json", "schema/pipeline-coverage.json", "schema/qa-state.schema.json",
+];
+for (const resource of observerResources) {
+  if (!fs.existsSync(path.resolve(root, resource))) errors.push(`pipeline-observation: required source missing: ${resource}`);
+}
+const observerPackage = JSON.parse(fs.readFileSync(path.resolve(root, "package.json"), "utf8"));
+if (observerPackage.bin?.["roster-pipeline"] !== "scripts/roster-pipeline.cjs" || !observerPackage.scripts?.test?.includes("test:pipeline")) {
+  errors.push("pipeline-observation: supported CLI or acceptance suite is not registered");
+}
+if (!errors.some(error => error.startsWith("pipeline-observation:"))) console.log("✓ pipeline-install: standalone observation CLI, acceptance suite and source closure registered.");
 
 if (errors.length) {
   console.error(`\n✗ pipeline-install: ${errors.length} issue(s):`);

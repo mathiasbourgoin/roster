@@ -25,7 +25,7 @@
  *     - exit code 0
  *     - .harness/{agents,skills,rules}/*.md counts == counts derived from the SAME
  *       arrays per profile (agents: core; core+developer; core+developer+security;
- *       full = union incl. FULL_EXTRA. skills: CORE_SKILLS for core, CORE_SKILLS + DEVELOPER_SKILLS for
+ *       full = union incl. FULL_EXTRA. skills: CORE_SKILLS always, +DEVELOPER_SKILLS for
  *       developer/security, +FULL_EXTRA_SKILLS for full. rules: CORE_RULES always —
  *       union by basename, because copy_files overwrites duplicates like recruiter.md)
  *     - .harness/hooks exists non-empty (CORE_HOOKS is copied for every profile) and

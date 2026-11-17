@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 2.5.0
+version: 2.7.1
 domain: pipeline
 phase: review
 preamble: true
@@ -38,17 +38,18 @@ You conduct a structured, fix-first review. Mechanical corrections are applied w
 **Golden rule:** every claim must cite the file and line. Never "probably" or "likely".
 
 Deterministic mechanics live in tools, not in this prose: `scripts/check-scope-diff.sh` (scope gate),
-`scripts/check-review-convergence.js` (ratchet + convergence gate), `scripts/xruntime-review.js`
-(cross-runtime probe/journal), `scripts/review-normalize.js` (finding validation/dedup), and
+`scripts/check-review-convergence.cjs` (ratchet + convergence gate), `scripts/xruntime-review.cjs`
+(cross-runtime probe/journal), `scripts/review-normalize.cjs` (finding validation/dedup), and
 `schema/review-json-schema.md` (the full `briefs/<task>-review.json` shape). This skill covers
 orchestration, judgment, and the human gate.
 
 ## Mode Awareness
 
-**Read the mode from `briefs/<task>-impl.md`** (field `mode: express|fast|full`). If absent, infer from context.
+**Read the mode from `briefs/<task>-impl.md`** (field `mode: express-lite|express|fast|full`). If absent, infer from context.
 
 | Mode | Review scope | Specialist invocation | Escalation check |
 |---|---|---|---|
+| **Express Lite** | Reclassify diff. | None; emit `assurance: local`. | Excluded/ambiguous work routes to Fast/Full. |
 | **Express** | Correctness + security only. Skip spec/KB compliance — no spec impact expected. | `reviewer` agent only. Skip `spec-compliance`, `code-quality-auditor`, `architect` unless diff > 5 files. | Mandatory — see below |
 | **Fast** | Full review. Spec/KB compliance only if KB exists. | `reviewer` + conditionals per normal rules. | Mandatory — see below |
 | **Full** | Full review. All specialists per normal rules. | All conditionals apply. | N/A |
@@ -71,7 +72,7 @@ If escalation is needed: set `escalation_needed: true` and `escalation_reason`. 
 **Bundle preflight (F-4 — input-contract abort, not a verdict):**
 
 ```bash
-node scripts/review-bundle-verify.js
+node scripts/review-bundle-verify.cjs
 ```
 
 Run before reading input. On failure, write no verdict or ledger event. Print exactly: "stale-install:
@@ -96,22 +97,25 @@ If `briefs/<task>-impl.md` is absent: ⛔ stop — review cannot start without t
 
 ```bash
 git diff main...HEAD
+git diff --cached
+git diff
+git ls-files --others --exclude-standard
 git log main...HEAD --oneline
 ```
 
-Read each modified file in its entirety — not just the diff lines.
+Read every changed file in full, including each untracked file listed above.
 
 ### 2. Fix-first: auto corrections
 
-Apply the following mechanical corrections without asking:
+Auto-fix:
 
 | Category | Examples | Auto-fix threshold |
 |---|---|---|
 | Dead code | Unused variables, unused imports | Always |
-| Magic numbers | Inline constants → named constants | Always |
+| Magic numbers | Inline constants → names | Always |
 | Stale comments | Comments that contradict the code | Always |
 | Style / format | Local style inconsistencies, trailing whitespace | Always |
-| Obvious DRY | Identical copy-paste block 3+ lines | If < `tunables.auto_fix_threshold_lines` |
+| Obvious DRY | Identical copied block 3+ lines | If < `tunables.auto_fix_threshold_lines` |
 
 **Do not auto-fix:**
 - Security (auth, injection, XSS) → always in findings
@@ -119,13 +123,11 @@ Apply the following mechanical corrections without asking:
 - Visible behavior changes → always ask
 - Refactors > `tunables.auto_fix_threshold_lines` lines → always ask
 
-After each auto-fix, verify that quality gates still pass.
+Verify each auto-fix.
 
 ### 2.5 Deterministic scope gate
 
-Runs **after** auto-fixes, so the gated state is the state that ships. **Branch on mode first**
-(from `briefs/<task>-impl.md`): in **Express/Fast**, skip this gate unconditionally and silently —
-even if a stale `briefs/<task>-manifest.txt` exists. Only in **Full mode** continue:
+After auto-fixes, Lite/Express/Fast skip this gate; only Full continues:
 
 ```bash
 [ -f "briefs/<task>-manifest.txt" ] && echo "manifest: present" || echo "manifest: absent"
@@ -149,16 +151,17 @@ excluded by design; a mid-phase third-party file is attributed to the task and m
 human-ACCEPTED (documented blind spots, see the script).
 
 **Invocation trace (R-5, FR-165):** Full mode only, append one `scope-gate` line — `ran` if the
-manifest was present, else `skipped`/`no-manifest` (Express/Fast append nothing, EC-6):
+manifest was present, else `skipped`/`no-manifest` (Express Lite/Express/Fast append nothing, EC-6):
 
 ```bash
-[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event scope-gate --actor check-scope-diff.sh --outcome <ran|skipped> [--detail no-manifest] || echo "review-trace.js missing — stale install"
+[ -f scripts/lib/review/review-trace.cjs ] && node scripts/lib/review/review-trace.cjs --task <task-slug> --round <round> --cycle <cycle> --event scope-gate --actor check-scope-diff.sh --outcome <ran|skipped> [--detail no-manifest] || echo "review-trace.js missing — stale install"
 ```
 
-When spawning the `reviewer` agent (step 3), state whether this gate ran — when it did, the agent
-defers scope assessment to it and emits no scope findings of its own.
+When spawning `reviewer`, state whether this gate ran; when it did, the agent emits no scope findings.
 
 ### 3. Conditional specialists
+
+**Express Lite:** skip §3, specialists, and cross-runtime review; write `assurance: "local"`. An excluded/ambiguous final diff is `NO-GO` with `no_go_reason.type: "express-lite-ineligible"`; stop and restart it as Fast/Full per roster-run's verdict table.
 
 Spawn specialists based on scope. Each receives: the complete diff, `briefs/<task>-reviewer.md`,
 their own instructions (path below), and whether the scope gate (§2.5) ran.
@@ -192,7 +195,7 @@ enforces that, which is what makes the skip safe to write honestly.
 | `code-quality-auditor` | Always if KB exists (`kb/properties.md` present) | Skill — read `skills/kb/code-quality-auditor.md`; provide diff + `kb/properties.md` + `kb/glossary.md` + reviewer.md |
 | `architect` | Medium or large blast radius (>3 files modified or public module) | `.claude/agents/architect.md` |
 | TUI pass (via `reviewer`) | TUI scope detected in diff or brief | Spawn the `reviewer` agent with a TUI checklist appended: rendering at 80x24/120x40/220x50, keyboard navigation paths, terminal-capability fallbacks, escape-sequence hygiene. (Deterministic tmux verification happens later in `/roster-qa`.) |
-| `reviewer` (agent) | Always | `.claude/agents/reviewer.md` |
+| `reviewer` (agent) | All modes except Express Lite | `.claude/agents/reviewer.md` |
 | `cross-runtime-reviewer` | **Mandatory** in Fast/Full when a runtime CLI other than the host is on `PATH` (`codex` or `opencode`); skip only by explicit human decision | See **Cross-Runtime Review** below |
 
 #### Delta-Scoped Loop-Back Reviewer Selection
@@ -226,9 +229,9 @@ whether or not it actually ran. `actor` == its name:
 
 ```bash
 # ran:
-[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome ran || echo "review-trace.js missing — stale install"
+[ -f scripts/lib/review/review-trace.cjs ] && node scripts/lib/review/review-trace.cjs --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome ran || echo "review-trace.js missing — stale install"
 # selected but not run — the reason is mandatory:
-[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome skipped --detail "<why>" || echo "review-trace.js missing — stale install"
+[ -f scripts/lib/review/review-trace.cjs ] && node scripts/lib/review/review-trace.cjs --task <task-slug> --round <round> --cycle <cycle> --event specialist --actor <specialist-name> --outcome skipped --detail "<why>" || echo "review-trace.js missing — stale install"
 ```
 
 Only `outcome: ran` attests an entry in `specialists_run`. Claiming a specialist ran while its
@@ -255,7 +258,7 @@ diff + `briefs/<task>-review.json` to a scratch file and pass its path as `--pro
 positional — INV-6, a large diff can exceed a shell argv limit):
 
 ```bash
-[ -f scripts/xruntime-review.js ] && node scripts/xruntime-review.js codex --task <task-slug> --prompt-file <scratch-file> --round <round> --cycle <cycle> [--write] [--timeout <tunables.cross_runtime_probe_timeout>] || echo "xruntime-review.js missing — stale install"
+[ -f scripts/xruntime-review.cjs ] && node scripts/xruntime-review.cjs codex --task <task-slug> --prompt-file <scratch-file> --round <round> --cycle <cycle> [--write] [--timeout <tunables.cross_runtime_probe_timeout>] || echo "xruntime-review.cjs missing — stale install"
 ```
 
 Instruct it to return **only findings the primary missed**, in the standard finding schema with
@@ -324,7 +327,7 @@ Run the normalizer over every specialist's raw findings plus the prior cumulativ
 the LAST persisted `briefs/<task>-gate-report.json` if one exists (absent on round 1):
 
 ```bash
-[ -f scripts/review-normalize.js ] && node scripts/review-normalize.js <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> --cycle <cycle> --task <task-slug> --gate-report briefs/<task>-gate-report.json --prior briefs/<task>-review.json || echo "review-normalize.js missing — stale install"
+[ -f scripts/review-normalize.cjs ] && node scripts/review-normalize.cjs <specialist-files...> --ledger <(echo "$PRIOR_FINDINGS") --round <round> --cycle <cycle> --task <task-slug> --gate-report briefs/<task>-gate-report.json --prior briefs/<task>-review.json || echo "review-normalize.cjs missing — stale install"
 ```
 
 It validates each new finding, canonically fingerprints it (plus `fid`, E-3), merges exact
@@ -349,7 +352,7 @@ failed` warning in the one-liner (§7). Append by hand only for a stale normaliz
 FR-166:
 
 ```bash
-[ -f scripts/lib/review/review-trace.js ] && node scripts/lib/review/review-trace.js --task <task-slug> --round <round> --cycle <cycle> --event normalizer --actor review-normalize.js --outcome ran || echo "review-trace.js missing — stale install"
+[ -f scripts/lib/review/review-trace.cjs ] && node scripts/lib/review/review-trace.cjs --task <task-slug> --round <round> --cycle <cycle> --event normalizer --actor review-normalize.cjs --outcome ran || echo "review-trace.js missing — stale install"
 ```
 
 ### 5. Group ambiguities
@@ -404,7 +407,7 @@ cross-runtime probe, and `cycle` incremented. Never re-derive this by hand — s
 executable witness at draft composition:
 
 ```bash
-node scripts/lib/review/review-lifecycle.js --prior briefs/<task>-review.json
+node scripts/lib/review/review-lifecycle.cjs --prior briefs/<task>-review.json
 ```
 
 → `{round, cycle, fresh_cycle}` (absent prior file is legitimate input — a fresh task). A repaired
@@ -435,7 +438,7 @@ confidently wrong SHA. When null, `red_verified` stays null; flag it in the one-
 entry and any `cross_runtime` updates) and write it to a `.draft` suffix BEFORE invoking:
 
 ```bash
-node scripts/check-review-convergence.js briefs/<task>-review.json.draft --max-rounds <tunables.max_no_go_rounds> --strikes <tunables.novel_finding_strikes> --timeout 120
+node scripts/check-review-convergence.cjs briefs/<task>-review.json.draft --max-rounds <tunables.max_no_go_rounds> --strikes <tunables.novel_finding_strikes> --timeout 120
 ```
 
 This runs full mode: red/green verification for any check needing it, JSON report on stdout.
@@ -493,19 +496,27 @@ violation. A cross-runtime CRITICAL/HIGH sets `type = "cross-runtime-finding"`; 
 with `cause == "unattested-invocation"` sets `type = "review-integrity-failure"` (FR-175); any
 other gate violation sets `"design-not-converging"` with `cause` per §5.5.
 
+**Recovery before retry.** Persist artifacts, then append review's one Pipeline State event.
+Before NO-GO retry:
+
+```bash
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase review
+```
+
+Exit 2 requires diagnosed reframe after **three consecutive review NO-GOs**; exit 1 blocks
+retry. Follow roster-run's recovery procedure. Existing convergence/human gates remain
+binding; drafts/rereads never emit duplicate events.
+
 ### 7. Human gate
 
-Present a one-line summary: auto-fixes applied, finding counts by severity, GO/NO-GO status,
-`no_go_round` and the checks added this round (e.g. "round 2/5, 1 new ratcheted check
-(`checks/foo.test.js`, red-verified)"). If a finding's `pre_fix_sha` is null, flag it explicitly. If
+Summarize auto-fixes, finding counts by severity, GO/NO-GO,
+`no_go_round` and new checks (e.g. "round 2/5, 1 new ratcheted check
+(`checks/foo.test.js`, red-verified)"). Flag null `pre_fix_sha`. If
 NO-GO, name the HIGH+ findings to resolve. Surface any gate `warnings[]` verbatim. Wait for
 explicit human confirmation before proceeding.
 
 **Streak-escalation override.** When `no_go_reason.cause == "novel-finding-streak"`, present the
 override option (§5.5). Never offer it for `cause == "round-cap"` — non-overridable.
-
-**Known residual:** the review-GO → QA-NO-GO → implement loop is not bounded by the convergence
-gate — `/roster-qa` is explicitly out of scope for this mechanism.
 
 ## Output Contract
 

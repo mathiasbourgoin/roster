@@ -2,7 +2,7 @@
 name: roster-spec
 description: Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief.
 when_to_use: "Use for feature or API-change tasks after intake, before planning. Trigger: 'spec this', 'roster-spec'."
-version: 2.5.0
+version: 2.5.1
 domain: pipeline
 phase: spec
 preamble: true
@@ -111,7 +111,7 @@ One `CHECK-N` MAY carry both annotations when it genuinely covers both roles (EC
 unreachable in CI), write **`**Authentic path: not feasible — <reason>**`** instead of the pair.
 Enforcement is **prose-and-human, accepted level** (FR-084) — these checks need not be
 gate-executable and MUST NOT be auto-linked as ratchet red-run checks (§5.5 of roster-review.md)
-unless self-contained; do not expect `scripts/check-review-convergence.js` to verify this
+unless self-contained; do not expect `scripts/check-review-convergence.cjs` to verify this
 requirement mechanically. Step 9 below explicitly surfaces the marker for human acknowledgment.
 
 **Existing spec file (EC-3, FR-006, FR-085):** if `specs/<task-slug>.md` already exists, **extend**
@@ -127,7 +127,7 @@ write a spec file.
 ordinary) spec MUST honor 0 = check passes, 1 = assertion fired, ≥2 = error — a plain
 self-contained script (e.g. `node <check>.js`), never relying on a test runner's own exit codes
 (`node --test`/jest exit 1 for both an assertion failure and a load error). This convention is
-distinct from the gate script's own exit convention (`scripts/check-review-convergence.js`, where
+distinct from the gate script's own exit convention (`scripts/check-review-convergence.cjs`, where
 2 = degraded input, not error).
 
 Skip Steps 1–8 (Research/Clarification/Story/Challenge/Formalizer/Cross-Spec/Write) for the

@@ -42,13 +42,13 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | tech-lead | 1.9.1 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
-| recruiter | 2.8.0 | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
+| recruiter | 3.0.0-dev | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
 | governor | 2.1.2 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
 | kb-agent | 2.5.0 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
 | project-auditor | 1.1.0 | opus | Performs exhaustive project mapping and multi-slice audits, producing a hierarchical kb/ with components, invariants, risks, and fix candidates |
 | skill-creator | 1.4.0 | opus | Designs reusable workflow skills from repeated patterns, with search-first and safety checks |
-| planner | 1.2.0 | opus | Sub-agent behind `/roster-plan` — decomposes a validated brief into per-role sub-briefs with fresh context |
+| planner | 1.4.0 | opus | Sub-agent behind `/roster-plan` — decomposes a validated brief into per-role sub-briefs with fresh context |
 | pr-workflow | 1.2.0 | sonnet | Sub-agent behind `/roster-ship` — conventional commits, rebase merge, pre-push validation, and review rounds |
 | agents-md-guardian | 1.0.0 | sonnet | Reviews AGENTS.md / CLAUDE.md changes against a parameterizable checklist (size budget, required sections, forbidden inline patterns, doc links) |
 
@@ -102,24 +102,24 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
 | gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
-## Skills (40)
+## Skills (42)
 
 ### Pipeline (19)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.13.0 | Classifies an incoming task and routes it to the right pipeline skill |
-| roster-roadmap | 1.0.0 | Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs |
-| roster-init | 1.4.0 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
+| roster-run | 1.15.1 | Classifies an incoming task and routes it to the right pipeline skill |
+| roster-roadmap | 1.4.0 | Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs |
+| roster-init | 1.5.1 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
 | roster-intake | 1.5.0 | Turns a raw task description into a human-validated contractual brief |
-| roster-spec | 2.5.0 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
-| roster-plan | 1.5.0 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
-| roster-implement | 1.9.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
-| roster-review | 2.5.0 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
-| roster-qa | 1.10.0 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
-| roster-ship | 1.7.0 | Carries a reviewed, QA'd branch through to a merged PR |
+| roster-spec | 2.5.1 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
+| roster-plan | 1.7.0 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
+| roster-implement | 1.14.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
+| roster-review | 2.7.1 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
+| roster-qa | 1.11.1 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
+| roster-ship | 1.9.0 | Carries a reviewed, QA'd branch through to a merged PR |
 | roster-investigate | 1.5.0 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
 | roster-audit | 1.5.0 | Combines code-quality and spec-compliance checks into one actionable audit report |
-| roster-doctor | 1.6.0 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
+| roster-doctor | 1.7.1 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
 | roster-question | 1.4.0 | Decomposes a task into neutral research questions with the intent hidden |
 | roster-research | 1.5.0 | Performs blind, file:line-grounded research from a questions file, never the task itself |
 | roster-workflow-build | 1.0.3 | Fills a CWR workflow template from a validated plan JSON via mechanical template-fill |
@@ -147,13 +147,15 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | kb-reindex | 1.1.0 | Builds or incrementally updates the LanceDB semantic search index over KB files |
 | kb-search | 1.0.2 | Runs hybrid semantic and keyword search over the KB's LanceDB index |
 
-### Workflow (8)
+### Workflow (10)
 | Skill | Version | Purpose |
 |-------|---------|---------|
 | git-conventions | 1.1.0 | Standardizes commit messages, branch names, and PR structure for the current action |
 | improvement-loop | 1.1.2 | Executes a human-approved, bounded improvement loop with verification at each step |
 | improvement-loop-planner | 1.2.2 | Synthesizes KB, code, test, and CI signals into candidate bounded improvement loops |
 | roster-config | 1.1.0 | Interactive editor for tunables exposed by installed roster agents |
+| roster-usage | 1.0.0 | Use only when the user explicitly requests a local usage report or invokes /roster-usage |
+| roster-telemetry | 1.1.0 | Configure local commit telemetry and optional Roster attribution, inspect activation and versions, disable collection or update the runtime |
 | team | 1.0.3 | Build, review, or run the installed agent team via one dispatch skill |
 | tdd-workflow | 1.0.2 | Drives a strict red-green-refactor TDD cycle with coverage verification |
 | chamallaw-shadow | 1.3.1 | Records a non-authoritative Chamallaw decision signal beside Roster intake without changing routing. Use when comparing a configured local decision contract to roster.intake |
@@ -164,7 +166,7 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 |-------|---------|---------|
 | image-generation | 1.0.5 | Generates or edits images through the Codex CLI, with prompt refinement and vision validation |
 
-## Rules (7)
+## Rules (8)
 
 | Rule | Category | Scope |
 |------|----------|-------|
@@ -172,13 +174,22 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | escalation | safety | global |
 | code-quality | style | global |
 | context-budget | workflow | global |
+| commit-telemetry | workflow | global |
 | human-validation | governance | global |
 | diagnostic-interview | governance | global |
 | rtk-compat | common | global |
 
 ## Hooks
 
-Two distinct hook systems — do not conflate:
+Three distinct hook systems — do not conflate:
+
+### Git commit telemetry
+
+Project-local `prepare-commit-msg`, `commit-msg` and `reference-transaction` wrappers are installed silently by init
+and full doctor, unless explicitly disabled. They record available agent-reported metrics,
+actual participants and pipeline/formal context. No network transmission, custom-hook overwrite,
+or global Git configuration. Manage through `/roster-telemetry`; see `docs/telemetry.md`.
+Runtime hooks and skill hooks below are independent of these Git hooks.
 
 ### Tool-level hooks (5)
 

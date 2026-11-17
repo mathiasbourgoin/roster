@@ -29,17 +29,45 @@ const SUPPORTED_KEYWORDS = new Set([
   "title",
   "description",
 ]);
+const SCHEMA_TYPES = new Set(["null", "boolean", "object", "array", "number", "string", "integer"]);
+const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
+const unique = values => new Set(values).size === values.length;
+const primitive = value => value === null || typeof value === "string" || typeof value === "boolean" ||
+  (typeof value === "number" && Number.isFinite(value));
+
+// Validate assertion parameters as well as keyword names: recognizing `type`
+// must not make an unknown type, tuple schema or complex enum silently usable.
+function validKeywordValue(key, value) {
+  switch (key) {
+    case "type": {
+      const types = Array.isArray(value) ? value : [value];
+      return types.length > 0 && unique(types) && Array.from(types).every(type => SCHEMA_TYPES.has(type));
+    }
+    case "enum": return Array.isArray(value) && value.length > 0 && unique(value) && Array.from(value).every(primitive);
+    case "required": return Array.isArray(value) && unique(value) && Array.from(value).every(name => typeof name === "string");
+    case "properties":
+    case "items": return object(value);
+    case "additionalProperties": return typeof value === "boolean";
+    case "$schema":
+    case "title":
+    case "description": return typeof value === "string";
+    default: return false;
+  }
+}
 
 // Recursively verifies every keyword in the schema (and nested property/item
-// schemas) is one this interpreter understands. Throws on the first miss.
+// schemas) and its parameter shape. Throws before any data is validated.
 function assertSupported(schema, at) {
-  if (schema === null || typeof schema !== "object") return;
-  for (const key of Object.keys(schema)) {
+  if (!object(schema)) throw new Error(`finding-schema: schema node at ${at || "$"} must be an object`);
+  for (const [key, value] of Object.entries(schema)) {
     if (!SUPPORTED_KEYWORDS.has(key)) {
       throw new Error(
         `finding-schema: unsupported schema keyword "${key}" at ${at || "$"} — the hand-rolled ` +
           "validator (D-4) fails closed instead of silently ignoring it"
       );
+    }
+    if (!validKeywordValue(key, value)) {
+      throw new Error(`finding-schema: malformed or unsupported value for schema keyword "${key}" at ${at || "$"}`);
     }
   }
   if (schema.properties) {
@@ -95,7 +123,7 @@ function validateValue(value, schema, at, errors) {
   if (schema.enum && !schema.enum.includes(value)) {
     errors.push(`${at}: value ${JSON.stringify(value)} not in enum [${schema.enum.join(", ")}]`);
   }
-  if (typeOf(value) === "object" && (schema.properties || schema.required || schema.type === "object")) {
+  if (typeOf(value) === "object" && (schema.properties || schema.required || schema.type === "object" || schema.additionalProperties === false)) {
     validateObjectShape(value, schema, at, errors);
   }
   if (schema.items && Array.isArray(value)) {

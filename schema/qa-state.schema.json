@@ -29,6 +29,7 @@
               "type": "string",
               "enum": [
                 "gate-failure",
+                "environment-failure",
                 "spec-check-failure",
                 "code-intel-violation",
                 "code-intel-malformed",

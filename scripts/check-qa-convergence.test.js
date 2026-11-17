@@ -120,6 +120,19 @@ test("each qualifying cause increments qa_no_go_round (isQualifying unit contrac
   assert.strictEqual(isQualifying(auditEntry(2, { causes: ["tui-failure"], qualifying: true })), true);
 });
 
+test("environment-only QA attempt is inconclusive and does not qualify", () => {
+  const { isQualifying } = require("./lib/qa/qa-convergence-rules");
+  assert.strictEqual(isQualifying(auditEntry(2, { causes: ["environment-failure"], qualifying: false })), false);
+});
+
+test("mixed environment and product failures still qualify", () => {
+  const { isQualifying } = require("./lib/qa/qa-convergence-rules");
+  assert.strictEqual(
+    isQualifying(auditEntry(2, { causes: ["environment-failure", "gate-failure"], qualifying: true })),
+    true,
+  );
+});
+
 test("cross-runtime-discrepancy and code-intel-malformed do NOT qualify (unit contract)", () => {
   const { isQualifying } = require("./lib/qa/qa-convergence-rules");
   assert.strictEqual(isQualifying(auditEntry(2, { causes: ["cross-runtime-discrepancy"] })), false);

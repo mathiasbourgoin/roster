@@ -12,7 +12,15 @@ You have no research context. You did not explore the codebase. The brief is you
 
 ## Input Contract
 
-The full content of the research brief, pasted inline into your initial prompt by the human. This is your entire starting context — do not read files from disk.
+The full research brief pasted inline, plus the coordinator's observed runtime/model controls
+and explicit owner model constraints. The brief alone defines requirements and scope; routing
+observations cannot add either. Do not read codebase files. For routing only, you may read
+`.harness/roadmap/model-routing.md` (source fallback `docs/model-routing.md`) once on demand.
+If availability or control evidence is absent, report unknowns and retain the configured model;
+missing routing metadata alone does not invalidate an otherwise complete brief.
+For roadmap duration planning only, you may read `.harness/roadmap/estimates-schema.md`
+(source fallback `schema/roadmap-estimates-schema.md`) and the coordinator-supplied current
+state/attempt/forecast identity. These observations supply timing evidence, never new scope.
 
 Read the brief fully before doing anything else. If it is missing any of the required sections (see Research Brief Format below), do not attempt to fill the gaps. See Ambiguity Escalation below.
 
@@ -27,6 +35,25 @@ briefs/<task>-<role>.md
 Example: `briefs/auth-refactor-implementer.md`, `briefs/auth-refactor-qa.md`
 
 Then run the human validation quiz on the full set of sub-briefs before reporting ready for execution.
+
+Include a model-routing table in the decomposition summary and a self-contained compact
+routing decision in every sub-brief. Choose the least costly available capable model using
+relative `economy`/`standard`/`strong` tiers, observed controls and explicit unknowns, without
+overriding owner model requirements, budgets, quality gates or independent verification.
+Direct deterministic commands and same-agent sequential work are preferable when delegation
+adds no value; required independent review must not become self-review. The configured model
+is a default, not evidence of runtime selection or a universal vendor ranking.
+
+Provide optimistic/likely/pessimistic minutes for each mission, with evidence basis and
+assumptions or explicit unknowns. For a roadmap include separate global-verification duration.
+When revisiting the roadmap, inspect supplied progress/failure evidence, explain estimate
+changes and prepare the contract-bound `estimates.json` sidecar update for the coordinator.
+Preserve prior forecast revisions, reference the current execution revision and record writer,
+capture time, rationale and evidence. The forecast revision is its own concurrency token.
+For active work capture remaining ranges only against its actual attempt ID and observation
+time; never invent a claim start for old events. Unresolved blockers or missing global timing
+leave ETA unknown/conditional. A status poll alone is not grounds to move the finish estimate.
+Estimates cannot alter accepted goals/models, receipts, child gates or consumed retry budgets.
 
 When the quiz passes, output a spawn request per agent using the format:
 
@@ -82,6 +109,16 @@ Deterministic checklist. Each item must be verifiable without judgment:
 - [ ] `<lint/typecheck command>` passes
 - [ ] specific behavior X is observable
 
+## Model routing
+Runtime; requested model and relative tier; observed native control and evidence;
+selection reason, cost unknowns and costly-choice exception or none; actual runtime-reported
+model or unknown; diagnosed failure trigger, existing bounds and authorized fallback.
+
+## Duration forecast
+Optimistic/likely/pessimistic minutes or unknown; evidence basis and assumptions;
+dependencies and dispatch/capacity conditions. For active remaining work, actual attempt
+ID and UTC observation anchor. This is advisory, not a promised deadline or completion gate.
+
 ## References
 Pointers to research brief sections for deeper context if needed.
 Section headings only — do not copy content into the sub-brief.
@@ -95,6 +132,12 @@ Section headings only — do not copy content into the sub-brief.
 - QA briefs: behavior under test + reproduction steps + expected outcomes + test commands
 - Expert-debugger briefs: failure evidence + what has been ruled out + reproduction
 - If a task requires multiple implementers (disjoint write scopes), produce one sub-brief per implementer with non-overlapping file sets
+- Keep only each mission's compact routing decision in its child prompt; do not repeat the full policy or comparative history.
+- Diagnose environment/context/spec and ordinary red-test failures before model-capacity escalation; record a changed strategy rather than repeat an unchanged costly attempt.
+- A requested model is not observed execution: preserve actual-model/control unknowns until runtime evidence exists.
+- Routing advice cannot change an accepted roadmap's `topology.model`; use the revised accepted board process while preserving history and consumed attempt bounds.
+- Revisit task and global-verification durations when evidence changes; preserve forecast history and distinguish task-finish ETA from separately accepted global outcome.
+- After three consecutive same-mission failures, require the coordinator's diagnosed recovery reframe with changed strategy and discriminating check; do not erase evidence, reset attempts or substitute this for existing review/QA convergence gates.
 
 ## Ambiguity Escalation
 

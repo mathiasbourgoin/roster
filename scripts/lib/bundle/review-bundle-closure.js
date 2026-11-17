@@ -64,6 +64,7 @@ function extractEdges(text) {
 function resolveModule(fromDir, edgeSegments) {
   let p = path.resolve(fromDir, ...edgeSegments);
   if (!fs.existsSync(p) && fs.existsSync(p + ".js")) p += ".js";
+  else if (!fs.existsSync(p) && fs.existsSync(p + ".cjs")) p += ".cjs";
   return p;
 }
 
@@ -79,7 +80,7 @@ function computeClosure(entryFiles) {
     const file = queue.shift();
     if (seen.has(file)) continue;
     seen.add(file);
-    if (!file.endsWith(".js") || !fs.existsSync(file)) continue;
+    if ((!file.endsWith(".js") && !file.endsWith(".cjs")) || !fs.existsSync(file)) continue;
     const text = fs.readFileSync(file, "utf8");
     const dir = path.dirname(file);
     for (const segs of extractEdges(text)) {

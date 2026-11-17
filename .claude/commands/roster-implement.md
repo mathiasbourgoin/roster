@@ -1,8 +1,8 @@
 ---
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
-when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.9.0
+when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express Lite/Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
+version: 1.14.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -20,8 +20,8 @@ artifacts:
   writes:
     - briefs/<task>-impl.md
 pipeline_role:
-  triggered_by: /roster-plan with validated sub-briefs, or directly from /roster-run in Express/Fast mode
-  receives: briefs/<task>-implementer.md (Full mode) or task description directly (Express/Fast)
+  triggered_by: /roster-plan with validated sub-briefs, or directly from /roster-run in Express Lite/Express/Fast mode
+  receives: briefs/<task>-implementer.md (Full mode) or task description directly (Express Lite/Express/Fast)
   produces: briefs/<task>-impl.md + implemented code with passing quality gates
 ---
 
@@ -90,7 +90,7 @@ context. Create the file if absent; preserve every prior `events` entry:
 ```json
 {
   "task": "<slug>",
-  "mode": "express|fast|full",
+  "mode": "express-lite|express|fast|full",
   "current_phase": "implement",
   "events": [
     { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
@@ -103,7 +103,7 @@ Rules for writing your event:
 - **`task` is the canonical slug**, derived once from the task description and reused identically
   by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
   `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
-  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  — `roster-implement` in Express Lite/Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
   every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
   ledger will not be found. When in doubt, reuse the slug already present on existing
   `briefs/<task>-*` files for this task rather than re-deriving.
@@ -134,7 +134,7 @@ Rules for writing your event:
 - **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
   A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
   repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
-- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- `mode` is the task's mode (`express-lite`/`express`/`fast`/`full`); set it on first write, leave it thereafter.
 - Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
   skill name (or `human-gate` for a gate decision).
 - Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
@@ -239,6 +239,8 @@ If either is absent **in Full mode**:
 > ⛔ Sub-brief missing: `briefs/<task>-implementer.md` and/or `briefs/<task>-reviewer.md` not found.
 > Re-run `/roster-plan` to produce both sub-briefs before starting implementation.
 
+**Express Lite mode** — implement directly without spawning an agent or asking a preliminary question. Run only the declared relevant check. If eligibility, check selection, or the final diff is ambiguous, stop the Lite path and route to Fast; record `Mode: express-lite` and `Assurance: local` in the impl brief. Record `relevant_check_duration_ms`, `avoided_phases: [question,research,intake,spec,plan,qa]`, and `delegated_agents_avoided: 2`; these are the Lite user-gain measurements.
+
 **Express / Fast mode** — there is **no `/roster-plan` phase**, so the sub-briefs do not exist by
 design. Do **not** block on them. Implement directly from the task description (and, on a NO-GO
 loop-back, from `briefs/<task>-review.json`). Establish the quality gates yourself from the project
@@ -246,6 +248,37 @@ loop-back, from `briefs/<task>-review.json`). Establish the quality gates yourse
 
 In all modes, verify the quality gates are known before changing code — escalate if you cannot
 determine them.
+
+**Recovery check before edits or delegation (every entry, including direct invocation).**
+When `briefs/<task>-state.json` exists, run both read-only phase checks:
+
+```bash
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase review
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase qa
+```
+
+Source checkout: use `scripts/roster-recovery.cjs`. Run both checks even if the latest
+event is implementation or the other phase; an unrelated event cannot hide three
+consecutive same-phase NO-GO verdicts. Exit 2 / `reframe_needed` blocks another unchanged
+attempt until a diagnosed reframe is recorded with a changed strategy, next discriminating
+check and evidence bound to fresh source identity/fingerprint/failure IDs. Follow
+`.harness/roadmap/failure-recovery.md` (source: `docs/failure-recovery.md`), then recheck.
+Exit 1 blocks entry pending evidence/setup reconciliation. Exit 0 clears only this recovery
+requirement; it does not waive review's two-strike rule, either five-round cap, acceptance,
+human decisions or existing budgets. Pipeline `retry_allowed: null` leaves those external
+gates authoritative. Preserve the canonical task and actual brief/spec context: the ledger
+has no immutable mission digest, and a renamed task is not an authorized recovery.
+
+A genuinely fresh task without a ledger has no previous phase failures to check. When
+retry artifacts/history exist but the ledger is missing/incomplete, reconcile the actual
+history before entry; never fabricate GO or discard prior events. Do not append a ledger
+event merely for this check; implementation's normal artifact-then-event emission remains
+at phase exit. For a roadmap child, also run `check --board <board> --task <id>` and require
+the core's current assignment/bounds; reconcile an old active worker before reassignment.
+These artifact checks work identically under Codex, Claude, OpenCode and Pi; they neither
+launch nor stop workers and install no hooks.
+
+For **Express Lite**, the declared relevant check replaces the baseline build/test gate below; do not run a full baseline unless that check requires it.
 
 **Claims projection (conditional):** run the available reconciler's `check --root .` before edits;
 stop on stale managed claims. Legacy passes. Also require a task context manifest's current digest.
@@ -276,7 +309,7 @@ Violating a KB invariant is a **blocker**: stop and escalate rather than breakin
 
 ### 1.5 File manifest lifecycle (Full mode only)
 
-Skip this section in Express/Fast mode (`briefs/<task>-implementer.md` absent by design — no
+Skip this section in Express Lite/Express/Fast mode (`briefs/<task>-implementer.md` absent by design — no
 manifest exists, the freeze hook stays fail-open and the review scope gate skips silently).
 
 **Derive the manifest before touching any code — and capture the header (base + dirty) before
@@ -343,6 +376,24 @@ is fail-open there (documented gap). Pass the manifest entries in the sub-brief 
 constraint; the review scope gate remains the backstop.
 
 ### 2. Context detection
+
+**Express Lite:** do not enter this section. Do not spawn an implementer. Make the small change locally, run its declared relevant check, reclassify the final diff, and write an impl brief with `Mode: express-lite` and `Assurance: local`. Any uncertainty routes to Fast before shipping.
+
+Before delegation, consume the plan/sub-brief's `Model routing` decision. If a new routing
+decision or escalation is needed, read `.harness/roadmap/model-routing.md` (source fallback
+`docs/model-routing.md`) once. Choose the least costly available capable model through
+observed native controls, preserving explicit owner model requirements, quality gates and
+independent verification. Use direct commands for deterministic work and same-agent
+sequential implementation when delegation adds no value; the specialization routes below
+apply when delegation is useful, supported and authorized.
+
+Legacy/Express/Fast plans without routing metadata remain supported: retain the current
+configured model and record unknown identity/control/cost honestly; do not add a mandatory
+planning phase. For each authorized dispatch pass only its compact routing decision plus
+goal, scope and checks. Record the requested model/tier, native control/evidence, reason,
+cost uncertainty/costly exception, actual runtime-reported model or unknown, failure trigger,
+existing bounds and authorized fallback in the implementation handoff. A request is not
+proof of the executed model. Never replace required independent review with self-review.
 
 **If OCaml scope and complex module (> `tunables.ocaml_specialist_threshold` lines of logic):**
 → Spawn the `ocaml-dune-specialist` sub-agent with the sub-brief as context.
@@ -424,11 +475,22 @@ protection will block it).
 For each unit of work in the plan:
 
 1. Implement the minimum to satisfy the brief
-2. Run quality gates
+2. In **Fast mode**, run the narrowest declared check that covers this unit and record its command,
+   exit code, and duration in the impl brief. Do not repeat the full build/test/lint suite per unit;
+   the baseline and final verification remain mandatory. If no narrower declared check covers the
+   unit, run the relevant full gate; do not invent or omit a check. In other modes, run the quality gates.
 3. If gates fail:
    - Max `tunables.max_improve_iterations` correction attempts
    - If still broken after N attempts → invoke `/improvement-loop` with bounded scope
    - If `/improvement-loop` fails → escalate to the human
+
+Before considering a model change, distinguish environment/tool failure, missing or excessive
+context, an ambiguous spec and an ordinary implementation defect from evidenced model
+capacity limits. A red test is not automatic promotion. Record diagnosis and a changed
+strategy; never repeat an unchanged costly attempt. Escalation must fit native controls,
+owner model constraints and existing attempt/time/cost permissions. For an accepted roadmap,
+changing `topology.model` requires a revised accepted board preserving history and consumed
+attempt bounds; routing advice cannot edit that contract or reset a correction budget.
 
 **Loop-back rounds only (FR-020, amended A-4):** on a re-entry after a review NO-GO, also run —
 as part of the quality gates in step 2 above — every non-`manual` spec `CHECK-N` command and every
@@ -438,6 +500,15 @@ of a current-round check do not consume `tunables.max_improve_iterations`. `CHEC
 entries are never run mechanically.
 
 ### 5. Final verification
+
+**Express Lite:** run its declared relevant check only; do not claim the full suite ran. A missing, failed, or ambiguous check routes to Fast.
+
+**Fast mode:** run the complete declared build, test, and format/lint gates once after the final edit.
+The impl brief MUST distinguish these final gates from focused per-unit checks, with each command,
+exit code, and duration. This is the Fast measurement: `full_gate_runs`, `focused_check_runs`, and
+`avoided_repeated_full_gate_runs` (one avoided full-suite run for each focused check).
+Missing evidence, a changed command, or an edit after the recorded final gate requires rerunning the
+complete gates; review and QA still execute their independent checks.
 
 ```bash
 <build command>     # must pass
@@ -473,6 +544,13 @@ Produce `briefs/<task>-impl.md`:
 
 <Non-trivial decisions made during implementation — with justification>
 <Deviations from the plan — with justification>
+
+## Model routing
+
+<Per mission: requested model/tier/runtime, observed control/evidence and selection reason;
+cost known or unknown, costly exception or none; actual runtime-reported model or unknown;
+diagnosed failure trigger, unchanged bounds and authorized fallback. For Lite or legacy
+tasks, record inherited configuration/unknowns without inventing a dispatch or planning gate.>
 
 ## Quality Gates
 
@@ -530,7 +608,7 @@ is `PARTIAL`, the next step is instead a re-run of `/roster-implement` (routed b
 
 | Condition | Action |
 |---|---|
-| `briefs/<task>-implementer.md` or `briefs/<task>-reviewer.md` absent **in Full mode** | Stop — re-run `/roster-plan` to produce both sub-briefs (in Express/Fast they are absent by design — proceed from the task) |
+| `briefs/<task>-implementer.md` or `briefs/<task>-reviewer.md` absent **in Full mode** | Stop — re-run `/roster-plan` to produce both sub-briefs (in Express Lite/Express/Fast they are absent by design — proceed from the task) |
 | A plan step cannot be implemented as described | Stop — re-run `/roster-plan` with the blocker as input |
 | Quality gates are broken at baseline before any change | Stop — report to human, do not proceed |
 | Implementation reveals the brief was fundamentally wrong | Stop — re-run `/roster-intake` with the new information |

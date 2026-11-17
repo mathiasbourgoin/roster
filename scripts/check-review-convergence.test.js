@@ -626,3 +626,79 @@ test('CHECK-3: green-phase mutation -> exit 2, not reported red_verified', () =>
   assert.notStrictEqual(c.red_verified, true);
   fs.rmSync(path.join(repo.dir, 'side-effect.txt'), { force: true });
 });
+
+for (const state of ['tracked', 'staged', 'mixed', 'untracked', 'odd-name', 'symlink', 'index', 'index-only', 'no-write']) {
+  test(`green guard detects existing dirty content mutation: ${state}`, (t) => {
+    const { verifyCheck } = require('./lib/review/redgreen-scratch');
+    const repo = makeRepo();
+    t.after(() => fs.rmSync(repo.dir, { recursive: true, force: true }));
+    const name = state === 'odd-name' ? '-tab\tline\n.txt' : 'payload.txt';
+    const target = path.join(repo.dir, name);
+    fs.writeFileSync(target, 'base');
+    if (!['untracked', 'odd-name'].includes(state)) repo.run('git add -A && git commit -qm payload');
+    if (state === 'symlink') { fs.unlinkSync(target); fs.symlinkSync('first-target', target); }
+    else fs.writeFileSync(target, 'dirty');
+    if (['staged', 'mixed', 'index', 'index-only'].includes(state)) repo.run('git add -A');
+    if (['mixed', 'index-only'].includes(state)) fs.writeFileSync(target, 'dirty unstaged');
+    const alternateBlob = execFileSync('git', ['hash-object', '-w', '--stdin'], { cwd: repo.dir, input: 'alternate index bytes' }).toString().trim();
+    const mutation = state === 'index-only'
+      ? `require('child_process').execFileSync('git', ['update-index', '--cacheinfo', '100644', '${alternateBlob}', ${JSON.stringify(name)}]);`
+      : state === 'symlink'
+      ? `require('fs').unlinkSync(${JSON.stringify(name)}); require('fs').symlinkSync('second-target', ${JSON.stringify(name)});`
+      : `require('fs').writeFileSync(${JSON.stringify(name)}, 'changed');`;
+    const check = 'check.js';
+    fs.writeFileSync(path.join(repo.dir, check), state === 'no-write' ? 'process.exit(0);' : mutation +
+      (['index', 'staged'].includes(state) ? `require('child_process').execFileSync('git', ['add', '--', ${JSON.stringify(name)}]);` : ''));
+    const blob = repo.run('git hash-object check.js').trim();
+    const before = repo.run('git status --porcelain -uall');
+    const originalContents = state === 'symlink' ? fs.readlinkSync(target) : fs.readFileSync(target);
+    const result = verifyCheck({ repoRoot: repo.dir, checkRelPath: check, preFixSha: repo.base,
+      recordedBlob: blob, redVerified: true, timeoutMs: 5000 });
+    assert.strictEqual(repo.run('git status --porcelain -uall'), before, 'repro must preserve status');
+    if (state === 'index-only') assert.deepStrictEqual(fs.readFileSync(target), originalContents, 'index-only mutation must leave working bytes unchanged');
+    if (state === 'no-write') assert.strictEqual(result.greenFailed, false);
+    else {
+      assert.strictEqual(result.inconclusive, true, JSON.stringify(result));
+      assert.match(result.reason, /mutated the working tree/);
+    }
+  });
+}
+
+test('green guard fails closed if repository disappears during the check', (t) => {
+  const { verifyCheck } = require('./lib/review/redgreen-scratch');
+  const repo = makeRepo();
+  t.after(() => fs.rmSync(repo.dir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(repo.dir, 'check.js'), "require('fs').rmSync('.git', { recursive: true });");
+  const result = verifyCheck({ repoRoot: repo.dir, checkRelPath: 'check.js', preFixSha: repo.base,
+    recordedBlob: repo.run('git hash-object check.js').trim(), redVerified: true, timeoutMs: 5000 });
+  assert.strictEqual(result.inconclusive, true);
+  assert.match(result.reason, /snapshot failed after green run/);
+});
+
+test('content snapshot leaves index bytes untouched and excludes ignored untracked contents', (t) => {
+  const { snapshotTree } = require('./lib/git-tree-snapshot');
+  const repo = makeRepo();
+  t.after(() => fs.rmSync(repo.dir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(repo.dir, '.gitignore'), 'ignored\n');
+  fs.writeFileSync(path.join(repo.dir, 'ignored'), 'before');
+  const indexPath = path.join(repo.dir, '.git', 'index');
+  const beforeIndex = fs.readFileSync(indexPath);
+  const before = snapshotTree(repo.dir);
+  fs.writeFileSync(path.join(repo.dir, 'ignored'), 'after');
+  assert.strictEqual(snapshotTree(repo.dir), before);
+  assert.deepStrictEqual(fs.readFileSync(indexPath), beforeIndex, 'snapshot must not refresh the index');
+});
+
+test('snapshot never reads outside content through a replaced tracked directory symlink', (t) => {
+  const { snapshotTree } = require('./lib/git-tree-snapshot');
+  const repo = makeRepo();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'snapshot-outside-'));
+  t.after(() => { fs.rmSync(repo.dir, { recursive: true, force: true }); fs.rmSync(outside, { recursive: true, force: true }); });
+  commitFile(repo, 'directory/file', 'tracked');
+  fs.writeFileSync(path.join(outside, 'file'), 'outside before');
+  fs.rmSync(path.join(repo.dir, 'directory'), { recursive: true });
+  fs.symlinkSync(outside, path.join(repo.dir, 'directory'));
+  const before = snapshotTree(repo.dir);
+  fs.writeFileSync(path.join(outside, 'file'), 'outside after');
+  assert.strictEqual(snapshotTree(repo.dir), before, 'link target bytes are outside the repository snapshot');
+});

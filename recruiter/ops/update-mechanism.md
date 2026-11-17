@@ -281,21 +281,58 @@ Skills to install:
 - `skills/workflow/improvement-loop.md`
 - `skills/workflow/improvement-loop-planner.md`
 - `skills/workflow/roster-config.md`
+- `skills/workflow/roster-telemetry.md`
+- `skills/workflow/roster-usage.md`
 - `skills/workflow/team.md`
 - `skills/testing/tdd-workflow.md`
 - `skills/media/image-generation.md`
 
-**Roadmap toolkit distribution:** when installing `roster-roadmap`, include the
-self-contained `scripts/roster-roadmap.cjs` as `.harness/bin/roster-roadmap.cjs`
-from the SAME approved source/revision. Prefer trusted checkout sync. For raw
-distribution use fail-on-HTTP-error retrieval to a temporary file, refuse managed
-symlinks and replace only after successful retrieval; never truncate linked targets.
-Include `schema/roadmap-schema.md` as `.harness/roadmap/schema.md`, and the two
-`examples/roadmap/{roadmap,capabilities}.json` files as
-`.harness/roadmap/{example,capabilities}.json` from that same revision.
-No npm dependencies, CWR, agent launcher or service activation is involved. If the
-runtime is absent, report the roadmap skill unavailable rather than inventing a
-fallback command. Keep boards unchanged on upgrade.
+**Roadmap toolkit distribution:** install the complete matched runtime closure from
+one approved revision as `.harness/bin/`: `scripts/roster-roadmap.cjs`,
+`roster-artifacts.cjs`, `roster-recovery.cjs`, `roster-roadmap-view.cjs`,
+`roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`, `roster-roadmap-requests-view.cjs`,
+`roster-roadmap-validate.cjs`, `roster-roadmap-history.cjs`, `roster-roadmap-missions.cjs`,
+`roster-roadmap-prompt.cjs`, `roster-roadmap-derived.cjs` and `roster-usage.cjs` (all in
+`scripts/`). Recovery
+also supports implementation/review/QA retry checks; usage is explicit-invocation only.
+Prefer trusted checkout sync. For raw distribution use fail-on-HTTP-error retrieval to
+temporary files, refuse managed symlinks and replace only after successful retrieval;
+never truncate linked targets or upgrade a core without its companions.
+
+Include these same-revision resources under `.harness/roadmap/`:
+
+| Source | Installed name |
+|---|---|
+| `schema/roadmap-schema.md` | `schema.md` |
+| `examples/roadmap/roadmap.json` | `example.json` |
+| `examples/roadmap/capabilities.json` | `capabilities.json` |
+| `docs/model-routing.md` | `model-routing.md` |
+| `schema/recovery-schema.md` | `recovery-schema.md` |
+| `docs/failure-recovery.md` | `failure-recovery.md` |
+| `schema/usage-report-schema.md` | `usage-schema.md` |
+| `docs/usage-reports.md` | `usage-reports.md` |
+| `schema/roadmap-estimates-schema.md` | `estimates-schema.md` |
+| `docs/roadmap-estimates.md` | `estimates.md` |
+| `schema/roadmap-requests-schema.md` | `requests-schema.md` |
+| `schema/roadmap-view-schema.md` | `view-schema.md` |
+| `schema/roadmap-view.schema.json` | `view.schema.json` |
+
+Use the same safe retrieval/replacement procedure for every resource. These tools
+require no npm dependencies, CWR, agent launcher, hooks or service activation. Do not
+invoke the usage reporter automatically or offer telemetry. If the closure is absent,
+report the affected capability unavailable rather than inventing a fallback command.
+Keep existing boards, forecast/recovery history and local observations unchanged on upgrade.
+
+**Step 2.4 — Telemetry distribution:** include `scripts/roster-telemetry.js` as
+`.harness/bin/roster-telemetry.cjs` (explicit CommonJS, including in ESM consumers) and
+`rules/workflow/commit-telemetry.md` as
+`.harness/rules/commit-telemetry.md` from the SAME approved Roster source/revision used for
+this install, alongside the `roster-telemetry` skill. This is part of approved harness
+distribution, not a new provider or background updater. Use fail-on-HTTP-error downloads,
+write to temporary files first, and replace only after successful retrieval. Preserve
+`.harness/telemetry.json` and `.harness/.local/` on upgrade. Init/full doctor activate the
+bundled runtime locally without another prompt; they never download updates themselves.
+If distribution fails, report telemetry unavailable rather than claiming an active hook.
 
 **Step 2.5 — Review-tool bundle (F-1):** if any installed skill declares `requires_review_bundle`,
 fetch and run the one distributed installer script — it owns the entire install/upgrade/remove/

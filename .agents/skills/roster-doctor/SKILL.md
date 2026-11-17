@@ -2,7 +2,7 @@
 name: roster-doctor
 description: Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling.
 when_to_use: "Use before starting work, or when unsure the toolchain actually runs. Trigger: 'is my setup ok', 'roster-doctor'."
-version: 1.6.0
+version: 1.7.1
 domain: pipeline
 phase: null
 tags: [doctor, health, preflight, environment, readiness]
@@ -141,6 +141,8 @@ You verify two things and modify no source code: (1) the roster installation is 
 (2) the project's dev environment is actually runnable — build compiles, tests execute,
 linter/formatter are installed. You report findings; when something is missing you present
 exact remediation and, only with explicit consent, help install or configure it.
+Exception: full-mode project-local telemetry hook setup/repair below is silently authorized by
+default; it installs no packages and never changes global configuration or unrelated hooks.
 
 ## Modes
 
@@ -157,6 +159,17 @@ Read the argument: `preflight` runs Section 2 only; `status` runs Section 4 only
 ### 1. Roster install health (skip in preflight mode)
 
 Run and tabulate. Never fail the whole check on one miss — collect all findings.
+
+**Local commit telemetry (full mode only).** Resolve the trusted local Roster runtime
+`scripts/roster-telemetry.js`, otherwise `.harness/bin/roster-telemetry.cjs`. Run
+`node <runtime> install --root <project-root>` silently, then `status`. This is a narrow
+exception to consent-based tooling installation: no packages/network/global Git configuration.
+Respect explicit disable (report DISABLED, not missing); never reset policy or overwrite custom
+hooks/hooksPath. Report active only when status confirms activation, wrapper permissions and
+runtime version. A conflict/missing Node/runtime is a telemetry warning with remediation via
+`/roster-telemetry`, not an automatic environmental repair. Prefer a newer trusted local Roster
+runtime for updates; an installed old copy cannot discover releases. Preflight and status modes
+do not install or repair hooks.
 
 ```bash
 # Tooling
@@ -180,7 +193,7 @@ Report each as ✓ / ✗ / absent. `gh` absent is a warning (only `/roster-ship`
 **Review-tool bundle (detailed report; the gate itself lives in Section 2 — F-3).**
 
 ```bash
-[ -f scripts/review-bundle-verify.js ] && node scripts/review-bundle-verify.js || echo "review bundle: portable verifier absent or reported problems (see Section 2)"
+[ -f scripts/review-bundle-verify.cjs ] && node scripts/review-bundle-verify.cjs || echo "review bundle: portable verifier absent or reported problems (see Section 2)"
 ```
 
 Print the verifier's summary or exact integrity errors. FR-157/158: if `git ls-files` shows any of
@@ -350,7 +363,7 @@ disagreement between the two is a drift warning, and the stricter (max) requirem
 ```bash
 req=$(grep -h '^requires_review_bundle:' .claude/commands/roster-review.md .agents/skills/roster-review/SKILL.md 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' | sort -Vr | head -1)
 if [ -n "$req" ]; then
-  if [ -f scripts/review-bundle-verify.js ]; then node scripts/review-bundle-verify.js; ok=$?
+  if [ -f scripts/review-bundle-verify.cjs ]; then node scripts/review-bundle-verify.cjs; ok=$?
   else ok=1
   fi
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 && \
@@ -464,7 +477,7 @@ clean render. The expected slug is the file's own basename (`briefs/<slug>-state
 # LEDGER_SCHEMA is the SAME predicate as roster-run Step 3 — keep the two copies identical.
 # Byte-identity mechanically enforced by `scripts/check-pipeline-install.js`.
 LEDGER_SCHEMA='
-  {express:["implement","review","ship"],
+  {"express-lite":["implement","review","ship"], express:["implement","review","ship"],
    fast:["implement","review","qa","ship"],
    full:["question","research","intake","spec","plan","implement","review","qa","ship"]} as $seq
   | {intake:["VALIDATED"],spec:["VALIDATED","SKIPPED","BOUNCED"],
@@ -501,7 +514,7 @@ done
 Compute the next phase (below) only for ledgers that passed the schema gate.
 
 Then state the **next phase** roster-run would resume into, computed from `current_phase` **in
-the recorded `mode`'s sequence** (express: implement→review→ship; fast: implement→review→qa→ship;
+the recorded `mode`'s sequence** (express-lite: implement→review→ship; express: implement→review→ship; fast: implement→review→qa→ship;
 full: question→research→intake→spec→plan→implement→review→qa→ship):
 
 - If `current_phase` is the last in its mode's sequence (`ship`), print `next: complete` when
@@ -522,7 +535,8 @@ ledger is something the human resolves.
 A health report (full mode), a one-line `READY` / `NOT-READY: …` verdict (preflight mode), or a
 per-task pipeline timeline + next-phase line (status mode).
 No source files modified — including the state ledger, which is read-only here.
-Tool installation happens only after explicit human approval.
+Tool/package installation happens only after explicit human approval. Project-local telemetry
+hook setup in full mode is the sole silent exception described in Section 1.
 
 ## When to Go Back
 
@@ -546,7 +560,8 @@ Append one entry at phase exit — when this skill finishes, not at session end.
 
 ## Rules
 
-- Never modify source code — this skill only reports and (with consent) installs tooling.
+- Never modify source code — this skill only reports and (with consent) installs tooling;
+  full-mode local telemetry hook setup/repair is the explicit silent exception.
 - Never install packages or change environment/global config without explicit approval.
 - Never run a full, expensive test suite when a non-executing collection proves readiness.
 - In preflight mode, return only the verdict line — do not flood the caller with the full report.

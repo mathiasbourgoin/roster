@@ -206,6 +206,61 @@ test("INV-2/E-2: a RESOLVED, check-linked entry re-reported WITH a gate report s
   assert.strictEqual(result.dispositions.reopened.length, 0);
 });
 
+for (const identity of ["fid", "fingerprint"]) {
+  test(`INV-2/E-2: green-failed ${identity} report reopens a red-verified RESOLVED finding`, () => {
+    const ledgerEntry = finding({ status: "RESOLVED", first_seen_round: 1, resolved_round: 2, check: "checks/foo.test.js" });
+    if (identity === "fid") ledgerEntry.fid = normalize({ newFindings: [finding()], ledger: [] }).findings[0].fid;
+    const gateReport = { checks: [{ check: ledgerEntry.check, [identity]: ledgerEntry[identity], red_verified: true, greenFailed: true }] };
+    const fresh = finding({ evidence: "current regression evidence", fix: "restore the invariant" });
+    const result = normalize({ newFindings: [fresh], ledger: [ledgerEntry], round: 3, gateReport });
+    assert.strictEqual(result.reobservations.length, 0);
+    assert.strictEqual(result.dispositions.pending_check.length, 0);
+    assert.strictEqual(result.dispositions.reopened.length, 1);
+    const reopened = result.dispositions.reopened[0];
+    assert.strictEqual(reopened.status, "OPEN");
+    assert.strictEqual(reopened.resolved_round, null);
+    assert.strictEqual(reopened.reopened_from_round, 2);
+    assert.strictEqual(reopened.reopened_at_round, 3);
+    assert.strictEqual(reopened.evidence, fresh.evidence);
+    assert.strictEqual(reopened.fix, fresh.fix);
+    assert.strictEqual(result.findings[0].status, "RESOLVED", "normalizer proposes, never mutates the carried ledger");
+  });
+}
+
+test("INV-2/E-2: explicitly successful green report keeps a red-verified finding reobserved", () => {
+  const ledgerEntry = finding({ status: "RESOLVED", check: "checks/foo.test.js" });
+  const gateReport = { checks: [{ check: ledgerEntry.check, fingerprint: ledgerEntry.fingerprint, red_verified: true, greenFailed: false }] };
+  const result = normalize({ newFindings: [finding()], ledger: [ledgerEntry], gateReport });
+  assert.strictEqual(result.reobservations.length, 1);
+  assert.strictEqual(result.dispositions.reopened.length, 0);
+});
+
+for (const verification of [
+  { red_verified: true, weakened: true, greenFailed: false },
+  { inconclusive: true, reason: "green command timed out" },
+]) {
+  test(`INV-2/E-2: ${verification.weakened ? "weakened" : "inconclusive"} gate result reopens a RESOLVED finding`, () => {
+    const ledgerEntry = finding({ status: "RESOLVED", check: "checks/foo.test.js" });
+    const gateReport = { checks: [{ check: ledgerEntry.check, fingerprint: ledgerEntry.fingerprint, ...verification }] };
+    const result = normalize({ newFindings: [finding()], ledger: [ledgerEntry], gateReport });
+    assert.strictEqual(result.reobservations.length, 0);
+    assert.strictEqual(result.dispositions.reopened.length, 1);
+  });
+}
+
+for (const mismatch of ["check", "fid"]) {
+  test(`INV-2/E-2: green-failed report with a different ${mismatch} stays pending-check`, () => {
+    const ledgerEntry = finding({ status: "RESOLVED", check: "checks/foo.test.js" });
+    ledgerEntry.fid = normalize({ newFindings: [finding()], ledger: [] }).findings[0].fid;
+    const checkEntry = { check: ledgerEntry.check, fid: ledgerEntry.fid, red_verified: true, greenFailed: true };
+    checkEntry[mismatch] = "unrelated";
+    const result = normalize({ newFindings: [finding()], ledger: [ledgerEntry], gateReport: { checks: [checkEntry] } });
+    assert.strictEqual(result.reobservations.length, 0);
+    assert.strictEqual(result.dispositions.reopened.length, 0);
+    assert.strictEqual(result.dispositions.pending_check.length, 1);
+  });
+}
+
 test("INV-2/E-2: a RESOLVED, check-linked entry re-reported WITH a gate report that does NOT cover its check is pending-check", () => {
   const ledgerEntry = finding({ status: "RESOLVED", first_seen_round: 1, resolved_round: 2, check: "checks/foo.test.js" });
   const gateReport = { checks: [{ check: "checks/other.test.js", fingerprint: "other.ml:1:correctness", red_verified: true }] };

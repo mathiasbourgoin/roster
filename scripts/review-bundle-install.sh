@@ -209,7 +209,7 @@ check_collisions() {
       if ! echo "$new_manifest" | jq -e --arg p "$existing_rel" '.files | any(.path == $p)' >/dev/null; then
         abort "refusing CommonJS scope over unrelated consumer script: $existing_rel; isolate or explicitly configure the consumer scripts module scope first."
       fi
-    done < <(find "$TARGET/scripts" -type f -name '*.js' -print0)
+    done < <(find "$TARGET/scripts" -type f \( -name '*.js' -o -name '*.ts' \) -print0)
   fi
   count=$(manifest_count "$new_manifest")
   for i in $(seq 0 $((count - 1))); do

@@ -22,9 +22,78 @@ below) — both already present in this section.
 
 ### Added
 
-- **Portable roadmap coordination** (#96): `/roster-roadmap` 1.0.0 and the dependency-free
-  artifact toolkit coordinate multiple intakes with persistent state, compact mission
-  prompts, capability-based routes and separate global acceptance; no CWR dependency.
+- Version 1 standalone pipeline observation: `roster-pipeline` lists and inspects bounded
+  persisted evidence without executing phases, hooks, gates, providers or Git. Includes
+  canonical-ledger parity, current report summaries, explicit coverage and a complete local
+  runtime/schema closure. Public acquisition uses a qualified immutable source revision.
+- Review-tool bundle 1.11.1 validates supported schema assertion parameters at compile time
+  and enforces standalone `additionalProperties: false`, with compiler and installed-observer
+  regressions. No new runtime dependency.
+- Opt-in Roster commit credit through `roster-telemetry` 1.1.0: append or require the
+  canonical `Developed-with` trailer independently of metrics collection. Default off;
+  management, installed Git lifecycle tests, backward-compatible configuration and updates.
+- **Roadmap derived correction missions** — receipt `blames`, the `derive` command and event,
+  optional `state.derived` and claim-event `assignment`, the automatic review requeue and release
+  freeze, verified replay, and view `kind`/`derived`/`corrections`/`timeline` with
+  `completion.derived_done/derived_total` and optional `derived_active/derived_blocked`. New
+  runtime module `roster-roadmap-derived.cjs`.
+  Owner decisions of 13 November 2026: fresh-context agents on every attempt of a review's family
+  (claim and replay), a `definition_digest` on `derive` events that detects accidental edits,
+  and a strict review requeue and release refusal until every blamed dependency has a done
+  correction. The family is the review, every dependency it blames or that has a correction, and
+  every correction of those dependencies whichever review caused it; the rule covers the claim of
+  every task one of whose dependencies has a correction. For the claim of a correction the family
+  also holds every contract task that depends on its parent, so an agent that holds or held an
+  attempt of another dependent (`qa` when `review` caused the correction of `impl`) cannot claim
+  it. Owner decision OD-5 of 13 November 2026, frozen until the correction: a dependency with an
+  open correction (queued, active, or blocked with attempts left) is unmet for every task that
+  depends on it; such a task cannot be claimed (`waiting for dependencies: <dep> (open correction
+  <fix id>)`, not offered by `next` or `prompt`) and, if already active, cannot record a `done`
+  receipt until the correction is done (a `blocked` receipt stays allowed). The fresh-context
+  rule is checked again when a `done` receipt is recorded, and replay applies these checks.
+  Limits: the freeze starts at `derive`, not at the blaming receipt; an attempt of a dependent
+  started before the correction may record `done` after it, if its agent is fresh; an exhausted
+  correction does not freeze dependents. `derive` refuses an unclaimable topology
+  and a family with a claim lacking `assignment` whose attempt was released without a receipt;
+  an exhausted correction allows `<parent>-fix-<n+1>` for the same receipt, up to the parent's
+  `max_attempts` corrections that were not withdrawn per receipt and dependency, and withdrawals
+  have their own equal cap (at most 2 x parent `max_attempts` corrections per receipt and
+  dependency); `withdraw-derived` retires a queued correction that was never claimed; for a
+  derived mission `record` accepts a `blocked` receipt after `capabilities.json` changed. `next_action` and the
+  `release` refusal say `no correction can be derived for <dependency>: <reason>` when `derive`
+  would be refused; for a pending correction `next_action` names only the gesture the tool
+  accepts in its state (claim, finish and record, release, `roster-recovery reframe`,
+  `withdraw-derived`, or restore a claimable route), an exhausted correction refers to the
+  `next_action` of its review, and the `release` refusal promises the automatic requeue only when
+  a gap can still be closed.
+  `status --format text` counts contract tasks and corrections apart, labels
+  the reason line `Withdrawn:`, `Requeued:` or `Blocker:` and lists one `Attempt n:` line per
+  attempt of a correction or of a failed or retried mission. See the migration notes below.
+- **Roadmap operator requests** — advisory annex `requests.json` with `request-open`,
+  `request-answer`, `request-withdraw` and `request-journal` commands, exposed in `view`
+  (`operator_requests`), `status --format text` (`Waiting on:`) and `prompt`. Requests never
+  block `claim`; answers never carry secrets.
+- **Manual usage reports** — `roster-usage.cjs report` aggregates existing local ccusage
+  snapshots and normalized Codex/Claude/OpenCode/Pi observations. Missing or overlapping
+  measurements remain unknown; reporting adds no hooks, reminders, messages or collectors.
+- **Diagnosed recovery after three consecutive failures** — `roster-recovery.cjs` reads
+  accepted roadmap receipts or a canonical review/QA phase ledger. A source-bound reframe
+  records diagnosis, changed strategy and the next discriminating check before another
+  unchanged attempt. Original history, attempt budgets, two-strike review rules and
+  five-round convergence caps remain authoritative.
+- **Roadmap monitoring and duration forecasts** — a structured `view` API and readable
+  text status distinguish accepted receipts, worker-reported intermediate progress and
+  separate global acceptance. Planner duration ranges and explicit remaining estimates
+  support conditional task/global ETAs; missing evidence, blockers and overruns remain
+  unknown or require re-estimation. Forecasts do not establish completion or launch workers.
+- **Portable roadmap coordination** (#96, #97): `/roster-roadmap` and its dependency-free
+  artifact toolkit coordinate multiple intakes with persistent state and global acceptance.
+- **Express Lite routing** (#87, #89, `next` only): eligible descriptive docs, formatting and
+  private renames use a local review and declared checks; excluded or ambiguous changes
+  restart as Fast/Full. Avoided-phase counters do not prove token or monetary savings.
+- **Local commit telemetry** (#98, `next` only): configurable local hooks and
+  `/roster-telemetry`, with honest unknowns, actual roles/mode, advisory/strict policies and
+  preserved disable/custom-hook choices; no telemetry service or provider authentication.
 - **`agents-md-guardian` agent** (#27): `agents/management/agents-md-guardian.md` reviews
   `AGENTS.md` / `CLAUDE.md` changes against a parameterizable checklist (section size budget,
   required H2 sections, forbidden inline patterns, `docs/` link resolution). Mechanical checks go
@@ -109,6 +178,12 @@ below) — both already present in this section.
 
 ### Changed
 
+- **Model-tier routing** (#99, `next` only): roadmap/planning/implementation share relative
+  economy/standard/strong selection, compact per-mission decisions and diagnosis before
+  authorized escalation. Runtime controls, owner constraints, independence and existing
+  budgets remain authoritative; model requests are distinguished from observed execution.
+- **Fast gate efficiency** (#88, `next` only): preserve baseline/final complete gates and
+  independent review/QA while avoiding repeated full suites between bounded edits.
 - **Frontmatter/preamble consistency sweep** across ~18 friction-log skills — `description` as
   identity, `when_to_use` as triggers; one inherited preamble fragment for the pipeline-state and
   friction-log contracts instead of 18 duplicated copies; duplicated constants given single
@@ -128,13 +203,17 @@ below) — both already present in this section.
 
 ### Fixed
 
-- **Consumer compatibility and evidence** (#85, #86, #90): preserve ESM/CommonJS module
-  boundaries, degrade unsupported research queries honestly, and normalize generated
-  projection newlines without weakening freshness checks.
+- `sync-harness --check` no longer recommends removal of unattributed flat files in
+  user-preserving agent/rule directories. Unknown extras still fail conservatively;
+  unusual filenames and symlinks cannot silently escape the check.
+- **Current verification evidence** (#92–#94, `next` only): aggregate independent QA failures,
+  reopen resolved findings when current checks fail, and fingerprint content in read-only
+  snapshots instead of relying only on Git status labels.
+- **Express Lite telemetry** (#98, `next` only): valid Lite reports retain their actual mode
+  under both policies rather than losing telemetry or blocking an otherwise valid commit.
 - Review bundle 1.9.1: `xruntime-review` captures up to 64 MiB of runtime output (was the 1 MiB
   `spawnSync` default, which turned large Codex reviews into `spawn-error`); output beyond that is
   reported as the distinct degraded reason `output-overflow`, never `spawn-error`.
-
 - Chamallaw shadow 1.3.1 includes its complete friction-log definition in installed
   instructions, with canonical preamble fallback that preserves consumer overrides.
 
@@ -167,6 +246,54 @@ below) — both already present in this section.
   than running the specialist.
 - **`FR-120` budget test hardcoded 4001 words**, so it stopped testing anything the moment the
   budget was raised. Now derived from `BUDGETS`.
+
+### Migration notes
+
+- **Roadmap boards and older runtimes.** A roadmap board becomes unreadable by a runtime from
+  before derived missions as soon as this version writes its first `claim`, even if `derive` is
+  never used: every new claim event carries `assignment`, which the older runtime refuses
+  (`state event: unknown field assignment`). A `derive` or `withdraw-derived` event, a
+  `withdrawn` task or `state.derived` has the same effect. Install the whole runtime closure
+  together and do not downgrade a board in use. Boards written by the older runtime keep reading.
+- **Legacy claims and derivation.** A claim event without `assignment` (older runtime) stays
+  valid outside any review family and does not block `derive` when its attempt ended with a
+  receipt (the receipt names the agent), so a board started with an older runtime and continued
+  with this one can derive. `derive` refuses only when a member of the review's family has such
+  a claim whose attempt was released without a receipt; that board needs a revised roadmap to
+  use corrections.
+- **Strict review release.** `release` of a review whose latest blocked receipt carries
+  `blames` is refused until every blamed dependency has a done correction, including after a
+  correction exhausts its budget: derive a new correction for the same receipt instead, up to
+  the parent's `max_attempts` corrections that were not withdrawn per receipt and dependency;
+  past that limit, request a revised-roadmap decision. Withdrawn corrections have their own equal
+  cap per receipt and dependency (with a parent `max_attempts` of 1, a single withdrawal ends
+  derivation for that receipt). A correction that was claimed cannot be
+  withdrawn: it ends by its receipts and its budget.
+- **Frozen dependents and replay.** Replay refuses a claim made while a dependency of its task
+  had an open correction, a `done` receipt recorded during it, and a `done` receipt by an agent
+  already seen on another attempt of the task's family, as well as a correction claimed by an
+  agent of another task that depends on its parent. A board whose history was edited by hand, or
+  written by an earlier build of this feature, and that violates one of these fails every read.
+- **Known limits.** Assignee labels are compared exactly, case included (`Fixer` and `fixer` are
+  two agents). Renaming `assignment.assignee` in the claim event and task state of an attempt
+  later released without a receipt passes reads, like any consistent rewrite of an unsigned
+  `state.json`. On a board mixing old and new claim formats, an older-format attempt that left a
+  receipt is known only by that receipt's `assignee`. A contract review on its last attempt
+  whose `capabilities.json` changed and whose agent is gone has one exit: restore
+  `capabilities.json` to its content at the claim (the blocked-receipt exception is for
+  corrections only).
+- **Known limitations of corrections** (accepted by the owner on 13 November 2026: merged with the
+  limits documented, no further behavior change; coordinator conduct in
+  `schema/roadmap-schema.md` and `specs/roadmap-derived-missions.md`). A: the freeze of dependents
+  starts at `derive`, not at the blocked receipt that blames, nor after an exhausted or withdrawn
+  correction; between the two, a dependent can be offered and validated on the implementation from
+  before the correction, and an attempt started earlier can record `done` once the correction is
+  done. B: circular wait is possible, `derive` being accepted while an active dependent prevents
+  claiming the correction; with budgets of 1 the only exit is a `blocked` receipt or a withdrawal,
+  and `next_action` "wait for it" misleads. C: a dependent held by an agent that later appears on
+  the correction chain can neither record `done` nor be released at an exhausted budget, while
+  `next_action` still says "Continue the owned attempt". D: transitive dependencies are neither
+  frozen nor in the family.
 
 ---
 

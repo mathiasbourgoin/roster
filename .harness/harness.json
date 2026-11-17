@@ -66,8 +66,8 @@
       {
         "name": "planner",
         "source": "roster",
-        "version": "1.2.0",
-        "role": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context \u2014 no research history.",
+        "version": "1.4.0",
+        "role": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context — no research history.",
         "tunables": {}
       },
       {
@@ -80,7 +80,7 @@
       {
         "name": "recruiter",
         "source": "roster",
-        "version": "2.8.0",
+        "version": "3.0.0-dev",
         "role": "Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team across shared harness files and runtime-specific entrypoints.",
         "tunables": {}
       },
@@ -100,6 +100,12 @@
       }
     ],
     "rules": [
+      {
+        "name": "commit-telemetry",
+        "source": "roster",
+        "scope": "global",
+        "category": "workflow"
+      },
       {
         "name": "code-quality",
         "source": "roster",
@@ -276,7 +282,7 @@
       {
         "name": "roster-doctor",
         "source": "roster",
-        "version": "1.6.0",
+        "version": "1.7.1",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -292,7 +298,7 @@
       {
         "name": "roster-implement",
         "source": "roster",
-        "version": "1.9.0",
+        "version": "1.14.0",
         "domain": "pipeline",
         "phase": "implement",
         "tunables": {
@@ -304,7 +310,7 @@
       {
         "name": "roster-init",
         "source": "roster",
-        "version": "1.4.0",
+        "version": "1.5.1",
         "domain": "pipeline",
         "phase": null,
         "tunables": {
@@ -337,7 +343,7 @@
       {
         "name": "roster-plan",
         "source": "roster",
-        "version": "1.5.0",
+        "version": "1.7.0",
         "domain": "pipeline",
         "phase": "plan",
         "tunables": {}
@@ -345,7 +351,7 @@
       {
         "name": "roster-qa",
         "source": "roster",
-        "version": "1.10.0",
+        "version": "1.11.1",
         "domain": "pipeline",
         "phase": "qa",
         "tunables": {
@@ -377,7 +383,7 @@
       {
         "name": "roster-review",
         "source": "roster",
-        "version": "2.5.0",
+        "version": "2.7.1",
         "domain": "pipeline",
         "phase": "review",
         "tunables": {
@@ -391,7 +397,7 @@
       {
         "name": "roster-roadmap",
         "source": "roster",
-        "version": "1.0.0",
+        "version": "1.4.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -399,7 +405,7 @@
       {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.13.0",
+        "version": "1.15.1",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -407,7 +413,7 @@
       {
         "name": "roster-ship",
         "source": "roster",
-        "version": "1.7.0",
+        "version": "1.9.0",
         "domain": "pipeline",
         "phase": "ship",
         "tunables": {
@@ -430,7 +436,7 @@
       {
         "name": "roster-spec",
         "source": "roster",
-        "version": "2.5.0",
+        "version": "2.5.1",
         "domain": "pipeline",
         "phase": "spec",
         "tunables": {
@@ -536,6 +542,31 @@
         "name": "roster-config",
         "source": "roster",
         "version": "1.1.0",
+        "domain": "workflow",
+        "phase": null,
+        "tunables": {}
+      },
+      {
+        "name": "roster-telemetry",
+        "source": "roster",
+        "version": "1.1.0",
+        "domain": "workflow",
+        "phase": null,
+        "tunables": {
+          "enabled": true,
+          "policy": "advisory",
+          "elapsed_seconds": true,
+          "tokens": true,
+          "agents": true,
+          "mode": true,
+          "formal": true,
+          "attribution": "off"
+        }
+      },
+      {
+        "name": "roster-usage",
+        "source": "roster",
+        "version": "1.0.0",
         "domain": "workflow",
         "phase": null,
         "tunables": {}

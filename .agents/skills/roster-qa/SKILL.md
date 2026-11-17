@@ -2,7 +2,7 @@
 name: roster-qa
 description: Runs deterministic quality gates and produces a GO/NO-GO verdict.
 when_to_use: "Use after roster-review returns GO, before shipping. Trigger: 'run QA', 'roster-qa'."
-version: 1.10.0
+version: 1.11.1
 domain: pipeline
 phase: qa
 preamble: true
@@ -98,7 +98,7 @@ context. Create the file if absent; preserve every prior `events` entry:
 ```json
 {
   "task": "<slug>",
-  "mode": "express|fast|full",
+  "mode": "express-lite|express|fast|full",
   "current_phase": "implement",
   "events": [
     { "phase": "implement", "outcome": "COMPLETED", "at": "<ISO-8601 or omit>", "by": "roster-implement" }
@@ -111,7 +111,7 @@ Rules for writing your event:
 - **`task` is the canonical slug**, derived once from the task description and reused identically
   by every phase: lowercase, kebab-case, the ≤4 most significant words (the same rule
   `/roster-question` and `/roster-intake` use to name `briefs/<task>-*`). The first phase to run
-  — `roster-implement` in Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
+  — `roster-implement` in Express Lite/Express/Fast, `roster-question`/`roster-intake` in Full — fixes the slug;
   every later phase, and `/roster-run`'s resume check, MUST derive the byte-identical slug or the
   ledger will not be found. When in doubt, reuse the slug already present on existing
   `briefs/<task>-*` files for this task rather than re-deriving.
@@ -142,7 +142,7 @@ Rules for writing your event:
 - **Append-only audit trail.** Always push a *new* event — never rewrite or delete a prior one.
   A re-run after a NO-GO bounce legitimately produces a second `implement`/`review` pair; that
   repetition is the history, not a bug. Set `current_phase` to your phase (the latest completed).
-- `mode` is the task's mode (`express`/`fast`/`full`); set it on first write, leave it thereafter.
+- `mode` is the task's mode (`express-lite`/`express`/`fast`/`full`); set it on first write, leave it thereafter.
 - Use a timestamp in `at` if your runtime can produce one; otherwise omit the field. `by` is your
   skill name (or `human-gate` for a gate decision).
 - Skill hooks receive the task slug via the `TASK` environment variable — export it when invoking
@@ -224,7 +224,7 @@ You run deterministic checks and produce a GO/NO-GO verdict. No code writing —
 ## Input Contract
 
 **Light bundle check (F-7 — presence only, doctor owns the full verify):**
-`[ -f scripts/xruntime-exec.sh ] && [ -f scripts/xruntime-review.js ]` (the wrapper is
+`[ -f scripts/xruntime-exec.sh ] && [ -f scripts/xruntime-review.cjs ]` (the wrapper is
 intentionally 0644, always invoked via `bash` — never test `-x`). If either is missing, stop with
 `stale-install`; QA cannot safely bypass the shared breaker. Roster-review's earlier preflight
 normally makes this impossible, but files can disappear between phases.
@@ -264,7 +264,8 @@ where neither plan nor intake artifacts exist).
 
 ### 2. Deterministic quality gates
 
-Run the gates in sequence (order and pass/fail semantics: see Rules).
+Run every gate whose prerequisites are satisfied. Preserve the declared order for readable
+reporting, but do not use an independent gate's failure as a reason to skip later gates.
 
 ```bash
 # Gate 1: Build
@@ -282,13 +283,22 @@ Run the gates in sequence (order and pass/fail semantics: see Rules).
 <specific command>
 ```
 
-For each gate: record the exact result (exit code, duration, number of tests).
+For each gate, record the exact command, exit code, duration, number of tests, and full raw output.
 
-If a gate fails:
-- Record the full error log
-- Immediate status: NO-GO
-- Do not continue to subsequent gates
-- Include in the report without softening
+Classify failures before deciding what else can run:
+
+- **Product failure:** the command ran in a valid environment and found a build, test, lint, or
+  project-specific defect. Record `gate-failure`, keep running independent gates, and emit NO-GO.
+- **Environment failure:** the command could not exercise the product because a required tool,
+  credential, service, dependency, platform capability, or setup step was unavailable or broken.
+  Record `environment-failure`. Skip only gates that actually depend on that prerequisite, naming
+  the failed prerequisite in every skip; continue all other independent gates.
+
+Never reinterpret an assertion/test failure as an environment failure merely because it may be
+flaky. The environment classification requires positive evidence that the product was not tested.
+If a round contains both kinds, it remains a qualifying NO-GO because of `gate-failure`. A round
+containing only environment failures is an inconclusive NO-GO and does not consume the qualifying
+convergence budget. Aggregation changes diagnostic completeness, never gate strictness.
 
 ### 3. Spec runnable checks (conditional)
 
@@ -386,7 +396,7 @@ provider-free shared-breaker check first, using the same `--write` mode as the e
 invocation:
 
 ```bash
-node scripts/xruntime-review.js <runtime> --task <task-slug> --phase qa --check-availability --write
+node scripts/xruntime-review.cjs <runtime> --task <task-slug> --phase qa --check-availability --write
 ```
 
 `status: "skipped-degraded"` means review already proved this runtime version degraded under either
@@ -420,21 +430,21 @@ verdict emission, GO included. Full field shapes: `schema/qa-state-schema.md`.
 
 | Step outcome | Cause |
 |---|---|
-| Step 2 gate failure | `gate-failure` |
+| Step 2 product gate failure | `gate-failure` |
+| Step 2 setup/environment failure | `environment-failure` |
 | Step 3 spec runnable-check FAIL | `spec-check-failure` |
 | Step 3.5 exit 1 (invariant violated) | `code-intel-violation` |
 | Step 3.5 exit 2 (malformed block) | `code-intel-malformed` |
 | Step 4 TUI failure | `tui-failure` |
 | Step 4.5 cross-runtime discrepancy | `cross-runtime-discrepancy` |
 
-A GO verdict records `causes: []`. Step 2's short-circuit (stop at first gate failure, do not
-continue) means most NO-GOs carry a single cause; only a round that ran past Step 2 can accumulate
-more than one (EC-4) — record every cause that applies, never just the first.
+A GO verdict records `causes: []`. Aggregated gates can produce multiple failures in one round;
+record every cause that applies, never just the first.
 
 **2. Derive round/cycle** by shelling out (never re-derive in prose, FR-261):
 
 ```bash
-node scripts/lib/review/review-lifecycle.js --prior briefs/<task>-qa-state.json
+node scripts/lib/review/review-lifecycle.cjs --prior briefs/<task>-qa-state.json
 ```
 
 → `{round, cycle, fresh_cycle}` (absent prior file is legitimate fresh-task input; a present-but-
@@ -448,9 +458,9 @@ forward the same way (C-2, inert — QA never reads or interprets it).
 - GO verdict → reset to `0` (cycle-final budget reset).
 - NO-GO verdict → prior `qa_no_go_round` (0 on a fresh cycle) **+ 1 iff** at least one recorded
   cause is qualifying (`gate-failure`, `spec-check-failure`, `code-intel-violation`,
-  `tui-failure` — see the `[NEEDS-HUMAN]` note in `scripts/lib/qa/qa-convergence-rules.js` for the
+  `tui-failure` — see the `[NEEDS-HUMAN]` note in `scripts/lib/qa/qa-convergence-rules.cjs` for the
   C-4 interpretation this rests on), else unchanged (`cross-runtime-discrepancy` /
-  `code-intel-malformed` alone never increment it, FR-269/FR-270).
+  `code-intel-malformed` / `environment-failure` alone never increment it, FR-269/FR-270).
 
 **4. Append the `rounds_audit` entry** (append-only within the cycle, FR-265):
 `{round, date, verdict, causes, qualifying}` where `qualifying` is whether step 3's `+1` fired.
@@ -460,7 +470,7 @@ forward the same way (C-2, inert — QA never reads or interprets it).
 Write the composed state to `briefs/<task>-qa-state.json.draft`, then:
 
 ```bash
-node scripts/check-qa-convergence.js briefs/<task>-qa-state.json.draft --max-rounds <tunables.max_qa_rounds>
+node scripts/check-qa-convergence.cjs briefs/<task>-qa-state.json.draft --max-rounds <tunables.max_qa_rounds>
 ```
 
 - **Exit 0** — proceed to step 6.
@@ -510,6 +520,9 @@ Produce `briefs/<task>-qa.md`:
 | Tests | `<cmd>` | ✅ <N> passed / ❌ <N> failed | <Xs> |
 | Format | `<cmd>` | ✅ PASS / ❌ FAIL | <Xs> |
 
+For a skipped dependent gate use `⏭ SKIP — prerequisite <name> failed`; for an environment
+failure use `⚠ INCONCLUSIVE — environment failure`, followed by its full raw diagnostic.
+
 ## Tests: detail
 
 - New tests added: <N>
@@ -540,6 +553,29 @@ qualifying rounds. This is a non-overridable human decision point (FR-275) — d
 re-review (`/roster-review`), or split/abandon the task.
 ```
 
+**Finalize once before retry routing.** Preserve the fixed write order above: gated QA state,
+then QA report, then this phase's one canonical `qa` GO/NO-GO event in
+`briefs/<task>-state.json` per Pipeline State. Before following a NO-GO route into another
+unchanged implementation/QA attempt, run:
+
+```bash
+node .harness/bin/roster-recovery.cjs check --ledger briefs/<task>-state.json --phase qa
+```
+
+Source checkout: `scripts/roster-recovery.cjs`. Exit 2 / `reframe_needed` requires a diagnosed
+reframe after **three consecutive QA NO-GO events** before the fourth retry. Use the fresh
+identity/source fingerprint/failure IDs, actor, basis, diagnosis, changed strategy, next
+discriminating check and evidence; follow `.harness/roadmap/failure-recovery.md` (source:
+`docs/failure-recovery.md`), record the reframe and recheck. Exit 1 blocks retry pending
+reconciliation; exit 0 clears only this recovery requirement. Review GO does not reset QA's
+streak. Do not append duplicate verdicts on a reread, draft repair or check.
+
+This streak counts canonical QA NO-GO events, including environment-only failures; it does
+not change `qa_no_go_round`'s qualifying-cause rules or its default five-round cap. A valid
+reframe does not waive a cap-hit human decision, acceptance or any consumed bounds. Preserve
+the source history and reframe records. Existing spec/review escalation choices remain
+available; all implementation retry guidance below is conditional on both gates.
+
 ### 6. Human gate
 
 Present the report and request validation. Surface `**Round:**` and, on a `qa-round-cap`
@@ -564,7 +600,7 @@ route (FR-274).
 |---|---|
 | Automated gate fails (build, tests, lint) | Stop — return to `/roster-implement` with the exact error log |
 | Manual verification reveals a regression not caught by tests | Stop — return to `/roster-implement` |
-| `scripts/check-qa-convergence.js` exits 1 (`cause: "qa-round-cap"`) | STOP — human decision point (non-overridable): `/roster-spec`, `/roster-review`, or split/abandon. Never auto-route. |
+| `scripts/check-qa-convergence.cjs` exits 1 (`cause: "qa-round-cap"`) | STOP — human decision point (non-overridable): `/roster-spec`, `/roster-review`, or split/abandon. Never auto-route. |
 
 ## What Next
 
@@ -586,7 +622,7 @@ Append one entry at phase exit — when this skill finishes, not at session end.
 - Never GO if a gate fails
 - Never skip a gate — all in order
 - If a gate command is missing from the brief → note "not documented" and ask
-- Always gate the composed `qa-state.json.draft` with `scripts/check-qa-convergence.js` BEFORE
+- Always gate the composed `qa-state.json.draft` with `scripts/check-qa-convergence.cjs` BEFORE
   persisting `qa-state.json`, and persist `qa-state.json` BEFORE writing `qa.md` (C-5/FR-286) —
   never the reverse
 - The `qa-round-cap` escalation is never overridable — no override field is honored, by the skill

@@ -19,6 +19,9 @@ The board lives at `roadmaps/<slug>/` by default:
 | `roadmap.json` | Executable contract: goals, task graph, checks, topology and recovery policies |
 | `capabilities.json` | Observed runtime capabilities and separate authorization evidence |
 | `state.json` | Authoritative execution state, assignment attempts and accepted receipts |
+| `estimates.json` | Planner duration ranges and preserved forecast revisions; advisory |
+| `requests.json` | Coordinator asks to the human operator (optional annex with its own revision); advisory, never read by claim/next |
+| `progress/` | Attempt-bound worker reports; advisory and separate from accepted receipts |
 | `receipts/` | Candidate receipt files prepared by workers for coordinator review |
 | `notes/` | Detailed research, coherence assessment and decision rationale |
 
@@ -61,18 +64,47 @@ session creation can be an owner-approved request rather than immediate creation
 Discovery, messaging and creation are different capabilities. Recording multisession
 support in a board never removes those boundaries.
 
+## Choose model tiers and control cost
+
+Roadmap and `/roster-plan` share the [model-routing policy](model-routing.md), installed
+as `.harness/roadmap/model-routing.md`. Select the least costly observed, permitted model
+capable of meeting the unchanged checks. Economy, standard and strong are relative
+planning tiers; they are not a universal vendor ranking or verified prices.
+
+Record the selected model, evidence, rationale, costly exceptions and bounded escalation
+in `notes/model-routing.md` and each child brief's compact routing section. Give workers
+their decision rather than replaying the full policy. Report the model actually exposed
+by the runtime, or unknown; requesting a model does not establish that it ran. Direct
+deterministic checks and the current sequential agent can avoid unnecessary delegation.
+Required independent verification and explicit owner model choices still apply.
+
+Diagnose failed checks before attributing them to model capacity. Escalation must remain
+within authorization and attempt budgets. A different model changes accepted
+`topology.model`: reconcile the current assignment and use the existing revised-board
+acceptance procedure, retaining history. The toolkit does not select or switch models.
+Token use and monetary cost are different measures; this policy promises neither a
+measured token reduction nor savings without comparable end-to-end evidence.
+
 ## Use the portable tools
 
 In an installed project use `node .harness/bin/roster-roadmap.cjs`. In this repository
 use `node scripts/roster-roadmap.cjs`, or the `roster-roadmap` package binary. The CLI
-is self-contained and works in CommonJS and ESM consumers without local dependencies.
-Init/sync also install the artifact reference and non-operative example contract/profile
-under `.harness/roadmap/`, so preparation does not require the Roster source checkout.
+uses Node built-ins and works in CommonJS and ESM consumers without npm dependencies.
+Keep `roster-roadmap.cjs`, `roster-artifacts.cjs`, `roster-recovery.cjs`,
+`roster-roadmap-view.cjs`, `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`,
+`roster-roadmap-requests-view.cjs`, `roster-roadmap-validate.cjs`, `roster-roadmap-history.cjs`,
+`roster-roadmap-missions.cjs`, `roster-roadmap-prompt.cjs` and `roster-roadmap-derived.cjs`
+together in `.harness/bin/`
+from the same approved revision. Init/sync install the complete runtime closure and the
+matching policies, schemas and examples under `.harness/roadmap/`; copying a lone core
+file is insufficient. Repair the complete trusted installation on mismatch.
 
 ```bash
 node .harness/bin/roster-roadmap.cjs init roadmaps/release --id release
 node .harness/bin/roster-roadmap.cjs lint roadmaps/release
 node .harness/bin/roster-roadmap.cjs status roadmaps/release
+node .harness/bin/roster-roadmap.cjs status roadmaps/release --format text
+node .harness/bin/roster-roadmap.cjs view roadmaps/release --events 10
 node .harness/bin/roster-roadmap.cjs next roadmaps/release
 node .harness/bin/roster-roadmap.cjs prompt roadmaps/release
 ```
@@ -80,6 +112,65 @@ node .harness/bin/roster-roadmap.cjs prompt roadmaps/release
 `init` deliberately creates an incomplete draft. Fill the goal, global checks, tasks
 and actual capability observations before accepting it. See the [contract and CLI
 reference](../schema/roadmap-schema.md) and [example contract](../examples/roadmap/).
+
+`/roster-roadmap status [board]` selects an explicit or unambiguous existing board and
+returns formatted human status. It does not initialize/claim/resume work, append a friction
+entry or install hooks/reminders. Multiple possible boards require an explicit selection.
+The report distinguishes goal, task states/assignees, accepted checks, unverified worker
+reports, blockers and separate task/global ETA. Missing information stays unknown.
+
+`view BOARD [--task ID] [--events N]` supplies versioned, bounded JSON for a monitoring UI.
+Use its source revision and change token to detect resource changes; generated-at time and
+time-relative forecasts are observations, not execution events. Treat all labels, command
+strings and artifact paths as inert data, escape them when rendering, and never execute
+them because they appear in a snapshot. See [the view contract](../schema/roadmap-view-schema.md).
+
+An active worker can submit advisory progress:
+
+```bash
+node .harness/bin/roster-roadmap.cjs progress roadmaps/release --task implement --attempt ACTUAL_ID --assignee worker --sequence 0 --update /tmp/progress.json
+```
+
+The update includes a message, optional current step and declared check reports. Sequence
+is the current progress sequence (zero before the first report), bound to the current
+assignment. Unreported/stale/invalid progress is visibly distinct from accepted checks;
+progress neither finishes a task nor changes execution revision or retry budget.
+
+## Plan and refresh durations
+
+The planner estimates each task in optimistic/likely/pessimistic minutes, with basis,
+evidence and dispatch/dependency assumptions, and estimates integrated verification
+separately. On roadmap revisit, refresh ranges where new evidence changes the forecast;
+preserve prior revisions and mark missing timing unknown. Do not advance a deadline merely
+because status was polled. [Duration estimates](roadmap-estimates.md) document the sidecar.
+
+```bash
+node .harness/bin/roster-roadmap.cjs estimate roadmaps/release --revision 0 --update /tmp/estimates.json
+```
+
+Here revision is the forecast revision, independent of execution state. The input binds
+current accepted contract and execution revision, planner writer, rationale, evidence and
+capture time. `estimates.json` changes neither the accepted contract nor task receipts.
+For active work use its real claim timestamp or a remaining range captured for the current
+attempt; legacy missing starts stay unknown. An overrun requests re-estimation rather than
+silently resetting its countdown. Forecasts account for dependency order, maximum capacity,
+parallel authorization and overlapping write scopes; queued dispatch and successful checks
+remain conditional assumptions. Unresolved blockers or missing estimates prevent a fabricated
+delivery date. Missing global-verification timing may still leave a useful tasks-only ETA.
+Only the separate global receipt establishes completion, not an estimate or task count.
+
+## Operator requests
+
+When the coordinator needs the human operator, it records an advisory request in
+`requests.json` instead of pausing silently: `request-open`, then `request-answer` (relaying
+the operator's reply) or `request-withdraw`; `request-journal` stores an inert reference to
+the project logbook. An open request bound to a mission is a signal (`now`, `later`,
+`unscheduled`) shown in `view.operator_requests`, in a `Waiting on:` block of
+`status --format text` and in `prompt`; it never blocks `claim`. An answered request stays
+visible until its mission is done. There is no operator-side command or authentication, and
+no secret may be stored: a leaked secret must be treated as compromised and rotated. See
+[the requests schema](../schema/roadmap-requests-schema.md), installed as
+`.harness/roadmap/requests-schema.md`.
 
 Mutations use `--coordinator <id> --revision <current revision>` to detect conflicting
 updates. `accept` additionally reads `--decision <file>` with the current contract
@@ -110,6 +201,134 @@ After interruption, read `status` before doing work. An active assignment remain
 owned until the coordinator confirms the previous worker has stopped and reconciles
 its modifications. Do not reassign on a timeout alone. Occupied locks are not
 automatically stolen; inspect the previous process and board before recovering them.
+
+After three consecutive failures on the same mission, inspect the manual recovery status
+and record a diagnosed reframe with changed strategy, evidence and discriminating check
+before retrying. The [recovery guide](failure-recovery.md) describes exact source identities
+and commands. This preserves original failures and attempt budgets; it neither grants a
+retry nor replaces review's two-strike finding rule or review/QA five-round caps.
+
+### Correct an implementation after a failed review
+
+When a review fails because of an implementation it depends on, do not reopen the
+implementation. The reviewer's blocked receipt names it in `blames` (a direct dependency).
+Then run `derive BOARD --coordinator <id> --revision <n> --request <file>` with
+`{parent, cause, objective, topology, max_attempts}`: choose the correction's runtime, model
+and role from the escalation ladder, with a budget no larger than the parent's. The tool
+assigns `<parent>-fix-<n>`, which inherits the parent's scope and checks and runs as its own
+mission (its own claims, receipts and budget). `derive` refuses a topology that no route can
+claim right now (runtime unavailable, or route unauthorized with no permitted fallback).
+
+Owner decisions (Mathias, 13 November 2026):
+
+- **Fresh context over the review's family.** The family of a review is the review, every
+  dependency any of its receipts blames, every dependency of the review that has a correction,
+  and every correction of those dependencies, whichever review caused it. Every correction
+  attempt needs an agent that never appeared on the family of its cause, and so does **the next
+  attempt of any task one of whose dependencies has a correction**: `claim` and history replay
+  refuse an assignee already seen there (the implementers, the failed reviewer, every earlier
+  fixer). Roster cannot tell a review from another dependent task, so the rule covers every
+  dependent task: the author of `impl-fix-1` cannot claim a second review `qa` that depends on
+  `impl`, even if `qa` never blamed `impl`. For the claim of a correction, the family also holds
+  every contract task that depends on the correction's parent, so the rule holds in the other
+  direction too: an agent that holds or held an attempt of `qa` cannot claim a correction of
+  `impl` caused by `review`. The family of a contract task is not widened. A task none of whose
+  dependencies has a correction is on no family. The rule is checked again when a `done` receipt
+  is recorded, against every other attempt of the task's family (the attempt's own claim is left
+  out); the refusal tells to record a blocked receipt or release the attempt and claim with a
+  newly launched agent, and a `blocked` receipt is never refused by it. Roster compares declared
+  identifiers, exactly and case included (`Fixer` and `fixer` are two agents for the tool): give
+  each attempt the identifier of a newly launched agent.
+- **Frozen until the correction** (OD-5, « Gelées jusqu'à la correction »). A correction is open
+  while it is queued, active, or blocked with attempts left; an exhausted or withdrawn one is
+  not. A dependency with an open correction counts as unmet for every task that depends on it,
+  whichever review caused the correction. Such a task cannot be claimed (`claim` refuses with
+  `waiting for dependencies: <dep> (open correction <fix id>)`, `next` and `prompt` do not offer
+  it, and its `status` reason and `next_action` carry that text). If it is already active, it
+  cannot record a `done` receipt while the correction is open (`cannot record: a done receipt of
+  <task> is refused while a dependency is under correction: ...`); a `blocked` receipt stays
+  allowed, and its `next_action` says so. History replay applies the same checks, and the
+  record-time fresh-context check above, so a history that violates them fails reads. Limits:
+  the freeze starts at `derive`, not at the blaming receipt, so another dependent can still be
+  claimed between the two; an attempt of a dependent that started before the correction may
+  record `done` after the correction is done, if its agent is fresh; an exhausted correction
+  does not freeze dependents.
+- **Strict re-queue.** The review stays blocked, and `release` of it is refused, until every
+  dependency its latest blocked receipt blames has a done correction from that receipt. There is
+  no exception for an exhausted correction. `status` gives the review a `next_action` naming the
+  step: derive a correction for a dependency, the step of a pending one, or, when a correction
+  exhausted its budget, derive a new one (`<parent>-fix-<n+1>`, fresh budget capped by the
+  parent's) from the same receipt or request a revised-roadmap decision. For a pending
+  correction the text names only a gesture the tool accepts in its state: queued and never
+  claimed, claim it with a newly launched agent or withdraw it (`withdraw-derived`) if it cannot
+  be claimed; queued and already started, claim it with a newly launched agent; active, finish
+  the attempt and record its receipt; blocked with attempts left, release it, then claim it with
+  a newly launched agent; blocked after three consecutive failures (its release is refused),
+  record a diagnosed reframe with `roster-recovery reframe`, then release it; started, queued
+  and without a claimable route, restore a claimable route in `capabilities.json` or request a
+  revised-roadmap decision; never claimed and without a claimable route, withdraw it or restore
+  a claimable route. The `next_action` of an exhausted correction refers to that of the review
+  that caused it while the review is still blocked. It lists the exhausted
+  and withdrawn corrections of the dependency, for example
+  `(impl-fix-1 exhausted, impl-fix-2 withdrawn)`. When `derive` would be refused (the review's
+  policy is not `retry`, its budget is exhausted, it needs a recovery reframe, the limit below is
+  reached, or an older claim hides an identity), `next_action` and the `release` refusal say
+  `no correction can be derived for <dependency>: <reason and way forward>` instead of advising
+  `derive`. The `release` refusal promises the automatic requeue only when at least one gap can
+  still be closed.
+- **Bounded corrections.** For one review receipt and one blamed dependency, `derive` refuses
+  once the corrections that were not withdrawn number the parent's `max_attempts`; then request
+  a revised-roadmap decision. Withdrawn corrections never ran and do not count toward that cap,
+  but they have their own equal cap: `derive` also refuses, live and on replay, once the
+  withdrawn corrections for that receipt and dependency number the parent's `max_attempts`. So
+  each receipt and dependency get at most 2 x parent `max_attempts` corrections (those that ran
+  have at most parent `max_attempts` attempts each), a parent `max_attempts` of 1 means a single
+  withdrawal already ends derivation for that receipt, and the review's own budget bounds its
+  receipts.
+- **Digest.** The `derive` event records a SHA-256 digest of the definition and reads refuse a
+  definition edited afterwards. The digest is unkeyed and lives in `state.json`: it catches an
+  accidental or naive edit, not someone who rewrites the file and recomputes it. The same limit
+  applies to adding `blames` to a stored receipt, removing a `derive` event with everything
+  after it, or renaming `assignment.assignee` in the claim event and task state of an attempt
+  that was later released without a receipt.
+
+If a queued correction that was never claimed cannot be claimed (its runtime or route became
+unavailable), retire it with `withdraw-derived BOARD --coordinator <id> --revision <n> --task
+<fix id> --withdrawal <file>`, where the file is `{"reason": "..."}`; the same receipt can then
+derive a new correction, within the cap on withdrawals above. A correction that already started
+cannot be withdrawn: it ends by its
+receipts and its budget, after which a new derivation is possible. If a started, queued
+correction becomes unclaimable, restore a claimable route in `capabilities.json` or request a
+revised-roadmap decision.
+
+Last attempt of a correction: an active correction on its last attempt can be neither released
+(budget) nor withdrawn (started). For derived missions only, `record` therefore accepts a
+`blocked` receipt even when `capabilities.json` changed during the assignment (a `done` receipt
+is still refused; contract tasks are unchanged). If the agent is gone, the coordinator records
+the blocked receipt under the attempt id and assignee of the assignment; the mission's
+`next_action` says so. A contract review in the same position (last attempt, `capabilities.json`
+changed, agent gone) has one exit only: restore `capabilities.json` to its content at the claim.
+
+Older claims: a claim written by the runtime before this feature has no `assignment`. It stays
+valid for a contract task outside any review family, so old boards keep reading. It does not
+block `derive` when its attempt ended with a receipt, because the receipt names the agent: a
+board started with an older runtime and continued with this one can derive. `derive` refuses
+only when a member of the correction's family (the review's family and every task that depends
+on the parent) has such a claim whose attempt was released without a receipt, because that
+attempt's agent is unknown. Revise the board instead. On a board mixing both claim formats this
+is all the check detects: an older-format attempt that left a receipt is known only by that
+receipt's `assignee`.
+
+Compatibility: a board becomes unreadable by an older runtime as soon as this version writes its
+first `claim`, even if `derive` is never used, because every new claim event carries
+`assignment`. Install the runtime closure together and do not downgrade a board in use.
+
+`view` lists the correction after the contract tasks with its parent and cause and a timeline of
+every attempt; `status --format text` counts contract tasks and corrections apart and prints one
+`Attempt n:` line per attempt of a correction or of a failed or retried mission. The roadmap completes only when every contract task is done and no correction is
+queued or active. Owner decision D1 chose this correction mission; D2 to D6 are deduced and to be
+confirmed on the PR (see the schema). Labels are unauthenticated assertions: the reviewer ban
+compares labels, it cannot prove two labels are different agents.
 
 The prompt and resources support continuation while a runtime is executing and
 resumption in a later invocation. They do not keep a killed process alive or promise

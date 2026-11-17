@@ -1,0 +1,1333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/mathiasbourgoin/roster/schema/roadmap-view.schema.json",
+  "title": "Roster roadmap observation v1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "const": "roster-roadmap-view"
+    },
+    "board_id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "accepted": {
+      "type": "boolean"
+    },
+    "contract_ready": {
+      "type": "boolean"
+    },
+    "contract_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "goal": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "completion": {
+      "type": "object",
+      "properties": {
+        "tasks_done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tasks_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "global_accepted": {
+          "type": "boolean"
+        },
+        "derived_done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "derived_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "derived_active": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "derived_blocked": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "tasks_done",
+        "tasks_total",
+        "global_accepted"
+      ],
+      "additionalProperties": false
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "contract",
+              "derived"
+            ]
+          },
+          "derived": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "parent": {
+                    "type": "string"
+                  },
+                  "cause": {
+                    "type": "object",
+                    "properties": {
+                      "task_id": {
+                        "type": "string"
+                      },
+                      "attempt_id": {
+                        "type": "string"
+                      },
+                      "assignee": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "task_id",
+                      "attempt_id",
+                      "assignee"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "created_at": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "parent",
+                  "cause",
+                  "created_at"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "corrections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "attempt": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "attempt_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "assignee": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "runtime": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "route": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "model": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "claimed_at": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ended_at": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "outcome": {
+                  "enum": [
+                    "active",
+                    "done",
+                    "blocked",
+                    "released"
+                  ]
+                }
+              },
+              "required": [
+                "attempt",
+                "attempt_id",
+                "assignee",
+                "runtime",
+                "route",
+                "model",
+                "claimed_at",
+                "ended_at",
+                "outcome"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "objective": {
+            "type": "string"
+          },
+          "intake": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "state": {
+            "type": "string"
+          },
+          "topology": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "assignment": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "max_attempts": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "progress": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "not-active",
+                  "unreported",
+                  "reported",
+                  "invalid",
+                  "unavailable"
+                ]
+              },
+              "sequence": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source": {
+                "type": "string"
+              },
+              "recorded_at": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "current_step": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "checks": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "sequence"
+            ],
+            "additionalProperties": false
+          },
+          "recovery": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dod": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "success": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "accepted_status": {
+                  "type": "string"
+                },
+                "accepted_evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "reported_status": {
+                  "type": "string"
+                },
+                "reported_evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "assurance": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "accepted_status",
+                "accepted_evidence",
+                "reported_status",
+                "reported_evidence",
+                "assurance"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estimate": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "duration_minutes": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "optimistic": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "likely": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "pessimistic": {
+                            "type": "number",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "optimistic",
+                          "likely",
+                          "pessimistic"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "remaining_minutes": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "optimistic": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "likely": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "pessimistic": {
+                            "type": "number",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "optimistic",
+                          "likely",
+                          "pessimistic"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "overdue": {
+                    "type": "boolean"
+                  },
+                  "reestimate_needed": {
+                    "type": "boolean"
+                  },
+                  "reasons": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "status",
+                  "duration_minutes",
+                  "remaining_minutes",
+                  "source",
+                  "overdue",
+                  "reestimate_needed",
+                  "reasons"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "objective",
+          "intake",
+          "depends_on",
+          "state",
+          "topology",
+          "assignment",
+          "attempts",
+          "max_attempts",
+          "blocker",
+          "progress",
+          "recovery",
+          "dod",
+          "success",
+          "inputs",
+          "outputs",
+          "checks",
+          "last_result",
+          "estimate"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "global": {
+      "type": "object",
+      "properties": {
+        "accepted": {
+          "type": "boolean"
+        },
+        "success": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "accepted_status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "accepted_status"
+            ],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "accepted",
+        "success",
+        "checks"
+      ],
+      "additionalProperties": false
+    },
+    "estimates": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "as_of": {
+              "type": "string"
+            },
+            "estimate_revision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "contract_digest": {
+              "type": "string"
+            },
+            "based_on_state_revision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "status": {
+              "type": "string"
+            },
+            "tasks_eta": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "conditional",
+                    "complete"
+                  ]
+                },
+                "remaining_minutes": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "optimistic": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "likely": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "pessimistic": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "optimistic",
+                        "likely",
+                        "pessimistic"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "finish_at": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "optimistic": {
+                          "type": "string"
+                        },
+                        "likely": {
+                          "type": "string"
+                        },
+                        "pessimistic": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "optimistic",
+                        "likely",
+                        "pessimistic"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "remaining_minutes",
+                "finish_at",
+                "reasons"
+              ],
+              "additionalProperties": false
+            },
+            "global_eta": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "conditional",
+                    "complete"
+                  ]
+                },
+                "remaining_minutes": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "optimistic": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "likely": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "pessimistic": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "optimistic",
+                        "likely",
+                        "pessimistic"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "finish_at": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "optimistic": {
+                          "type": "string"
+                        },
+                        "likely": {
+                          "type": "string"
+                        },
+                        "pessimistic": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "optimistic",
+                        "likely",
+                        "pessimistic"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reasons": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "remaining_minutes",
+                "finish_at",
+                "reasons"
+              ],
+              "additionalProperties": false
+            },
+            "tasks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "duration_minutes": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "optimistic": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "likely": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "pessimistic": {
+                            "type": "number",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "optimistic",
+                          "likely",
+                          "pessimistic"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "remaining_minutes": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "optimistic": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "likely": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "pessimistic": {
+                            "type": "number",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "optimistic",
+                          "likely",
+                          "pessimistic"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "overdue": {
+                    "type": "boolean"
+                  },
+                  "reestimate_needed": {
+                    "type": "boolean"
+                  },
+                  "reasons": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "status",
+                  "duration_minutes",
+                  "remaining_minutes",
+                  "source",
+                  "overdue",
+                  "reestimate_needed",
+                  "reasons"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "assumptions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "schema_version",
+            "as_of",
+            "estimate_revision",
+            "contract_digest",
+            "based_on_state_revision",
+            "status",
+            "tasks_eta",
+            "global_eta",
+            "tasks",
+            "assumptions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "operator_requests": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "absent",
+            "valid",
+            "invalid"
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "journal": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "counts": {
+          "type": "object",
+          "properties": {
+            "open": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "now": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "later": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unscheduled": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "answered": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "withdrawn": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "archived": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "open",
+            "now",
+            "later",
+            "unscheduled",
+            "answered",
+            "withdrawn",
+            "archived"
+          ],
+          "additionalProperties": false
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "to": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "role",
+                      "person"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "label"
+                ],
+                "additionalProperties": false
+              },
+              "kind": {
+                "enum": [
+                  "decision",
+                  "supply",
+                  "action",
+                  "information"
+                ]
+              },
+              "text": {
+                "type": "string"
+              },
+              "task_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "need": {
+                "enum": [
+                  "blocking",
+                  "before-task",
+                  "later"
+                ]
+              },
+              "refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "created_by": {
+                "type": "string"
+              },
+              "status": {
+                "enum": [
+                  "open",
+                  "answered",
+                  "withdrawn"
+                ]
+              },
+              "supersedes": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "answer": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string"
+                      },
+                      "by": {
+                        "type": "string"
+                      },
+                      "at": {
+                        "type": "string"
+                      },
+                      "relayed_by": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "by",
+                      "at",
+                      "relayed_by"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "withdrawal": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string"
+                      },
+                      "by": {
+                        "type": "string"
+                      },
+                      "at": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "reason",
+                      "by",
+                      "at"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "due": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "now",
+                      "later",
+                      "unscheduled"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "task_state": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "closed_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "superseded_by": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "to",
+              "kind",
+              "text",
+              "task_id",
+              "need",
+              "refs",
+              "created_at",
+              "created_by",
+              "status",
+              "supersedes",
+              "answer",
+              "withdrawal",
+              "due",
+              "task_state",
+              "closed_at",
+              "superseded_by"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "reason",
+        "revision",
+        "journal",
+        "counts",
+        "items",
+        "truncated"
+      ],
+      "additionalProperties": false
+    },
+    "next_action": {
+      "type": "string"
+    },
+    "recent_events": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "events_total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "events_truncated": {
+      "type": "boolean"
+    },
+    "assurance": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "board_id",
+    "version",
+    "generated_at",
+    "revision",
+    "accepted",
+    "contract_ready",
+    "contract_digest",
+    "goal",
+    "phase",
+    "counts",
+    "completion",
+    "tasks",
+    "global",
+    "estimates",
+    "next_action",
+    "recent_events",
+    "events_total",
+    "events_truncated",
+    "assurance"
+  ],
+  "additionalProperties": false
+}

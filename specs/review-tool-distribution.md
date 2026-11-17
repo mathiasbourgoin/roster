@@ -177,7 +177,7 @@ QA readiness.
 The lifecycle installer remains bootstrap-fetched and MUST NOT become a consumer-owned bundle
 file. Installed skills and bundled documentation therefore MUST NOT invoke
 `scripts/review-bundle-install.sh` as though it were local. The bundle instead installs the
-zero-dependency `scripts/review-bundle-verify.js` auxiliary tool. It reads the sole sentinel,
+zero-dependency `scripts/review-bundle-verify.cjs` auxiliary tool. It reads the sole sentinel,
 rejects malformed/duplicate/escaping entries and non-regular files, and sha-verifies every
 manifest-owned file without network access. Install, upgrade, and removal remain exclusively in
 the externally fetched bash installer.

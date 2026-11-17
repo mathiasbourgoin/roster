@@ -232,7 +232,8 @@ function buildGateCheckIndex(gateReport) {
 // INV-2: classifies a ledger match into one of three dispositions.
 //   - "reobserved": ledger entry is not RESOLVED (no regression risk — plain
 //     carry-forward noise), OR it IS RESOLVED with a check that the latest
-//     gate report shows red_verified: true on the current tree.
+//     gate report shows red_verified: true with no explicit green failure
+//     or weakened check (a changed check whose current-tree green run failed).
 //   - "reopen": RESOLVED with no linked check at all (can never be verified
 //     -> always a regression, never metadata, per INV-2's explicit rule) OR
 //     RESOLVED with a check the gate report shows as failed/unverified, OR
@@ -249,7 +250,7 @@ function classifyDisposition(ledgerEntry, gateCheckIndex, gateReportProvided) {
   const key = `${ledgerEntry.check}#${ledgerEntry.fid || ledgerEntry.fingerprint || ""}`;
   const checkEntry = gateCheckIndex.get(key);
   if (!checkEntry) return "pending-check";
-  return checkEntry.red_verified === true ? "reobserved" : "reopen";
+  return checkEntry.red_verified === true && checkEntry.greenFailed !== true && checkEntry.weakened !== true ? "reobserved" : "reopen";
 }
 
 // D-1/E-4: separates ledger-matching new findings by disposition. "reobserved"

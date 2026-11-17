@@ -1,0 +1,5191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/mathiasbourgoin/roster/schema/pipeline-observation/v1",
+  "title": "Pipeline observation version 1",
+  "description": "Read-only persisted evidence. Strings <=2000 UTF16 units; summary arrays <=100; catalog pages <=100; history pages <=200; serialized output <=2097152 UTF8 bytes. Canonical conditional required fields and numeric bounds are enforced by the observer and acceptance checks. This schema uses the portable zero-dependency interpreter subset; $id is identity metadata.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kind"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "pipeline-list",
+        "pipeline-task",
+        "pipeline-capabilities",
+        "error"
+      ]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "schema": {
+      "type": "object",
+      "required": [
+        "id",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "root": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "version": {
+      "type": "string"
+    },
+    "coverage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "availability",
+          "authority",
+          "source",
+          "limitations"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "supported",
+              "delegated",
+              "unsupported"
+            ]
+          },
+          "authority": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "limitations": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "data": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "availability": {
+          "type": "string",
+          "enum": [
+            "valid",
+            "absent",
+            "invalid",
+            "unknown"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "task",
+              "ledger",
+              "mode",
+              "latest_completed",
+              "history_total"
+            ],
+            "properties": {
+              "task": {
+                "type": "string"
+              },
+              "ledger": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "availability",
+                  "reason",
+                  "digest",
+                  "value",
+                  "truncated"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "availability": {
+                    "type": "string",
+                    "enum": [
+                      "valid",
+                      "absent",
+                      "invalid",
+                      "unknown"
+                    ]
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "digest": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "mode": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "current_phase": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "latest_completed": {
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "required": [
+                          "phase",
+                          "outcome"
+                        ],
+                        "properties": {
+                          "phase": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "history_total": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "total": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ]
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      },
+                      "round": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "cycle": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "date": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "findings": {
+                        "type": "object",
+                        "required": [
+                          "items",
+                          "total",
+                          "truncated"
+                        ],
+                        "properties": {
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "severity",
+                                "path",
+                                "line",
+                                "summary",
+                                "status",
+                                "specialist"
+                              ],
+                              "properties": {
+                                "severity": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "path": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "line": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "summary": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "status": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "specialist": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "total": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "truncated": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "rounds_audit": {
+                        "type": "object",
+                        "required": [
+                          "items",
+                          "total",
+                          "truncated"
+                        ],
+                        "properties": {
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "round",
+                                "date",
+                                "verdict",
+                                "qualifying",
+                                "causes"
+                              ],
+                              "properties": {
+                                "round": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "date": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "verdict": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "qualifying": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "causes": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "total": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "truncated": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "summary": {
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "required": [
+                          "critical",
+                          "high",
+                          "medium",
+                          "low",
+                          "auto_fixed"
+                        ],
+                        "properties": {
+                          "critical": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "high": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "medium": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "low": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "auto_fixed": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "no_go_reason": {
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "required": [
+                          "type",
+                          "cause",
+                          "failed_acs"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "cause": {
+                            "type": [
+                              "string",
+                              "number",
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "failed_acs": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "cross_runtime": {
+                        "type": "object",
+                        "required": [
+                          "items",
+                          "total",
+                          "truncated"
+                        ],
+                        "properties": {
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "runtime",
+                                "status",
+                                "reason",
+                                "round",
+                                "config_digest"
+                              ],
+                              "properties": {
+                                "runtime": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "status": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "reason": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "round": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                },
+                                "config_digest": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "additionalProperties": false
+                            }
+                          },
+                          "total": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "truncated": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "qa_no_go_round": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "truncated": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "mode": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "latest_completed": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "required": [
+                  "phase",
+                  "outcome"
+                ],
+                "properties": {
+                  "phase": {
+                    "type": "string"
+                  },
+                  "outcome": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "history_total": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "total": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "catalog_fingerprint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unsafe_names_count": {
+          "type": "integer"
+        },
+        "task": {
+          "type": "string"
+        },
+        "components": {
+          "type": "object",
+          "required": [
+            "ledger",
+            "intake",
+            "spec",
+            "plan",
+            "implementation",
+            "review",
+            "qa_state",
+            "qa",
+            "manifest"
+          ],
+          "properties": {
+            "ledger": {
+              "type": "object",
+              "required": [
+                "source",
+                "availability",
+                "reason",
+                "digest",
+                "value",
+                "truncated"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "valid",
+                    "absent",
+                    "invalid",
+                    "unknown"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "digest": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "current_phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latest_completed": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "phase",
+                        "outcome"
+                      ],
+                      "properties": {
+                        "phase": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "history_total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "cycle": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "date": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "findings": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "severity",
+                              "path",
+                              "line",
+                              "summary",
+                              "status",
+                              "specialist"
+                            ],
+                            "properties": {
+                              "severity": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "path": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "line": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "summary": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "specialist": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rounds_audit": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "round",
+                              "date",
+                              "verdict",
+                              "qualifying",
+                              "causes"
+                            ],
+                            "properties": {
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "date": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "verdict": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "qualifying": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "causes": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "summary": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "critical",
+                        "high",
+                        "medium",
+                        "low",
+                        "auto_fixed"
+                      ],
+                      "properties": {
+                        "critical": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "high": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "medium": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "low": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "auto_fixed": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "no_go_reason": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "type",
+                        "cause",
+                        "failed_acs"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "cause": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "failed_acs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "cross_runtime": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "runtime",
+                              "status",
+                              "reason",
+                              "round",
+                              "config_digest"
+                            ],
+                            "properties": {
+                              "runtime": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "config_digest": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "qa_no_go_round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "intake": {
+              "type": "object",
+              "required": [
+                "source",
+                "availability",
+                "reason",
+                "digest",
+                "value",
+                "truncated"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "valid",
+                    "absent",
+                    "invalid",
+                    "unknown"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "digest": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "current_phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latest_completed": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "phase",
+                        "outcome"
+                      ],
+                      "properties": {
+                        "phase": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "history_total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "cycle": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "date": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "findings": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "severity",
+                              "path",
+                              "line",
+                              "summary",
+                              "status",
+                              "specialist"
+                            ],
+                            "properties": {
+                              "severity": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "path": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "line": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "summary": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "specialist": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rounds_audit": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "round",
+                              "date",
+                              "verdict",
+                              "qualifying",
+                              "causes"
+                            ],
+                            "properties": {
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "date": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "verdict": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "qualifying": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "causes": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "summary": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "critical",
+                        "high",
+                        "medium",
+                        "low",
+                        "auto_fixed"
+                      ],
+                      "properties": {
+                        "critical": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "high": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "medium": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "low": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "auto_fixed": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "no_go_reason": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "type",
+                        "cause",
+                        "failed_acs"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "cause": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "failed_acs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "cross_runtime": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "runtime",
+                              "status",
+                              "reason",
+                              "round",
+                              "config_digest"
+                            ],
+                            "properties": {
+                              "runtime": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "config_digest": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "qa_no_go_round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "spec": {
+              "type": "object",
+              "required": [
+                "source",
+                "availability",
+                "reason",
+                "digest",
+                "value",
+                "truncated"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "valid",
+                    "absent",
+                    "invalid",
+                    "unknown"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "digest": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "current_phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latest_completed": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "phase",
+                        "outcome"
+                      ],
+                      "properties": {
+                        "phase": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "history_total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "cycle": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "date": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "findings": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "severity",
+                              "path",
+                              "line",
+                              "summary",
+                              "status",
+                              "specialist"
+                            ],
+                            "properties": {
+                              "severity": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "path": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "line": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "summary": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "specialist": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rounds_audit": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "round",
+                              "date",
+                              "verdict",
+                              "qualifying",
+                              "causes"
+                            ],
+                            "properties": {
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "date": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "verdict": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "qualifying": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "causes": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "summary": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "critical",
+                        "high",
+                        "medium",
+                        "low",
+                        "auto_fixed"
+                      ],
+                      "properties": {
+                        "critical": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "high": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "medium": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "low": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "auto_fixed": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "no_go_reason": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "type",
+                        "cause",
+                        "failed_acs"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "cause": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "failed_acs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "cross_runtime": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "runtime",
+                              "status",
+                              "reason",
+                              "round",
+                              "config_digest"
+                            ],
+                            "properties": {
+                              "runtime": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "config_digest": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "qa_no_go_round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "plan": {
+              "type": "object",
+              "required": [
+                "source",
+                "availability",
+                "reason",
+                "digest",
+                "value",
+                "truncated"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "valid",
+                    "absent",
+                    "invalid",
+                    "unknown"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "digest": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "current_phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latest_completed": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "phase",
+                        "outcome"
+                      ],
+                      "properties": {
+                        "phase": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "history_total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "cycle": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "date": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "findings": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "severity",
+                              "path",
+                              "line",
+                              "summary",
+                              "status",
+                              "specialist"
+                            ],
+                            "properties": {
+                              "severity": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "path": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "line": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "summary": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "specialist": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rounds_audit": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "round",
+                              "date",
+                              "verdict",
+                              "qualifying",
+                              "causes"
+                            ],
+                            "properties": {
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "date": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "verdict": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "qualifying": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "causes": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "summary": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "critical",
+                        "high",
+                        "medium",
+                        "low",
+                        "auto_fixed"
+                      ],
+                      "properties": {
+                        "critical": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "high": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "medium": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "low": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "auto_fixed": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "no_go_reason": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "type",
+                        "cause",
+                        "failed_acs"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "cause": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "failed_acs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "cross_runtime": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "runtime",
+                              "status",
+                              "reason",
+                              "round",
+                              "config_digest"
+                            ],
+                            "properties": {
+                              "runtime": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "config_digest": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "qa_no_go_round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "implementation": {
+              "type": "object",
+              "required": [
+                "source",
+                "availability",
+                "reason",
+                "digest",
+                "value",
+                "truncated"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "valid",
+                    "absent",
+                    "invalid",
+                    "unknown"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "digest": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "current_phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latest_completed": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "phase",
+                        "outcome"
+                      ],
+                      "properties": {
+                        "phase": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "history_total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "cycle": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "date": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "findings": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "severity",
+                              "path",
+                              "line",
+                              "summary",
+                              "status",
+                              "specialist"
+                            ],
+                            "properties": {
+                              "severity": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "path": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "line": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "summary": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "specialist": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rounds_audit": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "round",
+                              "date",
+                              "verdict",
+                              "qualifying",
+                              "causes"
+                            ],
+                            "properties": {
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "date": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "verdict": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "qualifying": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "causes": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "summary": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "critical",
+                        "high",
+                        "medium",
+                        "low",
+                        "auto_fixed"
+                      ],
+                      "properties": {
+                        "critical": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "high": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "medium": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "low": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "auto_fixed": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "no_go_reason": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "type",
+                        "cause",
+                        "failed_acs"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "cause": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "failed_acs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "cross_runtime": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "runtime",
+                              "status",
+                              "reason",
+                              "round",
+                              "config_digest"
+                            ],
+                            "properties": {
+                              "runtime": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "config_digest": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "qa_no_go_round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "review": {
+              "type": "object",
+              "required": [
+                "source",
+                "availability",
+                "reason",
+                "digest",
+                "value",
+                "truncated"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "valid",
+                    "absent",
+                    "invalid",
+                    "unknown"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "digest": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "current_phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latest_completed": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "phase",
+                        "outcome"
+                      ],
+                      "properties": {
+                        "phase": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "history_total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "cycle": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "date": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "findings": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "severity",
+                              "path",
+                              "line",
+                              "summary",
+                              "status",
+                              "specialist"
+                            ],
+                            "properties": {
+                              "severity": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "path": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "line": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "summary": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "specialist": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rounds_audit": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "round",
+                              "date",
+                              "verdict",
+                              "qualifying",
+                              "causes"
+                            ],
+                            "properties": {
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "date": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "verdict": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "qualifying": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "causes": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "summary": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "critical",
+                        "high",
+                        "medium",
+                        "low",
+                        "auto_fixed"
+                      ],
+                      "properties": {
+                        "critical": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "high": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "medium": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "low": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "auto_fixed": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "no_go_reason": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "type",
+                        "cause",
+                        "failed_acs"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "cause": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "failed_acs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "cross_runtime": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "runtime",
+                              "status",
+                              "reason",
+                              "round",
+                              "config_digest"
+                            ],
+                            "properties": {
+                              "runtime": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "config_digest": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "qa_no_go_round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "qa_state": {
+              "type": "object",
+              "required": [
+                "source",
+                "availability",
+                "reason",
+                "digest",
+                "value",
+                "truncated"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "valid",
+                    "absent",
+                    "invalid",
+                    "unknown"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "digest": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "current_phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latest_completed": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "phase",
+                        "outcome"
+                      ],
+                      "properties": {
+                        "phase": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "history_total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "cycle": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "date": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "findings": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "severity",
+                              "path",
+                              "line",
+                              "summary",
+                              "status",
+                              "specialist"
+                            ],
+                            "properties": {
+                              "severity": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "path": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "line": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "summary": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "specialist": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rounds_audit": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "round",
+                              "date",
+                              "verdict",
+                              "qualifying",
+                              "causes"
+                            ],
+                            "properties": {
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "date": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "verdict": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "qualifying": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "causes": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "summary": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "critical",
+                        "high",
+                        "medium",
+                        "low",
+                        "auto_fixed"
+                      ],
+                      "properties": {
+                        "critical": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "high": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "medium": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "low": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "auto_fixed": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "no_go_reason": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "type",
+                        "cause",
+                        "failed_acs"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "cause": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "failed_acs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "cross_runtime": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "runtime",
+                              "status",
+                              "reason",
+                              "round",
+                              "config_digest"
+                            ],
+                            "properties": {
+                              "runtime": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "config_digest": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "qa_no_go_round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "qa": {
+              "type": "object",
+              "required": [
+                "source",
+                "availability",
+                "reason",
+                "digest",
+                "value",
+                "truncated"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "valid",
+                    "absent",
+                    "invalid",
+                    "unknown"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "digest": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "current_phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latest_completed": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "phase",
+                        "outcome"
+                      ],
+                      "properties": {
+                        "phase": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "history_total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "cycle": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "date": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "findings": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "severity",
+                              "path",
+                              "line",
+                              "summary",
+                              "status",
+                              "specialist"
+                            ],
+                            "properties": {
+                              "severity": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "path": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "line": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "summary": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "specialist": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rounds_audit": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "round",
+                              "date",
+                              "verdict",
+                              "qualifying",
+                              "causes"
+                            ],
+                            "properties": {
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "date": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "verdict": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "qualifying": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "causes": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "summary": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "critical",
+                        "high",
+                        "medium",
+                        "low",
+                        "auto_fixed"
+                      ],
+                      "properties": {
+                        "critical": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "high": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "medium": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "low": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "auto_fixed": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "no_go_reason": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "type",
+                        "cause",
+                        "failed_acs"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "cause": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "failed_acs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "cross_runtime": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "runtime",
+                              "status",
+                              "reason",
+                              "round",
+                              "config_digest"
+                            ],
+                            "properties": {
+                              "runtime": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "config_digest": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "qa_no_go_round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "manifest": {
+              "type": "object",
+              "required": [
+                "source",
+                "availability",
+                "reason",
+                "digest",
+                "value",
+                "truncated"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "availability": {
+                  "type": "string",
+                  "enum": [
+                    "valid",
+                    "absent",
+                    "invalid",
+                    "unknown"
+                  ]
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "digest": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "current_phase": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "latest_completed": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "phase",
+                        "outcome"
+                      ],
+                      "properties": {
+                        "phase": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "history_total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "total": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "truncated": {
+                      "type": "boolean"
+                    },
+                    "round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "cycle": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "date": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "findings": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "severity",
+                              "path",
+                              "line",
+                              "summary",
+                              "status",
+                              "specialist"
+                            ],
+                            "properties": {
+                              "severity": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "path": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "line": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "summary": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "specialist": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "rounds_audit": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "round",
+                              "date",
+                              "verdict",
+                              "qualifying",
+                              "causes"
+                            ],
+                            "properties": {
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "date": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "verdict": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "qualifying": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "causes": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "summary": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "critical",
+                        "high",
+                        "medium",
+                        "low",
+                        "auto_fixed"
+                      ],
+                      "properties": {
+                        "critical": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "high": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "medium": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "low": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "auto_fixed": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "no_go_reason": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "required": [
+                        "type",
+                        "cause",
+                        "failed_acs"
+                      ],
+                      "properties": {
+                        "type": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "cause": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "failed_acs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "cross_runtime": {
+                      "type": "object",
+                      "required": [
+                        "items",
+                        "total",
+                        "truncated"
+                      ],
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "runtime",
+                              "status",
+                              "reason",
+                              "round",
+                              "config_digest"
+                            ],
+                            "properties": {
+                              "runtime": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "reason": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "round": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              },
+                              "config_digest": {
+                                "type": [
+                                  "string",
+                                  "number",
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "qa_no_go_round": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "truncated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "history": {
+          "type": "object",
+          "required": [
+            "items",
+            "total",
+            "next_cursor",
+            "truncated"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "source_index",
+                  "phase",
+                  "outcome",
+                  "reason",
+                  "reason_truncated",
+                  "actor",
+                  "time"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "source_index": {
+                    "type": "integer"
+                  },
+                  "phase": {
+                    "type": "string"
+                  },
+                  "outcome": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "reason_truncated": {
+                    "type": "boolean"
+                  },
+                  "actor": {
+                    "type": "object",
+                    "required": [
+                      "availability",
+                      "value",
+                      "truncated"
+                    ],
+                    "properties": {
+                      "availability": {
+                        "type": "string",
+                        "enum": [
+                          "valid",
+                          "unknown"
+                        ]
+                      },
+                      "value": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "truncated": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "time": {
+                    "type": "object",
+                    "required": [
+                      "availability",
+                      "value"
+                    ],
+                    "properties": {
+                      "availability": {
+                        "type": "string",
+                        "enum": [
+                          "valid",
+                          "unknown"
+                        ]
+                      },
+                      "value": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "total": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "next_cursor": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "mode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "latest_completed": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "phase",
+            "outcome"
+          ],
+          "properties": {
+            "phase": {
+              "type": "string"
+            },
+            "outcome": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "verdict_disagreement": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "coverage_version": {
+          "type": "integer",
+          "enum": [
+            1
+          ]
+        },
+        "limits": {
+          "type": "object",
+          "required": [
+            "source_bytes",
+            "output_bytes",
+            "scan_entries",
+            "string_units",
+            "summary_items",
+            "catalog_default",
+            "catalog_max",
+            "history_default",
+            "history_max",
+            "cursor_units"
+          ],
+          "properties": {
+            "source_bytes": {
+              "type": "integer"
+            },
+            "output_bytes": {
+              "type": "integer"
+            },
+            "scan_entries": {
+              "type": "integer"
+            },
+            "string_units": {
+              "type": "integer"
+            },
+            "summary_items": {
+              "type": "integer"
+            },
+            "catalog_default": {
+              "type": "integer"
+            },
+            "catalog_max": {
+              "type": "integer"
+            },
+            "history_default": {
+              "type": "integer"
+            },
+            "history_max": {
+              "type": "integer"
+            },
+            "cursor_units": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "invalid-request",
+            "invalid-cursor",
+            "stale-cursor",
+            "unsupported-version",
+            "runtime-resource",
+            "output-limit"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
