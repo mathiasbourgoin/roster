@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "bundle_version": "1.11.1",
-  "channel": "next",
-  "source_ref": "next",
+  "channel": "stable",
+  "source_ref": "main",
   "files": [
     {
       "path": "schema/qa-state.schema.json",

@@ -1,116 +1,83 @@
 # Changes
 
-## Unreleased — next 3.0.0-dev
+## v3.0.0 — Roadmaps, Express Lite, local telemetry and pipeline observation
 
-Development channel only; no `v3.0.0-dev` release tag is created by this version stamp. These
-changes are additional to the `main` roadmap feature and are not part of the `v2.7.0` tag.
-`VERSION` identifies the channel's development line; it does not establish a stable release.
+Released 2026-11-17 from `main`. This version also carries everything that was prepared as
+2.8.0 on `main` (multi-intake roadmaps and portable consumer tooling): no `v2.8.0` tag was
+ever created, and its notes are folded into this section. The npm tooling remains on its
+independent 1.x version track (see `CHANGELOG.md`).
 
 ### Added
 
-- Optional Roster commit attribution: `/roster-telemetry` and runtime 1.1.0 support
-  `--attribution off|append|require` for the canonical `Developed-with: Roster` trailer.
-  Default off; credit works without metrics collection or a report, preserves unrelated
-  credits/co-authors, and is idempotent across amends. Existing consumers must update their
-  runtime and explicitly enable attribution in each worktree.
-- `roster-pipeline` provides a version 1 read-only JSON catalog and detail view for standalone
-  pipeline tasks, with bounded source/history/report projections, content fingerprints,
-  explicit unsupported coverage, and a self-contained installed ESM runtime. It preserves
-  canonical ledger validity and never infers live execution, session/attempt identity or
-  historical report completeness. See [pipeline observation](docs/pipeline-observation.md).
-
-- Review-tool bundle 1.11.1 rejects malformed assertion parameters in its existing
-  zero-dependency schema interpreter. Valid supported schemas retain their behavior;
-  boolean `additionalProperties: false` is enforced even without other object keywords.
-
-- `/roster-roadmap` 1.4.0 records derived correction missions: a blocked review receipt may
-  blame a direct dependency (`blames`), and `derive` creates `<parent>-fix-<n>` in
-  `state.derived` with its own topology, claims, receipts and budget. The implementation stays
-  `done`; no agent already seen on the review's family (implementers of blamed dependencies,
-  failed reviewer, earlier fixers) may claim a correction or the next attempt of any task one of
-  whose dependencies has a correction (the family holds every correction of those dependencies,
-  whichever review caused it, and, for the claim of a correction, every contract task that
-  depends on its parent: an agent of another dependent such as `qa` cannot claim a correction of
-  `impl` caused by `review`). Owner decision OD-5 of 13 November 2026, frozen until the
-  correction: a dependency with an open correction (queued, active, or blocked with attempts
-  left) is unmet for every task that depends on it, which cannot be claimed
-  (`waiting for dependencies: <dep> (open correction <fix id>)`) nor, if already active, record a
-  `done` receipt until the correction is done; a `blocked` receipt stays allowed. The
-  fresh-context rule is checked again when a `done` receipt is recorded, and replay applies these
-  checks. The freeze starts at `derive`, not at the blaming receipt; an attempt of a dependent
-  started before the correction may record `done` after it, if its agent is fresh; an exhausted
-  correction does not freeze dependents. The
-  review's `release` is refused, with no exception, until every dependency its latest receipt
-  blames has a done correction, then it is requeued automatically. An exhausted correction allows
-  a new one for the same receipt, up to the parent's `max_attempts` corrections that were not
-  withdrawn per receipt and dependency, and withdrawals have their own equal cap (at most 2 x
-  parent `max_attempts` corrections per receipt and dependency); `withdraw-derived` retires a
-  queued correction that was
-  never claimed; for a correction, `record` accepts a `blocked` receipt after `capabilities.json`
-  changed, the exit for a last attempt whose agent is gone; `derive`
-  refuses an unclaimable topology and a family holding a claim without `assignment` whose attempt
-  was released without a receipt. `next_action` and the `release` refusal say
-  `no correction can be derived for <dependency>: <reason>` when `derive` would be refused; for a
-  pending correction `next_action` names only the gesture the tool accepts in its state, an
-  exhausted correction refers to the `next_action` of its review, and the `release` refusal
-  promises the automatic requeue only when a gap can still be closed. The
-  `derive` event carries a SHA-256 `definition_digest` recomputed on replay, which detects
-  accidental edits, not a deliberate rewrite of `state.json`. Replay verifies derive
-  events and the new claim-event `assignment`; `view` adds `kind`, `derived`, `corrections` and a
-  per-attempt `timeline`; `status --format text` counts contract tasks and corrections apart and
-  lists the attempts of a correction or of a failed or retried mission. Owner decisions D1 and, on 13 November 2026, OD-1 fresh context, OD-2 verified
-  digest, OD-3 requeue, OD-4 fresh context over the review's family and OD-5 freeze of dependents
-  until the correction (with known limitations A to D, see the schema); the other points are deduced, to be confirmed. Labels stay unauthenticated.
-  See the migration notes below.
-- `/roster-roadmap` 1.3.0 records what the coordinator waits for from the human operator in the
-  advisory annex `requests.json` (`request-open`, `request-answer`, `request-withdraw`,
-  `request-journal`), shown in `view`, `status --format text` and `prompt`. Requests are
-  signals, never a refusal of `claim`; no secret may be stored in them.
-- `/roster-roadmap` 1.2.0 assists specification and coherence across multiple intakes,
-  selects capability-based agent topology, and coordinates persistent execution without CWR.
-- The portable `roster-roadmap` toolkit maintains contracts, assignments, checked local
-  receipts, bounded prompts and separate global acceptance. Init/sync distribute it
-  into `.harness/bin/`; existing child-intake gates remain authoritative.
-- Runtime-neutral missions cover Codex, Claude, OpenCode and Pi, with native delegation
-  and authorized multisession when available. This does not restore the removed Pi
-  installer or promise unattended execution after process exit.
-- Manual `roster-usage.cjs report` reads existing aggregate observations across projects
-  and runtimes, with unknown/overlapping coverage kept explicit. It installs no collectors,
-  hooks, reminders or messaging.
-- Recovery requires diagnosis and a source-bound changed-strategy record after three
-  consecutive roadmap-task or same-phase review/QA failures. Reframes preserve original
-  evidence and consumed bounds; review's two-strike rule and both five-round caps remain
-  separate. Old workers still require explicit reconciliation before retry.
-- Roadmap `view` and text status expose current assignments, failure reasons, accepted
-  receipt evidence and clearly labeled worker-reported progress. Planner duration ranges
-  and remaining estimates yield conditional task/global ETAs when evidence permits;
-  missing estimates, blockers and overruns remain visible. Only separate global acceptance
-  establishes the completed outcome.
+- **Multi-intake roadmaps** (#96): `/roster-roadmap` (now 1.4.0) specifies task dependencies,
+  definitions of done, success/failure/recovery conditions and a separately checked global
+  acceptance; a dependency graph passing lint is not proof of semantic coherence. The
+  dependency-free `roster-roadmap` toolkit keeps accepted contracts, assignments, checked
+  local receipts and bounded continuation prompts; child-intake review/QA gates remain
+  authoritative. Init/sync install the toolkit. Topology is capability-based (sequential,
+  native subagents, parallel, authorized multisession, supported workflows) and
+  runtime-neutral for Codex, Claude, OpenCode and Pi, without restoring a Pi installer.
+  - Model routing (#99): roadmap, plan, implement and planner share an on-demand policy
+    for the least costly capable model, with explicit rationale and bounded escalation. It is
+    guidance, not an automatic model switcher.
+  - Monitoring: `view` and text status show assignments, failure reasons, accepted
+    receipt evidence, labeled worker-reported progress and planner duration ranges with
+    conditional ETAs.
+  - 1.3.0: operator requests. The advisory annex `requests.json` records what the coordinator
+    waits for from the operator (`request-open`, `request-answer`, `request-withdraw`,
+    `request-journal`); requests never block `claim`, and no secret may be stored in them.
+  - 1.4.0: derived correction missions. A blocked review receipt may blame a direct
+    dependency; `derive` creates a `<parent>-fix-<n>` mission with its own claims, receipts
+    and budget, under fresh-context and dependent-freeze rules, `withdraw-derived`, and a
+    replay-verified `definition_digest`. See `schema/roadmap-schema.md` and the migration
+    notes below.
+- **Recovery after three failures**: three consecutive roadmap-task or same-phase review/QA
+  failures require a diagnosis and a source-bound changed-strategy record. Original evidence
+  and consumed bounds are preserved; review's two-strike rule and five-round caps are separate.
 - **Express Lite** (#87, #89): local implementation/review for demonstrably non-behavioral
-  descriptive docs, formatting or private renames. Skill/agent/rule/hook changes and ambiguous,
-  API, dependency-version or security work are excluded. Relevant checks remain required;
-  final ineligibility preserves the Lite ledger and restarts work as a new Fast/Full task.
-  Reports record check duration and avoided phases/delegations; these counters are not a
-  measured token or monetary saving.
+  descriptive docs, formatting or private renames. Skill/agent/rule/hook changes and
+  ambiguous, API, dependency-version or security work are excluded; ineligibility restarts the
+  work as a new Fast/Full task. Reports record check durations and avoided phases; these are
+  not measured token or monetary savings.
 - **Local commit telemetry** (#98): `/roster-telemetry` 1.0.1 and runtime 1.0.2 configure
   elapsed time, tokens, actual participating roles, pipeline mode and formal-verification
-  context. Init/full doctor install compatible local hooks by default; collection is
-  configurable and can be disabled, with no network transmission or global Git changes.
-  Custom hooks and explicit disable choices are preserved. Measurements may be unknown;
-  reports are agent assertions, not provider-authenticated usage receipts. Advisory policy
-  permits missing measurements; strict policy refuses missing enabled requirements.
+  context. Init/full doctor install compatible local hooks by default; collection can be
+  disabled, nothing is sent over the network and global Git config is not changed. Custom
+  hooks and explicit disable choices are preserved. Reports are agent assertions, not
+  provider-authenticated receipts; advisory policy tolerates missing measurements, strict
+  policy refuses them.
+- **Optional commit attribution**: `/roster-telemetry` and runtime 1.1.0 support
+  `--attribution off|append|require` for the canonical `Developed-with: Roster` trailer.
+  Default off; works without metrics, preserves unrelated credits and co-authors, idempotent
+  across amends. Existing consumers must update their runtime and enable it per worktree.
+- **Standalone pipeline observation**: `roster-pipeline` gives a version 1 read-only JSON
+  catalog and detail view of standalone pipeline tasks, with bounded source/history/report
+  projections, content fingerprints and explicit unsupported coverage. It never infers live
+  execution, session identity or report completeness. See
+  [pipeline observation](docs/pipeline-observation.md).
+- **Manual usage reports**: `roster-usage.cjs report` reads existing aggregate observations
+  across projects and runtimes, keeping unknown/overlapping coverage explicit; no collectors,
+  hooks or reminders are installed.
+- **Review-tool bundle 1.11.1**: its zero-dependency schema interpreter rejects malformed
+  assertion parameters and enforces boolean `additionalProperties: false`.
 
 ### Changed
 
-- **Model routing** (#99): roadmap 1.1.0, plan 1.6.0, implement 1.13.0 and planner 1.3.0 share
-  an on-demand policy for the least costly available capable model. Relative economy,
-  standard and strong tiers require explicit rationale, honest cost/identity unknowns and
-  diagnosis before bounded escalation. Child briefs carry compact decisions, preserving
-  owner model choices, independent verification, accepted contracts and attempt budgets.
-  This adds instructions and reporting, not an automatic model switcher or proven savings.
-- **Focused Fast checks** (#88): baseline/final complete gates, independent review and QA
-  remain; edits between them use the narrowest declared checks. A post-verification edit
-  invalidates the final evidence rather than silently reusing it.
+- **Model routing** (#99): roadmap, plan, implement and planner share one cost/capability
+  policy; child briefs carry compact decisions that preserve owner model choices, independent
+  verification, accepted contracts and attempt budgets.
+- **Focused Fast checks** (#88): baseline and final complete gates, independent review and QA
+  remain; edits in between use the narrowest declared checks, and a post-verification edit
+  invalidates the final evidence instead of silently reusing it.
+- Bundle `source_ref`/channel metadata for this release is `main`/`stable`.
+
+### Breaking
+
+None. No skill, command, flag or installed file is removed or renamed, and the portable
+`.cjs` review tools are added beside the existing `.js` ones. Two compatibility points are
+documented in the migration notes: roadmap boards written by this version are not readable by
+an older roadmap runtime, and init/full doctor now install local telemetry hooks by default
+(disable with `configure --enabled false`). The Pi runtime removal shipped in 2.7.0.
 
 ### Fixed
 
@@ -130,6 +97,17 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
   identity, process-bound receipts, encoding fallback and telemetry-free branch behavior are
   checked without claiming provider authentication. `express-lite` is accepted as its actual
   ledger mode under both advisory and strict policies.
+- **Installed tools in ESM projects** (#86): explicit CommonJS boundaries preserve neighboring
+  module semantics; bundle removal retains shared consumer scope; extension help succeeds on
+  stdout and installed shadow instructions include their friction-log reference.
+- **Research evidence boundaries** (#85): unsupported `arch-index` reachability degrades
+  instead of producing a false passing result.
+- **Claims projection freshness** (#90): generated projections use a single trailing newline,
+  keeping freshness and Git whitespace checks consistent.
+- **Large alternate-runtime output** (#95): review capture is bounded at 64 MiB; overflow is
+  reported as `output-overflow` rather than misclassified as a spawn failure.
+- **Approved source during updates**: harness updates retain the approved source revision
+  throughout.
 
 ### Migration notes
 
@@ -167,47 +145,6 @@ changes are additional to the `main` roadmap feature and are not part of the `v2
   `capabilities.json` to its content at the claim (the blocked-receipt exception is for
   corrections only).
 
-## Main updates since v2.7.0
-
-The `main` 2.8.0 release candidate documents multi-intake roadmaps (#96), ESM consumer/tool
-compatibility (#86), truthful code-intel degradation (#85), projection newline consistency
-(#90) and bounded large-output review capture (#95). This is a channel comparison, not a
-claim that every main-only fix has been backported into `next`.
-
-## v2.8.0 — Multi-intake roadmaps and portable consumer tooling
-
-Release preparation: 2026-11-12. This section describes the `main` candidate; preparing
-these notes does not create a Git tag or a GitHub release. The npm tooling remains on its
-independent 1.x version track.
-
-### Added
-
-- **Multi-intake roadmaps** (#96): `/roster-roadmap` 1.0.0 helps specify task dependencies,
-  definitions of done, success/failure/recovery conditions and separately checked global
-  acceptance. A dependency graph passing lint is not proof of semantic coherence.
-- **Persistent execution resources**: the dependency-free `roster-roadmap` toolkit maintains
-  accepted contracts, assignments, local receipts and bounded continuation prompts. The
-  coordinator continues admissible work toward the global goal; child-intake review/QA gates
-  remain authoritative. Init/sync install the toolkit and its references in consumers.
-- **Capability-based topology**: sequential execution, native subagents, compatible parallel
-  work, authorized multisession and supported workflows. Runtime-neutral missions cover
-  Codex, Claude, OpenCode and Pi without CWR. This does not restore a Pi installer, grant tool
-  permissions or keep a terminated process running.
-
-### Fixed
-
-- **Channel-aware update checks**: follow the installed stable/next marker, recognize
-  development suffixes on next and retain the selected channel during upgrade/changelog
-  retrieval. Explicit branch pins are not silently switched to a release channel.
-- **Installed tools in ESM projects** (#86): explicit CommonJS boundaries preserve neighboring
-  module semantics; bundle removal retains shared consumer scope. Extension help succeeds on
-  stdout, and installed shadow instructions include their friction-log reference.
-- **Research evidence boundaries** (#85): unsupported `arch-index` reachability degrades
-  instead of producing a false passing result.
-- **Claims projection freshness** (#90): generated projections use a single trailing newline,
-  keeping freshness checks and Git whitespace checks consistent.
-- **Large alternate-runtime output** (#95): review capture is bounded at 64 MiB; overflow is
-  reported explicitly rather than misclassified as a generic spawn failure.
 
 ## v2.7.0 — Code-Intel Packs, Review-Bundle Distribution, Convergence Hardening
 

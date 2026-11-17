@@ -5,22 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [3.0.0-dev] — unreleased next line
+## [3.0.0] — 2026-11-17
 
-- Stamp the `next` development line separately from the `main` 2.8.0 release candidate;
-  this entry does not assert a stable release or create a tag.
-- Upgrade notes cover Express Lite, model-routing resources, local telemetry configuration
-  roadmap monitoring with duration/ETA revisions, explicit manual usage, three-failure recovery
-  and preservation of consumer overrides. Product details are in root `CHANGES.md`.
-
----
-
-## [2.8.0] — release preparation, 2026-11-12
-
-- Synchronize recruiter, installer fallback, plugin and harness metadata for the `main`
-  release candidate. No tag/publication is created by this change.
-- Surface full harness/skill/tool upgrade notes and the roadmap's installer limitations.
-- Root `CHANGES.md` covers the product changes. The npm tooling version remains independent.
+- Stamp the recruiter, installer fallback, plugin and harness metadata as 3.0.0. The content
+  prepared as 2.8.0 on `main` (never tagged) is included in this release.
+- Update notes cover multi-intake roadmaps, Express Lite, model-routing resources, local
+  telemetry with optional attribution, roadmap monitoring and derived correction missions,
+  manual usage reports, three-failure recovery, pipeline observation and preservation of
+  consumer overrides. Product details are in root `CHANGES.md` (v3.0.0).
+- The npm tooling version remains independent.
 
 ---
 
