@@ -55,8 +55,9 @@ function validateTopology(topology, label, allowEscalation = false) {
   for (const name of ["role", "persona", "model"]) text(topology[name], `${label}.${name}`);
   validateRoutes(topology, label);
 }
-function validateWorkflowRoute(topology, workflow) {
-  if (topology.route === "workflow" && (workflow.recommendation !== "accepted" || !workflow.steps.length)) fail("workflow route needs accepted nonempty workflow steps");
+function validateWorkflowRoute(topology, workflow, includeFallbacks = false) {
+  const usesWorkflow = topology.route === "workflow" || (includeFallbacks && topology.fallbacks.includes("workflow"));
+  if (usesWorkflow && (workflow.recommendation !== "accepted" || !workflow.steps.length)) fail("workflow route needs accepted nonempty workflow steps");
 }
 function validateEscalation(task) {
   const { escalation, model, role } = task.topology;
@@ -72,7 +73,7 @@ function validateEscalation(task) {
     if (roles.has(specialist.role)) fail("escalation repeats a specialist role");
     roles.add(specialist.role);
     strings(specialist.models, "specialist.models", true);
-    validateRoutes(specialist, "specialist"); validateWorkflowRoute(specialist, task.workflow);
+    validateRoutes(specialist, "specialist"); validateWorkflowRoute(specialist, task.workflow, true);
     keys(specialist.after, ["blocked_attempts", "same_failure_attempts"], "specialist.after");
     const triggers = Object.keys(specialist.after);
     if (triggers.length !== 1) fail("specialist needs exactly one failure trigger");

@@ -407,10 +407,11 @@ function validateEventPayloads(event) {
   }
   if (event.assignment === undefined) return;
   if (event.action !== "claim") fail("state event assignment is allowed only on claim events");
-  exact(event.assignment, ["id", "assignee", "runtime", "route", "model"], "claim event assignment");
+  keys(event.assignment, ["id", "assignee", "runtime", "route", "model", "specialist_level"], "claim event assignment");
   text(event.assignment.id, "claim event attempt id"); identifier(event.assignment.assignee, "claim event assignee");
   v.oneOf(event.assignment.runtime, v.RUNTIMES, "claim event runtime"); v.oneOf(event.assignment.route, v.ROUTES, "claim event route");
   text(event.assignment.model, "claim event model");
+  if (event.assignment.specialist_level !== undefined) v.integer(event.assignment.specialist_level, "claim event specialist level");
 }
 // View/prompt block of a derived mission: {parent, cause, created_at}; null for a contract task.
 function derivedBlock(ctx, task) {
@@ -419,7 +420,9 @@ function derivedBlock(ctx, task) {
   return { parent: task.derived.parent, cause: task.derived.cause, created_at: event?.at || null };
 }
 function claimPayload(assignment, task) {
-  return { id: assignment.id, assignee: assignment.assignee, runtime: assignment.runtime, route: assignment.route, model: assignment.requested_model ?? task.topology.model };
+  return { id: assignment.id, assignee: assignment.assignee, runtime: assignment.runtime, route: assignment.route,
+    model: assignment.requested_model ?? task.topology.model,
+    ...(assignment.specialist_level !== undefined && { specialist_level: assignment.specialist_level }) };
 }
 // Extra keys of a new state event: the claim payload, or the derive definition digest.
 function eventPayload(ctx, command, result) {

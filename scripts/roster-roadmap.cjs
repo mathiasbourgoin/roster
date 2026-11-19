@@ -87,13 +87,14 @@ function overlaps(a, b) {
   return a === b || a.endsWith("/") && b.startsWith(a) || b.endsWith("/") && a.startsWith(b);
 }
 function canClaimBasic(ctx, task, level) {
-  const state = ctx.state.tasks[task.id], active = missions(ctx).filter(t => ctx.state.tasks[t.id].status === "active");
+  const state = ctx.state.tasks[task.id];
   if (state.status !== "queued") return `task is ${state.status}`;
   if (state.attempts >= task.policy.max_attempts) return "attempt budget exhausted";
   // OD-5: a dependency with an open correction is unmet for every task that depends on it.
   const unmet = [...task.depends_on.filter(id => ctx.state.tasks[id].status !== "done"), ...derived.frozenDependencies(task, ctx.state.tasks, derived.entries(ctx))];
   if (unmet.length) return `waiting for dependencies: ${unmet.join(", ")}`;
   if (!routeFor(ctx, task, level)) return "requested route unsupported or unauthorized; no permitted fallback";
+  const active = missions(ctx).filter(t => ctx.state.tasks[t.id].status === "active");
   if (active.length >= ctx.contract.execution.max_active) return "active mission limit reached";
   if (active.length) {
     if (!capability(ctx, task.topology.runtime, "parallel") || active.some(t => !capability(ctx, t.topology.runtime, "parallel"))) return "concurrent claims require authorized parallel capability on all involved runtimes";
@@ -101,25 +102,36 @@ function canClaimBasic(ctx, task, level) {
   }
   return null;
 }
-function canClaim(ctx, task, level) {
-  const reason = canClaimBasic(ctx, task, level); if (reason) return reason;
+function recoveryBlocker(ctx, task) {
   try { if (require("./roster-recovery.cjs").inspectBoard(ctx, task.id).reframe_needed) return "three consecutive failures require a diagnosed reframe before another attempt"; }
   catch { return "recovery evidence is invalid; reconcile this mission before retrying"; }
   return null;
 }
-function routingProgress(ctx, task) {
-  const routing = ctx.routing.get(task.id);
-  if (!routing) return null;
-  const current = ctx.state.tasks[task.id], topology = topologyAt(task, routing.level);
-  const next = current.status !== "done" && nextSpecialist(task, routing);
-  const nextLevel = routing.level + 1;
-  return {
-    ...routing, role: topology.role, persona: topology.persona, models: modelsAt(task, routing.level),
-    next_specialist: next ? {
+function canClaim(ctx, task, level) {
+  return canClaimBasic(ctx, task, level) || recoveryBlocker(ctx, task);
+}
+function claimOptions(ctx, task) {
+  const current = ctx.state.tasks[task.id], routing = ctx.routing?.get(task.id);
+  const currentBlocker = canClaimBasic(ctx, task);
+  const next = routing && current.status !== "done" && nextSpecialist(task, routing);
+  let specialist = null;
+  if (next) {
+    const nextLevel = routing.level + 1;
+    specialist = {
       level: nextLevel, role: next.role, persona: next.persona, models: next.models, after: next.after,
       route: routeFor(ctx, task, nextLevel),
-      claim_blocker: current.attempts >= task.policy.max_attempts ? "attempt budget exhausted" : canClaim(ctx, task, nextLevel),
-    } : null,
+      claim_blocker: current.attempts >= task.policy.max_attempts ? "attempt budget exhausted" : canClaimBasic(ctx, task, nextLevel),
+    };
+  }
+  return { currentBlocker, specialist, blocker: specialist && !specialist.claim_blocker ? null : currentBlocker };
+}
+function routingProgress(ctx, task, specialist) {
+  const routing = ctx.routing.get(task.id);
+  if (!routing) return null;
+  const topology = topologyAt(task, routing.level);
+  return {
+    ...routing, role: topology.role, persona: topology.persona, models: modelsAt(task, routing.level),
+    next_specialist: specialist && { ...specialist, claim_blocker: specialist.claim_blocker || recoveryBlocker(ctx, task) },
   };
 }
 function next(ctx) {
@@ -127,13 +139,13 @@ function next(ctx) {
   if (ctx.state.global_receipt) return { status: "complete", next_action: "Report the globally verified outcome; do not create more work." };
   const active = missions(ctx).filter(t => ctx.state.tasks[t.id].status === "active").map(t => ({ id: t.id, ...ctx.state.tasks[t.id].assignment }));
   for (const task of missions(ctx)) {
-    const currentRouteReady = !canClaim(ctx, task);
-    const routing = routingProgress(ctx, task), candidate = routing?.next_specialist;
-    if (!currentRouteReady && (!candidate || candidate.claim_blocker)) continue;
-    const nextAction = candidate && !candidate.claim_blocker
+    const { currentBlocker, specialist, blocker } = claimOptions(ctx, task);
+    if (blocker || recoveryBlocker(ctx, task)) continue;
+    const routing = routingProgress(ctx, task, specialist);
+    const nextAction = specialist && !specialist.claim_blocker
       ? `Inspect the eligible specialist for ${task.id}; explicitly select it when the diagnosis and authorized native tools support escalation.`
       : `Claim ${task.id}, execute using authorized native tools, verify and record its receipt, then continue.`;
-    return { status: "ready", task, route: currentRouteReady ? routeFor(ctx, task) : null, active,
+    return { status: "ready", task, route: currentBlocker ? null : routeFor(ctx, task), active,
       ...(routing && { routing }), next_action: nextAction };
   }
   if (active.length) return { status: "active", active, next_action: "Continue or collect the active missions. Reconcile interrupted work explicitly before reassignment." };
@@ -143,6 +155,8 @@ function next(ctx) {
 function taskProgress(ctx, task) {
   const current = ctx.state.tasks[task.id], exhausted = !["active", "done", "withdrawn"].includes(current.status) && current.attempts >= task.policy.max_attempts;
   const advice = derived.liveAdvice(ctx, task.id), activeAdvice = derived.activeAdvice(ctx, task, current);
+  const { currentBlocker, specialist, blocker } = claimOptions(ctx, task);
+  const queuedBlocker = current.status === "queued" ? blocker || recoveryBlocker(ctx, task) : null;
   let nextAction;
   if (exhausted) nextAction = derived.exhaustedAdvice(ctx, task) || "Attempt budget exhausted: preserve failure evidence and request an explicit revised-roadmap decision before further attempts.";
   else if (advice) nextAction = `Release is refused until every blamed dependency has a done correction: ${advice}.`;
@@ -151,9 +165,9 @@ function taskProgress(ctx, task) {
   else if (activeAdvice) nextAction = activeAdvice;
   else if (current.status === "active") nextAction = "Continue the owned attempt or explicitly reconcile inspected interrupted work.";
   else if (current.status === "done") nextAction = "Keep the accepted receipt and continue toward the global outcome.";
-  else nextAction = canClaim(ctx, task) || "Claim the mission using the current revision.";
-  const routing = routingProgress(ctx, task);
-  return { id: task.id, status: current.status, attempts: current.attempts, max_attempts: task.policy.max_attempts, exhausted, reason: current.reason || (current.status === "queued" ? canClaim(ctx, task) : null), recovery: task.policy.recovery, failure: task.policy.failure,
+  else nextAction = queuedBlocker || (currentBlocker ? "Select the eligible specialist before claiming this mission." : "Claim the mission using the current revision.");
+  const routing = routingProgress(ctx, task, specialist);
+  return { id: task.id, status: current.status, attempts: current.attempts, max_attempts: task.policy.max_attempts, exhausted, reason: current.reason || queuedBlocker, recovery: task.policy.recovery, failure: task.policy.failure,
     ...(routing && { routing }), next_action: nextAction };
 }
 function status(ctx) {
@@ -316,7 +330,7 @@ function readBoard(board, draft = false) {
   if (ctx.state.acceptance) requireAccepted(ctx);
   return ctx;
 }
-module.exports = { main, validateContract, validateCapabilities, hash, readBoard, canClaimBasic, taskById, viewSupport: { status, next, routeFor, routeAvailable, taskProgress }, io: { readJSON, atomicWrite, safeAncestors } };
+module.exports = { main, validateContract, validateCapabilities, hash, readBoard, canClaimBasic, claimOptions, taskById, viewSupport: { status, next, routeFor, routeAvailable, taskProgress }, io: { readJSON, atomicWrite, safeAncestors } };
 if (require.main === module) {
   try { const result = main(process.argv.slice(2)); process.stdout.write((typeof result === "string" ? result : JSON.stringify(result, null, 2)) + "\n"); }
   catch (err) { process.stdout.write(JSON.stringify({ status: "error", error: err.message }) + "\n"); process.exitCode = 1; }

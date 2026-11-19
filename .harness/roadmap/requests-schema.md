@@ -99,7 +99,8 @@ Answer, withdraw and journal stay allowed on a complete board.
 For an open request: `now` if `need = blocking`; `unscheduled` if unbound or its task is not in
 the contract; `later` if `need = later`; for `before-task`: `now` when the task is active or
 blocked, or queued on an accepted board with no basic claim obstacle (dependency, budget,
-route, capacity, scope); `unscheduled` when the task is done; `later` otherwise (including
+route, capacity, scope). A route through an eligible specialist also counts for this urgency
+check. Due is `unscheduled` when the task is done and `later` otherwise (including
 drafts). An open blocking request bound to a done task stays `now` and visible: the coordinator
 is expected to answer or withdraw it. Closed requests have `due: null`.
 

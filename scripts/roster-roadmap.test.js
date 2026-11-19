@@ -198,11 +198,12 @@ test("escalation is manual, ordered, capability-gated and preserved in the missi
   assert.equal(promoted.data.assignment.specialist_level, 1);
   assert.equal(promoted.data.assignment.requested_model, "large");
   const mission = JSON.parse(ok(board, "prompt", ["--task", "a"]).prompt).mission;
-  assert.equal(mission.routing.role, "debugger");
-  assert.equal(mission.routing.blocked_attempts, 0);
-  assert.equal(mission.routing.next_specialist, null);
+  assert.deepEqual(mission.topology, { runtime: "codex", role: "debugger", persona: "Trace the first disagreement", model: "large", route: "subagent" });
+  assert.equal(mission.routing, undefined);
   const view = ok(board, "view");
   assert.equal(view.tasks[0].routing.role, "debugger");
+  assert.equal(view.tasks[0].routing.blocked_attempts, 0);
+  assert.equal(view.tasks[0].routing.next_specialist, null);
   assert.deepEqual(view.tasks[0].timeline.map(attempt => attempt.model), ["generalist", "large"]);
   assert.equal(view.recent_events.at(-1).routing_decision.model, "large");
   block(board, "serial-timeout");
@@ -215,6 +216,54 @@ test("escalation is manual, ordered, capability-gated and preserved in the missi
   assert.equal(second.data.assignment.route, "sequential");
   assert.equal(record(board, receiptFor(board)).code, 0);
   assert.equal(ok(board, "next").status, "global-verification-needed");
+});
+
+test("worker prompt stays compact even when the accepted ladder exceeds its budget", t => {
+  const a = escalatableTask();
+  a.topology.escalation.specialists[1].persona = "Unused specialist instructions ".repeat(500);
+  const f = accepted(t, [a]), { board } = f;
+  enable(f, ["subagent"]);
+  assert.equal(JSON.parse(ok(board, "prompt", ["--task", "a"]).prompt).mission.topology, null);
+  claim(board); block(board);
+  assert.equal(release(board).code, 0);
+  assert.equal(routingClaim(board, 1, "diagnosis").code, 0);
+  const worker = ok(board, "prompt", ["--task", "a", "--max-chars", "12000"]);
+  assert.equal(JSON.parse(worker.prompt).mission.topology.model, "diagnosis");
+  assert.doesNotMatch(worker.prompt, /Unused specialist instructions/);
+  assert.match(ok(board, "view").tasks[0].topology.escalation.specialists[1].persona, /^Unused specialist instructions/);
+});
+
+test("replay detects deletion of a closed specialist decision even when model and route match", t => {
+  const a = escalatableTask();
+  a.topology.escalation.specialists = [{ role: "debugger", persona: "Diagnose the failure", models: ["economy"], route: "sequential", fallbacks: [], after: { blocked_attempts: 1 } }];
+  const { board } = accepted(t, [a]);
+  claim(board); block(board);
+  assert.equal(release(board).code, 0);
+  assert.equal(routingClaim(board, 1, "economy").code, 0);
+  block(board);
+  assert.equal(release(board).code, 0);
+  const file = path.join(board, "state.json"), state = read(file);
+  const elevatedClaim = state.events.find(event => event.routing_decision);
+  assert.equal(elevatedClaim.assignment.specialist_level, 1);
+  delete elevatedClaim.routing_decision;
+  write(file, state);
+  for (const command of ["status", "next"]) assert.match(run(board, command).data.error, /claim history specialist level disagrees/);
+});
+
+test("specialist workflow fallback needs an accepted nonempty workflow", t => {
+  const a = escalatableTask();
+  a.topology.escalation.specialists = [{ ...a.topology.escalation.specialists[0], fallbacks: ["workflow"] }];
+  const draft = fixture(t, [a]), file = path.join(draft.board, "roadmap.json");
+  assert.match(run(draft.board, "lint").data.error, /workflow route needs accepted nonempty workflow steps/);
+  a.workflow.recommendation = "accepted";
+  write(file, draft.contract);
+  assert.match(run(draft.board, "lint").data.error, /workflow route needs accepted nonempty workflow steps/);
+  a.workflow.steps = ["Compare the received trace with the expected signal"];
+  const f = accepted(t, [a]);
+  enable(f, ["workflow"]);
+  claim(f.board); block(f.board);
+  assert.equal(release(f.board).code, 0);
+  assert.equal(routingClaim(f.board, 1, "diagnosis").data.assignment.route, "workflow");
 });
 
 test("matching failure signatures are counted across receipts and keep the recovery gate", t => {
@@ -253,6 +302,7 @@ test("an eligible suggestion never changes a plain retry or expands its attempt 
   const retry = claim(board).assignment;
   assert.equal(retry.specialist_level, 0);
   assert.equal(retry.requested_model, "economy");
+  assert.equal(read(path.join(board, "state.json")).events.at(-1).assignment.specialist_level, 0);
   block(board);
   assert.equal(ok(board, "next").blocked[0].routing.next_specialist.claim_blocker, "attempt budget exhausted");
   assert.match(release(board).data.error, /attempt budget exhausted/);

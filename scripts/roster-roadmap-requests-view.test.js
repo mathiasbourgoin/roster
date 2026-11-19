@@ -23,7 +23,9 @@ function fixture(t, { accept = true, tasks = [task("a"), task("b", ["a"])] } = {
   write(path.join(board, "capabilities.json"), { schema_version: 1, runtimes: { codex: { available: true, evidence: ["Observed"], capabilities: {} } } });
   if (accept) {
     const decision = path.join(root, "decision.json");
-    write(decision, { by: "owner", basis: "Disposable test", contract_digest: core.hash(contract) });
+    const routed = tasks.filter(item => item.topology.escalation).map(item => item.id);
+    write(decision, { by: "owner", basis: "Disposable test", contract_digest: core.hash(contract),
+      ...(routed.length && { routing_review: { task_ids: routed, basis: "Owner approved test routing" } }) });
     core.main(["accept", board, "--coordinator", "lead", "--revision", "0", "--decision", decision]);
   }
   return { root, board, annex: path.join(board, "requests.json") };
@@ -138,6 +140,48 @@ test("a queued before-task request is later while a basic claim obstacle remains
   assert.equal(dueOf(f, "bc"), "now");
   claim(f, "a", 1);
   assert.equal(dueOf(f, "bc"), "later");
+});
+
+test("an eligible specialist keeps operator requests due and marks the ETA choice pending", t => {
+  const a = task("a");
+  a.topology.route = "subagent";
+  a.topology.escalation = { model_fallbacks: [], specialists: [
+    { role: "diagnosis", persona: "Isolate the failing check", models: ["configured"], route: "subagent", fallbacks: ["sequential"], after: { blocked_attempts: 1 } },
+  ] };
+  const f = fixture(t, { tasks: [a] }), capabilitiesPath = path.join(f.board, "capabilities.json");
+  const capabilities = JSON.parse(fs.readFileSync(capabilitiesPath));
+  const subagent = { supported: true, authorized: true, evidence: ["Observed and authorized"] };
+  capabilities.runtimes.codex.capabilities.subagent = subagent;
+  write(capabilitiesPath, capabilities);
+  record(f, "a", claim(f, "a", 1), "blocked", 2);
+  core.main(["release", f.board, "--coordinator", "lead", "--revision", "3", "--task", "a", "--reason", "retry", "--reconciled-by", "lead"]);
+  subagent.authorized = false;
+  write(capabilitiesPath, capabilities);
+
+  put(f, [req("approval", { need: "before-task", task_id: "a" })]);
+  const next = core.main(["next", f.board]);
+  assert.equal(next.status, "ready");
+  assert.equal(next.route, null);
+  assert.equal(next.routing.next_specialist.route, "sequential");
+  assert.equal(dueOf(f, "approval"), "now");
+  const prompt = JSON.parse(core.main(["prompt", f.board]).prompt);
+  assert.equal(prompt.operator_requests.items.find(item => item.id === "approval").due, "now");
+
+  const estimate = path.join(f.root, "estimate.json"), span = { optimistic: 1, likely: 2, pessimistic: 3 };
+  write(estimate, { schema_version: 1, contract_digest: core.main(["lint", f.board]).contract_digest, based_on_state_revision: 4,
+    writer: "planner", basis: "Pending diagnostic assignment", evidence: ["notes/plan.md"], updated_at: new Date().toISOString(),
+    tasks: { a: { duration_minutes: span } }, global_verification_minutes: span });
+  core.main(["estimate", f.board, "--revision", "0", "--update", estimate]);
+  const view = core.main(["view", f.board]);
+  assert.equal(view.estimates.tasks_eta.status, "unknown");
+  assert.deepEqual(view.estimates.tasks_eta.reasons, ["a: specialist choice pending"]);
+  assert.deepEqual(view.tasks[0].recovery.retry_blockers, []);
+
+  const decision = path.join(f.root, "routing.json");
+  write(decision, { task_id: "a", state_revision: 4, level: 1, model: "configured", unavailable_models: [], basis: "The accepted sequential fallback remains authorized" });
+  const selected = core.main(["claim", f.board, "--coordinator", "lead", "--revision", "4", "--task", "a", "--assignee", "specialist", "--routing-decision", decision]);
+  assert.equal(selected.assignment.route, "sequential");
+  assert.equal(core.main(["view", f.board]).estimates.tasks_eta.status, "conditional");
 });
 
 test("draft boards: bound requests are later or unscheduled and a vanished task is unknown", t => {

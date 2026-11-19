@@ -146,6 +146,9 @@ is null until the threshold is met. A suggested specialist reports its route and
 claim blocker. The threshold supplies evidence for a decision. The coordinator still
 diagnoses the failure and confirms that the next role, native model control, route and
 budget can meet the task. The ordinary release, attempt and recovery reframe gates also apply.
+When only the next specialist can be claimed, `next` exposes that choice, a queued
+`before-task` operator request becomes due, and the ETA records a pending specialist
+choice until the coordinator selects it.
 
 The default claim keeps the current level and model (initially the accepted base model).
 To escalate or select another model at the current level, use `claim --routing-decision FILE`
@@ -167,7 +170,9 @@ prefix of model choices preceding the selected model, or `[]` for the first choi
 basis records the diagnosis, changed approach and observed model control or unavailability.
 The coordinator verifies these assertions; the toolkit does not probe or switch models.
 The claim event retains the decision, and an opted-in assignment exposes
-`specialist_level` and `requested_model`. Native launches and runtime-reported actual
+`specialist_level` and `requested_model`. Each opted-in claim event stores the selected
+level in its assignment, including level zero and claims that retain the current level.
+Replay verifies that level against the recorded routing decisions. Native launches and runtime-reported actual
 models remain separate from these local requests.
 
 Route and model fallback orders are independent. Selecting a different route does not
@@ -335,10 +340,11 @@ artifact references and continuation instructions. It never loads notes or recei
 Default maximum is 12,000 characters; overflow refuses explicitly. Select a narrower mission
 or increase the limit deliberately instead of dropping constraints.
 Without `--task`, the coordinator view selects the next global action and continues through
-global verification and acceptance. With `--task`, the bounded worker view directs only that
-mission and returning its candidate receipt to the coordinator; it never instructs that worker
-to claim an unrelated ready task or mutate the global state. Unclaimed/blocked/done missions
-receive status-specific handoff instructions rather than a new global execution assignment.
+global verification and acceptance. With `--task`, the bounded worker view contains the active
+assignment's role, persona, requested model and selected route. The coordinator's prompt and
+`view` expose the accepted ladder. A worker returns that mission's candidate receipt to the
+coordinator. Unclaimed, blocked and done missions receive status-specific handoff instructions
+with no active topology.
 
 ## Receipts
 
@@ -635,8 +641,9 @@ its blocked receipts, each parent's budget bounds every correction, and the pare
 receipt and dependency.
 
 New `claim` events carry an optional `assignment` = `{id, assignee, runtime, route, model}`
-copied from the assignment the claim created; no other event may carry it, and a claim of a
-derived mission must carry it. A receipt or an active assignment of a derived mission whose
+copied from the assignment the claim created. Opted-in tasks also store `specialist_level`.
+Only claims carry this payload, which is mandatory for derived missions and opted-in tasks.
+A receipt or an active assignment of a derived mission whose
 assignee equals its cause assignee is refused. Replay creates each derived mission at its `derive`
 event and re-checks the state-derivable preconditions (including the legacy-claim refusal), the id
 allocation, the cause receipt and the definition digest, verifies claim payloads against the

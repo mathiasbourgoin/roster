@@ -101,6 +101,7 @@ function replayClaim(ctx, task, current, event, replay, history) {
   const routing = current.routing;
   if (event.routing_decision !== undefined) applyRoutingDecision(task, routing, event.routing_decision, event.revision - 1);
   if (routing && !event.assignment) fail(`claim history of ${task.id} with routing lacks its assignment`);
+  if (event.assignment?.specialist_level !== routing?.level) fail(`claim history specialist level disagrees with execution history for ${task.id}`);
   derived.checkClaimPayload(ctx, task, event, history, topologyAt(task, routing?.level), routing?.model);
   current.attempts++; current.status = "active"; current.reason = null; current.payload = event.assignment || null;
 }
