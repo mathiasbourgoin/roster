@@ -27,6 +27,10 @@ forecast even when source version stays unchanged. Dates are UTC.
 `tasks` carries each task's dependency IDs, objective, intake, inputs/outputs, DoD,
 success criteria, topology/model, current assignment, consumed/max attempts, blocker,
 checks, last accepted result, recovery state, optional progress and duration estimate.
+Accepted tasks with an escalation policy also expose `routing`, including the current
+level, role, requested model, blocked-attempt counters and the next eligible specialist's
+claim blocker. Claim events retain explicit routing decisions. See `schema.md` for
+the decision format. Runtime-reported actual models remain separate observations.
 With `--task`, counts and dependencies remain board-wide; only task detail is filtered.
 Do not infer missing dependency detail means an absent dependency.
 

@@ -54,7 +54,9 @@ function accepted(t, tasks, execution) {
   const f = fixture(t, tasks, execution);
   const lint = ok(f.board, "lint");
   const decision = path.join(f.root, "decision.json");
-  write(decision, { by: "owner", basis: "Explicit agreed roadmap", contract_digest: lint.contract_digest });
+  const optedIn = f.contract.tasks.filter(item => item.topology.escalation).map(item => item.id);
+  write(decision, { by: "owner", basis: "Explicit agreed roadmap", contract_digest: lint.contract_digest,
+    ...(optedIn.length && { routing_review: { task_ids: optedIn, basis: "Owner validated defaults and specialist ordering" } }) });
   const result = mutate(f.board, "accept", ["--decision", decision]);
   assert.equal(result.code, 0, JSON.stringify(result));
   return f;
@@ -75,6 +77,33 @@ function record(board, receipt) {
 function enable(f, names) {
   for (const name of names) f.capabilities.runtimes.codex.capabilities[name] = { supported: true, authorized: true, evidence: ["Observed tools and owner authorization"] };
   write(path.join(f.board, "capabilities.json"), f.capabilities);
+}
+function escalatableTask() {
+  const a = task("a");
+  a.topology.model = "economy";
+  a.topology.escalation = {
+    model_fallbacks: ["generalist", "large"],
+    specialists: [
+      { role: "debugger", persona: "Trace the first disagreement", models: ["diagnosis", "large"], route: "subagent", fallbacks: [], after: { blocked_attempts: 1 } },
+      { role: "architect", persona: "Identify the contract conflict", models: ["large"], route: "subagent", fallbacks: ["sequential"], after: { blocked_attempts: 1 } },
+    ],
+  };
+  a.policy.max_attempts = 4;
+  return a;
+}
+function routingClaim(board, level, model, unavailableModels = [], overrides = {}) {
+  const file = path.join(path.dirname(board), "routing.json");
+  const state = read(path.join(board, "state.json"));
+  write(file, { task_id: "a", state_revision: state.revision, level, model, unavailable_models: unavailableModels, basis: "Observed runtime controls and diagnosed the failure", ...overrides });
+  return mutate(board, "claim", ["--task", "a", "--assignee", "specialist", "--routing-decision", file]);
+}
+function block(board, signature) {
+  const receipt = receiptFor(board, "a", "blocked");
+  if (signature !== undefined) receipt.failure_signature = signature;
+  assert.equal(record(board, receipt).code, 0);
+}
+function release(board) {
+  return mutate(board, "release", ["--task", "a", "--reason", "Inspected prior attempt", "--reconciled-by", "lead"]);
 }
 
 test("real CLI lifecycle requires distinct global acceptance and preserves receipts", t => {
@@ -142,6 +171,162 @@ test("unsupported routes block unless fallback explicitly permits sequential", t
   // Start a separate accepted board; accepted contracts cannot be edited in place.
   const g = accepted(t, [a]);
   assert.equal(ok(g.board, "next").route, "sequential");
+});
+
+test("escalation is manual, ordered, capability-gated and preserved in the mission history", t => {
+  const f = accepted(t, [escalatableTask()]), { board } = f;
+  assert.equal(ok(board, "next").routing.model, "economy");
+  assert.match(routingClaim(board, 1, "diagnosis").data.error, /next eligible/);
+  assert.match(routingClaim(board, 0, "large", ["generalist", "economy"]).data.error, /accepted order/);
+  assert.match(routingClaim(board, 0, "generalist", ["economy"], { state_revision: 0 }).data.error, /stale or foreign/);
+  const base = routingClaim(board, 0, "generalist", ["economy"]);
+  assert.equal(base.code, 0);
+  assert.equal(base.data.assignment.requested_model, "generalist");
+  block(board, "serial-timeout");
+  const blocked = ok(board, "next").blocked[0].routing;
+  assert.equal(blocked.blocked_attempts, 1);
+  assert.equal(blocked.next_specialist.role, "debugger");
+  assert.equal(blocked.next_specialist.claim_blocker, "task is blocked");
+  assert.equal(release(board).code, 0);
+  assert.match(routingClaim(board, 2, "large").data.error, /next eligible/);
+  assert.match(routingClaim(board, 1, "diagnosis").data.error, /unsupported or unauthorized/);
+  enable(f, ["subagent"]);
+  assert.equal(ok(board, "next").routing.next_specialist.claim_blocker, null);
+  const promoted = routingClaim(board, 1, "large", ["diagnosis"]);
+  assert.equal(promoted.code, 0);
+  assert.equal(promoted.data.assignment.route, "subagent");
+  assert.equal(promoted.data.assignment.specialist_level, 1);
+  assert.equal(promoted.data.assignment.requested_model, "large");
+  const mission = JSON.parse(ok(board, "prompt", ["--task", "a"]).prompt).mission;
+  assert.deepEqual(mission.topology, { runtime: "codex", role: "debugger", persona: "Trace the first disagreement", model: "large", route: "subagent" });
+  assert.equal(mission.routing, undefined);
+  const view = ok(board, "view");
+  assert.equal(view.tasks[0].routing.role, "debugger");
+  assert.equal(view.tasks[0].routing.blocked_attempts, 0);
+  assert.equal(view.tasks[0].routing.next_specialist, null);
+  assert.deepEqual(view.tasks[0].timeline.map(attempt => attempt.model), ["generalist", "large"]);
+  assert.equal(view.recent_events.at(-1).routing_decision.model, "large");
+  block(board, "serial-timeout");
+  assert.equal(release(board).code, 0);
+  f.capabilities.runtimes.codex.capabilities.subagent.authorized = false;
+  write(path.join(board, "capabilities.json"), f.capabilities);
+  assert.equal(ok(board, "next").routing.next_specialist.route, "sequential");
+  const second = routingClaim(board, 2, "large");
+  assert.equal(second.code, 0);
+  assert.equal(second.data.assignment.route, "sequential");
+  assert.equal(record(board, receiptFor(board)).code, 0);
+  assert.equal(ok(board, "next").status, "global-verification-needed");
+});
+
+test("worker prompt stays compact even when the accepted ladder exceeds its budget", t => {
+  const a = escalatableTask();
+  a.topology.escalation.specialists[1].persona = "Unused specialist instructions ".repeat(500);
+  const f = accepted(t, [a]), { board } = f;
+  enable(f, ["subagent"]);
+  assert.equal(JSON.parse(ok(board, "prompt", ["--task", "a"]).prompt).mission.topology, null);
+  claim(board); block(board);
+  assert.equal(release(board).code, 0);
+  assert.equal(routingClaim(board, 1, "diagnosis").code, 0);
+  const worker = ok(board, "prompt", ["--task", "a", "--max-chars", "12000"]);
+  assert.equal(JSON.parse(worker.prompt).mission.topology.model, "diagnosis");
+  assert.doesNotMatch(worker.prompt, /Unused specialist instructions/);
+  assert.match(ok(board, "view").tasks[0].topology.escalation.specialists[1].persona, /^Unused specialist instructions/);
+});
+
+test("replay detects deletion of a closed specialist decision even when model and route match", t => {
+  const a = escalatableTask();
+  a.topology.escalation.specialists = [{ role: "debugger", persona: "Diagnose the failure", models: ["economy"], route: "sequential", fallbacks: [], after: { blocked_attempts: 1 } }];
+  const { board } = accepted(t, [a]);
+  claim(board); block(board);
+  assert.equal(release(board).code, 0);
+  assert.equal(routingClaim(board, 1, "economy").code, 0);
+  block(board);
+  assert.equal(release(board).code, 0);
+  const file = path.join(board, "state.json"), state = read(file);
+  const elevatedClaim = state.events.find(event => event.routing_decision);
+  assert.equal(elevatedClaim.assignment.specialist_level, 1);
+  delete elevatedClaim.routing_decision;
+  write(file, state);
+  for (const command of ["status", "next"]) assert.match(run(board, command).data.error, /claim history specialist level disagrees/);
+});
+
+test("specialist workflow fallback needs an accepted nonempty workflow", t => {
+  const a = escalatableTask();
+  a.topology.escalation.specialists = [{ ...a.topology.escalation.specialists[0], fallbacks: ["workflow"] }];
+  const draft = fixture(t, [a]), file = path.join(draft.board, "roadmap.json");
+  assert.match(run(draft.board, "lint").data.error, /workflow route needs accepted nonempty workflow steps/);
+  a.workflow.recommendation = "accepted";
+  write(file, draft.contract);
+  assert.match(run(draft.board, "lint").data.error, /workflow route needs accepted nonempty workflow steps/);
+  a.workflow.steps = ["Compare the received trace with the expected signal"];
+  const f = accepted(t, [a]);
+  enable(f, ["workflow"]);
+  claim(f.board); block(f.board);
+  assert.equal(release(f.board).code, 0);
+  assert.equal(routingClaim(f.board, 1, "diagnosis").data.assignment.route, "workflow");
+});
+
+test("matching failure signatures are counted across receipts and keep the recovery gate", t => {
+  const a = escalatableTask();
+  a.topology.escalation.specialists.splice(1);
+  a.topology.escalation.specialists[0].after = { same_failure_attempts: 2 };
+  a.policy.max_attempts = 5;
+  const { board } = accepted(t, [a]);
+  assert.equal(claim(board).assignment.requested_model, "economy");
+  assert.equal(release(board).code, 0);
+  assert.equal(ok(board, "next").routing.blocked_attempts, 0);
+  claim(board); block(board, "compile");
+  assert.equal(release(board).code, 0);
+  claim(board); block(board, "serial");
+  assert.equal(ok(board, "next").blocked[0].routing.same_failure_attempts, 1);
+  assert.equal(release(board).code, 0);
+  claim(board); block(board, "serial");
+  const routing = ok(board, "next").blocked[0].routing;
+  assert.equal(routing.same_failure_attempts, 2);
+  assert.equal(routing.failure_signature, "serial");
+  assert.equal(routing.next_specialist.role, "debugger");
+  assert.match(release(board).data.error, /diagnosed reframe/);
+  assert.match(routingClaim(board, 1, "diagnosis").data.error, /task is blocked/);
+  assert.equal(read(path.join(board, "state.json")).tasks.a.attempts, 4);
+});
+
+test("an eligible suggestion never changes a plain retry or expands its attempt budget", t => {
+  const a = escalatableTask();
+  a.topology.escalation.specialists.splice(1);
+  a.policy.max_attempts = 2;
+  const f = accepted(t, [a]), { board } = f;
+  enable(f, ["subagent"]);
+  claim(board); block(board);
+  assert.equal(release(board).code, 0);
+  assert.equal(ok(board, "next").routing.next_specialist.role, "debugger");
+  const retry = claim(board).assignment;
+  assert.equal(retry.specialist_level, 0);
+  assert.equal(retry.requested_model, "economy");
+  assert.equal(read(path.join(board, "state.json")).events.at(-1).assignment.specialist_level, 0);
+  block(board);
+  assert.equal(ok(board, "next").blocked[0].routing.next_specialist.claim_blocker, "attempt budget exhausted");
+  assert.match(release(board).data.error, /attempt budget exhausted/);
+  assert.notEqual(routingClaim(board, 1, "diagnosis").code, 0);
+});
+
+test("escalation validates task bounds, signatures and the persisted selection", t => {
+  const a = escalatableTask();
+  a.policy.max_attempts = 2;
+  const draft = fixture(t, [a]);
+  assert.match(run(draft.board, "lint").data.error, /ladder exceeds/);
+  a.policy.max_attempts = 4;
+  write(path.join(draft.board, "roadmap.json"), draft.contract);
+  const absentReview = path.join(draft.root, "decision.json");
+  write(absentReview, { by: "owner", basis: "Roadmap agreed", contract_digest: ok(draft.board, "lint").contract_digest });
+  assert.match(mutate(draft.board, "accept", ["--decision", absentReview]).data.error, /routing_review/);
+  assert.equal(ok(draft.board, "status").revision, 0);
+  const { board } = accepted(t, [a]);
+  claim(board);
+  assert.match(record(board, { ...receiptFor(board), failure_signature: "serial" }).data.error, /blocked receipt/);
+  const file = path.join(board, "state.json"), state = read(file);
+  state.tasks.a.assignment.requested_model = "large";
+  write(file, state);
+  assert.match(run(board, "status").data.error, /selection disagrees/);
 });
 
 test("support without authorization cannot activate multisession", t => {

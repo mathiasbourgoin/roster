@@ -9,6 +9,25 @@ const { spawnSync } = require("node:child_process");
 const { core, write, read, task, TOPOLOGY, setup, state, cmd, claim, receipt, record, finish, release, request, derive, blockedReview, unchanged, tampered } = require("./roster-roadmap-derived.fixture.js");
 const CLI = path.join(__dirname, "roster-roadmap.cjs");
 
+test("a routed review still waits for its dependency correction and requires a fresh assignee", t => {
+  const review = task("review", ["impl"]);
+  review.topology.escalation = { model_fallbacks: [], specialists: [
+    { role: "review-specialist", persona: "Recheck the correction independently", models: ["specialist"], route: "sequential", fallbacks: [], after: { blocked_attempts: 1 } },
+  ] };
+  const f = blockedReview(t, [task("impl"), review]);
+  assert.equal(core.main(["status", f.board]).tasks.find(item => item.id === "review").routing.next_specialist.role, "review-specialist");
+  unchanged(f, () => release(f, "review"), /blamed dependencies lack a done correction/);
+  const correction = derive(f).task_id;
+  finish(f, correction, "done", "fixer");
+  const decision = path.join(f.root, "routing.json");
+  write(decision, { task_id: "review", state_revision: state(f).revision, level: 1, model: "specialist",
+    unavailable_models: [], basis: "Reviewed corrected dependency and selected independent specialist" });
+  const claimAs = assignee => cmd(f, "claim", ["--task", "review", "--assignee", assignee, "--routing-decision", decision]);
+  unchanged(f, () => claimAs("rev1"), /already appeared on the correction chain/);
+  assert.equal(claimAs("rev2").assignment.requested_model, "specialist");
+  assert.equal(record(f, receipt(f, "review", "done")).result, "done");
+});
+
 test("AC-1 derive from a blaming blocked review receipt records definition, queued state and one event (real CLI)", t => {
   const f = blockedReview(t), before = state(f), roadmap = fs.readFileSync(f.roadmapFile);
   const out = spawnSync(process.execPath, [CLI, "derive", f.board, "--coordinator", "lead", "--revision", String(before.revision), "--request", request(f)], { encoding: "utf8" });

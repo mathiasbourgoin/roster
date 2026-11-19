@@ -98,11 +98,86 @@ no fallback is invented. All other strings remain explicit project choices. A wo
 (including a fallback) additionally requires an accepted workflow with nonempty steps.
 
 The shared model-routing policy is installed at `.harness/roadmap/model-routing.md`
-(source: `docs/model-routing.md`). Tier/rationale/actual-model observations live in compact
-mission briefs and `notes/model-routing.md`; they add no JSON fields or model authorization.
-`topology.model` remains part of the immutable accepted contract. A recommended escalation
-cannot change it in place, reset attempts, or treat a route fallback as a model fallback.
-Reconcile active work and use a separately accepted revised board when that choice changes.
+(source: `docs/model-routing.md`). Keep planning rationale and runtime-observed model
+in compact mission briefs and `notes/model-routing.md`. The operator validates or amends
+the proposed default model, escalation levels and model alternatives before acceptance.
+
+### Model alternatives and specialist escalation
+
+The optional `topology.escalation` extends the accepted topology:
+
+```json
+{
+  "model_fallbacks": ["alternate-implementation-model"],
+  "specialists": [
+    {
+      "role": "debugger",
+      "persona": "Diagnose the repeating failure with a discriminating check",
+      "models": ["preferred-debugging-model", "alternate-debugging-model"],
+      "route": "subagent",
+      "fallbacks": [],
+      "after": { "same_failure_attempts": 2 }
+    }
+  ]
+}
+```
+
+Both arrays are required when opting in and can be empty. Base level `0` uses
+`topology.model` followed by `model_fallbacks`. Specialist levels start at `1`. Each
+specialist requires a distinct role (including the base role), a persona, one or more
+ordered distinct model identifiers, and route/fallbacks following the same existing rules.
+The task runtime is shared by every level. Configure a delegation route when a separate
+worker is required, and include only fallbacks that satisfy the task's independence rules.
+
+Each specialist has exactly one trigger under `after`. `blocked_attempts` counts recorded
+blocked receipts at the current level (minimum 1). `same_failure_attempts` counts consecutive
+blocked receipts with the same explicit `failure_signature` at that level (minimum 2).
+A receipt with a different or missing signature breaks the matching streak. An interrupted
+release without a receipt consumes its claim but contributes no failure observation.
+Requeueing preserves counts. Advancing to the next level resets those two counters and
+retains all receipts and consumed attempts. Only the immediate next specialist can become
+eligible. Lint requires retry policy and enough configured attempts to meet every threshold
+and claim the last level at least once, under ideal evidence. Interruptions and extra attempts
+reduce that remaining room.
+
+Use `status`, `view`, `next` or `prompt` to inspect `routing`. It reports the current
+level, requested model, role, persona, model order and observed counters. `next_specialist`
+is null until the threshold is met. A suggested specialist reports its route and current
+claim blocker. The threshold supplies evidence for a decision. The coordinator still
+diagnoses the failure and confirms that the next role, native model control, route and
+budget can meet the task. The ordinary release, attempt and recovery reframe gates also apply.
+When only the next specialist can be claimed, `next` exposes that choice, a queued
+`before-task` operator request becomes due, and the ETA records a pending specialist
+choice until the coordinator selects it.
+
+The default claim keeps the current level and model (initially the accepted base model).
+To escalate or select another model at the current level, use `claim --routing-decision FILE`
+after verifying the actual controls and permission. The decision for the example above is:
+
+```json
+{
+  "task_id": "diagnose",
+  "state_revision": 7,
+  "level": 1,
+  "model": "alternate-debugging-model",
+  "unavailable_models": ["preferred-debugging-model"],
+  "basis": "The same fault recurred twice. The runtime reports only the alternate debugging model."
+}
+```
+
+Use the current board revision and task ID. `unavailable_models` must be the exact ordered
+prefix of model choices preceding the selected model, or `[]` for the first choice. The
+basis records the diagnosis, changed approach and observed model control or unavailability.
+The coordinator verifies these assertions; the toolkit does not probe or switch models.
+The claim event retains the decision, and an opted-in assignment exposes
+`specialist_level` and `requested_model`. Each opted-in claim event stores the selected
+level in its assignment, including level zero and claims that retain the current level.
+Replay verifies that level against the recorded routing decisions. Native launches and runtime-reported actual
+models remain separate from these local requests.
+
+Route and model fallback orders are independent. Selecting a different route does not
+change the model. Alternatives outside the accepted topology require a revised and
+separately accepted board with prior history and consumed bounds preserved.
 
 `policy` requires `max_attempts` (integer 1–100), `on_failure` (`retry` or `block`), nonempty
 distinct `stop_if` and `recovery` string arrays, and a nonempty `failure` terminal-condition
@@ -157,7 +232,7 @@ request-journal BOARD --coordinator ID --revision N --journal FILE
 next BOARD
 prompt BOARD [--task TASK] [--max-chars N]
 accept BOARD --coordinator ID --revision N --decision FILE
-claim BOARD --coordinator ID --revision N --task TASK --assignee ID
+claim BOARD --coordinator ID --revision N --task TASK --assignee ID [--routing-decision FILE]
 record BOARD --coordinator ID --revision N --receipt FILE
 release BOARD --coordinator ID --revision N --task TASK --reason TEXT --reconciled-by ID
 derive BOARD --coordinator ID --revision N --request FILE
@@ -205,9 +280,12 @@ receipt or `claim`/`next` behaviour; an open request is a signal, never a refusa
 never contain secrets. See [the requests schema](roadmap-requests-schema.md), installed as
 `.harness/roadmap/requests-schema.md`.
 
-`lint` returns `contract_digest` for recording a decision. The decision file is exactly
-`{ "by": "owner", "basis": "Explicit owner agreement or precisely scoped delegated authority", "contract_digest": "<digest>" }`.
-The agent must not fabricate approval. Accept records that decision, sets the named
+`lint` returns `contract_digest` for recording a decision. The decision file requires
+`by`, `basis` and `contract_digest`. When any task opts into `topology.escalation`, it
+also requires `"routing_review": {"task_ids": ["diagnose"], "basis": "Operator validated the default and escalation ladder in goal.md"}`.
+List exactly all opted-in task IDs once. The basis records the operator's validation or
+amendment of the proposed defaults and alternatives, or their precise delegated authority.
+Existing boards without escalation omit `routing_review`. Accept records that decision, sets the named
 coordinator and initializes task states. Acceptance is immutable; changed goals/contracts
 require a separately reviewed revised board, preserving prior history. Child intake/spec/plan
 gates are not satisfied merely by accepting the roadmap.
@@ -262,10 +340,12 @@ artifact references and continuation instructions. It never loads notes or recei
 Default maximum is 12,000 characters; overflow refuses explicitly. Select a narrower mission
 or increase the limit deliberately instead of dropping constraints.
 Without `--task`, the coordinator view selects the next global action and continues through
-global verification and acceptance. With `--task`, the bounded worker view directs only that
-mission and returning its candidate receipt to the coordinator; it never instructs that worker
-to claim an unrelated ready task or mutate the global state. Unclaimed/blocked/done missions
-receive status-specific handoff instructions rather than a new global execution assignment.
+global verification and acceptance. With `--task`, the bounded worker view for an opted-in task
+contains the active assignment's role, persona, requested model and selected route. The
+coordinator's prompt and `view` expose the accepted ladder. A worker returns that mission's
+candidate receipt to the coordinator. Unclaimed, blocked and done opted-in tasks receive
+status-specific handoff instructions with no active topology. Tasks without escalation retain
+their topology preview.
 
 ## Receipts
 
@@ -289,7 +369,10 @@ Result is `done` or `blocked`. Identity/attempt/digest must match the active ass
 the current capability digest must still match its snapshot. `done` requires one passing
 result for every declared check, nonempty evidence and only in-scope reported writes.
 `blocked` preserves any checks that ran, including failures; its summary explains why it
-cannot finish. An unrun check is omitted, never invented as passing. Unknown/duplicate checks,
+cannot finish. On an opted-in task the coordinator may accept a `failure_signature`, a safe
+identifier such as `serial-timeout`. Use the same signature only when evidence identifies the
+same failure. Omit it when the cause or equivalence is unknown. Done receipts omit it.
+An unrun check is omitted, never invented as passing. Unknown/duplicate checks,
 failed checks hidden inside a done receipt, duplicate receipts and stale attempts refuse.
 Record appends the accepted receipt and updates task state in one atomic `state.json` write.
 
@@ -354,8 +437,9 @@ tasks" below).
   "max_attempts": 2 }
 ```
 
-`objective` is nonempty text of at most 2000 characters; `topology` is validated like a contract
-topology (the workflow route is refused because a derived mission has no workflow);
+`objective` is nonempty text of at most 2000 characters. The correction uses a fixed
+`topology`; the workflow route and `topology.escalation` are reserved for applicable
+contract tasks with operator-reviewed policy.
 `max_attempts` is an integer from 1 to the parent's `policy.max_attempts`. The coordinator
 chooses the topology following its escalation ladder; the tool checks its shape, not the ladder.
 `derive` refuses unless the board is accepted and not complete, the coordinator is the designated
@@ -558,8 +642,9 @@ its blocked receipts, each parent's budget bounds every correction, and the pare
 receipt and dependency.
 
 New `claim` events carry an optional `assignment` = `{id, assignee, runtime, route, model}`
-copied from the assignment the claim created; no other event may carry it, and a claim of a
-derived mission must carry it. A receipt or an active assignment of a derived mission whose
+copied from the assignment the claim created. Opted-in tasks also store `specialist_level`.
+Only claims carry this payload, which is mandatory for derived missions and opted-in tasks.
+A receipt or an active assignment of a derived mission whose
 assignee equals its cause assignee is refused. Replay creates each derived mission at its `derive`
 event and re-checks the state-derivable preconditions (including the legacy-claim refusal), the id
 allocation, the cause receipt and the definition digest, verifies claim payloads against the

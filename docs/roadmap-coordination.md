@@ -67,9 +67,9 @@ support in a board never removes those boundaries.
 ## Choose model tiers and control cost
 
 Roadmap and `/roster-plan` share the [model-routing policy](model-routing.md), installed
-as `.harness/roadmap/model-routing.md`. Select the least costly observed, permitted model
-capable of meeting the unchanged checks. Economy, standard and strong are relative
-planning tiers; they are not a universal vendor ranking or verified prices.
+as `.harness/roadmap/model-routing.md`. Select the best-fit observed and permitted model
+for the task and its checks. Consider cost when the expected quality is comparable.
+Economy, standard and strong are relative planning tiers.
 
 Record the selected model, evidence, rationale, costly exceptions and bounded escalation
 in `notes/model-routing.md` and each child brief's compact routing section. Give workers
@@ -78,12 +78,18 @@ by the runtime, or unknown; requesting a model does not establish that it ran. D
 deterministic checks and the current sequential agent can avoid unnecessary delegation.
 Required independent verification and explicit owner model choices still apply.
 
-Diagnose failed checks before attributing them to model capacity. Escalation must remain
-within authorization and attempt budgets. A different model changes accepted
-`topology.model`: reconcile the current assignment and use the existing revised-board
-acceptance procedure, retaining history. The toolkit does not select or switch models.
-Token use and monetary cost are different measures; this policy promises neither a
-measured token reduction nor savings without comparable end-to-end evidence.
+The agent proposes a model and escalation ladder during intake, and the operator validates
+or amends it in roadmap acceptance. Opted-in tasks have `topology.escalation` and
+are listed in the acceptance decision's `routing_review`. A blocked receipt can identify
+a stable failure signature. The CLI derives the next eligible specialist from blocked
+attempts or repeated signatures and exposes the suggestion in `status`, `view`, `next`
+and `prompt`.
+
+Diagnose failed checks before selecting the next step. Reconcile the prior attempt,
+complete any required reframe, and use an explicit `claim --routing-decision` with the
+observed model control and rationale. The runtime supplies any authorized native dispatch.
+Every claim consumes the same task budget. Use a revised, separately accepted board for
+alternatives outside the accepted choices.
 
 ## Use the portable tools
 

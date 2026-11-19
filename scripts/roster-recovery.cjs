@@ -51,7 +51,7 @@ function boardSource(ctx, taskId) {
   if (task.policy.on_failure !== "retry" && observations.some(o => o.outcome === "NO-GO")) blockers.push("policy does not authorize retry");
   if (["active", "blocked"].includes(current.status)) blockers.push("reconcile owned/interrupted work through the roadmap core before retry");
   if (current.status === "done") blockers.push("task already done");
-  if (current.status === "queued") { const reason = core.canClaimBasic(ctx, task); if (reason) blockers.push(reason); }
+  if (current.status === "queued") { const { blocker } = core.claimOptions(ctx, task); if (blocker) blockers.push(blocker); }
   return { kind: "board", identity, entries, observations, exhausted, attempts: current.attempts, max_attempts: task.policy.max_attempts, reconciliation_required: ["active", "blocked"].includes(current.status), blockers };
 }
 function ledgerSource(file, phase) {

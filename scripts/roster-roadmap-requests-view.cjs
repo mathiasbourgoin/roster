@@ -29,7 +29,7 @@ function dueFor(ctx, request, bound) {
   if (request.need === "later") return "later";
   if (bound.state === "done") return "unscheduled";
   if (bound.state === "active" || bound.state === "blocked") return "now";
-  if (bound.state === "queued") return core().canClaimBasic(ctx, bound.task) === null ? "now" : "later";
+  if (bound.state === "queued") return core().claimOptions(ctx, bound.task).blocker === null ? "now" : "later";
   return "later";
 }
 function decorate(ctx, request, supersededBy) {

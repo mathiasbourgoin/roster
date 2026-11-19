@@ -110,8 +110,7 @@ function taskEstimate(ctx, task, record, now) {
   if (current.status === "done") { item.remaining_minutes = Object.fromEntries(AXES.map(key => [key, 0])); item.source = "completed"; return item; }
   if (current.status === "active") {
     if (current.assignment.capabilities_digest !== core().hash(ctx.capabilities)) { item.reasons.push("capabilities changed during active assignment; reconcile before forecasting completion"); return item; }
-    const assigned = { ...task, topology: { ...task.topology, route: current.assignment.route, fallbacks: [] } };
-    if (!core().viewSupport.routeFor(ctx, assigned)) { item.reasons.push("active assignment runtime or route is currently unavailable or unauthorized"); return item; }
+    if (!core().viewSupport.routeAvailable(ctx, task, current.assignment.route)) { item.reasons.push("active assignment runtime or route is currently unavailable or unauthorized"); return item; }
   }
   if (current.status === "blocked") item.reasons.push(current.reason || "mission blocked");
   if (!estimate) { item.reasons.push("missing task duration"); return item; }
@@ -139,6 +138,10 @@ function recoveryReason(ctx, task) {
   } catch { return "invalid recovery evidence"; }
   return null;
 }
+function forecastClaimBlocker(ctx, simulated, task) {
+  const { blocker, currentBlocker } = core().claimOptions(simulated, task);
+  return recoveryReason(ctx, task) || blocker || (currentBlocker ? "specialist choice pending" : null);
+}
 function simulate(ctx, tasks, axis) {
   const state = { ...ctx.state, tasks: Object.fromEntries(Object.entries(ctx.state.tasks).map(([id, current]) => [id, { ...current }])) };
   const simulated = { ...ctx, state }, running = new Map(), values = new Map(tasks.map(task => [task.id, task]));
@@ -147,12 +150,12 @@ function simulate(ctx, tasks, axis) {
   for (let turn = 0; turn <= ctx.contract.tasks.length * 2 + 1; turn++) {
     for (const [id, finish] of running) if (finish <= time) { state.tasks[id].status = "done"; running.delete(id); }
     for (const task of ctx.contract.tasks) {
-      if (state.tasks[task.id].status !== "queued" || core().canClaimBasic(simulated, task) || recoveryReason(ctx, task)) continue;
+      if (state.tasks[task.id].status !== "queued" || forecastClaimBlocker(ctx, simulated, task)) continue;
       state.tasks[task.id].status = "active"; running.set(task.id, time + values.get(task.id).remaining_minutes[axis]);
     }
     // Blocked (exhausted) derived missions are ignored; open ones never reach the simulation.
     if (ctx.contract.tasks.every(task => state.tasks[task.id].status === "done")) return { minutes: time, reasons: [] };
-    if (!running.size) return { minutes: null, reasons: ctx.contract.tasks.filter(task => state.tasks[task.id].status !== "done").map(task => `${task.id}: ${recoveryReason(ctx, task) || core().canClaimBasic(simulated, task) || "mission blocked"}`) };
+    if (!running.size) return { minutes: null, reasons: ctx.contract.tasks.filter(task => state.tasks[task.id].status !== "done").map(task => `${task.id}: ${forecastClaimBlocker(ctx, simulated, task) || "mission blocked"}`) };
     time = Math.min(...running.values());
   }
   return { minutes: null, reasons: ["schedule could not converge"] };

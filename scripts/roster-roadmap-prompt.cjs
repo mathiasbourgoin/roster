@@ -1,18 +1,28 @@
 "use strict";
 // Bounded continuation prompt for the coordinator or one mission. Read-only projection.
 const { integer, fail } = require("./roster-roadmap-validate.cjs");
+const { topologyAt } = require("./roster-roadmap-history.cjs");
 const { missions } = require("./roster-roadmap-missions.cjs");
 const core = () => require("./roster-roadmap.cjs");
 const MISSION_CONTINUATION = "Perform only this bounded mission using its assigned identity and authorized native tools. Respect child Roster gates. Return a structured candidate receipt with actual checks and evidence to the coordinator, then stop at that bounded handoff. The coordinator alone records state and selects further work. Local completion leaves the global goal open. A stopped process requires explicit runtime-supported resume.";
 const GLOBAL_CONTINUATION = "Local task completion is not global completion. Use authorized native runtime tools; respect child Roster gates. Verify, record the structured receipt, refresh next/prompt and continue while authorized progress exists, including through the final global verification and acceptance. If blocked, work another admissible branch or apply a declared recovery. When progress needs the operator, open a request (request-open) instead of pausing silently and continue other admissible work; relay the answer with request-answer; never put secrets in requests. Stop only after the global outcome is accepted, an explicit owner pause, or a declared stop/no admissible authorized progress remains. An ended process needs explicit runtime-supported resume; this tool does not keep it alive.";
-function missionView(ctx, task) {
+function claimedTopology(task, assignment) {
+  if (!assignment) return null;
+  const { role, persona } = topologyAt(task, assignment.specialist_level);
+  return { runtime: assignment.runtime, role, persona, model: assignment.requested_model ?? task.topology.model, route: assignment.route };
+}
+function missionView(ctx, task, worker) {
   const support = core().viewSupport, current = ctx.state.tasks[task.id];
+  const { routing, ...progress } = support.taskProgress(ctx, task);
+  const claimedOnly = worker && routing !== undefined;
+  const topology = claimedOnly ? claimedTopology(task, current.assignment) : task.topology;
   return {
     id: task.id, objective: task.objective, intake: task.intake, inputs: task.inputs, outputs: task.outputs,
     dependencies: task.depends_on.map(id => ({ id, status: ctx.state.tasks[id].status })), allowed_files: task.allowed_files,
-    dod: task.dod, success: task.success, checks: task.checks, topology: task.topology,
-    selected_route: current.assignment?.route || support.routeFor(ctx, task), assignment: current.assignment,
-    policy: task.policy, workflow: task.workflow, progress: support.taskProgress(ctx, task),
+    dod: task.dod, success: task.success, checks: task.checks, topology,
+    selected_route: current.assignment?.route || (claimedOnly ? null : support.routeFor(ctx, task)), assignment: current.assignment,
+    policy: task.policy, workflow: task.workflow, progress,
+    ...(!worker && routing && { routing }),
     ...(task.derived ? { derived: require("./roster-roadmap-derived.cjs").derivedBlock(ctx, task) } : {}),
   };
 }
@@ -23,7 +33,7 @@ function prompt(ctx, options) {
   const view = {
     goal: ctx.contract.goal, global_success: ctx.contract.success,
     current_state: { revision: ctx.state.revision, status: options.task ? ctx.state.tasks[task.id].status : nextAction.status, counts: support.status(ctx).counts, active },
-    mission: task ? missionView(ctx, task) : null,
+    mission: task ? missionView(ctx, task, Boolean(options.task)) : null,
     next_action: options.task ? missionAction(ctx, task) : nextAction.next_action,
     operator_requests: require("./roster-roadmap-requests-view.cjs").forPrompt(ctx, options.task),
     references: { contract: "roadmap.json", capabilities: "capabilities.json", state: "state.json", notes: "notes/", candidates: "receipts/" },
