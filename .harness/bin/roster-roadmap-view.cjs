@@ -145,6 +145,7 @@ function snapshot(ctx, options = {}) {
   const accepted = base.acceptance_current && Boolean(ctx.state.acceptance);
   const action = accepted ? core.viewSupport.next(ctx) : { status: "draft", next_action: "Finish the draft contract and obtain explicit acceptance before execution." };
   const all = missions(ctx);
+  const routingByTask = new Map(base.tasks.filter(task => task.routing).map(task => [task.id, task.routing]));
   const selected = options.task ? all.filter(t => t.id === options.task) : all;
   if (options.task && selected.length !== 1) fail("unknown roadmap task");
   const block = reqs.observe(ctx), lines = timelines(ctx);
@@ -152,9 +153,11 @@ function snapshot(ctx, options = {}) {
     const current = Object.hasOwn(ctx.state.tasks, task.id) ? ctx.state.tasks[task.id] : { status: "draft", attempts: 0, assignment: null, reason: null };
     const latest = accepted ? [...ctx.state.receipts].reverse().find(r => r.task_id === task.id) || null : null;
     const live = contractReady ? observedProgress(ctx, task) : { status: "unavailable", sequence: null };
+    const routing = routingByTask.get(task.id);
     return { id: task.id, ...lineage(ctx, task, lines), objective: task.objective || "", intake: task.intake || null,
       depends_on: task.depends_on || [], state: current.status, topology: task.topology || null,
       assignment: current.assignment, attempts: current.attempts, max_attempts: task.policy?.max_attempts ?? null,
+      ...(routing && { routing }),
       blocker: current.reason, progress: live, recovery: contractReady ? recovery(ctx, task) : null,
       dod: task.dod || [], success: task.success || [], inputs: task.inputs || [], outputs: task.outputs || [],
       checks: (task.checks || []).map(check => {
@@ -218,7 +221,9 @@ function format(view) {
     rows.push("", `[${task.state}] ${clean(task.id)} — ${clean(task.objective)}`);
     if (task.derived) rows.push(`  Derived correction of ${clean(task.derived.parent)}; cause: ${clean(task.derived.cause.task_id)} attempt ${clean(task.derived.cause.attempt_id)} by ${clean(task.derived.cause.assignee)}`);
     if (task.corrections?.length) rows.push(`  Corrections: ${task.corrections.map(clean).join(", ")}`);
-    if (task.assignment) rows.push(`  Assigned: ${clean(task.assignment.assignee)} (${clean(task.assignment.runtime)} / ${clean(task.topology?.model)} / ${clean(task.assignment.route)})`);
+    if (task.assignment) rows.push(`  Assigned: ${clean(task.assignment.assignee)} (${clean(task.assignment.runtime)} / ${clean(task.assignment.requested_model ?? task.topology?.model)} / ${clean(task.assignment.route)})`);
+    const specialist = task.routing?.next_specialist;
+    if (specialist) rows.push(`  Escalation: ${clean(specialist.role)} (level ${specialist.level})${specialist.claim_blocker ? " — " + clean(specialist.claim_blocker) : " — coordinator decision required"}`);
     rows.push(`  Attempts: ${task.attempts}/${task.max_attempts ?? "unknown"}; consecutive failures: ${task.recovery?.consecutive_failures ?? "unknown"}/3`);
     rows.push(...attemptRows(task));
     if (task.blocker) rows.push(`  ${REASON_LABELS[task.state] || "Blocker"}: ${clean(task.blocker)}`);

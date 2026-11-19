@@ -24,7 +24,9 @@ function setup(t, tasks = [task("impl"), task("review", ["impl"])], accept = tru
   write(path.join(board, "roadmap.json"), contract);
   write(path.join(board, "capabilities.json"), options.capabilities || CAPABILITIES);
   const decision = path.join(root, "decision.json");
-  write(decision, { by: "owner", basis: "Disposable test", contract_digest: core.hash(contract) });
+  const routed = tasks.filter(item => item.topology.escalation).map(item => item.id);
+  write(decision, { by: "owner", basis: "Disposable test", contract_digest: core.hash(contract),
+    ...(routed.length && { routing_review: { task_ids: routed, basis: "Owner approved the test routing" } }) });
   if (accept) core.main(["accept", board, "--coordinator", "lead", "--revision", "0", "--decision", decision]);
   return { root, board, stateFile: path.join(board, "state.json"), roadmapFile: path.join(board, "roadmap.json"), capabilitiesFile: path.join(board, "capabilities.json") };
 }

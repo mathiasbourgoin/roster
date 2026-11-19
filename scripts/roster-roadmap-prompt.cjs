@@ -7,12 +7,14 @@ const MISSION_CONTINUATION = "Perform only this bounded mission using its assign
 const GLOBAL_CONTINUATION = "Local task completion is not global completion. Use authorized native runtime tools; respect child Roster gates. Verify, record the structured receipt, refresh next/prompt and continue while authorized progress exists, including through the final global verification and acceptance. If blocked, work another admissible branch or apply a declared recovery. When progress needs the operator, open a request (request-open) instead of pausing silently and continue other admissible work; relay the answer with request-answer; never put secrets in requests. Stop only after the global outcome is accepted, an explicit owner pause, or a declared stop/no admissible authorized progress remains. An ended process needs explicit runtime-supported resume; this tool does not keep it alive.";
 function missionView(ctx, task) {
   const support = core().viewSupport, current = ctx.state.tasks[task.id];
+  const { routing, ...progress } = support.taskProgress(ctx, task);
   return {
     id: task.id, objective: task.objective, intake: task.intake, inputs: task.inputs, outputs: task.outputs,
     dependencies: task.depends_on.map(id => ({ id, status: ctx.state.tasks[id].status })), allowed_files: task.allowed_files,
     dod: task.dod, success: task.success, checks: task.checks, topology: task.topology,
     selected_route: current.assignment?.route || support.routeFor(ctx, task), assignment: current.assignment,
-    policy: task.policy, workflow: task.workflow, progress: support.taskProgress(ctx, task),
+    policy: task.policy, workflow: task.workflow, progress,
+    ...(routing && { routing }),
     ...(task.derived ? { derived: require("./roster-roadmap-derived.cjs").derivedBlock(ctx, task) } : {}),
   };
 }

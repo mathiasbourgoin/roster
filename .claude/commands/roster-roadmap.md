@@ -2,7 +2,7 @@
 name: roster-roadmap
 description: "Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs."
 when_to_use: "Use for /roster-roadmap, a multi-intake roadmap, or resuming an existing roadmap board."
-version: 1.4.0
+version: 1.5.0
 domain: pipeline
 phase: null
 preamble: false
@@ -132,22 +132,34 @@ Ask only genuinely blocking questions when the owner has requested that mode. Ot
 obtain explicit contract acceptance. Never interpret silence as authorization. Save a
 decision file binding the current `contract_digest`, `by` and `basis`; run `accept`
 with the current coordinator and revision. Editing the contract invalidates acceptance.
+Present each task's proposed default model, model fallback order and specialist ladder
+with the reason for each choice. Record the operator's validation or amendments in
+`goal.md`, update the contract before linting, and include every opted-in task in
+`routing_review.task_ids` with the approval or precise delegated basis in
+`routing_review.basis`. The digest binds the adopted routing policy to that decision.
 
 ### 3. Select an adaptive topology
 
 For each task specify runtime (`codex`, `claude`, `opencode`, `pi`), role, concrete
 persona responsibility, model, route and permitted fallbacks. Model names come from
-the current environment; do not hardcode a universal model catalog.
+the current environment and owner preferences. Infer a default that can satisfy the
+checks and required independence.
 
 Read `.harness/roadmap/model-routing.md` (source fallback `docs/model-routing.md`)
-once during planning or relevant replanning. Prefer the least costly available capable
-model, using relative `economy`/`standard`/`strong` tiers with evidence and honest unknowns;
-explicit owner model requirements, quality gates and independent verification take priority.
+once during planning or relevant replanning. Choose the best-fit available model and
+expertise within owner constraints. Use cost or speed when capability is comparable.
 Record per-mission routing in `notes/model-routing.md`: requested model/tier, actual native
 selection control, evidence, selection reason and cost uncertainty, costly-choice exception,
 observed actual model or unknown, failure trigger, existing bounds and authorized fallback.
 For deterministic work use the direct command where possible; choose same-agent sequential
 work when delegation adds no value. Do not replace required independent review with self-review.
+
+For a new roadmap, put the ordered model fallbacks and specialist sequence in
+`topology.escalation`. If a task needs a reviewed default alone, use empty alternatives.
+For each specialist explain which diagnosis it addresses, its observable blocked-attempt
+or same-signature threshold, and its route, preferred model and ordered availability
+fallbacks. Give each level a concrete technical responsibility and discriminating check.
+Keep the whole sequence within the existing attempt, time and permission limits.
 
 | Route | Selection rule |
 |---|---|
@@ -178,11 +190,18 @@ flags/tools. There is no CWR dispatch in roadmap execution.
 1. Run `next` and obtain a compact `prompt` for the coordinator or selected task.
 2. Check actual child-intake gates and current runtime authorization. `claim` reserves
    a mission; it does not launch an agent, prove readiness or grant tool permission.
+   Inspect `routing.next_specialist` when blocked or retrying. Use receipt evidence to
+   diagnose the failure and confirm the suggested role adds the expertise the task needs.
+   Include a stable `failure_signature` on a blocked receipt when the evidence
+   identifies the failure. Reconcile and satisfy any reframe requirement before retrying.
+   Use `claim --routing-decision` to select the next eligible specialist or an accepted
+   model alternative, recording the evidence and changed strategy. Verify native
+   route/model support and authorization before dispatch.
 3. Execute locally or dispatch with the runtime's real authorized tools. Give workers
    only their mission prompt and referenced relevant inputs, not the parent history.
    Embed that mission's compact routing decision, never the full policy or comparison table.
-   Record runtime-reported actual model/control, or unknown; a requested model is not proof
-   of execution. Model-routing notes do not alter the task/receipt JSON contract.
+   Use the claimed specialist role and requested model in the mission. Record
+   runtime-reported actual model/control, or unknown.
    For independent sessions use separate worktrees where appropriate, precise ownership,
    integration dependencies and a return receipt destination. One coordinator mutates
    board state; other agents return candidate receipts.
@@ -276,13 +295,12 @@ Owner decision D1 chose this; D2–D6 are deduced and to be confirmed on the PR.
 unauthenticated: the rules compare declared identifiers only, exactly and case included (`Fixer`
 and `fixer` are two agents for the tool). Shapes: `.harness/roadmap/schema.md`.
 
-Diagnose environment, context, spec and ordinary implementation failures before claiming
-a model-capacity shortfall. Red tests do not automatically promote the model; never repeat
-an unchanged costly attempt. A justified escalation still needs available controls,
-authorization and the existing budget. Accepted `topology.model` cannot be edited: changing
-it uses the existing revised accepted board process, preserving history and consumed
-attempt bounds. Policy advice and route fallbacks grant no authority to switch models,
-reset counters or exceed owner limits.
+Diagnose environment, context, spec and ordinary implementation failures before
+selecting a model or specialist. Avoid unchanged retries. Use the accepted routing policy
+for a retry of the same task and the derived-correction protocol for a blamed upstream
+dependency. Releasing or escalating a blocked task still requires its dependency
+corrections and any reframe. Model or specialist choices outside the accepted retry
+policy require a revised accepted board with history and attempt bounds preserved.
 
 When all tasks are done, run the separate global checks on the integrated result.
 Submit a fresh global receipt with `complete`. Until it succeeds the goal stays open.

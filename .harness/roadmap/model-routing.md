@@ -1,8 +1,9 @@
 # Model routing for bounded Roster missions
 
-Choose the least costly available model capable of satisfying unchanged quality gates,
-owner constraints and independence requirements. This policy provides advice, not authority
-to launch models, approve fallbacks, change contracts or increase budgets.
+Choose the available model and expertise most likely to satisfy the task, its quality gates,
+owner constraints and independence requirements. Use cost and time to distinguish comparably
+capable choices. Launch, fallback and budget authority comes from the accepted contract
+and the runtime's existing controls and permissions.
 
 Read `.harness/roadmap/model-routing.md` once during planning or relevant replanning;
 the source equivalent is `docs/model-routing.md`. Give workers only their compact routing
@@ -19,10 +20,10 @@ decision alongside goal, scope and checks. Keep comparisons and detailed evidenc
 3. Use a deterministic command directly when it performs the work. Prefer same-agent
    sequential execution when delegation adds no value, while preserving required independent
    verification: self-review cannot establish independence.
-4. Compare complexity, ambiguity, context needs, consequences and available checks. Choose
-   the least costly eligible candidate with sufficient observed capability, documenting
-   uncertainty. Unknown capability is not a guarantee; unknown monetary cost cannot establish
-   which model is cheapest. Retain the authorized configured model when comparison is unavailable.
+4. Compare complexity, ambiguity, context needs, consequences and available checks. Favor
+   the strongest fit for the mission's goal and evidence. Use lower cost or latency when
+   candidates meet the same quality bar. Record uncertainty and retain the authorized
+   configured model when evidence for a change is unavailable.
 
 Three relative tiers guide mission selection; they are not verified prices or vendor rankings:
 
@@ -43,8 +44,9 @@ savings claims without supporting measurements; no pricing lookup is required me
 ## Compact decision and execution record
 
 Keep one record per mission/role in roadmap `notes/model-routing.md` or the task plan, and
-copy its essential decision into every self-contained sub-brief. These are planning notes,
-not new fields in roadmap JSON, plan JSON or execution receipts.
+copy its essential decision into every self-contained sub-brief. Record rationale, cost
+observations and actual runtime identity in those notes. Keep the validated roadmap
+default and specialist ladder in the accepted task topology.
 
 ```text
 mission / runtime: <task and role / intended runtime>
@@ -73,7 +75,7 @@ Use actual failure evidence to distinguish causes:
 | Missing, stale or excessive context | Refresh relevant inputs or narrow the mission without dropping constraints. |
 | Ambiguous/contradictory specification | Resolve through the existing intake/planning route. |
 | Ordinary red test or implementation defect | Follow TDD and the bounded correction loop; do not automatically promote. |
-| Evidenced model capacity shortfall | Explain the unresolved demand, rule out preceding causes and consider bounded authorized escalation. |
+| Evidenced model or specialist capacity shortfall | Explain the unresolved demand and consider a better-fit authorized specialist, model and discriminating check. |
 
 Record diagnosis, changed strategy and the discriminating check. Never repeat an unchanged
 costly attempt or increase attempts merely to keep moving. Escalation still requires supported
@@ -108,11 +110,18 @@ commands work across Codex, Claude, OpenCode and Pi without hooks or runtime con
 
 ## Accepted roadmaps and older plans
 
-Accepted `topology.model` is immutable. A different requested model requires the existing
-revised-and-accepted-board process, preserving prior history and consumed attempt bounds.
-Do not edit the accepted contract or restart counters. A route fallback does not automatically
-authorize a model change. Reconcile runtime/model mismatches rather than rewriting the accepted
-request. Policy advice cannot reroute a board or override owner cost limits.
+Propose the default model, evidence for its native runtime control, ordered model alternatives
+and increasingly relevant specialists for each task. Describe the evidence and threshold
+that justify each step. Ask the operator to validate or amend the proposal in roadmap intake
+and include the adopted policy in `goal.md` and `topology.escalation`. Record validation for
+the opted-in tasks in the digest-bound acceptance decision's `routing_review`.
+
+The coordinator can select the next eligible specialist or an accepted model alternative
+with a fresh `claim --routing-decision`. An availability fallback requires evidence for
+the earlier unavailable choices. A specialist trigger requires blocked receipt history and
+an applicable diagnosis. Follow any required reframe, verify authorized runtime controls,
+and record what actually ran. A model or level outside the accepted policy requires a
+separately accepted revised board with prior history and consumed bounds preserved.
 
 Legacy plans and Fast/Express tasks without routing sections retain their current configured
 model, with identity/control/cost unknown where appropriate. Add a compact decision for new

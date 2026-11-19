@@ -300,6 +300,10 @@
               }
             ]
           },
+          "routing": {
+            "type": "object",
+            "description": "Accepted specialist level, requested model, observed blocked-attempt counters and any eligible next specialist. See roadmap-schema.md."
+          },
           "attempts": {
             "type": "integer",
             "minimum": 0

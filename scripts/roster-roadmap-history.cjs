@@ -7,7 +7,7 @@ const core = () => require("./roster-roadmap.cjs");
 const { fail, keys, object, text, identifier, integer, array, oneOf, digestString } = v;
 const AT = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
 function validateEvent(event, index) {
-  keys(event, ["revision", "action", "coordinator", "task_id", "reason", "reconciled_by", "at", "assignment", "definition_digest"], "state event");
+  keys(event, ["revision", "action", "coordinator", "task_id", "reason", "reconciled_by", "at", "assignment", "definition_digest", "routing_decision"], "state event");
   if (event.at !== undefined && (typeof event.at !== "string" || !AT.test(event.at) || !Number.isFinite(Date.parse(event.at)))) fail("invalid state event timestamp");
   if (event.revision !== index + 1) fail("state event revisions are not contiguous");
   oneOf(event.action, ["accept", "claim", "record", "release", "complete", "derive", "withdraw-derived"], "state event action");
@@ -16,6 +16,7 @@ function validateEvent(event, index) {
   if (event.task_id !== null) identifier(event.task_id, "state event task");
   if (event.reason !== null) text(event.reason, "state event reason");
   if (event.reconciled_by !== null) identifier(event.reconciled_by, "state event reconciliation actor");
+  if (event.routing_decision !== undefined && event.action !== "claim") fail("routing decisions belong to claim events");
 }
 function validateTaskState(id, task) {
   identifier(id, "state task id");
@@ -24,10 +25,12 @@ function validateTaskState(id, task) {
   oneOf(task.status, ["queued", "active", "blocked", "done", "withdrawn"], "task state status"); integer(task.attempts, "task attempts");
   if (task.reason !== null) text(task.reason, "task reason");
   if (task.assignment !== null) {
-    keys(task.assignment, ["id", "assignee", "contract_digest", "capabilities_digest", "route", "runtime"], "assignment");
+    keys(task.assignment, ["id", "assignee", "contract_digest", "capabilities_digest", "route", "runtime", "specialist_level", "requested_model"], "assignment");
     text(task.assignment.id, "attempt id"); identifier(task.assignment.assignee, "assignment assignee");
     digestString(task.assignment.contract_digest, "assignment contract digest"); digestString(task.assignment.capabilities_digest, "assignment capabilities digest");
     oneOf(task.assignment.route, v.ROUTES, "assignment route"); oneOf(task.assignment.runtime, v.RUNTIMES, "assignment runtime");
+    if (task.assignment.specialist_level !== undefined) integer(task.assignment.specialist_level, "assignment specialist level");
+    if (task.assignment.requested_model !== undefined) text(task.assignment.requested_model, "assignment requested model");
   }
   if ((task.status === "active") !== (task.assignment !== null)) fail(`assignment/status mismatch for ${id}`);
   if (!["queued", "withdrawn"].includes(task.status) && task.attempts === 0) fail(`missing attempt for ${id}`);
@@ -51,10 +54,54 @@ function validateState(state) {
   derived.validateDerivedShape(state);
   if (state.global_receipt !== null) object(state.global_receipt, "global receipt");
 }
+function topologyAt(task, level) {
+  return level > 0 ? task.topology.escalation.specialists[level - 1] : task.topology;
+}
+function modelsAt(task, level) {
+  if (level > 0) return topologyAt(task, level).models;
+  return [task.topology.model, ...task.topology.escalation.model_fallbacks];
+}
+function nextSpecialist(task, routing) {
+  const specialist = task.topology.escalation.specialists[routing.level];
+  if (!specialist) return null;
+  const [counter, minimum] = Object.entries(specialist.after)[0];
+  return routing[counter] >= minimum ? specialist : null;
+}
+function applyRoutingDecision(task, routing, decision, revision) {
+  if (!routing) fail("task has no accepted escalation policy");
+  keys(decision, ["task_id", "state_revision", "level", "model", "unavailable_models", "basis"], "routing decision");
+  if (decision.task_id !== task.id || decision.state_revision !== revision) fail("stale or foreign routing decision");
+  integer(decision.level, "routing decision level"); text(decision.model, "routing decision model");
+  v.strings(decision.unavailable_models, "routing decision unavailable_models");
+  text(decision.basis, "routing decision basis");
+  const advances = decision.level === routing.level + 1 && nextSpecialist(task, routing);
+  if (decision.level !== routing.level && !advances) fail("only the next eligible specialist level can be selected");
+  const models = modelsAt(task, decision.level), index = models.indexOf(decision.model);
+  if (index !== decision.unavailable_models.length || decision.unavailable_models.some((model, offset) => model !== models[offset])) {
+    fail("model must follow the accepted order with all earlier models declared unavailable");
+  }
+  if (advances) {
+    routing.blocked_attempts = 0;
+    routing.failure_signature = null;
+    routing.same_failure_attempts = 0;
+  }
+  routing.level = decision.level;
+  routing.model = decision.model;
+}
+function observeBlocked(routing, receipt) {
+  routing.blocked_attempts++;
+  const signature = receipt.failure_signature || null;
+  if (signature !== routing.failure_signature) routing.same_failure_attempts = 0;
+  routing.same_failure_attempts = signature ? routing.same_failure_attempts + 1 : 0;
+  routing.failure_signature = signature;
+}
 function replayClaim(ctx, task, current, event, replay, history) {
   if (current.status !== "queued" || current.attempts >= task.policy.max_attempts) fail(`illegal claim history for ${task.id}`);
   if (task.depends_on.some(id => replay[id].status !== "done") || derived.frozenDependencies(task, replay, history.known).length) fail(`claim history has unmet dependencies for ${task.id}`);
-  derived.checkClaimPayload(ctx, task, event, history);
+  const routing = current.routing;
+  if (event.routing_decision !== undefined) applyRoutingDecision(task, routing, event.routing_decision, event.revision - 1);
+  if (routing && !event.assignment) fail(`claim history of ${task.id} with routing lacks its assignment`);
+  derived.checkClaimPayload(ctx, task, event, history, topologyAt(task, routing?.level), routing?.model);
   current.attempts++; current.status = "active"; current.reason = null; current.payload = event.assignment || null;
 }
 function replayRecord(ctx, task, current, event, replay, history) {
@@ -62,6 +109,7 @@ function replayRecord(ctx, task, current, event, replay, history) {
   if (current.status !== "active" || !receipt || receipt.task_id !== task.id || !["done", "blocked"].includes(receipt.result)) fail(`receipt/event history mismatch for ${task.id}`);
   derived.checkReceiptPayload(ctx, task, current.payload, receipt, event, history, replay);
   current.status = receipt.result; current.reason = receipt.result === "blocked" ? receipt.summary : null; current.payload = null;
+  if (current.routing && receipt.result === "blocked") observeBlocked(current.routing, receipt);
   derived.applyRequeue(task, receipt, replay, ctx.state.receipts.slice(0, history.receiptIndex.value), history.known);
 }
 function replayRelease(ctx, task, current, event, replay, history) {
@@ -96,13 +144,15 @@ function compareReplay(ctx, replay) {
     if (actual.assignment) {
       if (activeIds.has(actual.assignment.id)) fail(`active attempt for ${task.id} duplicates a recorded or active assignment`);
       activeIds.add(actual.assignment.id);
+      if (actual.assignment.specialist_level !== expected.routing?.level || actual.assignment.requested_model !== expected.routing?.model) fail(`assignment model selection disagrees with execution history for ${task.id}`);
     }
   }
 }
 function verifyHistory(ctx) {
   const { state } = ctx;
   if (!state.events.length || state.events[0].action !== "accept") fail("accepted roadmap is missing its acceptance history");
-  const replay = Object.fromEntries(contractTasks(ctx).map(task => [task.id, { status: "queued", attempts: 0, reason: null }]));
+  const replay = Object.fromEntries(contractTasks(ctx).map(task => [task.id, { status: "queued", attempts: 0, reason: null,
+    ...(task.topology.escalation && { routing: { level: 0, model: task.topology.model, blocked_attempts: 0, same_failure_attempts: 0, failure_signature: null } }) }]));
   const receiptIndex = { value: 0 }, known = [];
   state.events.forEach((event, index) => {
     if (event.coordinator !== state.coordinator) fail("foreign coordinator in state history");
@@ -116,5 +166,6 @@ function verifyHistory(ctx) {
   if (known.length !== Object.keys(state.derived || {}).length) fail("derived mission definitions disagree with derive history");
   compareReplay(ctx, replay);
   if (Boolean(state.global_receipt) !== (state.events.at(-1).action === "complete")) fail("global receipt/completion history mismatch");
+  ctx.routing = new Map(Object.entries(replay).flatMap(([id, task]) => task.routing ? [[id, task.routing]] : []));
 }
-module.exports = { validateState, replayTaskEvent, verifyHistory };
+module.exports = { validateState, replayTaskEvent, verifyHistory, topologyAt, modelsAt, nextSpecialist, applyRoutingDecision };

@@ -110,8 +110,7 @@ function taskEstimate(ctx, task, record, now) {
   if (current.status === "done") { item.remaining_minutes = Object.fromEntries(AXES.map(key => [key, 0])); item.source = "completed"; return item; }
   if (current.status === "active") {
     if (current.assignment.capabilities_digest !== core().hash(ctx.capabilities)) { item.reasons.push("capabilities changed during active assignment; reconcile before forecasting completion"); return item; }
-    const assigned = { ...task, topology: { ...task.topology, route: current.assignment.route, fallbacks: [] } };
-    if (!core().viewSupport.routeFor(ctx, assigned)) { item.reasons.push("active assignment runtime or route is currently unavailable or unauthorized"); return item; }
+    if (!core().viewSupport.routeAvailable(ctx, task, current.assignment.route)) { item.reasons.push("active assignment runtime or route is currently unavailable or unauthorized"); return item; }
   }
   if (current.status === "blocked") item.reasons.push(current.reason || "mission blocked");
   if (!estimate) { item.reasons.push("missing task duration"); return item; }
