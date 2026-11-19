@@ -14,12 +14,13 @@ function claimedTopology(task, assignment) {
 function missionView(ctx, task, worker) {
   const support = core().viewSupport, current = ctx.state.tasks[task.id];
   const { routing, ...progress } = support.taskProgress(ctx, task);
-  const topology = worker ? claimedTopology(task, current.assignment) : task.topology;
+  const claimedOnly = worker && routing !== undefined;
+  const topology = claimedOnly ? claimedTopology(task, current.assignment) : task.topology;
   return {
     id: task.id, objective: task.objective, intake: task.intake, inputs: task.inputs, outputs: task.outputs,
     dependencies: task.depends_on.map(id => ({ id, status: ctx.state.tasks[id].status })), allowed_files: task.allowed_files,
     dod: task.dod, success: task.success, checks: task.checks, topology,
-    selected_route: current.assignment?.route || (worker ? null : support.routeFor(ctx, task)), assignment: current.assignment,
+    selected_route: current.assignment?.route || (claimedOnly ? null : support.routeFor(ctx, task)), assignment: current.assignment,
     policy: task.policy, workflow: task.workflow, progress,
     ...(!worker && routing && { routing }),
     ...(task.derived ? { derived: require("./roster-roadmap-derived.cjs").derivedBlock(ctx, task) } : {}),

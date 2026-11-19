@@ -340,11 +340,12 @@ artifact references and continuation instructions. It never loads notes or recei
 Default maximum is 12,000 characters; overflow refuses explicitly. Select a narrower mission
 or increase the limit deliberately instead of dropping constraints.
 Without `--task`, the coordinator view selects the next global action and continues through
-global verification and acceptance. With `--task`, the bounded worker view contains the active
-assignment's role, persona, requested model and selected route. The coordinator's prompt and
-`view` expose the accepted ladder. A worker returns that mission's candidate receipt to the
-coordinator. Unclaimed, blocked and done missions receive status-specific handoff instructions
-with no active topology.
+global verification and acceptance. With `--task`, the bounded worker view for an opted-in task
+contains the active assignment's role, persona, requested model and selected route. The
+coordinator's prompt and `view` expose the accepted ladder. A worker returns that mission's
+candidate receipt to the coordinator. Unclaimed, blocked and done opted-in tasks receive
+status-specific handoff instructions with no active topology. Tasks without escalation retain
+their topology preview.
 
 ## Receipts
 
