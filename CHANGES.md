@@ -1,9 +1,16 @@
 # Changes
 
-## Unreleased — next 3.1.0-dev
+## Unreleased — next 3.2.0-dev
 
-Development channel only; no `v3.1.0-dev` release tag is created by this version stamp.
+Development channel only; no `v3.2.0-dev` release tag is created by this version stamp.
 `VERSION` identifies the channel's development line; it does not establish a stable release.
+
+- Deterministic resource analysis compares incremental expense, elapsed time and balanced
+  roadmap assignments from dated model/session snapshots and explicit attempt memory.
+- Roadmap/run/plan/implement prompts consume compact recommendations, preserve accepted
+  topology and return verified per-model observations with unknown measurements left null.
+- Trusted harness sync installs the analyzer and shared protocol, plus canonical recruiter
+  operation companions; private catalogs and memory remain local and no collection hook is added.
 
 ## v3.0.0 — Roadmaps, Express Lite, local telemetry and pipeline observation
 

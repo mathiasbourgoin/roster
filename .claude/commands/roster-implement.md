@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express Lite/Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.14.0
+version: 1.15.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -381,7 +381,16 @@ constraint; the review scope gate remains the backstop.
 
 Before delegation, consume the plan/sub-brief's `Model routing` decision. If a new routing
 decision or escalation is needed, read `.harness/roadmap/model-routing.md` (source fallback
-`docs/model-routing.md`) once. Choose the least costly available capable model through
+`docs/model-routing.md`) once. Apply the owner's cost/duration preference and comparison protocol in
+`.harness/roadmap/resource-routing.md` (source: `docs/resource-routing.md`). For a new relevant
+decision invoke the installed analyzer with `--format compact`; consume an existing fresh
+mission row otherwise. Use its recommendation or justify a deviation/no-data, preserving
+configured/accepted assignments and all quality/independence constraints. Do not run portfolio
+analysis in a worker or Express Lite; a sequential coordinator handles planning at boundaries.
+Capture the preallocated attempt/contribution ID and return actual per-model usage, observed
+model or unknown, elapsed time and outcome evidence. After verification the coordinator
+explicitly records private memory, including failures, with no hook or cumulative-usage guess.
+Choose an eligible model through
 observed native controls, preserving explicit owner model requirements, quality gates and
 independent verification. Use direct commands for deterministic work and same-agent
 sequential implementation when delegation adds no value; the specialization routes below

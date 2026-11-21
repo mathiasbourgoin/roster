@@ -2,12 +2,26 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.15.1
+version: 1.16.0
 ---
 
 # Roster Run
 
 You are the entry point of the roster pipeline. Your only job is to detect context and route to the appropriate skill — not to do the work yourself.
+
+## Resource-analysis handoff
+
+Preserve the owner's cost/duration direction, resource exclusions and any existing private
+analysis/input references when dispatching roadmap, plan or implementation. Planning phases
+follow `.harness/roadmap/resource-routing.md` (source: `docs/resource-routing.md`) and invoke
+the installed `roster-analyze.cjs` with `--format compact` before proposing model/session
+assignments; Fast/Express implementation does so only for a new relevant routing decision.
+Do not run portfolio analysis just to classify a task, replay it at every phase/resume, or
+change mode/gates based on price. Express Lite keeps its minimal no-spawn path. Missing legacy
+data retains configured models with explicit unknowns; partial/corrupt current installs need
+trusted repair. Forward only the selected mission's compact decision to workers; the phase
+coordinator records explicit attempt results after verification, without hooks or transcript
+collection. An accepted roadmap topology cannot be replaced by advice.
 
 ## Roadmap dispatch
 

@@ -16,7 +16,13 @@ Default to a shared harness model:
 - Updating a project means updating the shared harness first, then re-rendering runtime entrypoints
 - If no harness exists yet, bootstrap one with `./scripts/init-harness.sh <project-root> [profile]`
 
-## Update Notes — v3.1.0-dev development line
+## Update Notes — v3.2.0-dev development line
+
+Resource-aware roadmap/run/plan/implement prompts now use the deterministic analyzer to compare
+cost/duration choices from observed resource snapshots and explicit attempt memory. Workers
+receive compact mission advice; accepted topologies and quality gates remain authoritative.
+Update the complete same-revision analyzer/resources and canonical `.harness/recruiter-ops/`
+companions. Preserve private catalogs/memory. No provider, session or collection hook is activated.
 
 This is the `next` channel, not a new stable tag. It follows the 3.0.0 release; update the
 complete harness, skills, rules and companion tools from the approved `next` revision.
@@ -36,13 +42,19 @@ board. Preserve consumer overrides, custom hooks and local roadmap state. Run
 
 ## Step 0: Version Check (MANDATORY — run before any other step)
 
-Run the version check script — `.claude/agents/recruiter-ops/version-check.sh` (installed),
+Prefer canonical `.harness/recruiter-ops/` companions. Older installs may use their existing
+`.claude/agents/recruiter-ops/` copies as a legacy fallback; trusted full sync refreshes the
+canonical set from the same approved source as the pipeline. Do not mix channels/revisions.
+If canonical companions exist but are stale, linked or corrupt, repair the trusted canonical
+set rather than silently falling back to an older Claude copy or another remote source.
+
+Run the version check script — `.harness/recruiter-ops/version-check.sh` (installed),
 `recruiter/ops/version-check.sh` (source), or fetch from `${RAW}/recruiter/ops/version-check.sh`
 (`${RAW}` = `https://raw.githubusercontent.com/mathiasbourgoin/roster/main`). Capture its output.
 
 - **Empty output** → proceed to Mode Detection.
 - **`ROSTER_UPGRADE_AVAILABLE <local> <remote> <auto> <runtime>`** → see
-  `.claude/agents/recruiter-ops/update-mechanism.md` (installed) or
+  `.harness/recruiter-ops/update-mechanism.md` (installed) or
   `recruiter/ops/update-mechanism.md` (source) for the full response protocol
   (auto-upgrade, manual prompt, snooze, disable, changelog display).
 
@@ -281,7 +293,7 @@ Use index artifacts, not ad-hoc remote crawling.
 
    Reusing the languages already detected during project analysis (step 1), run the
    **Code-Intel Pack Discovery** procedure in `recruiter/ops/update-mechanism.md`
-   (installed: `.claude/agents/recruiter-ops/update-mechanism.md`) alongside the
+   (installed: `.harness/recruiter-ops/update-mechanism.md`) alongside the
    pipeline-skills offer above: registry from local checkout else raw URL else skip
    silently; verified tier first, max 3 options + "none" default; community entries
    labeled; on approval present the entry's `install` text verbatim — never execute it.
@@ -456,7 +468,7 @@ The Governor will then:
 
 ## Self-Update
 
-See `.claude/agents/recruiter-ops/update-mechanism.md` (installed) or
+See `.harness/recruiter-ops/update-mechanism.md` (installed) or
 `recruiter/ops/update-mechanism.md` (source). Covers:
 - `/recruit update` source resolution, version comparison, merge procedure
 - Self-Update Report Contract (runtime projections, Codex visibility, skill inventory)
@@ -464,7 +476,7 @@ See `.claude/agents/recruiter-ops/update-mechanism.md` (installed) or
 - Code-Intel Pack Discovery (registry-driven tool-pack suggestions, never auto-installed)
 - Team Re-Adaptation checklist for major version upgrades (1.x → 2.x)
 
-Runtime path reference: `.claude/agents/recruiter-ops/runtime-paths.md` (installed) or
+Runtime path reference: `.harness/recruiter-ops/runtime-paths.md` (installed) or
 `recruiter/ops/runtime-paths.md` (source).
 
 ## Pipeline Priority

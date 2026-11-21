@@ -70,10 +70,11 @@ reports the active channel. `stable` is the default — omitting `--channel` rep
 
 The current stable release is **3.0.0** (annotated tag `v3.0.0`); it includes the content
 formerly prepared as 2.8.0, which was never tagged. `stable` tracks `main`; `next` is the
-**3.1.0-dev development line**.
+**3.2.0-dev development line**.
 Read [product changes](CHANGES.md) for the
 feature list: multi-intake roadmaps, Express Lite, focused Fast checks, model-tier routing,
-local commit telemetry, optional commit attribution, manual usage reports, diagnosed recovery
+local commit telemetry, optional commit attribution, manual usage reports, deterministic resource
+analysis with compact cost/duration planning advice, diagnosed recovery
 after three failures and read-only pipeline observation. Native roadmap missions in Pi do not
 restore its removed installer. Model routing is guidance, not an automatic model switcher.
 

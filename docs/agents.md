@@ -13,7 +13,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | tech-lead | 1.9.1 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
-| recruiter | 3.1.0-dev | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
+| recruiter | 3.2.0-dev | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
 | governor | 2.1.2 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
 | kb-agent | 2.5.0 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
@@ -21,7 +21,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | skill-creator | 1.4.0 | opus | Designs reusable workflow skills from repeated patterns, with search-first and safety checks |
 | architect | 1.6.0 | sonnet | Code quality and architecture guardian focused on structural regressions, duplication, and maintainability risks |
 | context-manager | 1.3.0 | haiku | Maintains concise shared context for multi-agent execution to reduce drift and duplication |
-| planner | 1.4.0 | opus | Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent |
+| planner | 1.5.0 | opus | Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent |
 | pr-workflow | 1.2.0 | sonnet | Owns the project PR/git workflow — conventional commits, rebase merge, pre-push validation, and review rounds |
 | agents-md-guardian | 1.0.0 | sonnet | Reviews AGENTS.md / CLAUDE.md changes against a parameterizable checklist (size budget, required sections, forbidden inline patterns, doc links) |
 

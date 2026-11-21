@@ -13,6 +13,7 @@ From a Roster checkout, with Node 18 or newer:
 node scripts/roster-analyze.cjs analyze --input examples/resource-analysis/input.json
 node scripts/roster-analyze.cjs analyze --input examples/resource-analysis/input.json --objective duration
 node scripts/roster-analyze.cjs analyze --input examples/resource-analysis/input.json --objective balanced --cost-weight 0.8
+node scripts/roster-analyze.cjs analyze --input examples/resource-analysis/input.json --format compact
 ```
 
 The example is entirely synthetic: model names, prices, availability, quotas and success estimates
@@ -24,6 +25,18 @@ through your environment's supported tools; do not refresh a timestamp without r
 choices. `pareto` contains up to 20 tradeoffs: a displayed plan cannot be improved in both cost
 and duration by another enumerated plan. `pareto_omitted` reports truncation.
 Each task candidate exposes exclusion reasons, warnings, sample counts and per-metric provenance.
+
+`--format compact` returns the same chosen plan with its objective, exact parsed-input digest
+(including attached memory and CLI policy overrides), totals, selected runtime/model/session,
+sample counts, prior-based metrics, resource expiry, warnings and global assumptions. It omits
+candidate tables, frontier and historical records. Alternatives contain only comparable totals.
+Selected metric provenance is grouped by source, with each source capped at 256 UTF-16 units
+and an explicit `truncated` flag; retain full reports for complete references. Global warnings
+and per-task unpriced-option counts include eligible alternatives outside the selected plan:
+a cheapest-known-price proposal does not establish that an unpriced option costs more.
+Exit semantics are unchanged; a no-recommendation result stays explicit. Use compact output in
+planner context and give a worker only its own row. See [the shared routing protocol](resource-routing.md)
+for the roadmap/run/plan/implement integration and explicit result-recording procedure.
 
 Exit codes: **0** means a recommendation exists, **2** means insufficient data/resources,
 infeasible capacity or a search limit, and **1** means invalid input or an IO/setup error.
@@ -165,8 +178,8 @@ npm run test:analysis
 The checked-in CJS bundle includes only Node built-ins and the existing bounded artifact IO.
 It runs standalone under ESM/CommonJS consumers without `node_modules`; the intermediate tsc CLI
 is not the runtime entry point. `npm run check:analysis` verifies bundle reproducibility.
-Integrations can call the pure `analyze` export and use JSON recommendations when preparing
-`roster-run` plans or `roster-roadmap` proposals. Applying a changed topology still follows
+Integrations can call the pure `analyze` export; Roster planning prompts use its compact CLI
+recommendations when preparing `roster-run` plans or `roster-roadmap` proposals. Applying a changed topology still follows
 the existing revised-and-accepted contract process in [model routing](model-routing.md).
-Session Mesh discovery/refresh and automatic policy wiring are separate adapters, not delivered
-by this analysis command.
+Session Mesh discovery/refresh uses the runtime's currently exposed authorized tools; this
+analysis command itself remains offline and supplies no provider/session discovery adapter.

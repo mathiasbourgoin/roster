@@ -66,7 +66,7 @@
       {
         "name": "planner",
         "source": "roster",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "role": "Takes a validated research brief and decomposes it into compressed, verified sub-briefs for each execution agent. Runs with a fresh context — no research history.",
         "tunables": {}
       },
@@ -80,7 +80,7 @@
       {
         "name": "recruiter",
         "source": "roster",
-        "version": "3.1.0-dev",
+        "version": "3.2.0-dev",
         "role": "Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team across shared harness files and runtime-specific entrypoints.",
         "tunables": {}
       },
@@ -298,7 +298,7 @@
       {
         "name": "roster-implement",
         "source": "roster",
-        "version": "1.14.0",
+        "version": "1.15.0",
         "domain": "pipeline",
         "phase": "implement",
         "tunables": {
@@ -343,7 +343,7 @@
       {
         "name": "roster-plan",
         "source": "roster",
-        "version": "1.7.0",
+        "version": "1.8.0",
         "domain": "pipeline",
         "phase": "plan",
         "tunables": {}
@@ -397,7 +397,7 @@
       {
         "name": "roster-roadmap",
         "source": "roster",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -405,7 +405,7 @@
       {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.15.1",
+        "version": "1.16.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
