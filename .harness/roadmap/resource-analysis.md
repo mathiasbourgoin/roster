@@ -181,5 +181,5 @@ is not the runtime entry point. `npm run check:analysis` verifies bundle reprodu
 Integrations can call the pure `analyze` export; Roster planning prompts use its compact CLI
 recommendations when preparing `roster-run` plans or `roster-roadmap` proposals. Applying a changed topology still follows
 the existing revised-and-accepted contract process in [model routing](model-routing.md).
-Session Mesh discovery/refresh uses the runtime's currently exposed authorized tools; this
+Resource discovery/refresh uses the runtime's currently exposed authorized tools; this
 analysis command itself remains offline and supplies no provider/session discovery adapter.

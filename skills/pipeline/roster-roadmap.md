@@ -2,7 +2,7 @@
 name: roster-roadmap
 description: "Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs."
 when_to_use: "Use for /roster-roadmap, a multi-intake roadmap, or resuming an existing roadmap board."
-version: 1.5.0
+version: 1.5.1
 domain: pipeline
 phase: null
 preamble: false
@@ -169,8 +169,8 @@ of permission; recheck before dispatch. Tool presence does not imply the right t
 Prefer sequential when stronger routes add no value. Do not silently degrade required
 independent verification into self-review. Represent it as a separate dependent mission.
 
-For Deck MCP, respect each tool's current contract: inspect inbox metadata before any
-message text and obtain the required owner instruction to treat messages. Session-create
+For session-coordination tools, respect each tool's current contract: inspect exposed inbox
+metadata before message text and obtain any required owner instruction to treat messages. Session-create
 requests may need owner approval; creation, discovery and messaging are separate powers.
 Use actual session identities and action receipts, never guessed IDs or automatic approval.
 

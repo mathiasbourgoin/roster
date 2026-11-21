@@ -58,7 +58,7 @@ permissions. Observe and authorize capabilities independently. A required indepe
 review must not fall back to self-review. Use dependent review/integration tasks and
 retain their evidence.
 
-Deck MCP can supply some session facilities. Consult the actual tool contracts:
+Available session-coordination tools may supply these facilities. Consult their actual contracts:
 inbox metadata may be readable while message content still needs owner instruction;
 session creation can be an owner-approved request rather than immediate creation.
 Discovery, messaging and creation are different capabilities. Recording multisession

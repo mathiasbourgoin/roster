@@ -37,7 +37,7 @@ One coordinator writes shared memory; never overwrite another session's input/re
    Preserve required quality/independence and model exclusions. A planning spending envelope is
    optional; subscriptions are not converted to invented per-token prices.
 2. Discover resources through currently available metadata and bounded authorized read-only
-   tools. In Session Mesh, inspect session/model/capability listings if exposed; distinguish
+   tools. Inspect session/model/capability listings if exposed; distinguish
    discovery, messaging and session creation permissions. Never read conversations, launch a
    session or activate a provider just to fill a catalog. Do not expose credentials.
    Combine runtime observations, current official rate snapshots and explicit owner declarations;
