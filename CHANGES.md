@@ -1,5 +1,20 @@
 # Changes
 
+## Unreleased
+
+### Changed
+
+- **roster-research 1.5.1**: a code-intel pack that is not installed goes to `skipped[]`, not to
+  the friction log. A pack that is installed but unusable still records a friction line.
+- **roster-review 2.7.2 and normalizer 2.1.0**: a non-empty `rejected[]` adds a count to
+  `warnings[]`, and the one-liner surfaces every normalizer warning. A verdict once went out with
+  9 of 10 findings silently rejected for lowercase severities.
+- **Review-tool bundle 1.12.0**: `xruntime-exec.sh` passes `-o` (`--output-last-message`) to
+  codex and prints only the final answer on success. The banner and prompt echo made codex-cli
+  0.167 reviews non-conforming. `--out` still keeps the full log.
+- **human-validation 1.1.0**: each quiz question quotes the text it asks about, never an ID, a
+  step number or a short name alone.
+
 ## v3.0.0 — Roadmaps, Express Lite, local telemetry and pipeline observation
 
 Released 2026-11-17 from `main`. This version also carries everything that was prepared as

@@ -3,7 +3,7 @@ name: human-validation
 description: Agents must not substitute for human judgment. Plans, specs, and decisions require human validation via structured quiz — not passive approval.
 scope: global
 category: governance
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Human Validation Protocol
@@ -42,6 +42,8 @@ Tell the user the path. The file is the source of truth — the conversation is 
 ### 3. Run the validation quiz
 
 Ask 3–5 questions. Every question must have a specific correct answer derivable from the plan file.
+Each question also stands alone: quote the requirement, step or option text it asks about. Never
+refer to it only by an ID (FR-010, AC-3), a step number, or a short name ("the forms").
 
 Question mix:
 
@@ -94,6 +96,7 @@ Do not proceed until the conflict is explicitly resolved. Do not reveal these me
 - Never embed the full plan in conversation and ask for approval inline.
 - Never accept a one-word "yes" or "ok" as validation for a multi-step plan.
 - Never skip the quiz because the plan "seems straightforward."
+- Never ask about an ID, a step number, or a short name without quoting the text it stands for.
 - Never make the consistency check question look different from the others — uniform format is mandatory.
 - Never embed more than one — this is a safety net, not an obstacle course.
 - Never make it so obscure that catching it proves nothing — it must test the most important part.

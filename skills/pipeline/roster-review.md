@@ -2,7 +2,7 @@
 name: roster-review
 description: Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict.
 when_to_use: "Use after roster-implement completes, before QA. Trigger: 'review this', 'roster-review'."
-version: 2.7.1
+version: 2.7.2
 domain: pipeline
 phase: review
 preamble: true
@@ -341,9 +341,9 @@ any RESOLVED entry with no linked check at all — INV-2: flip its `status` back
 returns), or `dispositions.pending_check[]` (a RESOLVED, check-linked entry the report doesn't
 cover yet — resolve it after THIS round's gate run from THIS round's fresh report, one bounded
 re-gate if it turns out to be a reopen, §5.5). Schema-invalid input lands in `rejected[]` with a
-reason — never silently dropped. `--prior` also gets the caller's `--round` cross-checked against
-the lifecycle witness (§5.5); a mismatch lands in `warnings[]` — surface it in the one-liner (§7),
-never silently proceed on a drifted round. Merge its output into the draft verdict; stamp
+reason, plus a count in `warnings[]`. `--prior` also gets the caller's `--round` cross-checked
+against the lifecycle witness (§5.5); a mismatch lands in `warnings[]`. Surface every normalizer
+warning in the one-liner (§7) — never proceed on one silently. Merge its output into the draft verdict; stamp
 `normalized_by` with its `normalizer_version`.
 
 **Invocation trace (R-5, FR-165/FR-166):** given `--task`/`--round`/`--cycle` above, the normalizer

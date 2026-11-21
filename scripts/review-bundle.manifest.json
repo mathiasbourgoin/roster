@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "bundle_version": "1.11.1",
+  "bundle_version": "1.12.0",
   "channel": "stable",
   "source_ref": "main",
   "files": [
@@ -83,11 +83,11 @@
     },
     {
       "path": "scripts/review-normalize.js",
-      "sha256": "c2bb7feb98b24df15ee5e41edcfa7c28b9f1023ad3a389027d977ca828b4a402"
+      "sha256": "89b96b00fc61daf804b229e3d091d34e9ddf4c15a146f69b65c15e71580a6735"
     },
     {
       "path": "scripts/xruntime-exec.sh",
-      "sha256": "36f64f4df2b0a2d88eac78bf4a584046628ac89dc7a835843fe196cb41d899c3",
+      "sha256": "99239f24c2028e63b6b86e613b8f6de8725603fef71a1963ab3f412d465bc431",
       "shared": true
     },
     {
@@ -167,7 +167,7 @@
     },
     {
       "path": "scripts/review-normalize.cjs",
-      "sha256": "bd291e6c1fbf4ab3e8aaabd44f43a6c11fd97441376a4aee370a91ae3f572b8a"
+      "sha256": "b393060c1360f4647051e1a53ae10898edbe037192dca560f34f40c71a918949"
     },
     {
       "path": "scripts/xruntime-review.cjs",
