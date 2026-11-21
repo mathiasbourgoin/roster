@@ -114,14 +114,14 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | roster-spec | 2.5.1 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.7.0 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
 | roster-implement | 1.14.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
-| roster-review | 2.7.1 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
+| roster-review | 2.7.2 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
 | roster-qa | 1.11.1 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
 | roster-ship | 1.9.0 | Carries a reviewed, QA'd branch through to a merged PR |
 | roster-investigate | 1.5.0 | Analyzes a bug or unexpected behavior to find its root cause, read-only |
 | roster-audit | 1.5.0 | Combines code-quality and spec-compliance checks into one actionable audit report |
 | roster-doctor | 1.7.1 | Health check and dev-environment pre-flight for the roster install and its build/test/lint tooling |
 | roster-question | 1.4.0 | Decomposes a task into neutral research questions with the intent hidden |
-| roster-research | 1.5.0 | Performs blind, file:line-grounded research from a questions file, never the task itself |
+| roster-research | 1.5.1 | Performs blind, file:line-grounded research from a questions file, never the task itself |
 | roster-workflow-build | 1.0.3 | Fills a CWR workflow template from a validated plan JSON via mechanical template-fill |
 | roster-triage-critical | 1.0.4 | Elicits formal-verification properties and proposes a backend for the critical route |
 | roster-spec-formal | 1.0.4 | Extends a validated roster-spec into a formal Rocq (.v) or Quint (.qnt) specification |

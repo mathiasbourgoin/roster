@@ -27,7 +27,20 @@ fi
 touch invoked.marker
 printf '%s\\n' "$@" > invoked-args.txt
 cat > received-prompt.txt
+last_message=""
+prev=""
+for arg in "$@"; do
+  [ "$prev" = "-o" ] && last_message="$arg"
+  prev="$arg"
+done
 case "$mode" in
+  last-message|last-message-error)
+    echo "OpenAI Codex stub banner"
+    echo "user"
+    echo "Review this diff and answer with fenced JSON like [{...}]"
+    [ -n "$last_message" ] && printf '\`\`\`json\n[]\n\`\`\`\n' > "$last_message"
+    [ "$mode" = "last-message-error" ] && exit 1
+    ;;
   healthy)
     echo '\`\`\`json'
     echo '[]'
@@ -692,4 +705,43 @@ test("wrapper distinguishes an ordinary nonrepository from a failed Git probe", 
 test("standalone content checker classifies setup failures as infrastructure", () => {
   const result = spawnSync(process.execPath, [path.join(__dirname, "content-snapshot-checker-setup.check.js")], { encoding: "utf8" });
   assert.strictEqual(result.status, 0, result.stdout + result.stderr);
+});
+
+test("codex: the -o last-message file replaces the banner and prompt echo on stdout", () => {
+  const repo = makeRepo();
+  const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "xruntime-out-")), "full-log.txt");
+  const result = spawnSync("bash", [WRAPPER, "codex", "review", "--out", out], {
+    cwd: repo.dir,
+    encoding: "utf8",
+    env: Object.assign({}, process.env, { XRUNTIME_BIN: repo.stubPath, STUB_MODE: "last-message" }),
+  });
+  assert.strictEqual(result.status, 0, result.stderr);
+  assert.strictEqual(result.stdout, "```json\n[]\n```\n");
+  assert.match(fs.readFileSync(out, "utf8"), /OpenAI Codex stub banner/, "--out keeps the full log");
+  const args = fs.readFileSync(path.join(repo.dir, "invoked-args.txt"), "utf8").split("\n");
+  assert.ok(args.includes("-o"), `codex must receive -o, got ${JSON.stringify(args)}`);
+});
+
+test("codex: a failed run prints the full log, not the last message", () => {
+  const repo = makeRepo();
+  const result = spawnSync("bash", [WRAPPER, "codex", "review"], {
+    cwd: repo.dir,
+    encoding: "utf8",
+    env: Object.assign({}, process.env, { XRUNTIME_BIN: repo.stubPath, STUB_MODE: "last-message-error" }),
+  });
+  assert.strictEqual(result.status, 1);
+  assert.match(result.stdout, /OpenAI Codex stub banner/);
+});
+
+test("opencode: no -o flag is passed and stdout is the full log", () => {
+  const repo = makeRepo();
+  const result = spawnSync("bash", [WRAPPER, "opencode", "review"], {
+    cwd: repo.dir,
+    encoding: "utf8",
+    env: Object.assign({}, process.env, { XRUNTIME_BIN: repo.stubPath, STUB_MODE: "last-message" }),
+  });
+  assert.strictEqual(result.status, 0, result.stderr);
+  assert.match(result.stdout, /OpenAI Codex stub banner/);
+  const args = fs.readFileSync(path.join(repo.dir, "invoked-args.txt"), "utf8").split("\n");
+  assert.ok(!args.includes("-o"));
 });

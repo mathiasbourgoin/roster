@@ -53,6 +53,23 @@ test("schema-invalid finding lands in rejected with a reason, never silently dro
   assert.ok(result.rejected[0].reason.includes("evidence"));
 });
 
+test("rejected findings raise a warnings[] entry with the count, so a person sees them (FR-100)", () => {
+  const bad = finding();
+  bad.severity = "high";
+  const good = finding({ path: "lib/bar.ml", fingerprint: "lib/bar.ml:42:correctness" });
+  const result = normalize({ newFindings: [bad, good], ledger: [] });
+  assert.strictEqual(result.rejected.length, 1);
+  const warning = result.warnings.find((w) => /rejected by the schema/.test(w));
+  assert.ok(warning, `expected a rejection warning, got ${JSON.stringify(result.warnings)}`);
+  assert.match(warning, /^1 of 2 findings rejected by the schema/);
+  assert.match(warning, /severity/);
+});
+
+test("no rejected findings -> no rejection warning", () => {
+  const result = normalize({ newFindings: [finding()], ledger: [] });
+  assert.ok(!result.warnings.some((w) => /rejected by the schema/.test(w)));
+});
+
 test("carried-forward ledger entry passes through byte-identical, never re-validated (FR-101)", () => {
   const legacyLedgerEntry = { fingerprint: "old.ml:1:correctness", not_schema_conformant: true };
   const result = normalize({ newFindings: [], ledger: [legacyLedgerEntry] });
@@ -288,7 +305,7 @@ test("INV-2/E-2: a RESOLVED, check-linked entry whose gate report shows red_veri
 
 test("normalizer_version is stamped on every output (FR-108)", () => {
   const result = normalize({ newFindings: [], ledger: [] });
-  assert.strictEqual(result.normalizer_version, "2.0.0");
+  assert.strictEqual(result.normalizer_version, "2.1.0");
 });
 
 test("read-only: normalize() never touches the filesystem (no side effects to assert against; contract by construction — no fs.write* call in the module)", () => {

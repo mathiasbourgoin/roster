@@ -65,7 +65,7 @@ const {
 const { deriveRoundState } = require("./lib/review/review-lifecycle");
 const { appendTraceLine } = require("./lib/review/review-trace");
 
-const NORMALIZER_VERSION = "2.0.0";
+const NORMALIZER_VERSION = "2.1.0";
 const TRACE_SCHEMA_VERSION = "1.0";
 
 function fail(code, message) {
@@ -240,6 +240,16 @@ function partitionAndCanonicalize(valid) {
   return { primary, dedupedCrossRuntime };
 }
 
+// A non-empty rejected[] is kept in the output (FR-100), but a JSON field alone
+// is easy to miss: a verdict once went out with 9 of 10 findings rejected for
+// lowercase severities. Summarize the rejection in warnings[], which the review
+// one-liner surfaces, so a person sees the count before trusting the verdict.
+const REJECTION_REASONS_SHOWN = 3;
+function rejectionWarning(rejected, total) {
+  const reasons = [...new Set(rejected.map((r) => r.reason))].slice(0, REJECTION_REASONS_SHOWN);
+  return `${rejected.length} of ${total} findings rejected by the schema: ${reasons.join(" | ")}`;
+}
+
 // Pure orchestration (no I/O) — exported so tests can exercise the full
 // pipeline without going through argv/stdin/exit.
 function normalize({ newFindings, ledger, round, gateReport, priorReview }) {
@@ -249,6 +259,7 @@ function normalize({ newFindings, ledger, round, gateReport, priorReview }) {
   if (roundWarning) warnings.push(roundWarning);
 
   const { valid, rejected } = validateFindings(newFindings);
+  if (rejected.length > 0) warnings.push(rejectionWarning(rejected, newFindings.length));
   const { primary, dedupedCrossRuntime } = partitionAndCanonicalize(valid);
 
   // INV-2/E-4: a re-report matching a ledger entry is disposed by

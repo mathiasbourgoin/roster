@@ -15,6 +15,9 @@
 #     (then --sandbox workspace-write); opencode: `opencode run`
 #   - runtime output captured to --out file (default: mktemp), then echoed to stdout
 #     (file-capture survives output-mangling shell wrappers)
+#   - codex also gets `-o <tmpfile>` (--output-last-message): on exit 0 with a non-empty
+#     file, stdout carries only that final answer, without the banner and prompt echo that
+#     made reviews non-conforming (codex-cli 0.167, 2026-11-19); otherwise the full log
 #   - Git-visible content/index fingerprint before/after (ignored untracked excluded);
 #     divergence prints TREE-MUTATED on stderr and exits 3
 #   - XRUNTIME_BIN overrides the runtime binary (testing hook)
@@ -62,12 +65,14 @@ done
 [ -z "$PROMPT" ] && [ -z "$PROMPT_FILE" ] && { echo "xruntime-exec: empty prompt" >&2; exit 2; }
 [ -n "$PROMPT_FILE" ] && [ ! -s "$PROMPT_FILE" ] && { echo "xruntime-exec: empty prompt file" >&2; exit 2; }
 OWN_OUT=0
+LAST_MESSAGE=""
 if [ -z "$OUT" ]; then
   OUT="$(mktemp)" || { echo "xruntime-exec: failed to create output file" >&2; exit 2; }
   OWN_OUT=1
 fi
 cleanup() {
   [ "$OWN_OUT" -eq 1 ] && rm -f -- "$OUT"
+  [ -n "$LAST_MESSAGE" ] && rm -f -- "$LAST_MESSAGE"
 }
 trap cleanup EXIT
 
@@ -78,6 +83,8 @@ case "$RUNTIME" in
   codex)
     CMD=("${XRUNTIME_BIN:-codex}" exec --skip-git-repo-check)
     if [ "$WRITE" -eq 1 ]; then CMD+=(--sandbox workspace-write); else CMD+=(--sandbox read-only); fi
+    LAST_MESSAGE="$(mktemp)" || { echo "xruntime-exec: failed to create last-message file" >&2; exit 2; }
+    CMD+=(-o "$LAST_MESSAGE")
     if [ -n "$PROMPT_FILE" ]; then CMD+=("-"); else CMD+=("$PROMPT"); fi
     ;;
   opencode)
@@ -119,7 +126,13 @@ esac
 timeout "$TIMEOUT" "${CMD[@]}" < "$INPUT" > "$OUT" 2>&1
 RC=$?
 
-cat "$OUT"
+# codex echoes a banner and the whole prompt into the log; its -o file holds only the final
+# answer. Print that answer on success, else the full log for diagnosis. --out keeps the log.
+if [ "$RC" -eq 0 ] && [ -n "$LAST_MESSAGE" ] && [ -s "$LAST_MESSAGE" ]; then
+  cat "$LAST_MESSAGE"
+else
+  cat "$OUT"
+fi
 
 if [ -n "$BEFORE" ]; then
   AFTER="$(snapshot)" || { echo "xruntime-exec: TREE-MUTATED — tree snapshot unavailable after runtime" >&2; exit 3; }

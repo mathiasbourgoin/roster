@@ -2,7 +2,7 @@
 name: roster-research
 description: Performs blind, file:line-grounded research from a questions file, never the task itself.
 when_to_use: "Use after roster-question produces an approved questions file. Trigger: 'research this', 'roster-research'."
-version: 1.5.0
+version: 1.5.1
 domain: pipeline
 phase: research
 preamble: true
@@ -79,8 +79,13 @@ node scripts/code-intel-resolve.js orient fan-in --root . 2>/dev/null
 - **Absent, unacknowledged, crashing, or timing-out** (no `scripts/code-intel-resolve.js`, no
   matching pack, `DEGRADED …` output, non-zero/non-JSON exit): skip this step entirely and
   proceed to Step 2 exactly as before — byte-identical to the pre-integration blind flow.
-  Record one Friction Log line noting the skip and its reason (e.g. "no acked
-  research-orientation pack — blind flow used").
+  How to record the skip depends on why:
+  - **Not installed** (no resolver, or no matching pack): this is configuration, not friction.
+    Add `"code-intel orientation: no pack installed"` to the entry's `skipped[]` and write no
+    friction line for it.
+  - **Installed but unusable** (unacknowledged, crashing, timing out, `DEGRADED …`): record one
+    Friction Log line naming the pack and the reason (e.g. "research-orientation pack
+    <name> timed out, blind flow used").
 - **Resolved and trusted:** for symbols named in the questions, query the pack via the resolver
   for orientation, e.g. `node scripts/code-intel-resolve.js orient callers <symbol> --root .`,
   `orient callees <symbol> --root .`, `orient path <A> <B> --root .`. Treat every returned
