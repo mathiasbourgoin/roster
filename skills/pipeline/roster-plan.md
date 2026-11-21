@@ -2,7 +2,7 @@
 name: roster-plan
 description: Decomposes a validated intake brief into sequenced, per-role sub-briefs.
 when_to_use: "Use after roster-intake produces a validated brief. Trigger: 'plan this', 'roster-plan'."
-version: 1.7.0
+version: 1.8.0
 domain: pipeline
 phase: plan
 preamble: true
@@ -75,7 +75,12 @@ Read `briefs/<task>-intake.md` in full. Extract: goal and scope boundary, files 
 
 Read `.harness/roadmap/model-routing.md` (source fallback `docs/model-routing.md`) once
 for this planning pass. Observe native model-selection controls and available candidates
-without exploring beyond the brief's scope. Plan the least costly available capable model
+without exploring beyond the brief's scope. Follow `.harness/roadmap/resource-routing.md`
+(source: `docs/resource-routing.md`) once: preserve the owner's cost/duration objective, prefill
+observed catalog evidence, run the installed analyzer with `--format compact`, and use its
+recommendation or justify a deviation/no-data. Keep full inputs/memory private and persist only
+each mission's compact decision with input/as-of and accepted-contract binding when applicable.
+Plan according to the owner's cost/duration preference among available capable models
 per mission, using relative `economy`/`standard`/`strong` tiers; unknown cost/capability stays
 unknown. Explicit owner model choices, quality gates and independence requirements win.
 Use direct deterministic commands where possible and same-agent sequential work when
@@ -253,6 +258,11 @@ Every sub-brief must include a self-contained `## Model routing` section with on
 mission's compact record from the plan table: request/tier/runtime control, evidence and
 reason, cost unknowns/costly exception, actual model or unknown, failure trigger, existing
 bounds and authorized fallback. Do not copy the full policy or another mission's analysis.
+Include objective, analyzer status/input digest/as-of, chosen recommendation or deviation,
+conditional cost/duration and uncertainty; retain configured identity when comparison is
+unavailable. Allocate stable attempt/contribution measurement IDs before dispatch. Workers
+return observed per-model metrics/outcome evidence or unknowns to the coordinator, which
+explicitly records private memory after verification; they do not append shared memory.
 Diagnose environment/context/spec issues and ordinary red tests before model escalation;
 do not repeat unchanged expensive attempts or relax gates/budgets. If an accepted roadmap
 is involved, a different `topology.model` requires its revised accepted board process,

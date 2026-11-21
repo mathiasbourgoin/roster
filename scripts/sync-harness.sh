@@ -57,6 +57,10 @@ ROADMAP_SOURCES=(
     "$SCRIPT_DIR/roster-roadmap-prompt.cjs"
     "$SCRIPT_DIR/roster-roadmap-derived.cjs"
     "$SCRIPT_DIR/roster-usage.cjs"
+    "$SCRIPT_DIR/roster-analyze.cjs"
+    "$SCRIPT_DIR/../recruiter/ops/version-check.sh"
+    "$SCRIPT_DIR/../recruiter/ops/update-mechanism.md"
+    "$SCRIPT_DIR/../recruiter/ops/runtime-paths.md"
     "$SCRIPT_DIR/roster-pipeline.cjs"
     "$SCRIPT_DIR/roster-pipeline-ledger.cjs"
     "$SCRIPT_DIR/lib/review/finding-schema.cjs"
@@ -75,6 +79,11 @@ ROADMAP_SOURCES=(
     "$SCRIPT_DIR/../examples/roadmap/roadmap.json"
     "$SCRIPT_DIR/../examples/roadmap/capabilities.json"
     "$SCRIPT_DIR/../docs/model-routing.md"
+    "$SCRIPT_DIR/../docs/resource-routing.md"
+    "$SCRIPT_DIR/../docs/resource-analysis.md"
+    "$SCRIPT_DIR/resource-analysis/types.ts"
+    "$SCRIPT_DIR/../examples/resource-analysis/input.json"
+    "$SCRIPT_DIR/../examples/resource-analysis/observation.json"
     "$SCRIPT_DIR/../schema/recovery-schema.md"
     "$SCRIPT_DIR/../docs/failure-recovery.md"
     "$SCRIPT_DIR/../schema/usage-report-schema.md"
@@ -99,6 +108,10 @@ ROADMAP_TARGETS=(
     "$HARNESS_DIR/bin/roster-roadmap-prompt.cjs"
     "$HARNESS_DIR/bin/roster-roadmap-derived.cjs"
     "$HARNESS_DIR/bin/roster-usage.cjs"
+    "$HARNESS_DIR/bin/roster-analyze.cjs"
+    "$HARNESS_DIR/recruiter-ops/version-check.sh"
+    "$HARNESS_DIR/recruiter-ops/update-mechanism.md"
+    "$HARNESS_DIR/recruiter-ops/runtime-paths.md"
     "$HARNESS_DIR/bin/roster-pipeline.cjs"
     "$HARNESS_DIR/bin/roster-pipeline-ledger.cjs"
     "$HARNESS_DIR/bin/lib/review/finding-schema.cjs"
@@ -117,6 +130,11 @@ ROADMAP_TARGETS=(
     "$HARNESS_DIR/roadmap/example.json"
     "$HARNESS_DIR/roadmap/capabilities.json"
     "$HARNESS_DIR/roadmap/model-routing.md"
+    "$HARNESS_DIR/roadmap/resource-routing.md"
+    "$HARNESS_DIR/roadmap/resource-analysis.md"
+    "$HARNESS_DIR/roadmap/resource-analysis-types.ts"
+    "$HARNESS_DIR/roadmap/resource-analysis-input.json"
+    "$HARNESS_DIR/roadmap/resource-analysis-observation.json"
     "$HARNESS_DIR/roadmap/recovery-schema.md"
     "$HARNESS_DIR/roadmap/failure-recovery.md"
     "$HARNESS_DIR/roadmap/usage-schema.md"
@@ -128,13 +146,13 @@ ROADMAP_TARGETS=(
     "$HARNESS_DIR/roadmap/view.schema.json"
 )
 if [ -f "$ROADMAP_SOURCE" ]; then
-    for _roadmap_directory in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/bin/lib" "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap"; do
+    for _roadmap_directory in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/bin/lib" "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap" "$HARNESS_DIR/recruiter-ops"; do
         if [ ! -L "$_roadmap_directory" ] && [ -e "$_roadmap_directory" ] && [ ! -d "$_roadmap_directory" ]; then
             echo "roadmap: managed resource ancestor must be a directory: $_roadmap_directory" >&2
             exit 1
         fi
     done
-    for _roadmap_path in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/bin/lib" "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap" "${ROADMAP_TARGETS[@]}"; do
+    for _roadmap_path in "$HARNESS_DIR" "$HARNESS_DIR/bin" "$HARNESS_DIR/bin/lib" "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap" "$HARNESS_DIR/recruiter-ops" "${ROADMAP_TARGETS[@]}"; do
         if [ -L "$_roadmap_path" ]; then
             echo "roadmap: refusing managed symlink: $_roadmap_path" >&2
             exit 1
@@ -992,7 +1010,7 @@ install_skill_hook_runtime
 # Self-contained .cjs preserves consumer module semantics, including ESM projects.
 # Replace the directory entry atomically; never truncate a hard-link alias.
 if [ -f "$ROADMAP_SOURCE" ]; then
-    mkdir -p "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap"
+    mkdir -p "$HARNESS_DIR/bin/lib/review" "$HARNESS_DIR/bin/vendor" "$HARNESS_DIR/roadmap" "$HARNESS_DIR/recruiter-ops"
     for _roadmap_i in "${!ROADMAP_SOURCES[@]}"; do
         _roadmap_target="${ROADMAP_TARGETS[$_roadmap_i]}"
         _roadmap_tmp="$(mktemp "$(dirname "$_roadmap_target")/.roster-roadmap.XXXXXX")"

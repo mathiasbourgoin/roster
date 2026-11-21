@@ -8,10 +8,14 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const RUNTIMES = ["roster-roadmap.cjs", "roster-artifacts.cjs", "roster-recovery.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-roadmap-requests.cjs", "roster-roadmap-requests-view.cjs", "roster-roadmap-validate.cjs", "roster-roadmap-history.cjs", "roster-roadmap-missions.cjs", "roster-roadmap-prompt.cjs", "roster-roadmap-derived.cjs", "roster-usage.cjs"];
+const RUNTIMES = ["roster-roadmap.cjs", "roster-artifacts.cjs", "roster-recovery.cjs", "roster-roadmap-view.cjs", "roster-roadmap-estimates.cjs", "roster-roadmap-requests.cjs", "roster-roadmap-requests-view.cjs", "roster-roadmap-validate.cjs", "roster-roadmap-history.cjs", "roster-roadmap-missions.cjs", "roster-roadmap-prompt.cjs", "roster-roadmap-derived.cjs", "roster-usage.cjs", "roster-analyze.cjs"];
 const RESOURCES = {
   "schema.md": "schema/roadmap-schema.md", "example.json": "examples/roadmap/roadmap.json",
   "capabilities.json": "examples/roadmap/capabilities.json", "model-routing.md": "docs/model-routing.md",
+  "resource-routing.md": "docs/resource-routing.md", "resource-analysis.md": "docs/resource-analysis.md",
+  "resource-analysis-types.ts": "scripts/resource-analysis/types.ts",
+  "resource-analysis-input.json": "examples/resource-analysis/input.json",
+  "resource-analysis-observation.json": "examples/resource-analysis/observation.json",
   "recovery-schema.md": "schema/recovery-schema.md", "failure-recovery.md": "docs/failure-recovery.md",
   "usage-schema.md": "schema/usage-report-schema.md", "usage-reports.md": "docs/usage-reports.md",
   "estimates-schema.md": "schema/roadmap-estimates-schema.md", "requests-schema.md": "schema/roadmap-requests-schema.md", "estimates.md": "docs/roadmap-estimates.md",
@@ -39,6 +43,9 @@ test("fresh ESM consumer gets runnable toolkit and all existing skill projection
   const cli = path.join(dir, ".harness/bin/roster-roadmap.cjs");
   for (const name of RUNTIMES) assert.equal(fs.readFileSync(path.join(dir, ".harness/bin", name), "utf8"), fs.readFileSync(path.join(ROOT, "scripts", name), "utf8"));
   for (const [installedName, source] of Object.entries(RESOURCES)) assert.equal(fs.readFileSync(path.join(dir, ".harness/roadmap", installedName), "utf8"), fs.readFileSync(path.join(ROOT, source), "utf8"));
+  for (const file of ["version-check.sh", "update-mechanism.md", "runtime-paths.md"]) {
+    assert.equal(fs.readFileSync(path.join(dir, ".harness/recruiter-ops", file), "utf8"), fs.readFileSync(path.join(ROOT, "recruiter/ops", file), "utf8"));
+  }
   assert.match(fs.readFileSync(path.join(dir, ".harness/roadmap/schema.md"), "utf8"), /## Receipts/);
   assert.equal(fs.readFileSync(path.join(dir, ".harness/roadmap/model-routing.md"), "utf8"), fs.readFileSync(path.join(ROOT, "docs/model-routing.md"), "utf8"));
   const installed = require(cli);
@@ -51,6 +58,7 @@ test("fresh ESM consumer gets runnable toolkit and all existing skill projection
     assert.match(fs.readFileSync(path.join(dir, projected), "utf8"), /roster-usage/);
   }
   exerciseInstalledConsumer(dir, cli);
+  exerciseInstalledAnalysis(dir);
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "package.json"))).type, "module");
   assert.equal(fs.existsSync(path.join(dir, "node_modules")), false);
   ok(command("bash", [path.join(ROOT, "scripts/sync-harness.sh"), dir, "--check"], dir));
@@ -62,6 +70,31 @@ test("fresh ESM consumer gets runnable toolkit and all existing skill projection
 
 function installedJSON(dir, cli, args) {
   const result = command(process.execPath, [cli, ...args], dir); ok(result); return JSON.parse(result.stdout);
+}
+
+function exerciseInstalledAnalysis(dir) {
+  const analyzer = path.join(dir, ".harness/bin/roster-analyze.cjs");
+  const input = path.join(dir, ".harness/roadmap/resource-analysis-input.json");
+  const full = installedJSON(dir, analyzer, ["analyze", "--input", input]);
+  const compact = installedJSON(dir, analyzer, ["analyze", "--input", input, "--format", "compact"]);
+  assert.equal(compact.recommended.incremental_cost, full.recommended.incremental_cost);
+  assert.equal(compact.kind, "roster-resource-recommendation");
+  assert.equal(compact.recommended.assignments[0].model, "example-codex-model");
+  const local = path.join(dir, ".harness/.local/resource-analysis"); fs.mkdirSync(local, { recursive: true });
+  const memory = path.join(local, "memory.jsonl"), observation = path.join(dir, ".harness/roadmap/resource-analysis-observation.json");
+  assert.equal(installedJSON(dir, analyzer, ["record", "--memory", memory, "--observation", observation]).recorded, true);
+  assert.equal(installedJSON(dir, analyzer, ["record", "--memory", memory, "--observation", observation]).duplicate, true);
+  const learned = installedJSON(dir, analyzer, ["analyze", "--input", input, "--memory", memory]);
+  assert.equal(learned.tasks.find(t => t.task_id === "run-tests").candidates.find(c => c.resource_id === "ollama-local").samples, 1);
+  const memoryBytes = fs.readFileSync(memory);
+  const privateInput = path.join(local, "input.json"); fs.writeFileSync(privateInput, "private catalog sentinel\n");
+  const ops = path.join(dir, ".harness/recruiter-ops/update-mechanism.md"); fs.appendFileSync(ops, "\nstale instructions\n");
+  const check = command("bash", [path.join(ROOT, "scripts/sync-harness.sh"), dir, "--check"], dir);
+  assert.notEqual(check.status, 0); assert.match(check.stderr, /roadmap runtime is missing or stale/);
+  ok(command("bash", [path.join(ROOT, "scripts/sync-harness.sh"), dir], dir));
+  assert.equal(fs.readFileSync(ops, "utf8"), fs.readFileSync(path.join(ROOT, "recruiter/ops/update-mechanism.md"), "utf8"));
+  assert.deepEqual(fs.readFileSync(memory), memoryBytes);
+  assert.equal(fs.readFileSync(privateInput, "utf8"), "private catalog sentinel\n");
 }
 function exerciseInstalledConsumer(dir, cli) {
   const board = path.join(dir, "roadmaps/demo"); installedJSON(dir, cli, ["init", board, "--id", "demo"]);
@@ -168,6 +201,9 @@ test("sync checks the complete runtime and resource closure and repairs missing 
   const cases = [
     [".harness/bin/roster-artifacts.cjs", "scripts/roster-artifacts.cjs", "missing"],
     [".harness/bin/roster-usage.cjs", "scripts/roster-usage.cjs", "stale"],
+    [".harness/bin/roster-analyze.cjs", "scripts/roster-analyze.cjs", "missing"],
+    [".harness/roadmap/resource-routing.md", "docs/resource-routing.md", "stale"],
+    [".harness/recruiter-ops/update-mechanism.md", "recruiter/ops/update-mechanism.md", "missing"],
     [".harness/roadmap/view.schema.json", "schema/roadmap-view.schema.json", "missing"],
     [".harness/roadmap/estimates-schema.md", "schema/roadmap-estimates-schema.md", "stale"],
   ];
@@ -189,6 +225,8 @@ test("new runtime and view schema aliases are refused before any managed write",
   for (const [relative, source] of [
     [".harness/bin/roster-recovery.cjs", "scripts/roster-recovery.cjs"],
     [".harness/bin/roster-usage.cjs", "scripts/roster-usage.cjs"],
+    [".harness/bin/roster-analyze.cjs", "scripts/roster-analyze.cjs"],
+    [".harness/recruiter-ops/update-mechanism.md", "recruiter/ops/update-mechanism.md"],
     [".harness/roadmap/view.schema.json", "schema/roadmap-view.schema.json"],
   ]) {
     const target = path.join(dir, relative), unchanged = fs.readFileSync(path.join(dir, ".harness/bin/roster-roadmap.cjs"));
@@ -200,6 +238,20 @@ test("new runtime and view schema aliases are refused before any managed write",
       assert.deepEqual(fs.readFileSync(path.join(dir, ".harness/bin/roster-roadmap.cjs")), unchanged);
     }
     fs.unlinkSync(target); fs.copyFileSync(path.join(ROOT, source), target);
+  }
+});
+
+test("linked canonical recruiter ops ancestor is refused before replacing any toolkit entry", t => {
+  const dir = sandbox(t); ok(command("bash", [path.join(ROOT, "scripts/init-harness.sh"), dir, "core"], dir));
+  const original = path.join(dir, ".harness/recruiter-ops"), external = path.join(dir, "owner-ops");
+  fs.renameSync(original, external); fs.symlinkSync(external, original);
+  const bytes = fs.readFileSync(path.join(external, "update-mechanism.md"));
+  const core = fs.readFileSync(path.join(dir, ".harness/bin/roster-roadmap.cjs"));
+  for (const extra of [[], ["--check"]]) {
+    const result = command("bash", [path.join(ROOT, "scripts/sync-harness.sh"), dir, ...extra], dir);
+    assert.notEqual(result.status, 0); assert.match(result.stderr, /roadmap: refusing managed symlink/);
+    assert.deepEqual(fs.readFileSync(path.join(external, "update-mechanism.md")), bytes);
+    assert.deepEqual(fs.readFileSync(path.join(dir, ".harness/bin/roster-roadmap.cjs")), core);
   }
 });
 

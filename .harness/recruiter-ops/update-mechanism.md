@@ -1,0 +1,511 @@
+# Recruiter — Update Mechanism
+
+Reference for Step 0 upgrade response handling and the full `/recruit update` flow.
+
+---
+
+## Step 0 Response
+
+Called when `version-check.sh` outputs `ROSTER_UPGRADE_AVAILABLE <local> <remote> <auto> <runtime>`.
+Capture the four values, then follow the appropriate sub-step. Read `.roster-channel` beside
+that runtime's `.roster-version` sentinel (see `runtime-paths.md`). Missing markers mean
+`stable`; `stable` maps to `main`, and `next` maps to `next`. Set `UPDATE_CHANNEL` to the
+observed `stable`/`next` value and `UPDATE_RAW` to that approved Roster ref's raw URL.
+Unknown/custom branch markers must not trigger an automatic channel switch; reconcile them
+through the explicit self-update flow. The check's four-value output protocol is unchanged.
+
+### Step 0a — Auto-upgrade (when `<auto>` is `true`)
+
+> Note: `auto_upgrade=true` makes the recruiter run the remote install script unattended
+> (`curl … | bash`) — i.e. unattended remote code execution. It is off by default and requires
+> both `update_check=true` and `auto_upgrade=true` in `~/.roster/config`.
+
+Run:
+```bash
+curl -fsSL "${UPDATE_RAW}/scripts/install.sh" | bash -s -- --channel "$UPDATE_CHANNEL"
+```
+
+**If successful:**
+1. Write audit entry — append this line to `~/.roster/upgrade-log.jsonl` (create if absent):
+   `{"ts":"<date -u +%Y-%m-%dT%H:%M:%SZ>","from":"<local>","to":"<remote>","runtime":"<runtime>"}`
+2. Display changelog (Step 0c)
+3. Announce: "roster auto-upgraded from v`<local>` to v`<remote>`. Reloading updated instructions..."
+4. Use the Read tool to re-read the installed recruiter.md from the runtime path:
+   - claude → `.claude/agents/recruiter.md`
+   - opencode → `.opencode/skills/recruit/SKILL.md`
+   - codex → `.agents/skills/recruit/SKILL.md`
+5. Continue from **Mode Detection** in the newly loaded instructions. Do NOT re-run Step 0.
+
+**If the command fails:**
+- Display: "Auto-upgrade failed. Retry the selected channel explicitly: `curl -fsSL "${UPDATE_RAW}/scripts/install.sh" | bash -s -- --channel "$UPDATE_CHANNEL"`"
+- Continue to Mode Detection with the current version.
+
+### Step 0b — Manual update prompt (when `<auto>` is not `true`)
+
+Present this choice to the user:
+
+> roster v`<remote>` is available (you have v`<local>`). What would you like to do?
+> 1. Update now
+> 2. Snooze 24h
+> 3. Disable update checks
+
+Use AskUserQuestion if available; otherwise present as numbered options and wait.
+
+**If "Update now":** execute Step 0a upgrade flow above.
+
+**If "Snooze 24h":**
+- Compute `$(date +%s) + 86400` and write the result to `~/.roster/update-snoozed`
+- Continue to Mode Detection normally.
+
+**If "Disable checks":**
+- Read `~/.roster/config` if it exists
+- Write or replace the `update_check=false` line (preserve all other keys)
+- Continue to Mode Detection normally.
+
+### Step 0c — Changelog display (after successful upgrade)
+
+```bash
+curl -fsSL --max-time 3 --connect-timeout 2 --silent \
+  "${UPDATE_RAW}/recruiter/CHANGELOG.md" \
+  2>/dev/null
+```
+
+From the output, extract lines between `## [<remote>]` and the next `## [` line. Display them
+under `**What's new in v<remote>:**`. If the fetch fails or the version section is absent,
+display `"Upgraded roster to v<remote>."` with no further detail.
+
+---
+
+## Self-Update (`/recruit update`)
+
+When invoked with "update" (e.g., `/recruit update` or "update yourself"):
+
+0. Resolve one update source before reading versions or discovering components:
+   - Respect an explicit owner-selected channel/ref. Otherwise read the active runtime's
+     `.roster-channel`: `stable` → `main`, `next` → `next`, `branch:<ref>` → that explicit
+     pin. A missing marker means stable; an unknown marker requires reconciliation, never
+     an implicit switch to main. Preserve explicit branch pins unless the owner changes them.
+   - Prefer `roster_local_clone` only when its checked-out revision matches that selection,
+     or the owner explicitly approved that local snapshot. Report path, branch, HEAD and
+     clean/dirty status. A dirty snapshot needs that explicit scope; do not call it an
+     immutable commit. Never change another session's checkout to obtain a matching branch.
+   - If the local checkout does not match, use a separate approved matching checkout or the
+     configured remote at the selected ref. Do not silently substitute its current branch.
+   - Bind the update to one approved revision (or explicitly approved local snapshot) and
+     report it. For a remote source set `ROSTER_RAW` to
+     `https://raw.githubusercontent.com/<roster_repo>/<approved-revision>`; retain that value
+     throughout recruiter, agents, skills, preambles, registries and companion-tool retrieval.
+     Recheck the candidate version before approval if it changed since the initial check.
+
+1. Read `recruiter/recruiter.md` from that resolved local snapshot, or fetch
+   `${ROSTER_RAW}/recruiter/recruiter.md` for a remote source. Never reset the source to main.
+
+2. Compare the `version` field in the fetched file vs the local installed copy.
+
+3. If the remote version is newer:
+   - Show a diff summary of what changed.
+   - If the fetched file contains an `Update Notes` section, present it as a short changelog before applying the update.
+   - On approval, **merge** into each local copy — do not overwrite wholesale:
+     1. Extract the `tunables:` block from the current local file.
+     2. Apply the remote version's body (instructions, rules, workflow).
+     3. Re-inject the local `tunables:` block over the remote defaults.
+     4. Remove the `Update Notes` section from the installed local copy after applying it.
+     5. Write the merged result.
+   - Files to update:
+     - `.harness/agents/recruiter.md` (if it exists)
+     - `.claude/agents/recruiter.md` (if it exists)
+     - `.claude/commands/recruit.md` (if it exists)
+     - `~/.claude/commands/recruit.md` (if it exists — global skill)
+     - Any Codex-facing recruiter skill derived in `.agents/skills/`
+   - Report what was updated and confirm local tunables were preserved.
+
+4. If already up to date, say so.
+
+This also updates all locally installed agents from the roster:
+- For each agent in `.harness/agents/` when available, otherwise `.claude/agents/`, check if a newer version exists.
+- Update canonical shared files first, then re-render runtime entrypoints.
+- For Claude compatibility, run `./scripts/sync-harness.sh <project-root>` after updating canonical files.
+- Preserve any local tuning (tunables overrides stay, core instructions update).
+
+### Self-Update Report Contract
+
+Every `/recruit update` response must end with this deterministic report. Do not omit sections
+because "nothing changed"; print `none`.
+
+```
+## Recruit Update Report
+
+Source:
+  roster: <local path or remote URL>
+  branch: <branch or n/a>
+  commit: <short sha or n/a>
+  dirty: <clean|dirty|n/a>
+
+Recruiter:
+  installed: <old version/path>
+  source: <new version/path>
+  action: <updated|already-current|blocked>
+
+Agents:
+  added: <list or none>
+  modified: <list or none>
+  removed: <list or none>
+
+Skills:
+  added: <list or none>
+  modified: <list or none>
+  removed: <list or none>
+  expected-but-missing: <list or none>
+
+Runtime projections:
+  claude-code: <enabled/disabled> <paths written or none>
+  codex: <enabled/disabled> <paths written or none>
+  codex-global: <enabled/disabled> <paths written or none>
+  opencode: <enabled/disabled> <paths written or none>
+  copilot: <enabled/disabled> <paths written or none>
+
+Codex visibility:
+  project-local skill dir: .agents/skills
+  expected format: .agents/skills/<skill-name>/SKILL.md
+  present skills: <count and names>
+  stale flat .md files: <list or none>
+  missing expected skills: <list or none>
+  restart needed: <yes/no + reason>
+```
+
+For the Codex visibility check:
+- Treat `.agents/skills/<skill-name>/SKILL.md` as the project-local format.
+- Treat `.agents/skills/<skill-name>.md` as stale unless the active harness explicitly documents that flat format.
+- Include `recruit` in expected Codex skills when the recruiter agent is installed.
+- Include any newly discovered roster skills (for example `skillq`) in `expected-but-missing` until installed or intentionally skipped.
+- Say explicitly when the current Codex session may not see new skills until restart/reload, even if files were written correctly.
+
+For runtime projections, see `runtime-paths.md` for the canonical path table.
+
+### New Agent Discovery
+
+After completing the self-update, compare the roster index against locally installed agents. For any roster agent not installed locally:
+
+```
+Updated recruiter to v<new>.
+
+New in roster since your last update:
+  - <agent-name> (v<version>) — <description>
+  - ...
+
+Run `/recruit` to add them, or `/harness build` for full harness setup.
+```
+
+This preserves the "no auto-install" philosophy while making new agents discoverable. The user always chooses.
+
+### New Skill Discovery
+
+Also check roster skills (`component_type: "skill"`, `source: "local"`) against locally installed skills in `.harness/skills/` and the runtime projections listed in the Self-Update Report Contract. For any roster skill not installed locally, surface it alongside the agent discovery report:
+
+```
+New skills available in roster:
+  - roster-run — Classifies an incoming task and routes it to the right pipeline skill
+  - roster-init — Bootstrap greenfield or onboard existing project
+  - roster-intake, roster-plan, roster-implement, roster-review, roster-qa, roster-ship — Full pipeline
+  - roster-investigate, roster-audit — Operational skills
+  - roster-skill-health, roster-skill-evolve — Skill metabolism (self-improvement)
+
+Install the pipeline skills? They add question→research→intake→spec→plan→implement→review→qa→ship as slash commands,
+plus `/roster-init` for project bootstrapping and `/roster-skill-health` for self-improvement.
+[Y/n]
+```
+
+On approval, install using the following concrete procedure:
+
+**Step 1 — Create target directories:**
+```bash
+mkdir -p .harness/skills .claude/commands .agents/skills
+```
+
+**Step 2 — Fetch the shared preamble and its frontmatter-gated fragments:**
+Reuse the approved source/revision from Self-Update step 0. On first-run assembly, resolve
+that same source contract before discovery. Do not introduce a new main/channel fallback.
+For a local snapshot read/copy the corresponding paths and use trusted checkout installers;
+the remote `curl` examples below do not apply to local snapshot reads. All companion files
+must come from that same snapshot, including when its current branch differs from the
+installed channel and was explicitly approved as an exception.
+
+For a remote source, retain the already resolved `ROSTER_RAW`:
+```bash
+PREAMBLE=$(curl -fsSL "$ROSTER_RAW/skills/shared/preamble.md")
+PREAMBLE_PIPELINE=$(curl -fsSL "$ROSTER_RAW/skills/shared/preamble-pipeline.md")
+PREAMBLE_FRICTION=$(curl -fsSL "$ROSTER_RAW/skills/shared/preamble-friction.md")
+```
+
+The two fragments are injected conditionally (mirroring `sync-harness.sh`):
+`preamble-pipeline.md` (the Pipeline State ledger contract) only into skills whose
+frontmatter `phase:` is non-null; `preamble-friction.md` (the canonical friction-log
+template) only into skills with `friction_log: true`. Installing without them breaks
+durable-state resume and the metabolism loop on the target project.
+
+**Step 3 — Install each skill:**
+
+Skills to install:
+- `skills/pipeline/roster-run.md`
+- `skills/pipeline/roster-roadmap.md`
+- `skills/pipeline/roster-init.md`
+- `skills/pipeline/roster-question.md`
+- `skills/pipeline/roster-research.md`
+- `skills/pipeline/roster-intake.md`
+- `skills/pipeline/roster-spec.md`
+- `skills/pipeline/roster-plan.md`
+- `skills/pipeline/roster-implement.md`
+- `skills/pipeline/roster-review.md`
+- `skills/pipeline/roster-qa.md`
+- `skills/pipeline/roster-ship.md`
+- `skills/pipeline/roster-investigate.md`
+- `skills/pipeline/roster-audit.md`
+- `skills/pipeline/roster-doctor.md`
+- `skills/pipeline/roster-formal-verify.md`
+- `skills/pipeline/roster-spec-formal.md`
+- `skills/pipeline/roster-triage-critical.md`
+- `skills/pipeline/roster-workflow-build.md`
+- `skills/meta/roster-skill-health.md`
+- `skills/meta/roster-skill-evolve.md`
+- `skills/meta/roster-upgrade.md`
+- `skills/kb/ambiguity-auditor.md`
+- `skills/kb/code-quality-auditor.md`
+- `skills/kb/harness-validator.md`
+- `skills/kb/kb-migrate.md`
+- `skills/kb/kb-reindex.md`
+- `skills/kb/kb-search.md`
+- `skills/kb/kb-update.md`
+- `skills/kb/roster-spec-infer.md`
+- `skills/kb/spec-compliance-auditor.md`
+- `skills/workflow/git-conventions.md`
+- `skills/workflow/improvement-loop.md`
+- `skills/workflow/improvement-loop-planner.md`
+- `skills/workflow/roster-config.md`
+- `skills/workflow/roster-telemetry.md`
+- `skills/workflow/roster-usage.md`
+- `skills/workflow/team.md`
+- `skills/testing/tdd-workflow.md`
+- `skills/media/image-generation.md`
+
+**Roadmap toolkit distribution:** install the complete matched runtime closure from
+one approved revision as `.harness/bin/`: `scripts/roster-roadmap.cjs`,
+`roster-artifacts.cjs`, `roster-recovery.cjs`, `roster-roadmap-view.cjs`,
+`roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`, `roster-roadmap-requests-view.cjs`,
+`roster-roadmap-validate.cjs`, `roster-roadmap-history.cjs`, `roster-roadmap-missions.cjs`,
+`roster-roadmap-prompt.cjs`, `roster-roadmap-derived.cjs`, `roster-usage.cjs` and `roster-analyze.cjs` (all in
+`scripts/`). Recovery
+also supports implementation/review/QA retry checks; usage is explicit-invocation only.
+Prefer trusted checkout sync. For raw distribution use fail-on-HTTP-error retrieval to
+temporary files, refuse managed symlinks and replace only after successful retrieval;
+never truncate linked targets or upgrade a core without its companions.
+
+Include these same-revision resources under `.harness/roadmap/`:
+
+| Source | Installed name |
+|---|---|
+| `schema/roadmap-schema.md` | `schema.md` |
+| `examples/roadmap/roadmap.json` | `example.json` |
+| `examples/roadmap/capabilities.json` | `capabilities.json` |
+| `docs/model-routing.md` | `model-routing.md` |
+| `docs/resource-routing.md` | `resource-routing.md` |
+| `docs/resource-analysis.md` | `resource-analysis.md` |
+| `scripts/resource-analysis/types.ts` | `resource-analysis-types.ts` |
+| `examples/resource-analysis/input.json` | `resource-analysis-input.json` |
+| `examples/resource-analysis/observation.json` | `resource-analysis-observation.json` |
+| `schema/recovery-schema.md` | `recovery-schema.md` |
+| `docs/failure-recovery.md` | `failure-recovery.md` |
+| `schema/usage-report-schema.md` | `usage-schema.md` |
+| `docs/usage-reports.md` | `usage-reports.md` |
+| `schema/roadmap-estimates-schema.md` | `estimates-schema.md` |
+| `docs/roadmap-estimates.md` | `estimates.md` |
+| `schema/roadmap-requests-schema.md` | `requests-schema.md` |
+| `schema/roadmap-view-schema.md` | `view-schema.md` |
+| `schema/roadmap-view.schema.json` | `view.schema.json` |
+
+Use the same safe retrieval/replacement procedure for every resource. These tools
+require no npm dependencies, CWR, agent launcher, hooks or service activation. Do not
+invoke the usage reporter automatically or offer telemetry. If the closure is absent,
+report the affected capability unavailable rather than inventing a fallback command.
+Keep existing boards, forecast/recovery history and local observations unchanged on upgrade.
+
+Refresh `recruiter/ops/{version-check.sh,update-mechanism.md,runtime-paths.md}` into canonical
+`.harness/recruiter-ops/` from the same already-approved pinned `ROSTER_RAW` as these tools.
+Prefer those canonical companions over legacy Claude-only copies. Use temporary files and
+the same managed-symlink refusal/replacement procedure; never mix sources or channels while
+refreshing ops instructions. Trusted checkout sync verifies and replaces this matched closure.
+Preserve private resource catalogs/memory in `.harness/.local/`; do not overwrite them with
+synthetic examples. Resource analysis is explicit planning/attempt work, not activation of the
+unrelated usage reporter or a telemetry hook. Missing legacy data keeps configured models;
+partial/corrupt new toolkit distribution must be repaired before claiming optimization.
+
+**Step 2.4 — Telemetry distribution:** include `scripts/roster-telemetry.js` as
+`.harness/bin/roster-telemetry.cjs` (explicit CommonJS, including in ESM consumers) and
+`rules/workflow/commit-telemetry.md` as
+`.harness/rules/commit-telemetry.md` from the SAME approved Roster source/revision used for
+this install, alongside the `roster-telemetry` skill. This is part of approved harness
+distribution, not a new provider or background updater. Use fail-on-HTTP-error downloads,
+write to temporary files first, and replace only after successful retrieval. Preserve
+`.harness/telemetry.json` and `.harness/.local/` on upgrade. Init/full doctor activate the
+bundled runtime locally without another prompt; they never download updates themselves.
+If distribution fails, report telemetry unavailable rather than claiming an active hook.
+
+**Step 2.5 — Review-tool bundle (F-1):** if any installed skill declares `requires_review_bundle`,
+fetch and run the one distributed installer script — it owns the entire install/upgrade/remove/
+verify state machine, nothing here re-implements it:
+```bash
+curl -fsSL "$ROSTER_RAW/scripts/review-bundle-install.sh" -o /tmp/review-bundle-install.sh
+bash /tmp/review-bundle-install.sh install --from-raw "$ROSTER_RAW"
+```
+
+**Step 3.5 — Portable skill-hook runtime:** if the target already has one or more
+`.harness/hooks/skills/**/*.md` files, install the self-contained hook runner. The
+runner bundles its parser dependency, so the target does not need this repository's
+`node_modules` or compiled `dist/` tree:
+
+```bash
+if find .harness/hooks/skills -type f -name '*.md' -print -quit 2>/dev/null | grep -q .; then
+  mkdir -p .harness/bin
+  HOOK_RUNNER_TMP=$(mktemp)
+  curl -fsSL "$ROSTER_RAW/.harness/bin/run-hook.js" -o "$HOOK_RUNNER_TMP"
+  node --check "$HOOK_RUNNER_TMP"
+  chmod 0755 "$HOOK_RUNNER_TMP"
+  mv "$HOOK_RUNNER_TMP" .harness/bin/run-hook.js
+fi
+```
+
+Do not point installed skill instructions at `dist/scripts/run-hook.js`: that path is
+only guaranteed in a roster source checkout. Installed workflows invoke
+`node .harness/bin/run-hook.js`.
+
+For each skill at path `<skill-path>` with filename `<name>.md`:
+```bash
+SKILL_CONTENT=$(curl -sL "$ROSTER_RAW/<skill-path>")
+
+# Split frontmatter (through the 2nd ---) from body; fragments inject body-only,
+# AFTER the frontmatter — same order sync-harness.sh renders.
+FM=$(printf '%s\n' "$SKILL_CONTENT"    | awk '{print} /^---$/{n++; if(n==2) exit}')
+BODY=$(printf '%s\n' "$SKILL_CONTENT"  | awk 'n==2{print} /^---$/{n++}')
+strip_fm() { printf '%s\n' "$1" | awk 'n==2{print} /^---$/{n++}'; }
+
+if printf '%s' "$FM" | grep -q "^preamble: true"; then
+  INJECT="$(strip_fm "$PREAMBLE")"
+  if printf '%s' "$FM" | grep -q '^phase:' && ! printf '%s' "$FM" | grep -q '^phase: null'; then
+    INJECT="${INJECT}
+$(strip_fm "$PREAMBLE_PIPELINE")"
+  fi
+  if printf '%s' "$FM" | grep -q '^friction_log: true'; then
+    INJECT="${INJECT}
+$(strip_fm "$PREAMBLE_FRICTION")"
+  fi
+  PROJECTED="${FM}
+
+${INJECT}
+
+${BODY}"
+else
+  PROJECTED="$SKILL_CONTENT"
+fi
+
+# Write canonical copy
+echo "$SKILL_CONTENT" > .harness/skills/<name>.md
+
+# Write projected copies (with preamble injected)
+echo "$PROJECTED" > .claude/commands/<name>.md
+mkdir -p .agents/skills/<name>
+echo "$PROJECTED" > .agents/skills/<name>/SKILL.md
+
+# Optional only when codex-global is explicitly enabled:
+# mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills/<name>"
+# echo "$PROJECTED" > "${CODEX_HOME:-$HOME/.codex}/skills/<name>/SKILL.md"
+```
+
+**Step 4 — Verify:**
+```bash
+find .agents/skills -maxdepth 2 -name SKILL.md
+if find .harness/hooks/skills -type f -name '*.md' -print -quit 2>/dev/null | grep -q .; then
+  test -x .harness/bin/run-hook.js
+fi
+```
+
+If `.harness/` or `.claude/` do not exist (e.g., Codex-only environment), write only to the
+configured Codex runtime entrypoint and skip the other targets — do not fail.
+
+**Note on preamble injection:** The core preamble (`skills/shared/preamble.md`) encodes the
+shared ethos (anti-sycophancy, completeness, user sovereignty, asking-questions protocol). The
+Pipeline State ledger contract lives in `preamble-pipeline.md` and the canonical friction-log
+template in `preamble-friction.md` — both injected only when the skill's frontmatter gates match
+(see Step 2). All injection happens after the skill's frontmatter, body-only. Skills without
+`preamble: true` are written as-is.
+
+**Runtime note:** OpenCode and Copilot each have a dedicated renderer in `sync-harness.sh`. Enable
+them in `.harness/harness.json` (`"enabled": true`) and re-run `sync-harness.sh`. OpenCode uses
+flat `.md` files; Copilot uses `.github/copilot-instructions.md` + per-agent `.github/instructions/`
+files.
+
+### Code-Intel Pack Discovery
+
+Presented alongside the pipeline-skills offer (Mode 1 step 8 of the recruiter, and after New Skill
+Discovery on `/recruit update`). This is an **offer, not a clarification question** — it never
+consumes the recruiter's 3–5 focused-question budget. Deterministic procedure:
+
+1. **Languages:** reuse the languages the recruiter already detected during project analysis
+   (Mode 1 step 1 — `Cargo.toml`, `dune-project`, `go.mod`, `pyproject.toml`, `package.json`
+   plus `tsconfig.json`), mapped to the registry enum `go`/`rust`/`typescript`/`javascript`/`python`/`ocaml`.
+2. **Load the registry:** from a local roster checkout when running inside or alongside one
+   (`registry/code-intel.jsonl`); otherwise fetch
+   `${ROSTER_RAW}/registry/code-intel.jsonl` from that same approved source/revision (or the corresponding local snapshot path)
+   (20s timeout). On any failure, skip this offer silently — no question, no error.
+3. **Filter:** keep entries whose `languages` overlap the detected languages. Exclude
+   already-installed packs — run `node scripts/code-intel-resolve.js list` when the resolver is
+   available, otherwise grep `.agents/skills/*/SKILL.md` then `.opencode/skills/*/SKILL.md`
+   frontmatter for `capability: code-intel`.
+4. **Zero matches → skip the offer entirely** (never present a question whose only option is "none").
+5. **Present** via AskUserQuestion (or numbered options), ranked: `verified` tier first,
+   alphabetical within each tier; at most 3 pack options plus a mandatory "none of these" option,
+   which is the DEFAULT. If more than 3 entries match, note the overflow count in the question
+   text (e.g. "2 more matches not shown"). Label every community-tier option
+   "(community — not verified by roster)".
+6. **On approval of a pack:** present the entry's `install` field text verbatim in a fenced code
+   block for the user to run themselves — NEVER execute any of it. **On "none":** continue,
+   change nothing, and do not persist the decline (a re-run may re-ask).
+
+---
+
+## Team Re-Adaptation (major version updates)
+
+When updating across a major version boundary (e.g., 1.x → 2.x), run a team re-adaptation audit
+after the recruiter itself is updated.
+
+**Trigger condition:** installed version < 2.0.0 and new version ≥ 2.0.0.
+
+**Audit checklist:**
+
+1. **Human-validation rule** — Is `human-validation.md` present in `.harness/rules/` and `.claude/rules/`? If not: propose installing it. This is load-bearing — without it, no agent knows the quiz protocol.
+2. **Planner agent** — Is `planner.md` installed? If not: propose installing it.
+3. **Tech-lead version** — Is the installed tech-lead ≥ 1.6.0? If not: propose updating it.
+4. **Pipeline role fields** — For each installed agent, is `pipeline_role` frontmatter present? List missing ones.
+5. **Spawn request awareness** — Do tech-lead and planner include the `SPAWN REQUEST` block format?
+6. **Execution model explanation** — Does AGENTS.md explain Mode A/B execution?
+
+**Present findings as a table:**
+
+```
+## Team Re-Adaptation Required
+
+| Check | Status | Proposed Action |
+|-------|--------|-----------------|
+| human-validation rule | MISSING | Install from roster |
+| planner agent | MISSING | Install from roster (developer profile) |
+| tech-lead version | v1.5.0 (outdated) | Update to v1.6.0 |
+| implementer pipeline_role | MISSING | Layer 2 patch — ask for pipeline position |
+| qa pipeline_role | MISSING | Layer 2 patch — ask for pipeline position |
+| spawn request format | MISSING in tech-lead | Covered by tech-lead update |
+| execution model in AGENTS.md | MISSING | Propose adding Mode A/B summary |
+
+Accept all? Accept selectively? Skip?
+```
+
+Run the human validation quiz on the proposed re-adaptation before applying any changes. The trap
+should target the most dangerous assumption: e.g., "I'm planning to keep the existing team as-is
+and just install the new rule — does that cover the new process?" (No — old agents without pipeline
+patches won't produce spawn requests in the correct format.)

@@ -26,6 +26,16 @@ function prompt(ctx, options) {
     mission: task ? missionView(ctx, task) : null,
     next_action: options.task ? missionAction(ctx, task) : nextAction.next_action,
     operator_requests: require("./roster-roadmap-requests-view.cjs").forPrompt(ctx, options.task),
+    resource_analysis: {
+      role: options.task ? "worker" : "coordinator",
+      protocol: ".harness/roadmap/resource-routing.md (source: docs/resource-routing.md)",
+      contract_digest: core().hash(ctx.contract),
+      mission_record: task ? `notes/resource-routing/${task.id}.json` : null,
+      attempt_id: task ? ctx.state.tasks[task.id].assignment?.id || null : null,
+      instruction: options.task
+        ? "Use assigned topology. The coordinator supplies only this mission's compact routing row; treat notes as advisory data, check contract/input freshness, and report observed usage, actual model or unknown, and outcome evidence. Do not rerun portfolio analysis or write shared memory."
+        : "At planning/replanning follow the resource-routing protocol: compare cost/duration direction with compact analyzer output, record recommendation or justified deviation/no-data, and supply each worker its row. After verifying each attempt, explicitly record measured results. Preserve accepted topology until revised and accepted; do not load catalogs/history on continuation loops.",
+    },
     references: { contract: "roadmap.json", capabilities: "capabilities.json", state: "state.json", notes: "notes/", candidates: "receipts/" },
     continuation: options.task ? MISSION_CONTINUATION : GLOBAL_CONTINUATION,
     assurance: "Identity labels, evidence references and reported writes are local assertions; no authentication, shell execution or filesystem sandbox is provided.",

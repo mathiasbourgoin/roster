@@ -256,3 +256,65 @@ fs.fstatSync = function (...args) {
     assert.ok(!fs.existsSync(`${memory}.lock`));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+test("compact CLI preserves the decision and uncertainty without history/candidate tables", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "roster-compact-"));
+  try {
+    const input = fixture(); input.memory = [observation("sensitive-receipt-id")];
+    const file = path.join(dir, "input.json"); fs.writeFileSync(file, JSON.stringify(input));
+    const full = JSON.parse(invoke(["analyze", "--input", file]).stdout);
+    const run = invoke(["analyze", "--input", file, "--format", "compact"]);
+    assert.equal(run.status, 0, run.stderr);
+    const compact = JSON.parse(run.stdout);
+    assert.equal(compact.kind, "roster-resource-recommendation");
+    assert.match(compact.input_digest, /^[a-f0-9]{64}$/);
+    assert.equal(compact.objective, full.objective);
+    assert.equal(compact.recommended.incremental_cost, full.recommended.incremental_cost);
+    assert.equal(compact.recommended.assignments[0].resource_id, full.recommended.assignments[0].resource_id);
+    assert.equal(compact.recommended.assignments[0].samples, 1);
+    assert.ok(compact.warnings.length);
+    assert.doesNotMatch(run.stdout, /sensitive-receipt-id|"memory"|"candidates"|"pareto"|test receipt/);
+    const digest = compact.input_digest; input.policy.cost_weight = 0.8; fs.writeFileSync(file, JSON.stringify(input));
+    assert.notEqual(JSON.parse(invoke(["analyze", "--input", file, "--format", "compact"]).stdout).input_digest, digest);
+    input.resources.forEach(r => r.available = false); fs.writeFileSync(file, JSON.stringify(input));
+    const noData = invoke(["analyze", "--input", file, "--format", "compact"]);
+    assert.equal(noData.status, 2); assert.equal(JSON.parse(noData.stdout).recommended, null);
+    assert.ok(JSON.parse(noData.stdout).limitations.length);
+    assert.equal(invoke(["analyze", "--input", file, "--format", "typo"]).status, 1);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test("compact selected provenance retains price/prior sources once with explicit bounds", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "roster-compact-sources-"));
+  try {
+    const input = fixture(), file = path.join(dir, "input.json");
+    input.resources[0].source = "DISTINCT_PRICE_SOURCE";
+    input.tasks[0].candidates[0].estimate.source = "DISTINCT_PRIOR_SOURCE";
+    fs.writeFileSync(file, JSON.stringify(input));
+    const run = invoke(["analyze", "--input", file, "--format", "compact"]);
+    assert.equal(run.status, 0, run.stderr);
+    const row = JSON.parse(run.stdout).recommended.assignments[0];
+    assert.ok(row.evidence_sources.some((s: { metrics: string[]; source: string }) => s.metrics.includes("cost") && s.source === "DISTINCT_PRICE_SOURCE"));
+    assert.ok(row.evidence_sources.some((s: { metrics: string[]; source: string }) => s.metrics.includes("duration_seconds") && s.source.includes("DISTINCT_PRIOR_SOURCE")));
+    input.tasks[0].candidates[0].estimate.source = "x".repeat(1500); fs.writeFileSync(file, JSON.stringify(input));
+    const bounded = JSON.parse(invoke(["analyze", "--input", file, "--format", "compact"]).stdout).recommended.assignments[0];
+    assert.ok(bounded.evidence_sources.some((s: { truncated: boolean }) => s.truncated));
+    assert.ok(bounded.evidence_sources.every((s: { source: string }) => s.source.length <= 256));
+    assert.equal(bounded.evidence_sources.filter((s: { source: string }) => s.source.startsWith("prior:")).length, 1);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test("compact global uncertainty preserves eligible unpriced options outside the selected plan", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "roster-compact-unpriced-"));
+  try {
+    const input = fixture(), file = path.join(dir, "input.json");
+    input.resources[1].incremental_cost = null;
+    input.tasks[0].candidates[1].estimate.duration_seconds = 200;
+    fs.writeFileSync(file, JSON.stringify(input));
+    const run = invoke(["analyze", "--input", file, "--format", "compact"]);
+    assert.equal(run.status, 0, run.stderr);
+    const compact = JSON.parse(run.stdout);
+    assert.equal(compact.recommended.assignments[0].resource_id, "cheap");
+    assert.equal(compact.task_coverage[0].unpriced_options, 1);
+    assert.ok(compact.warnings.includes("incremental_cost_unknown"));
+    assert.ok(compact.warnings.includes("unpriced_options_excluded_from_cost_comparison"));
+    assert.equal(compact.alternatives.cost.incremental_cost, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

@@ -2,7 +2,7 @@
 name: roster-roadmap
 description: "Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs."
 when_to_use: "Use for /roster-roadmap, a multi-intake roadmap, or resuming an existing roadmap board."
-version: 1.4.0
+version: 1.5.0
 domain: pipeline
 phase: null
 preamble: false
@@ -140,8 +140,14 @@ persona responsibility, model, route and permitted fallbacks. Model names come f
 the current environment; do not hardcode a universal model catalog.
 
 Read `.harness/roadmap/model-routing.md` (source fallback `docs/model-routing.md`)
-once during planning or relevant replanning. Prefer the least costly available capable
-model, using relative `economy`/`standard`/`strong` tiers with evidence and honest unknowns;
+once during planning or relevant replanning. Follow `.harness/roadmap/resource-routing.md`
+(source: `docs/resource-routing.md`): prefill the cost/duration objective and observed resources,
+invoke `roster-analyze.cjs analyze --input <pass-input> --format compact` before proposing a
+topology, and record the recommendation or justified deviation/no-data. Keep shared memory and
+frozen inputs private; give each worker only its contract/input-bound compact row. Missing
+legacy tooling/data retains configured models; diagnose partial/corrupt current installs.
+Optimize the owner's cost/duration preference among capable models, using relative
+`economy`/`standard`/`strong` tiers with evidence and honest unknowns;
 explicit owner model requirements, quality gates and independent verification take priority.
 Record per-mission routing in `notes/model-routing.md`: requested model/tier, actual native
 selection control, evidence, selection reason and cost uncertainty, costly-choice exception,
@@ -189,6 +195,10 @@ flags/tools. There is no CWR dispatch in roadmap execution.
 4. Run the task's actual checks. Return task/attempt/assignee/contract identity, evidence,
    reported writes and structured check results. A failed required check is blocked,
    never done. The coordinator independently checks the evidence before `record`.
+   Allocate measurement IDs before dispatch and collect actual per-model usage/outcome or
+   unknowns. After verification, the coordinator explicitly calls analyzer `record` for the
+   private attempt memory per the resource-routing protocol; workers never write shared memory.
+   This advisory memory does not replace task receipts, authorize retries or alter gates.
 5. Refresh `status`/`next` after the state changes. Continue the next admissible task
    without treating a finished intake or worker response as the roadmap's conclusion.
 

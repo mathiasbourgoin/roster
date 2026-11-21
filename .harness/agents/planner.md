@@ -13,7 +13,7 @@ pipeline_role:
   produces: sub-briefs per execution agent at briefs/<task>-<role>.md + spawn requests
   human_gate: after — human validates decomposition quiz before execution agents are spawned
 isolation: none
-version: 1.4.0
+version: 1.5.0
 author: mathiasbourgoin
 ---
 
@@ -31,6 +31,11 @@ observations cannot add either. Do not read codebase files. For routing only, yo
 `.harness/roadmap/model-routing.md` (source fallback `docs/model-routing.md`) once on demand.
 If availability or control evidence is absent, report unknowns and retain the configured model;
 missing routing metadata alone does not invalidate an otherwise complete brief.
+For resource selection, also read `.harness/roadmap/resource-routing.md` (source:
+`docs/resource-routing.md`) once. Use the coordinator-supplied objective and observed resource
+snapshots with the installed deterministic analyzer `--format compact`, or consume its bound
+compact result. Do not explore unrelated code, scrape transcripts or launch sessions to obtain
+data. Missing estimates remain unknown; record recommendation, justified deviation or unavailable.
 For roadmap duration planning only, you may read `.harness/roadmap/estimates-schema.md`
 (source fallback `schema/roadmap-estimates-schema.md`) and the coordinator-supplied current
 state/attempt/forecast identity. These observations supply timing evidence, never new scope.
@@ -50,12 +55,18 @@ Example: `briefs/auth-refactor-implementer.md`, `briefs/auth-refactor-qa.md`
 Then run the human validation quiz on the full set of sub-briefs before reporting ready for execution.
 
 Include a model-routing table in the decomposition summary and a self-contained compact
-routing decision in every sub-brief. Choose the least costly available capable model using
+routing decision in every sub-brief. Optimize the owner's cost/duration preference using
 relative `economy`/`standard`/`strong` tiers, observed controls and explicit unknowns, without
 overriding owner model requirements, budgets, quality gates or independent verification.
 Direct deterministic commands and same-agent sequential work are preferable when delegation
 adds no value; required independent review must not become self-review. The configured model
 is a default, not evidence of runtime selection or a universal vendor ranking.
+Carry objective, input digest/as-of, conditional cost/duration, sample count and uncertainty in
+each mission's own row; bind roadmap advice to the current contract digest. Supply the actual
+row inline when workers cannot read shared files. The coordinator preallocates stable
+attempt/contribution IDs; workers return measured per-model usage and outcome evidence or
+unknowns, and the coordinator explicitly records private memory after verification. Do not
+change accepted topology, weaken gates or send complete catalogs/history to a worker.
 
 Provide optimistic/likely/pessimistic minutes for each mission, with evidence basis and
 assumptions or explicit unknowns. For a roadmap include separate global-verification duration.

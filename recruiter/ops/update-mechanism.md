@@ -292,7 +292,7 @@ one approved revision as `.harness/bin/`: `scripts/roster-roadmap.cjs`,
 `roster-artifacts.cjs`, `roster-recovery.cjs`, `roster-roadmap-view.cjs`,
 `roster-roadmap-estimates.cjs`, `roster-roadmap-requests.cjs`, `roster-roadmap-requests-view.cjs`,
 `roster-roadmap-validate.cjs`, `roster-roadmap-history.cjs`, `roster-roadmap-missions.cjs`,
-`roster-roadmap-prompt.cjs`, `roster-roadmap-derived.cjs` and `roster-usage.cjs` (all in
+`roster-roadmap-prompt.cjs`, `roster-roadmap-derived.cjs`, `roster-usage.cjs` and `roster-analyze.cjs` (all in
 `scripts/`). Recovery
 also supports implementation/review/QA retry checks; usage is explicit-invocation only.
 Prefer trusted checkout sync. For raw distribution use fail-on-HTTP-error retrieval to
@@ -307,6 +307,11 @@ Include these same-revision resources under `.harness/roadmap/`:
 | `examples/roadmap/roadmap.json` | `example.json` |
 | `examples/roadmap/capabilities.json` | `capabilities.json` |
 | `docs/model-routing.md` | `model-routing.md` |
+| `docs/resource-routing.md` | `resource-routing.md` |
+| `docs/resource-analysis.md` | `resource-analysis.md` |
+| `scripts/resource-analysis/types.ts` | `resource-analysis-types.ts` |
+| `examples/resource-analysis/input.json` | `resource-analysis-input.json` |
+| `examples/resource-analysis/observation.json` | `resource-analysis-observation.json` |
 | `schema/recovery-schema.md` | `recovery-schema.md` |
 | `docs/failure-recovery.md` | `failure-recovery.md` |
 | `schema/usage-report-schema.md` | `usage-schema.md` |
@@ -322,6 +327,16 @@ require no npm dependencies, CWR, agent launcher, hooks or service activation. D
 invoke the usage reporter automatically or offer telemetry. If the closure is absent,
 report the affected capability unavailable rather than inventing a fallback command.
 Keep existing boards, forecast/recovery history and local observations unchanged on upgrade.
+
+Refresh `recruiter/ops/{version-check.sh,update-mechanism.md,runtime-paths.md}` into canonical
+`.harness/recruiter-ops/` from the same already-approved pinned `ROSTER_RAW` as these tools.
+Prefer those canonical companions over legacy Claude-only copies. Use temporary files and
+the same managed-symlink refusal/replacement procedure; never mix sources or channels while
+refreshing ops instructions. Trusted checkout sync verifies and replaces this matched closure.
+Preserve private resource catalogs/memory in `.harness/.local/`; do not overwrite them with
+synthetic examples. Resource analysis is explicit planning/attempt work, not activation of the
+unrelated usage reporter or a telemetry hook. Missing legacy data keeps configured models;
+partial/corrupt new toolkit distribution must be repaired before claiming optimization.
 
 **Step 2.4 — Telemetry distribution:** include `scripts/roster-telemetry.js` as
 `.harness/bin/roster-telemetry.cjs` (explicit CommonJS, including in ESM consumers) and

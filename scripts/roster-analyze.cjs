@@ -476,6 +476,74 @@ function analyze(value) {
   };
 }
 
+// scripts/resource-analysis/compact.ts
+var import_node_crypto = require("node:crypto");
+function compactAnalysis(input, analysis) {
+  const resources = new Map(input.resources.map((r) => [r.id, r]));
+  const selected = analysis.recommended;
+  const assignments = selected?.assignments.map((a) => {
+    const resource = resources.get(a.resource_id);
+    const assessment = analysis.tasks.find((t) => t.task_id === a.task_id)?.candidates.find((c) => c.resource_id === a.resource_id && c.route === a.route);
+    if (!resource || !assessment) throw new Error("analysis: inconsistent recommendation identity");
+    const grouped = /* @__PURE__ */ new Map();
+    for (const [metric, source] of Object.entries(assessment.metric_sources)) grouped.set(source, [...grouped.get(source) ?? [], metric]);
+    return {
+      ...a,
+      runtime: resource.runtime,
+      model: resource.model,
+      profile: resource.profile,
+      session: resource.session,
+      resource_expires_at: resource.expires_at,
+      samples: assessment.samples,
+      success_rate: assessment.success_rate,
+      estimate_basis: assessment.metric_sources.success_rate === "matched_verified_attempts" ? "verified_history" : "explicit_prior",
+      prior_metrics: Object.entries(assessment.metric_sources).filter(([, source]) => source.startsWith("prior:")).map(([metric]) => metric),
+      evidence_sources: [...grouped].map(([source, metrics]) => ({ metrics, source: source.slice(0, 256), truncated: source.length > 256 })),
+      warnings: assessment.warnings
+    };
+  }) ?? [];
+  const allWarnings = analysis.tasks.flatMap((t) => t.candidates.flatMap((c) => c.warnings));
+  const hasUnpriced = analysis.tasks.some((t) => t.candidates.some((c) => c.eligible && c.conditional_cost_to_success === null));
+  return {
+    schema_version: 1,
+    kind: "roster-resource-recommendation",
+    input_digest: (0, import_node_crypto.createHash)("sha256").update(JSON.stringify(input)).digest("hex"),
+    as_of: analysis.as_of,
+    currency: analysis.currency,
+    objective: analysis.objective,
+    policy: input.policy,
+    status: analysis.status,
+    method: analysis.method,
+    search: {
+      assignments_evaluated: analysis.assignments_evaluated,
+      combination_count: "combination_count" in analysis ? analysis.combination_count : null,
+      limit: "limit" in analysis ? analysis.limit : null
+    },
+    recommended: selected ? {
+      incremental_cost: selected.incremental_cost,
+      elapsed_seconds: selected.elapsed_seconds,
+      estimated_attempts: selected.estimated_attempts,
+      assignments
+    } : null,
+    alternatives: Object.fromEntries(Object.entries(analysis.proposals).map(([key, plan]) => [
+      key,
+      plan ? { incremental_cost: plan.incremental_cost, elapsed_seconds: plan.elapsed_seconds } : null
+    ])),
+    task_coverage: analysis.tasks.map((t) => ({
+      task_id: t.task_id,
+      eligible_options: t.candidates.filter((c) => c.eligible).length,
+      unpriced_options: t.candidates.filter((c) => c.eligible && c.conditional_cost_to_success === null).length,
+      exclusions: [...new Set(t.candidates.flatMap((c) => c.reasons))]
+    })),
+    warnings: [.../* @__PURE__ */ new Set([
+      ...allWarnings,
+      ...hasUnpriced ? ["unpriced_options_excluded_from_cost_comparison"] : [],
+      ...analysis.status === "ok" ? [] : [analysis.status]
+    ])],
+    limitations: [...analysis.assumptions, "Advisory only: retain accepted topology, owner constraints, authorization and independent quality gates."]
+  };
+}
+
 // scripts/roster-analyze.ts
 var { readBytes, safeAncestors, atomicWrite } = require_roster_artifacts();
 function decode(bytes) {
@@ -570,14 +638,14 @@ function summarize(rows2) {
   }) };
 }
 var commands = {
-  analyze: ["input", "memory", "objective", "cost-weight"],
+  analyze: ["input", "memory", "objective", "cost-weight", "format"],
   record: ["memory", "observation"],
   memory: ["memory"],
   taxonomy: []
 };
 function main(argv) {
   const [command, ...args] = argv;
-  if (!Object.hasOwn(commands, command)) throw new Error("usage: roster-analyze.cjs analyze --input FILE [--memory FILE] [--objective cost|duration|balanced] [--cost-weight 0..1] | record --memory FILE --observation FILE | memory --memory FILE | taxonomy");
+  if (!Object.hasOwn(commands, command)) throw new Error("usage: roster-analyze.cjs analyze --input FILE [--memory FILE] [--objective cost|duration|balanced] [--cost-weight 0..1] [--format full|compact] | record --memory FILE --observation FILE | memory --memory FILE | taxonomy");
   const opts = /* @__PURE__ */ new Map();
   for (let i = 0; i < args.length; i += 2) {
     const flag = args[i];
@@ -594,6 +662,8 @@ function main(argv) {
   else if (command === "record") result = record(required("memory"), readDocument(required("observation")));
   else if (command === "memory") result = summarize(readMemory(required("memory")));
   else {
+    const format = opts.get("format") ?? "full";
+    if (!["full", "compact"].includes(format)) throw new Error("--format must be full or compact");
     const input = readDocument(required("input"));
     validateInput(input);
     if (opts.has("memory")) input.memory = [...input.memory, ...readMemory(opts.get("memory"))];
@@ -604,7 +674,7 @@ function main(argv) {
       input.policy.cost_weight = Number(weight);
     }
     const analysis = analyze(input);
-    result = analysis;
+    result = format === "compact" ? compactAnalysis(input, analysis) : analysis;
     if (analysis.status !== "ok") process.exitCode = 2;
   }
   const output = JSON.stringify(result, null, 2) + "\n";

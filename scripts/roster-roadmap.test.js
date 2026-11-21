@@ -228,6 +228,13 @@ test("prompt gives bounded goal, state, mission and continuation without notes/h
   assert.match(prompt.prompt, /continu/i);
   assert.match(prompt.prompt, /active/);
   assert.doesNotMatch(prompt.prompt, /UNRELATED_HISTORY/);
+  const capsule = JSON.parse(prompt.prompt).resource_analysis;
+  assert.equal(capsule.role, "worker");
+  assert.equal(capsule.contract_digest, ok(board, "lint").contract_digest);
+  assert.equal(capsule.mission_record, "notes/resource-routing/a.json");
+  assert.equal(capsule.attempt_id, read(path.join(board, "state.json")).tasks.a.assignment.id);
+  assert.match(capsule.instruction, /actual model|observed model/);
+  assert.equal(JSON.parse(ok(board, "prompt").prompt).resource_analysis.role, "coordinator");
   assert.ok(prompt.prompt.length <= 8000);
   assert.notEqual(run(board, "prompt", ["--task", "a", "--max-chars", "100"]).code, 0);
 });

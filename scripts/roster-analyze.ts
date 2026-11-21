@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { analyze } from "./resource-analysis/analyze";
+import { compactAnalysis } from "./resource-analysis/compact";
 import { Observation, TASK_TYPES } from "./resource-analysis/types";
 import { LIMITS, validateInput, validateObservation } from "./resource-analysis/validate";
 
@@ -78,11 +79,11 @@ function summarize(rows: Observation[]) {
   }) };
 }
 const commands: Record<string, string[]> = {
-  analyze: ["input", "memory", "objective", "cost-weight"], record: ["memory", "observation"], memory: ["memory"], taxonomy: [],
+  analyze: ["input", "memory", "objective", "cost-weight", "format"], record: ["memory", "observation"], memory: ["memory"], taxonomy: [],
 };
 function main(argv: string[]): void {
   const [command, ...args] = argv;
-  if (!Object.hasOwn(commands, command)) throw new Error("usage: roster-analyze.cjs analyze --input FILE [--memory FILE] [--objective cost|duration|balanced] [--cost-weight 0..1] | record --memory FILE --observation FILE | memory --memory FILE | taxonomy");
+  if (!Object.hasOwn(commands, command)) throw new Error("usage: roster-analyze.cjs analyze --input FILE [--memory FILE] [--objective cost|duration|balanced] [--cost-weight 0..1] [--format full|compact] | record --memory FILE --observation FILE | memory --memory FILE | taxonomy");
   const opts = new Map<string, string>();
   for (let i = 0; i < args.length; i += 2) {
     const flag = args[i];
@@ -95,11 +96,13 @@ function main(argv: string[]): void {
   else if (command === "record") result = record(required("memory"), readDocument(required("observation")));
   else if (command === "memory") result = summarize(readMemory(required("memory")));
   else {
+    const format = opts.get("format") ?? "full";
+    if (!["full", "compact"].includes(format)) throw new Error("--format must be full or compact");
     const input = readDocument(required("input")); validateInput(input);
     if (opts.has("memory")) input.memory = [...input.memory, ...readMemory(opts.get("memory")!)];
     if (opts.has("objective")) input.policy.objective = opts.get("objective") as typeof input.policy.objective;
     if (opts.has("cost-weight")) { const weight = opts.get("cost-weight")!; if (!weight.trim()) throw new Error("invalid cost weight"); input.policy.cost_weight = Number(weight); }
-    const analysis = analyze(input); result = analysis;
+    const analysis = analyze(input); result = format === "compact" ? compactAnalysis(input, analysis) : analysis;
     if (analysis.status !== "ok") process.exitCode = 2;
   }
   const output = JSON.stringify(result, null, 2) + "\n";

@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.2.0-dev] — unreleased next line
+
+- Connect resource analysis to roadmap/run/planner/implementation prompts with explicit
+  cost/duration direction, compact mission advice and private measured attempt memory.
+- Install the standalone analyzer and references through the matched trusted toolkit closure.
+- Prefer shared canonical `.harness/recruiter-ops/` companions across runtimes, preserving
+  legacy fallback and private state. This development update creates no stable release/tag.
+
+---
+
 ## [3.1.0-dev] — unreleased next line
 
 - Stamp the `next` development line after the 3.0.0 release; this entry does not assert a

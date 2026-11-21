@@ -1,12 +1,20 @@
 # Model routing for bounded Roster missions
 
-Choose the least costly available model capable of satisfying unchanged quality gates,
+Choose an available model according to the owner's cost/duration preference while satisfying unchanged quality gates,
 owner constraints and independence requirements. This policy provides advice, not authority
 to launch models, approve fallbacks, change contracts or increase budgets.
 
 Read `.harness/roadmap/model-routing.md` once during planning or relevant replanning;
 the source equivalent is `docs/model-routing.md`. Give workers only their compact routing
 decision alongside goal, scope and checks. Keep comparisons and detailed evidence on disk.
+
+For new planning or relevant replanning, follow the installed sibling `resource-routing.md`
+(source: `docs/resource-routing.md`). Invoke `roster-analyze.cjs analyze --input <pass-input>
+--format compact` on dated resource observations and explicit attempt memory. Use the result
+or justify a deviation/no-data; pass only a mission's compact bound row to workers. Verified
+attempt observations are explicitly recorded by the coordinator, without hooks or transcript
+scraping. Missing legacy data retains configured assignments, and advice never changes an
+accepted topology or grants session/model permissions.
 
 ## Select among available choices
 
@@ -20,7 +28,7 @@ decision alongside goal, scope and checks. Keep comparisons and detailed evidenc
    sequential execution when delegation adds no value, while preserving required independent
    verification: self-review cannot establish independence.
 4. Compare complexity, ambiguity, context needs, consequences and available checks. Choose
-   the least costly eligible candidate with sufficient observed capability, documenting
+   an eligible candidate for the owner's cost/duration direction with sufficient observed capability, documenting
    uncertainty. Unknown capability is not a guarantee; unknown monetary cost cannot establish
    which model is cheapest. Retain the authorized configured model when comparison is unavailable.
 

@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-11-21T12:00:00Z",
+  "currency": "USD",
+  "policy": {
+    "objective": "cost", "cost_weight": 0.7, "min_success_rate": 0.8,
+    "history_max_age_days": 90, "max_incremental_cost": null
+  },
+  "resources": [
+    {
+      "id": "codex-included", "runtime": "codex", "model": "example-codex-model", "profile": "synthetic-account",
+      "session": "example-codex-session", "execution_pool": "codex-session", "quota_pool": "codex-plan",
+      "routes": ["sequential", "subagent"], "capabilities": ["implementation", "tests"], "available": true,
+      "observed_at": "2026-11-21T11:00:00Z", "expires_at": "2026-11-22T00:00:00Z",
+      "source": "SYNTHETIC: explicit included usage and estimated quota, not a provider quote",
+      "cost_mode": "subscription", "currency": "USD", "rates": null,
+      "incremental_cost": 0, "quota_remaining_attempts": 10
+    },
+    {
+      "id": "openrouter-api", "runtime": "pi", "model": "example-provider/flash", "profile": "synthetic-account",
+      "session": "example-pi-session", "execution_pool": "pi-session", "quota_pool": "openrouter-account",
+      "routes": ["sequential", "subagent"], "capabilities": ["implementation", "tests"], "available": true,
+      "observed_at": "2026-11-21T11:00:00Z", "expires_at": "2026-11-22T00:00:00Z",
+      "source": "SYNTHETIC API prices, not current OpenRouter pricing",
+      "cost_mode": "api", "currency": "USD", "rates": { "input": 0.5, "output": 2, "cache_read": 0.1 },
+      "incremental_cost": null, "quota_remaining_attempts": null
+    },
+    {
+      "id": "ollama-local", "runtime": "opencode", "model": "example-local-model", "profile": "synthetic-machine",
+      "session": "example-opencode-session", "execution_pool": "local-accelerator", "quota_pool": "local-machine",
+      "routes": ["sequential"], "capabilities": ["tests"], "available": true,
+      "observed_at": "2026-11-21T11:00:00Z", "expires_at": "2026-11-22T00:00:00Z",
+      "source": "SYNTHETIC user estimate of local incremental expense",
+      "cost_mode": "local", "currency": "USD", "rates": null,
+      "incremental_cost": 0.0001, "quota_remaining_attempts": null
+    },
+    {
+      "id": "claude-exhausted", "runtime": "claude", "model": "example-claude-model", "profile": "synthetic-account",
+      "session": "example-claude-session", "execution_pool": "claude-session", "quota_pool": "claude-plan",
+      "routes": ["sequential"], "capabilities": ["implementation", "tests"], "available": true,
+      "observed_at": "2026-11-21T11:00:00Z", "expires_at": "2026-11-22T00:00:00Z",
+      "source": "SYNTHETIC exhausted subscription example",
+      "cost_mode": "subscription", "currency": "USD", "rates": null,
+      "incremental_cost": 0, "quota_remaining_attempts": 0
+    }
+  ],
+  "tasks": [
+    {
+      "id": "implement", "project": "example", "languages": ["typescript", "shell"], "task_types": ["feature", "test_authoring"],
+      "requires": ["implementation"], "depends_on": [],
+      "candidates": [
+        { "resource_id": "codex-included", "route": "sequential", "estimate": { "input_tokens": 20000, "cached_input_tokens": 10000, "output_tokens": 2000, "duration_seconds": 180, "success_rate": 0.9, "source": "SYNTHETIC explicit prior" }, "overhead": { "input_tokens": 0, "duration_seconds": 0, "incremental_cost": 0 } },
+        { "resource_id": "openrouter-api", "route": "sequential", "estimate": { "input_tokens": 20000, "cached_input_tokens": 0, "output_tokens": 2000, "duration_seconds": 60, "success_rate": 0.9, "source": "SYNTHETIC explicit prior" }, "overhead": { "input_tokens": 1000, "duration_seconds": 5, "incremental_cost": 0 } },
+        { "resource_id": "claude-exhausted", "route": "sequential", "estimate": { "input_tokens": 20000, "cached_input_tokens": 0, "output_tokens": 2000, "duration_seconds": 40, "success_rate": 0.95, "source": "SYNTHETIC explicit prior" }, "overhead": { "input_tokens": 0, "duration_seconds": 0, "incremental_cost": 0 } }
+      ]
+    },
+    {
+      "id": "run-tests", "project": "example", "languages": ["typescript", "shell"], "task_types": ["test_execution"],
+      "requires": ["tests"], "depends_on": ["implement"],
+      "candidates": [
+        { "resource_id": "codex-included", "route": "subagent", "estimate": { "input_tokens": 1000, "cached_input_tokens": 0, "output_tokens": 100, "duration_seconds": 45, "success_rate": 0.95, "source": "SYNTHETIC whole-mission prior including child" }, "overhead": { "input_tokens": 0, "duration_seconds": 0, "incremental_cost": 0 } },
+        { "resource_id": "openrouter-api", "route": "subagent", "estimate": { "input_tokens": 1000, "cached_input_tokens": 0, "output_tokens": 100, "duration_seconds": 15, "success_rate": 0.9, "source": "SYNTHETIC whole-mission prior including child" }, "overhead": { "input_tokens": 100, "duration_seconds": 2, "incremental_cost": 0 } },
+        { "resource_id": "ollama-local", "route": "sequential", "estimate": { "input_tokens": 1000, "cached_input_tokens": 0, "output_tokens": 100, "duration_seconds": 90, "success_rate": 0.9, "source": "SYNTHETIC explicit prior" }, "overhead": { "input_tokens": 100, "duration_seconds": 2, "incremental_cost": 0 } }
+      ]
+    }
+  ],
+  "memory": []
+}
