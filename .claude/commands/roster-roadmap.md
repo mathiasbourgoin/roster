@@ -2,7 +2,7 @@
 name: roster-roadmap
 description: "Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs."
 when_to_use: "Use for /roster-roadmap, a multi-intake roadmap, or resuming an existing roadmap board."
-version: 1.5.1
+version: 1.6.0
 domain: pipeline
 phase: null
 preamble: false
@@ -19,6 +19,10 @@ pipeline_role:
 ---
 
 # Roster Roadmap
+
+For bounded mission contributions, `/roster-executor` may perform assigned work and
+`/roster-advisor` may provide optional direction. Follow `.harness/roadmap/executor-advisor.md`; the
+accepted roadmap topology remains authoritative and only the coordinator relays further work.
 
 Build a coherent multi-intake roadmap with the owner, choose a feasible agent topology,
 then continue executing while authorized progress is possible. Keep the goal visible

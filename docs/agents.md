@@ -13,7 +13,7 @@ Full catalog of all agents, skills, rules, and hooks included in roster.
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | tech-lead | 1.9.1 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
-| recruiter | 3.2.0-dev | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
+| recruiter | 3.3.0-dev | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
 | governor | 2.1.2 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
 | kb-agent | 2.5.0 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
@@ -78,7 +78,7 @@ These agents are domain-specific overlays for particular hardware/projects. Inst
 
 ---
 
-## Skills (42)
+## Skills (44)
 
 Skills are slash-command workflows that run in the main context and produce contractual artifacts that chain across pipeline phases.
 
@@ -88,6 +88,8 @@ Skills are slash-command workflows that run in the main context and produce cont
 |-------|-------|--------------|
 | `/roster-run` | Entry point | Detects context and routes to the right pipeline skill |
 | `/roster-roadmap` | Multi-intake coordination | Assisted specification and coherence, adaptive agent topology, persistent execution tools without CWR |
+| `/roster-executor` | Workflow | Delegate a bounded implementation or research contribution to an available economy-tier worker |
+| `/roster-advisor` | Workflow | Consult an available stronger adviser for targeted, task-relative direction |
 | `/roster-init` | Bootstrap | Adversarial project interview — 6 questions, 3 adversarial |
 | `/roster-question` | Question | Decomposes task into neutral research questions |
 | `/roster-research` | Research | Blind documentarian research — file:line grounded, optional online scan |

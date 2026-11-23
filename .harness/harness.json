@@ -298,7 +298,7 @@
       {
         "name": "roster-implement",
         "source": "roster",
-        "version": "1.15.0",
+        "version": "1.16.0",
         "domain": "pipeline",
         "phase": "implement",
         "tunables": {
@@ -397,7 +397,7 @@
       {
         "name": "roster-roadmap",
         "source": "roster",
-        "version": "1.5.1",
+        "version": "1.6.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -405,7 +405,7 @@
       {
         "name": "roster-run",
         "source": "roster",
-        "version": "1.16.0",
+        "version": "1.17.0",
         "domain": "pipeline",
         "phase": null,
         "tunables": {}
@@ -539,12 +539,40 @@
         "tunables": {}
       },
       {
+        "name": "roster-advisor",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "workflow",
+        "phase": null,
+        "tunables": {
+          "model": "auto",
+          "profile": "auto",
+          "route": "auto",
+          "objective": "balanced",
+          "wait_seconds": 60
+        }
+      },
+      {
         "name": "roster-config",
         "source": "roster",
         "version": "1.1.0",
         "domain": "workflow",
         "phase": null,
         "tunables": {}
+      },
+      {
+        "name": "roster-executor",
+        "source": "roster",
+        "version": "1.0.0",
+        "domain": "workflow",
+        "phase": null,
+        "tunables": {
+          "model": "auto",
+          "profile": "auto",
+          "route": "auto",
+          "objective": "cost",
+          "wait_seconds": 60
+        }
       },
       {
         "name": "roster-telemetry",

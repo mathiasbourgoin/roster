@@ -70,7 +70,7 @@ reports the active channel. `stable` is the default — omitting `--channel` rep
 
 The current stable release is **3.0.0** (annotated tag `v3.0.0`); it includes the content
 formerly prepared as 2.8.0, which was never tagged. `stable` tracks `main`; `next` is the
-**3.2.0-dev development line**.
+**3.3.0-dev development line**.
 Read [product changes](CHANGES.md) for the
 feature list: multi-intake roadmaps, Express Lite, focused Fast checks, model-tier routing,
 local commit telemetry, optional commit attribution, manual usage reports, deterministic resource
@@ -108,6 +108,8 @@ The classifier infers the mode from the task, but you can **force one** with a f
 |-------|-------|--------------|
 | `/roster-run` | Entry point | Detects context, routes to right phase |
 | `/roster-roadmap` | Multi-intake roadmap | Assisted specification, capability-based agent topology and persistent execution without CWR; see [roadmap guide](docs/roadmap-coordination.md) |
+| `/roster-executor` | Workflow | Delegate a bounded implementation or research contribution to an available economy-tier worker |
+| `/roster-advisor` | Workflow | Consult an available stronger adviser for targeted, task-relative direction |
 | `/roster-init` | Bootstrap | Adversarial project interview — 6 questions, 3 adversarial |
 | `/roster-question` | Question | Decomposes task into neutral research questions |
 | `/roster-research` | Research | Blind documentarian research — file:line grounded, optional online scan |

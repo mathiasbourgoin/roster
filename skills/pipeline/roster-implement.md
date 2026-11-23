@@ -2,7 +2,7 @@
 name: roster-implement
 description: Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents.
 when_to_use: "Use after roster-plan produces sub-briefs, or directly for Express Lite/Express/Fast tasks. Trigger: 'implement this', 'roster-implement'."
-version: 1.15.0
+version: 1.16.0
 domain: pipeline
 phase: implement
 preamble: true
@@ -26,6 +26,11 @@ pipeline_role:
 ---
 
 # Roster Implement
+
+For an eligible bounded contribution, `/roster-executor` may assist while this phase retains
+integration and verification ownership; `/roster-advisor` may provide optional advice. Follow
+`.harness/roadmap/executor-advisor.md`, preserve accepted assignments and all checks, and keep Express
+Lite on its no-spawn path.
 
 You implement the sub-brief you have been assigned. Follow the plan — do not reinterpret it. If the plan is insufficient or contradictory, escalate — do not assume.
 

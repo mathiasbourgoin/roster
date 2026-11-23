@@ -42,7 +42,7 @@ A curated registry of reusable agent definitions, skills, rules, and hooks — p
 | Agent | Version | Model | Purpose |
 |-------|---------|-------|---------|
 | tech-lead | 1.9.1 | opus | Orchestrates agent teams, gates tool and skill requests, and owns merge/governance quality bars |
-| recruiter | 3.2.0-dev | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
+| recruiter | 3.3.0-dev | opus | Meta-agent that analyzes a project, searches agent sources (personal roster + public registries), and assembles or updates an optimal agent team |
 | harness-builder | 1.3.0 | opus | Builds and audits shared project harnesses, then projects them to OpenCode, Claude, and Codex runtime surfaces |
 | governor | 2.1.2 | opus | Generates .claude/rules/ via Socratic dialogue, enforces KB properties |
 | kb-agent | 2.5.0 | sonnet | Bootstraps and maintains project knowledge bases as source-of-truth artifacts for specs, properties, and architecture |
@@ -102,18 +102,20 @@ These agents carry `overlay: personal` frontmatter. They are domain-specific ove
 | fex-wine-proton | 1.3.0 | opus | x86-on-ARM emulation — FEX-emu, Proton 11 ARM64EC Wine |
 | gamescope-mangohud-qam | 1.3.0 | opus | Compositor + perf-overlay + Steam-QAM-bridge on Adreno |
 
-## Skills (42)
+## Skills (44)
 
-### Pipeline (19)
+### Pipeline (21)
 | Skill | Version | Purpose |
 |-------|---------|---------|
-| roster-run | 1.16.0 | Classifies an incoming task and routes it to the right pipeline skill |
-| roster-roadmap | 1.5.1 | Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs |
+| roster-run | 1.17.0 | Classifies an incoming task and routes it to the right pipeline skill |
+| roster-roadmap | 1.6.0 | Use to specify, check and execute a roadmap spanning multiple Roster intakes, with adaptive agent topology and compact persistent handoffs |
+| roster-executor | 1.0.0 | Use for a bounded task that can be completed by an available economy-tier worker while preserving the parent task's checks and ownership |
+| roster-advisor | 1.0.0 | Use when a task would benefit from targeted direction from an available stronger adviser, relative to the task and observed capabilities |
 | roster-init | 1.5.1 | Bootstraps the roster harness, KB, and pipeline into a new or existing project |
 | roster-intake | 1.5.0 | Turns a raw task description into a human-validated contractual brief |
 | roster-spec | 2.5.1 | Derives an adversarial, GWT-scenario spec with formalized FR-NNN requirements from an intake brief |
 | roster-plan | 1.8.0 | Decomposes a validated intake brief into sequenced, per-role sub-briefs |
-| roster-implement | 1.15.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
+| roster-implement | 1.16.0 | Executes an assigned implementation sub-brief using TDD, the improve loop, and sub-agents |
 | roster-review | 2.7.1 | Performs a fix-first code review with conditional specialists and a GO/NO-GO verdict |
 | roster-qa | 1.11.1 | Runs deterministic quality gates and produces a GO/NO-GO verdict |
 | roster-ship | 1.9.0 | Carries a reviewed, QA'd branch through to a merged PR |
