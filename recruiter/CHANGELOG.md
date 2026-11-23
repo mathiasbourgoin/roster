@@ -5,7 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [3.2.0-dev] — unreleased next line
+## [3.3.0-dev] — unreleased next line
 
 - Connect resource analysis to roadmap/run/planner/implementation prompts with explicit
   cost/duration direction, compact mission advice and private measured attempt memory.

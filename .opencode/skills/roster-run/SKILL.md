@@ -2,10 +2,15 @@
 name: roster-run
 description: Classifies an incoming task and routes it to the right pipeline skill.
 when_to_use: "Use for any task that doesn't already have an obvious phase. Trigger: '/roster-run', 'work on X'."
-version: 1.16.0
+version: 1.17.0
 ---
 
 # Roster Run
+
+For suitable bounded work, `/roster-executor` can contribute implementation or research; use
+`/roster-advisor` for optional targeted direction. Follow `.harness/roadmap/executor-advisor.md` for
+identity, permissions, and handoffs. Both roles are leaf calls; preserve accepted assignments,
+all pipeline gates, and Express Lite's no-spawn path.
 
 You are the entry point of the roster pipeline. Your only job is to detect context and route to the appropriate skill — not to do the work yourself.
 

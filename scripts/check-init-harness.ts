@@ -128,6 +128,71 @@ function countMdFiles(dir: string): number {
   return fs.readdirSync(dir).filter((f) => f.endsWith(".md")).length;
 }
 
+function checkExecutorAdvisorInstall(tmp: string, profile: string): void {
+  const names = ["roster-executor", "roster-advisor"];
+  const manifestFile = path.join(tmp, ".harness/harness.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf-8"));
+  const sourceProtocol = fs.readFileSync(path.join(REPO_ROOT, "docs/executor-advisor.md"));
+  const installedProtocolPath = path.join(tmp, ".harness/roadmap/executor-advisor.md");
+  if (!fs.existsSync(installedProtocolPath) || !fs.readFileSync(installedProtocolPath).equals(sourceProtocol)) {
+    errors.push(`profile ${profile}: executor/advisor companion is missing or differs from its source`);
+  }
+  const manifestNames = new Set((manifest.layers?.skills ?? []).map((s: { name: string }) => s.name));
+  const projectionFiles = [
+    (name: string) => path.join(tmp, `.agents/skills/${name}/SKILL.md`),
+    (name: string) => path.join(tmp, `.claude/commands/${name}.md`),
+    (name: string) => path.join(tmp, `.opencode/skills/${name}/SKILL.md`),
+  ];
+  for (const name of names) {
+    if (!manifestNames.has(name)) errors.push(`profile ${profile}: manifest does not register ${name}`);
+    const canonical = path.join(tmp, `.harness/skills/${name}.md`);
+    if (!fs.existsSync(canonical)) {
+      errors.push(`profile ${profile}: canonical skill ${name} is missing`);
+      continue;
+    }
+    const source = fs.readFileSync(path.join(REPO_ROOT, `skills/workflow/${name}.md`), "utf-8");
+    const projected = projectionFiles.map((resolve) => resolve(name));
+    for (const file of projected) {
+      if (!fs.existsSync(file)) {
+        errors.push(`profile ${profile}: generated projection is missing ${path.relative(tmp, file)}`);
+      } else {
+        const text = fs.readFileSync(file, "utf-8");
+        if (!text.includes(name) || !text.includes(".harness/roadmap/executor-advisor.md")) {
+          errors.push(`profile ${profile}: generated projection ${path.relative(tmp, file)} lacks skill identity or companion reference`);
+        }
+      }
+    }
+    if (!source.includes(".harness/roadmap/executor-advisor.md")) {
+      errors.push(`profile ${profile}: ${name} does not reference its installed companion`);
+    }
+  }
+
+  // Per-skill overrides are user-owned harness config. Verify projection sync leaves them in
+  // place and that each new skill can be configured without a new schema or command parser.
+  if (profile === "full") {
+    for (const name of names) {
+      const entry = manifest.layers.skills.find((s: { name: string }) => s.name === name);
+      entry.tunables = { model: "auto", profile: "auto", route: "subagent", objective: "duration", wait_seconds: 17 };
+    }
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2) + "\n", "utf-8");
+    const sync = spawnSync("bash", [path.join(REPO_ROOT, "scripts/sync-harness.sh"), tmp], {
+      encoding: "utf-8",
+      env: { ...process.env, HOME: path.join(tmp, ".test-home"), CODEX_HOME: path.join(tmp, ".test-home/.codex") },
+    });
+    if (sync.status !== 0) {
+      errors.push(`profile ${profile}: sync with per-skill executor/advisor tunables exited ${sync.status} — stderr: ${(sync.stderr || "").trim().split("\n").slice(-3).join(" | ")}`);
+    } else {
+      const after = JSON.parse(fs.readFileSync(manifestFile, "utf-8"));
+      for (const name of names) {
+        const actual = after.layers.skills.find((s: { name: string }) => s.name === name)?.tunables;
+        if (actual?.route !== "subagent" || actual?.objective !== "duration" || actual?.wait_seconds !== 17) {
+          errors.push(`profile ${profile}: sync did not preserve tunables for ${name}`);
+        }
+      }
+    }
+  }
+}
+
 /** Entries directly under <home>/.codex (empty list if the dir does not exist). */
 function codexEntries(home: string): string[] {
   const dir = path.join(home, ".codex");
@@ -224,6 +289,7 @@ function checkProfile(arrays: Map<string, string[]>, profile: string): void {
       if (manifest.profile !== profile) {
         errors.push(`profile ${profile}: manifest .profile is "${manifest.profile}", expected "${profile}"`);
       }
+      checkExecutorAdvisorInstall(tmp, profile);
     }
     if (profile === "full") checkPortableSkillHook(tmp, sandboxHome);
   } finally {

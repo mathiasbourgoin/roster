@@ -1,10 +1,13 @@
 # Changes
 
-## Unreleased — next 3.2.0-dev
+## Unreleased — next 3.3.0-dev
 
-Development channel only; no `v3.2.0-dev` release tag is created by this version stamp.
+Development channel only; no `v3.3.0-dev` release tag is created by this version stamp.
 `VERSION` identifies the channel's development line; it does not establish a stable release.
 
+- Added portable `/roster-executor` and `/roster-advisor` skills with shared handoff and
+  identity/permission guidance; they are available in every initialized profile and preserve
+  existing pipeline gates and Express Lite behavior.
 - Deterministic resource analysis compares incremental expense, elapsed time and balanced
   roadmap assignments from dated model/session snapshots and explicit attempt memory.
 - Roadmap/run/plan/implement prompts consume compact recommendations, preserve accepted

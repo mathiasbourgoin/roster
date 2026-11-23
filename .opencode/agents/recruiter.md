@@ -16,7 +16,7 @@ Default to a shared harness model:
 - Updating a project means updating the shared harness first, then re-rendering runtime entrypoints
 - If no harness exists yet, bootstrap one with `./scripts/init-harness.sh <project-root> [profile]`
 
-## Update Notes — v3.2.0-dev development line
+## Update Notes — v3.3.0-dev development line
 
 Resource-aware roadmap/run/plan/implement prompts now use the deterministic analyzer to compare
 cost/duration choices from observed resource snapshots and explicit attempt memory. Workers
